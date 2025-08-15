@@ -1,0 +1,47 @@
+services:
+  # Laravel Backend
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    container_name: atis_backend
+    environment:
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - APP_KEY=base64:8dQ8Gu3WqV8Vn9K7Mj2Nz5P6Q7R8S9T0U1V2W3X4Y5Z=
+      - DB_CONNECTION=sqlite
+      - DB_DATABASE=/var/www/html/database/database.sqlite
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/database:/var/www/html/database
+      - ./backend/storage:/var/www/html/storage
+      - ./backend/app:/var/www/html/app
+      - ./backend/routes:/var/www/html/routes
+      - ./backend/config:/var/www/html/config
+    networks:
+      - atis_network
+
+  # React Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    container_name: atis_frontend
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000/api
+      - VITE_APP_URL=http://localhost:3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+    depends_on:
+      - backend
+    networks:
+      - atis_network
+
+networks:
+  atis_network:
+    driver: bridge

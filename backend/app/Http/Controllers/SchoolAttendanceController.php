@@ -1,0 +1,428 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\SchoolAttendance;
+use App\Models\Institution;
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
+
+class SchoolAttendanceController extends Controller
+{
+    public function __construct()
+    {
+        $this->middleware('auth:sanctum');
+    }
+
+    /**
+     * Display a listing of attendance records
+     */
+    public function index(Request $request): JsonResponse
+    {
+        try {
+            $query = SchoolAttendance::with(['school:id,name,type']);
+
+            // Apply filters
+            if ($request->has('school_id') && $request->school_id) {
+                $query->where('school_id', $request->school_id);
+            }
+
+            if ($request->has('class_name') && $request->class_name) {
+                $query->where('class_name', $request->class_name);
+            }
+
+            if ($request->has('date') && $request->date) {
+                $query->whereDate('date', $request->date);
+            }
+
+            if ($request->has('start_date') && $request->start_date) {
+                $query->whereDate('date', '>=', $request->start_date);
+            }
+
+            if ($request->has('end_date') && $request->end_date) {
+                $query->whereDate('date', '<=', $request->end_date);
+            }
+
+            // Apply user-based filtering
+            $this->applyUserFiltering($query, Auth::user());
+
+            // Sorting
+            $sortField = $request->get('sort_field', 'date');
+            $sortDirection = $request->get('sort_direction', 'desc');
+            $query->orderBy($sortField, $sortDirection);
+
+            // Pagination
+            $perPage = $request->get('per_page', 15);
+            $attendanceRecords = $query->paginate($perPage);
+
+            return response()->json([
+                'success' => true,
+                'data' => $attendanceRecords->items(),
+                'meta' => [
+                    'current_page' => $attendanceRecords->currentPage(),
+                    'last_page' => $attendanceRecords->lastPage(),
+                    'per_page' => $attendanceRecords->perPage(),
+                    'total' => $attendanceRecords->total(),
+                    'from' => $attendanceRecords->firstItem(),
+                    'to' => $attendanceRecords->lastItem()
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Davamiyyət qeydləri yüklənərkən xəta baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
+     * Store a newly created attendance record
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'school_id' => 'required|exists:institutions,id',
+            'class_name' => 'required|string|max:10',
+            'date' => 'required|date|before_or_equal:today',
+            'start_count' => 'required|integer|min:0',
+            'end_count' => 'required|integer|min:0',
+            'notes' => 'nullable|string|max:500'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation xətası',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            // Validate that end_count <= start_count
+            if ($request->end_count > $request->start_count) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gün sonu sayı gün əvvəli sayından çox ola bilməz'
+                ], 422);
+            }
+
+            // Check for duplicate attendance record
+            $existingRecord = SchoolAttendance::where([
+                'school_id' => $request->school_id,
+                'class_name' => $request->class_name,
+                'date' => $request->date
+            ])->first();
+
+            if ($existingRecord) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu tarix və sinif üçün artıq davamiyyət qeydi mövcuddur'
+                ], 409);
+            }
+
+            $attendanceData = $validator->validated();
+            $attendanceData['created_by'] = Auth::id();
+            
+            // Calculate attendance rate
+            $attendanceData['attendance_rate'] = $request->start_count > 0 
+                ? round(($request->end_count / $request->start_count) * 100, 2) 
+                : 0;
+
+            $attendance = SchoolAttendance::create($attendanceData);
+
+            $attendance->load('school:id,name,type');
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Davamiyyət qeydi uğurla yaradıldı',
+                'data' => $attendance
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Davamiyyət qeydi yaradılarkən xəta baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
+     * Display the specified attendance record
+     */
+    public function show(SchoolAttendance $schoolAttendance): JsonResponse
+    {
+        try {
+            $schoolAttendance->load('school:id,name,type');
+
+            return response()->json([
+                'success' => true,
+                'data' => $schoolAttendance
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Davamiyyət qeydi yüklənərkən xəta baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
+     * Update the specified attendance record
+     */
+    public function update(Request $request, SchoolAttendance $schoolAttendance): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'school_id' => 'sometimes|required|exists:institutions,id',
+            'class_name' => 'sometimes|required|string|max:10',
+            'date' => 'sometimes|required|date|before_or_equal:today',
+            'start_count' => 'sometimes|required|integer|min:0',
+            'end_count' => 'sometimes|required|integer|min:0',
+            'notes' => 'nullable|string|max:500'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation xətası',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $validatedData = $validator->validated();
+
+            // Validate end_count <= start_count if both are provided
+            $startCount = $validatedData['start_count'] ?? $schoolAttendance->start_count;
+            $endCount = $validatedData['end_count'] ?? $schoolAttendance->end_count;
+
+            if ($endCount > $startCount) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gün sonu sayı gün əvvəli sayından çox ola bilməz'
+                ], 422);
+            }
+
+            // Check for duplicate if key fields are being changed
+            if (isset($validatedData['school_id']) || 
+                isset($validatedData['class_name']) || 
+                isset($validatedData['date'])) {
+                
+                $checkFields = [
+                    'school_id' => $validatedData['school_id'] ?? $schoolAttendance->school_id,
+                    'class_name' => $validatedData['class_name'] ?? $schoolAttendance->class_name,
+                    'date' => $validatedData['date'] ?? $schoolAttendance->date
+                ];
+
+                $existingRecord = SchoolAttendance::where($checkFields)
+                    ->where('id', '!=', $schoolAttendance->id)
+                    ->first();
+
+                if ($existingRecord) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Bu tarix və sinif üçün artıq davamiyyət qeydi mövcuddur'
+                    ], 409);
+                }
+            }
+
+            // Recalculate attendance rate if counts are updated
+            if (isset($validatedData['start_count']) || isset($validatedData['end_count'])) {
+                $validatedData['attendance_rate'] = $startCount > 0 
+                    ? round(($endCount / $startCount) * 100, 2) 
+                    : 0;
+            }
+
+            $schoolAttendance->update($validatedData);
+
+            $schoolAttendance->load('school:id,name,type');
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Davamiyyət qeydi uğurla yeniləndi',
+                'data' => $schoolAttendance
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Davamiyyət qeydi yenilənərkən xəta baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
+     * Remove the specified attendance record
+     */
+    public function destroy(SchoolAttendance $schoolAttendance): JsonResponse
+    {
+        try {
+            $schoolAttendance->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Davamiyyət qeydi uğurla silindi'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Davamiyyət qeydi silinərkən xəta baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
+     * Get attendance statistics
+     */
+    public function stats(Request $request): JsonResponse
+    {
+        try {
+            $query = SchoolAttendance::query();
+
+            // Apply filters
+            if ($request->has('school_id') && $request->school_id) {
+                $query->where('school_id', $request->school_id);
+            }
+
+            // Date range
+            $startDate = $request->get('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
+            $endDate = $request->get('end_date', Carbon::now()->format('Y-m-d'));
+            
+            $query->whereBetween('date', [$startDate, $endDate]);
+
+            // Apply user-based filtering
+            $this->applyUserFiltering($query, Auth::user());
+
+            $records = $query->get();
+
+            $stats = [
+                'total_students' => $records->sum('start_count'),
+                'total_present' => $records->sum('end_count'),
+                'total_absent' => $records->sum('start_count') - $records->sum('end_count'),
+                'average_attendance' => 0,
+                'total_days' => $records->count(),
+                'total_records' => $records->count()
+            ];
+
+            // Calculate average attendance rate
+            if ($stats['total_students'] > 0) {
+                $stats['average_attendance'] = round(
+                    ($stats['total_present'] / $stats['total_students']) * 100, 
+                    2
+                );
+            }
+
+            // Determine trend (simplified)
+            $stats['trend_direction'] = $stats['average_attendance'] >= 90 ? 'up' : 
+                                      ($stats['average_attendance'] >= 80 ? 'stable' : 'down');
+
+            return response()->json([
+                'success' => true,
+                'data' => $stats,
+                'period' => [
+                    'start_date' => $startDate,
+                    'end_date' => $endDate
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Statistikalar hesablanarkən xəta baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
+     * Get available classes for a school
+     */
+    public function getSchoolClasses($schoolId): JsonResponse
+    {
+        try {
+            $classes = SchoolAttendance::where('school_id', $schoolId)
+                ->distinct()
+                ->pluck('class_name')
+                ->sort()
+                ->values();
+
+            return response()->json([
+                'success' => true,
+                'data' => $classes,
+                'message' => 'Sinif məlumatları alındı'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sinif məlumatları alınarkən xəta baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
+     * Apply user-based filtering based on role and institution
+     */
+    private function applyUserFiltering($query, $user): void
+    {
+        $userRole = $user->roles->first()?->name;
+
+        switch ($userRole) {
+            case 'superadmin':
+                // SuperAdmin can see all records
+                break;
+                
+            case 'regionadmin':
+                // RegionAdmin can see records from their region's schools
+                $regionInstitutions = Institution::where(function($q) use ($user) {
+                    $q->where('id', $user->institution_id)
+                      ->orWhere('parent_id', $user->institution_id);
+                })->pluck('id');
+
+                $schoolInstitutions = Institution::whereIn('parent_id', $regionInstitutions)
+                    ->whereIn('type', ['secondary_school', 'lyceum', 'gymnasium', 'vocational_school'])
+                    ->pluck('id');
+
+                $allSchoolIds = $regionInstitutions->merge($schoolInstitutions)
+                    ->filter(function($id) {
+                        return Institution::where('id', $id)
+                            ->whereIn('type', ['secondary_school', 'lyceum', 'gymnasium', 'vocational_school'])
+                            ->exists();
+                    });
+
+                $query->whereIn('school_id', $allSchoolIds);
+                break;
+                
+            case 'sektoradmin':
+                // SektorAdmin can see records from their sector's schools
+                $sektorSchools = Institution::where('parent_id', $user->institution_id)
+                    ->whereIn('type', ['secondary_school', 'lyceum', 'gymnasium', 'vocational_school'])
+                    ->pluck('id');
+
+                $query->whereIn('school_id', $sektorSchools);
+                break;
+                
+            case 'məktəbadmin':
+            case 'müəllim':
+                // School admin and teachers can only see their school's records
+                $query->where('school_id', $user->institution_id);
+                break;
+                
+            default:
+                // Unknown role - no access
+                $query->where('id', -1); // Force empty result
+                break;
+        }
+    }
+}

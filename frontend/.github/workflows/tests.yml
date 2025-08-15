@@ -1,0 +1,242 @@
+name: ATİS Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  backend-tests:
+    name: Backend Tests (Laravel)
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        php-version: [8.2, 8.3]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: mbstring, dom, fileinfo, sqlite3
+          coverage: xdebug
+          
+      - name: Cache Composer dependencies
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: composer-${{ runner.os }}-${{ matrix.php-version }}-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.os }}-${{ matrix.php-version }}-
+            
+      - name: Install Composer dependencies
+        working-directory: ./backend
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+        
+      - name: Create .env file
+        working-directory: ./backend
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          
+      - name: Create SQLite database
+        working-directory: ./backend
+        run: touch database/database.sqlite
+        
+      - name: Run migrations
+        working-directory: ./backend
+        run: php artisan migrate --force
+        
+      - name: Run PHPUnit tests
+        working-directory: ./backend
+        run: php artisan test --coverage --coverage-clover=coverage.xml
+        
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./backend/coverage.xml
+          flags: backend
+          
+  frontend-tests:
+    name: Frontend Tests (React)
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18, 20]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+          
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+        
+      - name: Run ESLint
+        working-directory: ./frontend
+        run: npm run lint
+        
+      - name: Run Vitest tests
+        working-directory: ./frontend
+        run: npm run test:coverage
+        
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./frontend/coverage/coverage-final.json
+          flags: frontend
+          
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: atis_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.2
+          extensions: mbstring, dom, fileinfo, pgsql
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+          
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+        
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+        
+      - name: Create backend .env file
+        working-directory: ./backend
+        run: |
+          cp .env.example .env
+          sed -i 's/DB_CONNECTION=sqlite/DB_CONNECTION=pgsql/' .env
+          sed -i 's/DB_DATABASE=database\/database.sqlite/DB_DATABASE=atis_test/' .env
+          sed -i 's/DB_USERNAME=root/DB_USERNAME=postgres/' .env
+          sed -i 's/DB_PASSWORD=/DB_PASSWORD=postgres/' .env
+          php artisan key:generate
+          
+      - name: Run backend migrations
+        working-directory: ./backend
+        run: php artisan migrate --force
+        
+      - name: Seed test data
+        working-directory: ./backend
+        run: php artisan db:seed --force
+        
+      - name: Start backend server
+        working-directory: ./backend
+        run: php artisan serve --host=127.0.0.1 --port=8000 &
+        
+      - name: Wait for backend to be ready
+        run: |
+          timeout 30 bash -c 'until curl -f http://127.0.0.1:8000/api/test; do sleep 1; done'
+          
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+        
+      - name: Run integration tests
+        working-directory: ./frontend
+        run: npm run test:run -- --reporter=junit --outputFile=junit-report.xml
+        
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Integration Tests
+          path: frontend/junit-report.xml
+          reporter: java-junit
+          
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+          
+  deploy-preview:
+    name: Deploy Preview
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: [backend-tests, frontend-tests]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+        
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+        
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v2.0
+        with:
+          publish-dir: './frontend/dist'
+          production-branch: main
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Deploy from GitHub Actions"
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}

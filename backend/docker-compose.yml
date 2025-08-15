@@ -1,0 +1,289 @@
+version: '3.8'
+
+services:
+  # Laravel Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: atis-app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+      - ./docker/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf
+    networks:
+      - atis-network
+    depends_on:
+      - db
+      - redis
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=atis_db
+      - DB_USERNAME=atis_user
+      - DB_PASSWORD=atis_secure_password_2025
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=redis_secure_password_2025
+      - REDIS_PORT=6379
+      - CACHE_DRIVER=redis
+      - SESSION_DRIVER=redis
+      - QUEUE_CONNECTION=redis
+
+  # Nginx Web Server
+  nginx:
+    image: nginx:alpine
+    container_name: atis-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./:/var/www
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./docker/nginx/ssl:/etc/nginx/ssl
+    networks:
+      - atis-network
+    depends_on:
+      - app
+
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: atis-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: atis_db
+      POSTGRES_USER: atis_user
+      POSTGRES_PASSWORD: atis_secure_password_2025
+      POSTGRES_ROOT_PASSWORD: atis_root_password_2025
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - atis-network
+
+  # Redis Cache & Session Store
+  redis:
+    image: redis:7-alpine
+    container_name: atis-redis
+    restart: unless-stopped
+    command: redis-server --requirepass redis_secure_password_2025 --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - atis-network
+
+  # Queue Worker
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: atis-queue
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+    networks:
+      - atis-network
+    depends_on:
+      - db
+      - redis
+    environment:
+      - APP_ENV=production
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=atis_db
+      - DB_USERNAME=atis_user
+      - DB_PASSWORD=atis_secure_password_2025
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=redis_secure_password_2025
+      - QUEUE_CONNECTION=redis
+    command: php artisan queue:work --sleep=3 --tries=3 --timeout=90
+
+  # Scheduler (Cron)
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: atis-scheduler
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+      - ./docker/crontab:/etc/cron.d/laravel-scheduler
+    networks:
+      - atis-network
+    depends_on:
+      - db
+      - redis
+    environment:
+      - APP_ENV=production
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_DATABASE=atis_db
+      - DB_USERNAME=atis_user
+      - DB_PASSWORD=atis_secure_password_2025
+    command: cron -f
+
+  # Monitoring - Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: atis-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - atis-network
+
+  # Monitoring - Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: atis-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=atis_grafana_admin_2025
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards
+      - ./docker/monitoring/grafana-datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - atis-network
+    depends_on:
+      - prometheus
+
+  # Log Aggregation - ELK Stack
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: atis-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - atis-network
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.11.0
+    container_name: atis-logstash
+    restart: unless-stopped
+    volumes:
+      - ./docker/logstash/pipeline:/usr/share/logstash/pipeline
+      - ./storage/logs:/var/log/laravel
+    ports:
+      - "5044:5044"
+    environment:
+      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+    networks:
+      - atis-network
+    depends_on:
+      - elasticsearch
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: atis-kibana
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    networks:
+      - atis-network
+    depends_on:
+      - elasticsearch
+
+  # Backup Service
+  backup:
+    image: postgres:15-alpine
+    container_name: atis-backup
+    restart: "no"
+    volumes:
+      - ./backups:/backups
+      - ./docker/backup-scripts:/scripts
+    networks:
+      - atis-network
+    depends_on:
+      - db
+    environment:
+      - PGHOST=db
+      - PGPORT=5432
+      - PGDATABASE=atis_db
+      - PGUSER=atis_user
+      - PGPASSWORD=atis_secure_password_2025
+      - BACKUP_RETENTION_DAYS=30
+    command: /scripts/backup.sh
+
+  # File Storage & CDN
+  minio:
+    image: minio/minio:latest
+    container_name: atis-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=atis_minio_admin
+      - MINIO_ROOT_PASSWORD=atis_minio_password_2025
+    volumes:
+      - minio_data:/data
+    networks:
+      - atis-network
+    command: server /data --console-address ":9001"
+
+  # SSL Certificate Management
+  certbot:
+    image: certbot/certbot:latest
+    container_name: atis-certbot
+    restart: "no"
+    volumes:
+      - ./docker/nginx/ssl:/etc/letsencrypt
+      - ./:/var/www
+    networks:
+      - atis-network
+    depends_on:
+      - nginx
+
+networks:
+  atis-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  elasticsearch_data:
+    driver: local
+  minio_data:
+    driver: local
