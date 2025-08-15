@@ -119,27 +119,19 @@ public
 # Temporary folders
 tmp/
 temp/
->>>>>>> 078b1bb1984cca4ad2ebab2039cd502d9e570454
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-<<<<<<< HEAD
-.idea
-.DS_Store
-=======
 .idea/
 *.swp
 *.swo
 *~
->>>>>>> 078b1bb1984cca4ad2ebab2039cd502d9e570454
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-<<<<<<< HEAD
-=======
 
 # OS generated files
 .DS_Store
@@ -180,5 +172,6 @@ yarn.lock
 
 # Local files
 *.local
+
+# Development tools
 tools/
->>>>>>> 078b1bb1984cca4ad2ebab2039cd502d9e570454
