@@ -223,14 +223,24 @@ class Task extends Model
     }
 
     /**
-     * Scope: Filter by institution access
+     * Scope: Filter by institution access (including hierarchical targeting)
      */
     public function scopeForInstitution(Builder $query, int $institutionId): Builder
     {
         return $query->where(function ($q) use ($institutionId) {
+            // Direct assignment
             $q->where('assigned_institution_id', $institutionId)
+              // Direct targeting
               ->orWhereJsonContains('target_institutions', $institutionId)
-              ->orWhere('target_scope', 'all');
+              // Global scope
+              ->orWhere('target_scope', 'all')
+              // Hierarchical targeting: institution is a child of a targeted institution
+              ->orWhere(function ($subQ) use ($institutionId) {
+                  $institution = Institution::find($institutionId);
+                  if ($institution && $institution->parent_id) {
+                      $subQ->whereJsonContains('target_institutions', $institution->parent_id);
+                  }
+              });
         });
     }
 

@@ -43,7 +43,7 @@ php artisan config:clear
 php artisan tinker
 ```
 
-### Frontend (React 19 + TypeScript + Vite)
+### Frontend (React 18 + TypeScript + Vite)
 ```bash
 # Navigate to frontend
 cd frontend
@@ -57,26 +57,11 @@ npm run dev
 # Build for production
 npm run build
 
-# Run tests
-npm run test
+# Build for development
+npm run build:dev
 
-# Run tests with UI
-npm run test:ui
-
-# Run tests once
-npm run test:run
-
-# Test coverage
-npm run test:coverage
-
-# E2E tests with Playwright
-npm run test:e2e
-
-# E2E tests with UI
-npm run test:e2e:ui
-
-# Performance tests
-npm run test:performance
+# Preview production build
+npm run preview
 
 # Run linting
 npm run lint
@@ -128,17 +113,23 @@ npm run lint
 #### Component Organization
 ```
 src/components/
-├── admin/           # SuperAdmin-specific components
-├── approval/        # Multi-level approval interfaces  
-├── assessment/      # Academic assessment tools
+├── assessments/     # Academic assessment tools
+├── attendance/      # Attendance management
 ├── auth/           # Authentication & session management
+├── classes/        # Class management components
 ├── common/         # Reusable UI components
 ├── dashboard/      # Role-specific dashboards
-├── institutions/   # Institution management
+├── forms/          # Form components
+├── hierarchy/      # Institution hierarchy components
+├── layout/         # Layout and navigation components
+├── modals/         # Modal dialogs
 ├── regionadmin/    # RegionAdmin-specific features
+├── sektoradmin/    # SektorAdmin-specific features
+├── students/       # Student management
 ├── surveys/        # Survey creation & management
-├── task/          # Task management components
-└── users/         # User management interfaces
+├── tasks/          # Task management components
+├── teachers/       # Teacher management
+└── ui/            # Base UI components (shadcn/ui)
 ```
 
 #### Service Layer Pattern
@@ -166,10 +157,10 @@ src/components/
 - `approval_workflows`: Multi-step approval processes
 
 #### Migration Status
-- **86+ migrations** executed successfully (including institution_types table)
+- **120+ migrations** executed successfully (including institution_types table)
 - **Cross-database compatibility**: PostgreSQL (production) and SQLite (development)
 - **Seeded data**: 22 institutions, 10 institution types, 12 roles, 48 permissions pre-configured
-- **77+ models**: Comprehensive data model coverage for education management including preschool institutions
+- **83+ models**: Comprehensive data model coverage for education management including preschool institutions
 
 ## Key Development Patterns
 
@@ -265,17 +256,17 @@ src/components/
 - **Authentication**: Laravel Sanctum for API tokens
 - **Permissions**: Spatie Laravel Permission package
 - **Database**: PostgreSQL (production) / SQLite (development)
-- **Testing**: PHPUnit with 85+ migrations, 76+ models
+- **Testing**: PHPUnit with 120+ migrations, 83+ models
 
 ### Frontend Stack
-- **React**: 19.1.0 with modern concurrent features
-- **TypeScript**: ~5.8.3 for type safety
-- **Build Tool**: Vite 7.0.0 with hot reloading
-- **Styling**: Tailwind CSS 4.x with custom design system
+- **React**: 18.3.1 with modern features
+- **TypeScript**: ~5.5.3 for type safety
+- **Build Tool**: Vite 5.4.1 with hot reloading
+- **Styling**: Tailwind CSS 3.4.11 with custom design system
 - **State Management**: React Context API + @tanstack/react-query
-- **Testing**: Vitest + Playwright for E2E
-- **Icons**: Lucide React + React Icons
-- **Animations**: Framer Motion 12.x
+- **UI Library**: Radix UI components with shadcn/ui design system
+- **Icons**: Lucide React (v0.462.0)
+- **Charts**: Recharts for data visualization
 
 ### Development Tools
 - **Docker**: Containerized development environment
@@ -294,12 +285,14 @@ src/components/
 - `/frontend/vite.config.ts` - Vite build configuration
 
 ### Key Directories
-- `/backend/app/Models/` - 77+ Eloquent models (including InstitutionType)
-- `/backend/database/migrations/` - 86+ database migrations
+- `/backend/app/Models/` - 83+ Eloquent models (including InstitutionType)
+- `/backend/database/migrations/` - 120+ database migrations
 - `/backend/database/seeders/` - Database seeding scripts (including InstitutionTypeSeeder)
-- `/frontend/src/components/` - React component library
+- `/frontend/src/components/` - React component library with shadcn/ui
 - `/frontend/src/components/modals/InstitutionTypeModal.tsx` - Institution type CRUD modal
 - `/frontend/src/pages/InstitutionTypesManagement.tsx` - SuperAdmin type management page
+- `/frontend/src/pages/school/` - School-specific pages
+- `/frontend/src/pages/regionadmin/` - RegionAdmin-specific pages
 - `/frontend/src/services/` - API service layer with dynamic type loading
 - `/frontend/src/types/` - TypeScript type definitions
 

@@ -315,7 +315,7 @@ export const PreschoolEditModal: React.FC<PreschoolEditModalProps> = ({
                   <SelectValue placeholder="Menecer seçin (istəyə görə)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Hələlik menecersiz</SelectItem>
+                  <SelectItem value="none">Hələlik menecersiz</SelectItem>
                   {managers.map((manager) => (
                     <SelectItem key={manager.id} value={manager.id.toString()}>
                       <div className="flex items-center gap-2">

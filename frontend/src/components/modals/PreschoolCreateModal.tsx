@@ -308,7 +308,7 @@ export const PreschoolCreateModal: React.FC<PreschoolCreateModalProps> = ({
                   <SelectValue placeholder="Menecer seçin (istəyə görə)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Hələlik menecersiz</SelectItem>
+                  <SelectItem value="none">Hələlik menecersiz</SelectItem>
                   {managers.map((manager) => (
                     <SelectItem key={manager.id} value={manager.id.toString()}>
                       <div className="flex items-center gap-2">

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Institution;
+use App\Models\Department;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -21,11 +22,14 @@ class InstitutionHierarchyController extends Controller
                 'expand_all' => 'nullable|boolean',
             ]);
 
-            $query = Institution::with(['children' => function ($q) use ($request) {
-                if (!$request->boolean('include_inactive', false)) {
-                    $q->where('is_active', true);
-                }
-            }]);
+            $query = Institution::with([
+                'children' => function ($q) use ($request) {
+                    if (!$request->boolean('include_inactive', false)) {
+                        $q->where('is_active', true);
+                    }
+                },
+                'departments'
+            ]);
 
             if (!$request->boolean('include_inactive', false)) {
                 $query->where('is_active', true);
@@ -68,7 +72,25 @@ class InstitutionHierarchyController extends Controller
             $depth = $request->get('depth', 2);
             $includeInactive = $request->boolean('include_inactive', false);
 
-            $institution->load($this->buildNestedRelations('children', $depth, $includeInactive));
+            // Build nested relationship loading based on depth
+            $relations = ['departments'];
+            if ($depth >= 1) {
+                $relations[] = 'children';
+            }
+            if ($depth >= 2) {
+                $relations[] = 'children.children';
+            }
+            if ($depth >= 3) {
+                $relations[] = 'children.children.children';
+            }
+            if ($depth >= 4) {
+                $relations[] = 'children.children.children.children';
+            }
+            if ($depth >= 5) {
+                $relations[] = 'children.children.children.children.children';
+            }
+            
+            $institution->load($relations);
 
             $subtree = $this->formatInstitutionNode($institution, [
                 'include_inactive' => $includeInactive,
@@ -336,15 +358,27 @@ class InstitutionHierarchyController extends Controller
         $expandAll = $options['expand_all'] ?? false;
         $includeInactive = $options['include_inactive'] ?? false;
 
+        // Load departments for this institution
+        $institution->load('departments');
+        
+        // Count total children (institutions + departments)
+        $totalChildren = $institution->children->count() + $institution->departments->count();
+        
         $node = [
             'id' => $institution->id,
             'name' => $institution->name,
             'type' => $institution->type,
             'level' => $institution->level,
             'is_active' => $institution->is_active,
-            'has_children' => $institution->children->count() > 0,
-            'children_count' => $institution->children->count(),
+            'has_children' => $totalChildren > 0,
+            'children_count' => $totalChildren,
             'children' => [],
+            'description' => $institution->description,
+            'address' => $institution->address,
+            'phone' => $institution->phone,
+            'email' => $institution->email,
+            'capacity' => $institution->capacity,
+            'established_date' => $institution->established_date,
             'metadata' => [
                 'region_code' => $institution->region_code,
                 'director_name' => $institution->director_name,
@@ -354,9 +388,9 @@ class InstitutionHierarchyController extends Controller
         ];
 
         // Load children if within depth limit and conditions are met
-        if ($currentDepth < $maxDepth && $institution->children && 
-            ($expandAll || $currentDepth <= 2)) {
+        if ($currentDepth < $maxDepth && ($expandAll || $currentDepth <= 3)) {
             
+            // Add institution children
             $children = $includeInactive ? 
                        $institution->children : 
                        $institution->children->where('is_active', true);
@@ -364,26 +398,34 @@ class InstitutionHierarchyController extends Controller
             foreach ($children as $child) {
                 $node['children'][] = $this->formatInstitutionNode($child, $options, $currentDepth + 1);
             }
+            
+            // Add departments as children (level 5)
+            if ($currentDepth < $maxDepth) {
+                foreach ($institution->departments as $department) {
+                    $node['children'][] = [
+                        'id' => 'dept_' . $department->id, // Prefix to distinguish from institutions
+                        'name' => $department->name,
+                        'type' => 'department',
+                        'level' => $institution->level + 1,
+                        'is_active' => true,
+                        'has_children' => false,
+                        'children_count' => 0,
+                        'children' => [],
+                        'description' => $department->description,
+                        'metadata' => [
+                            'department_type' => $department->type,
+                            'institution_id' => $department->institution_id,
+                            'head_name' => $department->head_name ?? null,
+                            'staff_count' => $department->staff_count ?? 0,
+                        ],
+                    ];
+                }
+            }
         }
 
         return $node;
     }
 
-    /**
-     * Build nested relations string for eager loading
-     */
-    private function buildNestedRelations($relation, $depth, $includeInactive = false): array
-    {
-        $relations = [];
-        $currentRelation = $relation;
-
-        for ($i = 1; $i <= $depth; $i++) {
-            $relations[] = $currentRelation . ($includeInactive ? '' : ' as active_children');
-            $currentRelation .= '.children';
-        }
-
-        return $relations;
-    }
 
     /**
      * Check if institution is descendant of another

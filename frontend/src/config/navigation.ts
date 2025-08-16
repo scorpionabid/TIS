@@ -24,7 +24,13 @@ import {
   Award,
   Target,
   PlusCircle,
-  LucideIcon
+  LucideIcon,
+  UserCheck,
+  Calendar,
+  Calculator,
+  UserPlus,
+  Briefcase,
+  ClipboardCheck
 } from 'lucide-react';
 import { UserRole } from '@/contexts/AuthContext';
 
@@ -185,70 +191,102 @@ export const universalNavigationConfig: MenuGroup[] = [
       {
         id: 'school-management',
         label: 'Məktəb İdarəetməsi',
-        icon: GraduationCap,
+        icon: School,
         roles: ['superadmin', 'regionadmin', 'sektoradmin', 'məktəbadmin', 'müəllim'],
         children: [
           {
-            id: 'school-workload',
-            label: 'Dərs Yükü',
-            path: '/school/workload',
-            roles: ['superadmin', 'məktəbadmin', 'müəllim']
+            id: 'school-surveys',
+            label: 'Sorğular',
+            path: '/school/surveys',
+            icon: ClipboardList,
+            roles: ['məktəbadmin']
           },
           {
-            id: 'school-schedules',
-            label: 'Dərs Cədvəli',
-            path: '/school/schedules',
-            roles: ['superadmin', 'məktəbadmin', 'müəllim']
+            id: 'school-tasks',
+            label: 'Tapşırıqlar',
+            path: '/school/tasks',
+            icon: ClipboardCheck,
+            roles: ['məktəbadmin']
           },
           {
-            id: 'school-attendance',
-            label: 'Davamiyyət',
-            icon: CheckSquare,
-            roles: ['superadmin', 'məktəbadmin', 'müəllim'],
+            id: 'student-management',
+            label: 'Şagird İdarəetməsi',
+            icon: Users,
+            roles: ['məktəbadmin'],
             children: [
               {
-                id: 'attendance-registration',
-                label: 'Davamiyyət Qeydiyyatı',
-                path: '/school/attendance/registration',
-                roles: ['superadmin', 'məktəbadmin', 'müəllim']
+                id: 'school-students',
+                label: 'Şagirdlər',
+                path: '/school/students',
+                roles: ['məktəbadmin']
               },
               {
-                id: 'attendance-report',
-                label: 'Davamiyyət Hesabatı',
-                path: '/school/attendance/report',
-                roles: ['superadmin', 'məktəbadmin', 'müəllim']
-              },
-              {
-                id: 'attendance-overview',
-                label: 'Davamiyyət Icmalı',
-                path: '/school/attendance',
-                roles: ['superadmin', 'məktəbadmin', 'müəllim']
+                id: 'student-enrollment',
+                label: 'Qeydiyyat',
+                path: '/school/students/enrollment',
+                roles: ['məktəbadmin']
               }
             ]
           },
           {
-            id: 'assessment-types',
-            label: 'Qiymətləndirmə Növləri',
-            path: '/assessments/types',
-            roles: ['superadmin', 'regionadmin', 'sektoradmin']
+            id: 'teacher-management',
+            label: 'Müəllim İdarəetməsi',
+            icon: GraduationCap,
+            roles: ['məktəbadmin'],
+            children: [
+              {
+                id: 'school-teachers',
+                label: 'Müəllimlər',
+                path: '/school/teachers',
+                roles: ['məktəbadmin']
+              },
+              {
+                id: 'teacher-performance',
+                label: 'Performans',
+                path: '/school/teachers/performance',
+                roles: ['məktəbadmin']
+              }
+            ]
           },
           {
-            id: 'assessment-results',
-            label: 'Qiymətləndirmə Nəticələri',
-            path: '/assessments/results',
-            roles: ['superadmin', 'regionadmin', 'sektoradmin', 'məktəbadmin']
+            id: 'class-management',
+            label: 'Sinif İdarəetməsi',
+            icon: Building2,
+            roles: ['məktəbadmin'],
+            children: [
+              {
+                id: 'school-classes',
+                label: 'Siniflər',
+                path: '/school/classes',
+                roles: ['məktəbadmin']
+              },
+              {
+                id: 'class-schedules',
+                label: 'Dərs Cədvəlləri',
+                path: '/school/classes/schedules',
+                roles: ['məktəbadmin']
+              }
+            ]
           },
           {
-            id: 'assessment-entry',
-            label: 'Qiymətləndirmə Daxil Etmə',
-            path: '/assessments/entry',
-            roles: ['superadmin', 'regionadmin', 'sektoradmin', 'məktəbadmin', 'müəllim']
-          },
-          {
-            id: 'gradebook',
-            label: 'Qiymət Dəftəri',
-            path: '/school/gradebook',
-            roles: ['müəllim', 'məktəbadmin']
+            id: 'attendance-management',
+            label: 'Davamiyyət İdarəetməsi',
+            icon: UserCheck,
+            roles: ['məktəbadmin', 'müəllim'],
+            children: [
+              {
+                id: 'attendance-record',
+                label: 'Davamiyyət Qeydiyyatı',
+                path: '/school/attendance',
+                roles: ['məktəbadmin', 'müəllim']
+              },
+              {
+                id: 'attendance-reports',
+                label: 'Davamiyyət Hesabatları',
+                path: '/school/attendance/reports',
+                roles: ['məktəbadmin', 'müəllim']
+              }
+            ]
           },
           {
             id: 'my-classes',
@@ -257,6 +295,55 @@ export const universalNavigationConfig: MenuGroup[] = [
             roles: ['müəllim']
           }
         ]
+      }
+    ]
+  },
+  {
+    id: 'qiymetlendirme',
+    label: 'Qiymətləndirmə',
+    roles: ['superadmin', 'regionadmin', 'sektoradmin', 'məktəbadmin', 'müəllim'],
+    items: [
+      {
+        id: 'assessment-types',
+        label: 'Qiymətləndirmə Növləri',
+        path: '/assessments/types',
+        icon: Target,
+        roles: ['superadmin', 'regionadmin', 'sektoradmin']
+      },
+      {
+        id: 'assessments',
+        label: 'Qiymətləndirmələr',
+        path: '/school/assessments',
+        icon: Calculator,
+        roles: ['məktəbadmin', 'müəllim']
+      },
+      {
+        id: 'assessment-entry',
+        label: 'Qiymətləndirmə Daxil Etmə',
+        path: '/assessments/entry',
+        icon: PlusCircle,
+        roles: ['superadmin', 'regionadmin', 'sektoradmin', 'məktəbadmin', 'müəllim']
+      },
+      {
+        id: 'gradebook',
+        label: 'Qiymət Dəftəri',
+        path: '/school/gradebook',
+        icon: BookOpen,
+        roles: ['məktəbadmin', 'müəllim']
+      },
+      {
+        id: 'assessment-results',
+        label: 'Qiymətləndirmə Nəticələri',
+        path: '/assessments/results',
+        icon: Award,
+        roles: ['superadmin', 'regionadmin', 'sektoradmin', 'məktəbadmin']
+      },
+      {
+        id: 'assessment-reports',
+        label: 'Qiymətləndirmə Hesabatları',
+        path: '/school/assessments/reports',
+        icon: BarChart3,
+        roles: ['məktəbadmin']
       }
     ]
   },

@@ -33,7 +33,6 @@ import AuditLogs from "./pages/AuditLogs";
 import Performance from "./pages/Performance";
 import SchoolWorkload from "./pages/SchoolWorkload";
 import SchoolSchedules from "./pages/SchoolSchedules";
-import SchoolAttendance from "./pages/SchoolAttendance";
 import AssessmentTypes from "./pages/AssessmentTypes";
 import AssessmentResults from "./pages/AssessmentResults";
 import AssessmentEntry from "./pages/AssessmentEntry";
@@ -42,6 +41,14 @@ import AttendanceRegistration from "./pages/AttendanceRegistration";
 import RegionAdminIndex from "./pages/regionadmin/RegionAdminIndex";
 import RegionAdminUsers from "./pages/regionadmin/RegionAdminUsers";
 import RegionAdminSectors from "./pages/regionadmin/RegionAdminSectors";
+import SchoolSurveys from "./pages/school/SchoolSurveys";
+import SchoolTasks from "./pages/school/SchoolTasks";
+import SchoolStudents from "./pages/school/SchoolStudents";
+import SchoolTeachers from "./pages/school/SchoolTeachers";
+import SchoolClasses from "./pages/school/SchoolClasses";
+import SchoolAttendanceRecord from "./pages/school/SchoolAttendanceRecord";
+import SchoolGradebook from "./pages/school/SchoolGradebook";
+import SchoolAssessments from "./pages/SchoolAssessments";
 import { useState } from "react";
 
 const queryClient = new QueryClient();
@@ -139,7 +146,6 @@ const App = () => (
               <Route path="performance" element={<Performance />} />
               <Route path="school/workload" element={<SchoolWorkload />} />
               <Route path="school/schedules" element={<SchoolSchedules />} />
-              <Route path="school/attendance" element={<SchoolAttendance />} />
               
               {/* Assessment Management Routes */}
               <Route path="assessments/types" element={<AssessmentTypes />} />
@@ -164,6 +170,17 @@ const App = () => (
               <Route path="regionadmin/documents/*" element={<div className="p-6"><h1>Regional Documents</h1><p>Hazırlanmaqdadır...</p></div>} />
               <Route path="regionadmin/reports/*" element={<div className="p-6"><h1>Regional Reports</h1><p>Hazırlanmaqdadır...</p></div>} />
               <Route path="regionadmin/settings/*" element={<div className="p-6"><h1>Regional Settings</h1><p>Hazırlanmaqdadır...</p></div>} />
+              
+              {/* SchoolAdmin Routes */}
+              <Route path="school/surveys" element={<SchoolSurveys />} />
+              <Route path="school/tasks" element={<SchoolTasks />} />
+              <Route path="school/students" element={<SchoolStudents />} />
+              <Route path="school/teachers" element={<SchoolTeachers />} />
+              <Route path="school/classes" element={<SchoolClasses />} />
+              <Route path="school/attendance" element={<SchoolAttendanceRecord />} />
+              <Route path="school/assessments" element={<SchoolAssessments />} />
+              <Route path="school/assessments/reports" element={<AssessmentResults />} />
+              <Route path="school/gradebook" element={<SchoolGradebook />} />
             </Route>
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

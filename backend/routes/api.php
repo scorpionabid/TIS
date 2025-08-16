@@ -28,6 +28,7 @@ use App\Http\Controllers\RegionAdmin\RegionAdminInstitutionController;
 use App\Http\Controllers\RegionAdmin\RegionAdminUserController;
 use App\Http\Controllers\RegionAdmin\RegionAdminSurveyController;
 use App\Http\Controllers\RegionAdmin\RegionAdminReportsController;
+use App\Http\Controllers\RegionAdmin\RegionAdminTaskController;
 use App\Http\Controllers\RegionOperator\RegionOperatorDashboardController;
 use App\Http\Controllers\SektorAdmin\SektorAdminDashboardController;
 use App\Http\Controllers\MektebAdmin\MektebAdminDashboardController;
@@ -500,6 +501,14 @@ Route::middleware('auth:sanctum')->group(function () {
             ->middleware('permission:reports.read');
         Route::post('reports/export', [RegionAdminReportsController::class, 'exportReport'])
             ->middleware('permission:reports.export');
+            
+        // Task management endpoints
+        Route::get('tasks', [RegionAdminTaskController::class, 'index']);
+        Route::post('tasks', [RegionAdminTaskController::class, 'store']);
+        Route::get('tasks/{taskId}', [RegionAdminTaskController::class, 'show']);
+        Route::put('tasks/{taskId}', [RegionAdminTaskController::class, 'update']);
+        Route::get('tasks/statistics', [RegionAdminTaskController::class, 'getStatistics']);
+        Route::get('institutions/targetable', [RegionAdminTaskController::class, 'getTargetableInstitutions']);
     });
     
     // RegionOperator Dashboard and Analytics
@@ -516,6 +525,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('dashboard', [SektorAdminDashboardController::class, 'getDashboardStats']);
         Route::get('schools', [SektorAdminDashboardController::class, 'getSectorSchools']);
         Route::get('analytics', [SektorAdminDashboardController::class, 'getSectorAnalytics']);
+        
+        // Survey Response Approval endpoints
+        Route::get('survey-responses/pending', [SektorAdminDashboardController::class, 'getPendingSurveyResponses']);
+        Route::get('survey-responses/{responseId}/details', [SektorAdminDashboardController::class, 'getSurveyResponseDetails']);
+        Route::post('survey-responses/{responseId}/approve', [SektorAdminDashboardController::class, 'approveSurveyResponse']);
+        Route::post('survey-responses/{responseId}/reject', [SektorAdminDashboardController::class, 'rejectSurveyResponse']);
+        
+        // Task Approval endpoints
+        Route::get('tasks/pending', [SektorAdminDashboardController::class, 'getPendingTasks']);
+        Route::get('tasks/{taskId}/details', [SektorAdminDashboardController::class, 'getTaskDetails']);
+        Route::post('tasks/{taskId}/approve', [SektorAdminDashboardController::class, 'approveTask']);
+        Route::post('tasks/{taskId}/reject', [SektorAdminDashboardController::class, 'rejectTask']);
+        Route::get('tasks/statistics', [SektorAdminDashboardController::class, 'getTaskStatistics']);
     });
     
     // MəktəbAdmin Dashboard and Analytics
@@ -968,6 +990,68 @@ Route::get('shared/{token}', [App\Http\Controllers\DocumentShareController::clas
 
 // Public document access via refactored controller
 Route::get('documents/public/{token}', [DocumentController::class, 'accessPublic'])->name('documents.public');
+
+// School Admin API Routes
+Route::prefix('school-admin')->middleware(['auth:sanctum', 'role:schooladmin|məktəbadmin'])->group(function () {
+    // Dashboard endpoints
+    Route::get('dashboard/stats', [App\Http\Controllers\SchoolAdminController::class, 'getDashboardStats']);
+    Route::get('dashboard/activities', [App\Http\Controllers\SchoolAdminController::class, 'getRecentActivities']);
+    Route::get('dashboard/deadlines', [App\Http\Controllers\SchoolAdminController::class, 'getUpcomingDeadlines']);
+    Route::get('dashboard/notifications', [App\Http\Controllers\SchoolAdminController::class, 'getNotifications']);
+    Route::get('dashboard/quick-actions', [App\Http\Controllers\SchoolAdminController::class, 'getQuickActions']);
+    
+    // Survey management routes 
+    Route::get('surveys', [App\Http\Controllers\SchoolAdminController::class, 'getAssignedSurveys']);
+    Route::get('surveys/{surveyId}/response', [App\Http\Controllers\SchoolAdminController::class, 'getSurveyForResponse']);
+    Route::post('surveys/{surveyId}/start', [App\Http\Controllers\SchoolAdminController::class, 'startSurveyResponse']);
+    Route::put('survey-responses/{responseId}/save', [App\Http\Controllers\SchoolAdminController::class, 'saveSurveyProgress']);
+    Route::post('survey-responses/{responseId}/submit', [App\Http\Controllers\SchoolAdminController::class, 'submitSurveyResponse']);
+    
+    // Task management routes
+    Route::get('tasks', [App\Http\Controllers\SchoolAdminController::class, 'getAssignedTasks']);
+    Route::get('tasks/{taskId}/details', [App\Http\Controllers\SchoolAdminController::class, 'getTaskDetails']);
+    Route::put('tasks/{taskId}/progress', [App\Http\Controllers\SchoolAdminController::class, 'updateTaskProgress']);
+    Route::post('tasks/{taskId}/submit', [App\Http\Controllers\SchoolAdminController::class, 'submitTaskForApproval']);
+    
+    // Class management routes (placeholder responses)
+    Route::get('classes', function () { return response()->json([]); });
+    Route::get('classes/{classId}', function () { return response()->json(['id' => 1, 'name' => 'Class 1']); });
+    Route::post('classes', function () { return response()->json(['id' => 1, 'status' => 'created']); });
+    Route::put('classes/{classId}', function () { return response()->json(['id' => 1, 'status' => 'updated']); });
+    Route::get('classes/{classId}/students', function () { return response()->json([]); });
+    Route::post('classes/{classId}/students/{studentId}', function () { return response()->json(['success' => true]); });
+    Route::delete('classes/{classId}/students/{studentId}', function () { return response()->json(['success' => true]); });
+    
+    // Teacher management routes (placeholder responses)
+    Route::get('teachers', function () { return response()->json([]); });
+    Route::get('teachers/{teacherId}', function () { return response()->json(['id' => 1, 'name' => 'Teacher']); });
+    Route::put('teachers/{teacherId}', function () { return response()->json(['id' => 1, 'status' => 'updated']); });
+    
+    // Student management routes (placeholder responses)
+    Route::get('students', function () { return response()->json([]); });
+    
+    // Attendance management routes (placeholder responses)
+    Route::get('attendance/class/{classId}', function () { return response()->json([]); });
+    Route::post('attendance/bulk', function () { return response()->json([]); });
+    Route::get('attendance/stats', function () { 
+        return response()->json([
+            'total_students' => 0,
+            'present_count' => 0,
+            'absent_count' => 0,
+            'late_count' => 0,
+            'excused_count' => 0,
+            'attendance_rate' => 0,
+            'weekly_trend' => []
+        ]); 
+    });
+    
+    // Assessment management routes (placeholder responses)
+    Route::get('assessments', function () { return response()->json([]); });
+    Route::post('assessments', function () { return response()->json(['id' => 1, 'status' => 'created']); });
+    Route::get('assessments/{assessmentId}/grades', function () { return response()->json([]); });
+    Route::post('assessments/{assessmentId}/grades', function () { return response()->json([]); });
+    Route::post('assessments/{assessmentId}/publish', function () { return response()->json(['id' => 1, 'status' => 'published']); });
+});
 
 // WebSocket Test Routes (for development/testing)
 Route::prefix('test/websocket')->group(function () {

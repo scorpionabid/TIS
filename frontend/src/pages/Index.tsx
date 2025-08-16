@@ -1,7 +1,7 @@
 import { SuperAdminDashboard } from "@/components/dashboard/SuperAdminDashboard";
 import { RegionAdminDashboard } from "@/components/regionadmin/RegionAdminDashboard";
 import { SektorAdminDashboard } from "@/components/sektoradmin/SektorAdminDashboard";
-import { SchoolAdminDashboard } from "@/components/schooladmin/SchoolAdminDashboard";
+import { SchoolAdminDashboard } from "@/components/dashboard/SchoolAdminDashboard";
 import { TeacherDashboard } from "@/components/teacher/TeacherDashboard";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
