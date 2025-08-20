@@ -32,7 +32,7 @@ export const SectorCard = ({
             </Badge>
           </div>
         </div>
-        <CardDescription>
+        <div className="text-sm text-muted-foreground">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1">
               <MapPin className="h-3 w-3" />
@@ -42,7 +42,7 @@ export const SectorCard = ({
               {getSectorTypeLabel(sector.type)}
             </Badge>
           </div>
-        </CardDescription>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-2 text-sm mb-4">

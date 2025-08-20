@@ -29,6 +29,7 @@ class PermissionSeeder extends Seeder
             'institutions.create',
             'institutions.read',
             'institutions.update',
+            'institutions.hierarchy',
 
             // Survey Management
             'surveys.create',
@@ -185,6 +186,13 @@ class PermissionSeeder extends Seeder
             'delete teacher_performance',
             'manage teacher_performance',
             'approve teacher_performance',
+
+            // Department Management
+            'departments.create',
+            'departments.read',
+            'departments.update',
+            'departments.delete',
+            'departments.manage',
         ];
 
         foreach ($permissions as $permissionName) {
@@ -205,7 +213,7 @@ class PermissionSeeder extends Seeder
         $rolePermissions = [
             'superadmin' => [
                 'users.create', 'users.read', 'users.update', 'users.delete',
-                'institutions.create', 'institutions.read', 'institutions.update', 'institutions.delete',
+                'institutions.create', 'institutions.read', 'institutions.update', 'institutions.delete', 'institutions.hierarchy',
                 'surveys.create', 'surveys.read', 'surveys.update', 'surveys.delete', 'surveys.publish', 'surveys.manage',
                 'roles.read', 'roles.create', 'roles.update', 'roles.delete',
                 'schedules.create', 'schedules.read', 'schedules.update', 'schedules.delete', 'schedules.approve',
@@ -222,6 +230,7 @@ class PermissionSeeder extends Seeder
                 'psychology.create', 'psychology.read', 'psychology.update', 'psychology.delete', 'psychology.manage', 'psychology.assess',
                 'inventory.create', 'inventory.read', 'inventory.update', 'inventory.delete', 'inventory.manage', 'inventory.assign', 'inventory.maintenance',
                 'view teacher_performance', 'create teacher_performance', 'edit teacher_performance', 'delete teacher_performance', 'manage teacher_performance', 'approve teacher_performance',
+                'departments.create', 'departments.read', 'departments.update', 'departments.delete', 'departments.manage',
                 'system.config', 'analytics.view'
             ],
             'regionadmin' => [

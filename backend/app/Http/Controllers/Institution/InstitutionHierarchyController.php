@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class InstitutionHierarchyController extends Controller
 {
@@ -20,7 +21,7 @@ class InstitutionHierarchyController extends Controller
         try {
             $request->validate([
                 'format' => 'nullable|string|in:tree,flat,nested',
-                'max_depth' => 'nullable|integer|min:1|max:4',
+                'max_depth' => 'nullable|integer|min:1|max:5',
                 'include_inactive' => 'nullable|boolean',
                 'type_filter' => 'nullable|string',
                 'region_id' => 'nullable|integer|exists:institutions,id',
@@ -28,7 +29,7 @@ class InstitutionHierarchyController extends Controller
 
             $user = Auth::user();
             $format = $request->get('format', 'tree');
-            $maxDepth = $request->get('max_depth', 4);
+            $maxDepth = $request->get('max_depth', 5);
             $includeInactive = $request->get('include_inactive', false);
 
             // Create cache key
@@ -47,10 +48,14 @@ class InstitutionHierarchyController extends Controller
                 return $this->buildHierarchy($user, $format, $maxDepth, $includeInactive, $request);
             });
 
+            // Get statistics
+            $stats = $this->getHierarchyStatistics();
+
             return response()->json([
                 'success' => true,
                 'data' => $hierarchy,
                 'format' => $format,
+                'hierarchy_stats' => $stats,
                 'message' => 'Hierarkiya alındı'
             ]);
 
@@ -96,7 +101,7 @@ class InstitutionHierarchyController extends Controller
                     'parent' => [
                         'id' => $institution->id,
                         'name' => $institution->name,
-                        'type' => $institution->type?->name,
+                        'type' => $institution->institutionType?->label_az,
                         'level' => $institution->level,
                     ],
                     'children' => $children,
@@ -150,7 +155,7 @@ class InstitutionHierarchyController extends Controller
      */
     private function buildHierarchy($user, $format, $maxDepth, $includeInactive, $request): array
     {
-        $query = Institution::with(['type', 'parent']);
+        $query = Institution::with(['institutionType', 'parent']);
 
         if (!$includeInactive) {
             $query->where('is_active', true);
@@ -158,7 +163,7 @@ class InstitutionHierarchyController extends Controller
 
         // Apply type filter
         if ($request->type_filter) {
-            $query->whereHas('type', function ($q) use ($request) {
+            $query->whereHas('institutionType', function ($q) use ($request) {
                 $q->where('key', $request->type_filter);
             });
         }
@@ -240,15 +245,21 @@ class InstitutionHierarchyController extends Controller
             'id' => $institution->id,
             'name' => $institution->name,
             'code' => $institution->code,
-            'type' => $institution->type ? [
-                'id' => $institution->type->id,
-                'name' => $institution->type->name,
-                'key' => $institution->type->key,
+            'type' => $institution->institutionType ? [
+                'id' => $institution->institutionType->id,
+                'name' => $institution->institutionType->label_az,
+                'key' => $institution->institutionType->key,
             ] : null,
             'level' => $institution->level,
             'is_active' => $institution->is_active,
             'children' => [],
             'children_count' => 0,
+            'metadata' => [
+                'region_code' => $institution->region_code ?? null,
+                'director_name' => $institution->director_name ?? null,
+                'student_capacity' => $institution->student_capacity ?? null,
+                'staff_count' => $institution->staff_count ?? null,
+            ],
         ];
 
         if ($currentDepth < $maxDepth) {
@@ -260,7 +271,7 @@ class InstitutionHierarchyController extends Controller
 
             foreach ($children as $child) {
                 $childInstitution = Institution::find($child['id']);
-                $childInstitution->type = $childInstitution->type; // Load relationship
+                $childInstitution->institutionType = $childInstitution->institutionType; // Load relationship
                 
                 $node['children'][] = $this->buildTreeNode(
                     $childInstitution, 
@@ -289,8 +300,8 @@ class InstitutionHierarchyController extends Controller
                 'id' => $institution->id,
                 'name' => $institution->name,
                 'code' => $institution->code,
-                'type' => $institution->type?->name,
-                'type_key' => $institution->type?->key,
+                'type' => $institution->institutionType?->label_az,
+                'type_key' => $institution->institutionType?->key,
                 'level' => $institution->level,
                 'parent_id' => $institution->parent_id,
                 'parent_name' => $institution->parent?->name,
@@ -316,7 +327,7 @@ class InstitutionHierarchyController extends Controller
                     'id' => $institution->id,
                     'name' => str_repeat('— ', $level - 1) . $institution->name,
                     'level' => $level,
-                    'type' => $institution->type?->name,
+                    'type' => $institution->institutionType?->label_az,
                     'parent_id' => $institution->parent_id,
                     'is_active' => $institution->is_active,
                 ];
@@ -331,7 +342,7 @@ class InstitutionHierarchyController extends Controller
      */
     private function getInstitutionChildren($institution, $includeInactive, $recursive, $maxDepth, $currentDepth = 1): array
     {
-        $query = $institution->children()->with(['type']);
+        $query = $institution->children()->with(['institutionType']);
 
         if (!$includeInactive) {
             $query->where('is_active', true);
@@ -344,14 +355,20 @@ class InstitutionHierarchyController extends Controller
                 'id' => $child->id,
                 'name' => $child->name,
                 'code' => $child->code,
-                'type' => $child->type ? [
-                    'id' => $child->type->id,
-                    'name' => $child->type->name,
-                    'key' => $child->type->key,
+                'type' => $child->institutionType ? [
+                    'id' => $child->institutionType->id,
+                    'name' => $child->institutionType->label_az,
+                    'key' => $child->institutionType->key,
                 ] : null,
                 'level' => $child->level,
                 'is_active' => $child->is_active,
                 'children' => [],
+                'metadata' => [
+                    'region_code' => $child->region_code ?? null,
+                    'director_name' => $child->director_name ?? null,
+                    'student_capacity' => $child->student_capacity ?? null,
+                    'staff_count' => $child->staff_count ?? null,
+                ],
             ];
 
             if ($recursive && $currentDepth < $maxDepth) {
@@ -380,7 +397,7 @@ class InstitutionHierarchyController extends Controller
             array_unshift($path, [
                 'id' => $current->id,
                 'name' => $current->name,
-                'type' => $current->type?->name,
+                'type' => $current->institutionType?->label_az,
                 'level' => $current->level,
             ]);
             
@@ -443,5 +460,30 @@ class InstitutionHierarchyController extends Controller
         }
 
         return false;
+    }
+
+    /**
+     * Get hierarchy statistics
+     */
+    private function getHierarchyStatistics(): array
+    {
+        $totalInstitutions = Institution::count();
+        $activeInstitutions = Institution::where('is_active', true)->count();
+        
+        return [
+            'total_institutions' => $totalInstitutions,
+            'active_institutions' => $activeInstitutions,
+            'root_institutions' => Institution::whereNull('parent_id')->count(),
+            'max_depth' => Institution::max('level'),
+            'by_level' => Institution::select('level', \DB::raw('count(*) as count'))
+                                    ->groupBy('level')
+                                    ->pluck('count', 'level'),
+            'by_type' => Institution::with('institutionType')
+                                   ->get()
+                                   ->groupBy('institutionType.key')
+                                   ->map(function ($group) {
+                                       return $group->count();
+                                   }),
+        ];
     }
 }

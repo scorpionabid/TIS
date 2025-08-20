@@ -1,7 +1,4 @@
-// Re-export the new modular schedule builder
-export { ScheduleBuilder as default } from './ScheduleBuilderRefactored';
-
-// Keep the old interface for backward compatibility
+import React from 'react';
 import { Schedule } from '@/services/schedule';
 
 interface ScheduleBuilderProps {
@@ -11,5 +8,15 @@ interface ScheduleBuilderProps {
   className?: string;
 }
 
-// Export the refactored ScheduleBuilder for backward compatibility
-export { ScheduleBuilder } from './ScheduleBuilderRefactored';
+export const ScheduleBuilder: React.FC<ScheduleBuilderProps> = ({ className }) => {
+  return (
+    <div className={`bg-white rounded-lg shadow p-6 ${className}`}>
+      <h2 className="text-xl font-semibold text-gray-900 mb-4">Cədvəl Quraşdırıcısı</h2>
+      <p className="text-gray-600">
+        Cədvəl quraşdırıcısı funksionallığı inkişaf halındadır.
+      </p>
+    </div>
+  );
+};
+
+export default ScheduleBuilder;

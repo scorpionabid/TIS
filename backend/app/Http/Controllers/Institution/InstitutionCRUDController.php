@@ -39,7 +39,7 @@ class InstitutionCRUDController extends Controller
             ]);
 
             $user = Auth::user();
-            $query = Institution::with(['type', 'parent', 'children']);
+            $query = Institution::with(['institutionType', 'parent', 'children']);
 
             // Apply user-based access control
             if ($user && !$user->hasRole('SuperAdmin')) {
@@ -72,7 +72,7 @@ class InstitutionCRUDController extends Controller
             }
 
             if ($request->type) {
-                $query->whereHas('type', function ($q) use ($request) {
+                $query->whereHas('institutionType', function ($q) use ($request) {
                     $q->where('key', $request->type);
                 });
             }
@@ -119,17 +119,17 @@ class InstitutionCRUDController extends Controller
                     'id' => $institution->id,
                     'name' => $institution->name,
                     'code' => $institution->code,
-                    'type' => $institution->type ? [
-                        'id' => $institution->type->id,
-                        'name' => $institution->type->name,
-                        'key' => $institution->type->key,
-                        'level' => $institution->type->level,
+                    'type' => $institution->institutionType ? [
+                        'id' => $institution->institutionType->id,
+                        'name' => $institution->institutionType->label_az,
+                        'key' => $institution->institutionType->key,
+                        'level' => $institution->institutionType->default_level,
                     ] : null,
                     'level' => $institution->level,
                     'parent' => $institution->parent ? [
                         'id' => $institution->parent->id,
                         'name' => $institution->parent->name,
-                        'type' => $institution->parent->type->name ?? null,
+                        'type' => $institution->parent->institutionType->label_az ?? null,
                     ] : null,
                     'children_count' => $institution->children->count(),
                     'address' => $institution->address,
@@ -174,7 +174,7 @@ class InstitutionCRUDController extends Controller
                 }
             }
 
-            $institution->load(['type', 'parent', 'children.type', 'departments']);
+            $institution->load(['institutionType', 'parent', 'children.institutionType', 'departments']);
 
             return response()->json([
                 'success' => true,
@@ -182,13 +182,13 @@ class InstitutionCRUDController extends Controller
                     'id' => $institution->id,
                     'name' => $institution->name,
                     'code' => $institution->code,
-                    'type' => $institution->type,
+                    'type' => $institution->institutionType,
                     'level' => $institution->level,
                     'parent' => $institution->parent,
                     'children' => $institution->children->map(fn($child) => [
                         'id' => $child->id,
                         'name' => $child->name,
-                        'type' => $child->type->name ?? null,
+                        'type' => $child->institutionType->label_az ?? null,
                         'is_active' => $child->is_active,
                     ]),
                     'departments' => $institution->departments,
@@ -276,7 +276,7 @@ class InstitutionCRUDController extends Controller
                 $this->createDefaultDepartments($institution);
             }
 
-            $institution->load(['type', 'parent']);
+            $institution->load(['institutionType', 'parent']);
 
             return response()->json([
                 'success' => true,

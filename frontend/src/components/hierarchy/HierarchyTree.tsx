@@ -113,7 +113,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
         {/* Institution Icon */}
         <div className="flex items-center justify-center w-8 h-8 rounded-md bg-muted mr-3">
           <span className="text-sm">
-            {hierarchyService.getTypeIcon(node.type)}
+            {hierarchyService.getTypeIcon(node.type?.key || 'unknown')}
           </span>
         </div>
 
@@ -124,7 +124,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
               {node.name}
             </h4>
             <Badge variant={node.is_active ? 'default' : 'secondary'} className="text-xs">
-              {hierarchyService.getTypeDisplayName(node.type)}
+              {hierarchyService.getTypeDisplayName(node.type?.key || 'unknown')}
             </Badge>
             {node.is_active ? (
               <CheckCircle className="w-3 h-3 text-green-600" />

@@ -81,9 +81,9 @@ class InstitutionBulkController extends Controller
                 'by_level' => $query->groupBy('level')
                     ->selectRaw('level, count(*) as count')
                     ->pluck('count', 'level'),
-                'by_type' => $query->with('type')
+                'by_type' => $query->with('institutionType')
                     ->get()
-                    ->groupBy('type.name')
+                    ->groupBy('institutionType.label_az')
                     ->map->count(),
                 'recent' => $query->where('created_at', '>=', now()->subDays(30))->count(),
             ];
@@ -114,7 +114,7 @@ class InstitutionBulkController extends Controller
             ]);
 
             $user = Auth::user();
-            $query = Institution::onlyTrashed()->with(['type', 'parent']);
+            $query = Institution::onlyTrashed()->with(['institutionType', 'parent']);
 
             // Apply user-based access control
             if ($user && !$user->hasRole('SuperAdmin')) {
@@ -145,7 +145,7 @@ class InstitutionBulkController extends Controller
                     'id' => $institution->id,
                     'name' => $institution->name,
                     'code' => $institution->code,
-                    'type' => $institution->type?->name,
+                    'type' => $institution->institutionType?->label_az,
                     'parent' => $institution->parent?->name,
                     'deleted_at' => $institution->deleted_at,
                 ];
@@ -372,7 +372,7 @@ class InstitutionBulkController extends Controller
             ]);
 
             $user = Auth::user();
-            $query = Institution::with(['type', 'parent']);
+            $query = Institution::with(['institutionType', 'parent']);
 
             // Apply user-based access control
             if ($user && !$user->hasRole('SuperAdmin')) {
@@ -395,7 +395,7 @@ class InstitutionBulkController extends Controller
                 return [
                     'Ad' => $institution->name,
                     'Kod' => $institution->code,
-                    'Tip' => $institution->type?->name,
+                    'Tip' => $institution->institutionType?->label_az,
                     'Üst İnstitut' => $institution->parent?->name,
                     'Səviyyə' => $institution->level,
                     'Ünvan' => $institution->address,

@@ -360,6 +360,42 @@ class RoleController extends Controller
     }
 
     /**
+     * Get all permissions available in the system
+     */
+    public function getAllPermissions(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        $guard = $request->get('guard', 'api');
+        
+        // Get all permissions, filtered by user role if not SuperAdmin
+        if ($user && $user->hasRole('superadmin')) {
+            $permissions = Permission::where('guard_name', $guard)->get();
+        } else {
+            // For non-SuperAdmin users, get permissions based on their level
+            $userRoles = $user->roles->where('guard_name', $guard);
+            $maxLevel = $userRoles->max('level') ?? 1;
+            
+            $allowedPermissions = $this->hierarchyService->getPermissionScopeForLevel($maxLevel);
+            $permissions = Permission::whereIn('name', $allowedPermissions)
+                ->where('guard_name', $guard)
+                ->get();
+        }
+
+        return response()->json([
+            'permissions' => $permissions->map(function ($permission) {
+                return [
+                    'id' => $permission->id,
+                    'name' => $permission->name,
+                    'guard_name' => $permission->guard_name,
+                    'scope' => $this->getPermissionScope($permission->name),
+                    'created_at' => $permission->created_at,
+                    'updated_at' => $permission->updated_at,
+                ];
+            })
+        ]);
+    }
+
+    /**
      * Group permissions by scope
      */
     private function groupPermissionsByScope($permissions): array

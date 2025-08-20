@@ -3,13 +3,15 @@
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\InstitutionController;
 use App\Http\Controllers\InstitutionTypeController;
-use App\Http\Controllers\InstitutionHierarchyController;
+use App\Http\Controllers\Institution\InstitutionHierarchyController;
 use App\Http\Controllers\InstitutionDepartmentController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\API\AssessmentExcelController;
 use App\Http\Controllers\API\BulkAssessmentController;
 use App\Http\Controllers\SubjectController;
+use App\Http\Controllers\SectorController;
+use App\Http\Controllers\PreschoolController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -98,19 +100,10 @@ Route::middleware('role:superadmin')->prefix('institution-types')->group(functio
 
 // Institution Hierarchy Management
 Route::middleware('permission:institutions.hierarchy')->group(function () {
-    Route::get('hierarchy', [InstitutionHierarchyController::class, 'getFullHierarchy']);
-    Route::get('hierarchy/tree', [InstitutionHierarchyController::class, 'getHierarchyTree']);
-    Route::get('hierarchy/levels', [InstitutionHierarchyController::class, 'getHierarchyLevels']);
-    Route::post('hierarchy/rebuild', [InstitutionHierarchyController::class, 'rebuildHierarchy']);
-    Route::get('hierarchy/validate', [InstitutionHierarchyController::class, 'validateHierarchy']);
-    Route::post('hierarchy/move', [InstitutionHierarchyController::class, 'moveInstitution']);
-    Route::get('hierarchy/path/{institution}', [InstitutionHierarchyController::class, 'getInstitutionPath']);
-    Route::get('hierarchy/ancestors/{institution}', [InstitutionHierarchyController::class, 'getAncestors']);
-    Route::get('hierarchy/descendants/{institution}', [InstitutionHierarchyController::class, 'getDescendants']);
-    Route::get('hierarchy/siblings/{institution}', [InstitutionHierarchyController::class, 'getSiblings']);
-    Route::get('hierarchy/level/{level}', [InstitutionHierarchyController::class, 'getInstitutionsByLevel']);
-    Route::get('hierarchy/orphaned', [InstitutionHierarchyController::class, 'getOrphanedInstitutions']);
-    Route::get('hierarchy/stats', [InstitutionHierarchyController::class, 'getHierarchyStats']);
+    Route::get('hierarchy', [InstitutionHierarchyController::class, 'hierarchy']);
+    Route::get('institutions-hierarchy', [InstitutionHierarchyController::class, 'hierarchy']);
+    Route::get('hierarchy/children/{institution}', [InstitutionHierarchyController::class, 'children']);
+    Route::get('hierarchy/path/{institution}', [InstitutionHierarchyController::class, 'path']);
 });
 
 // Department management (institution-specific)
@@ -128,6 +121,7 @@ Route::middleware('permission:departments.write')->group(function () {
 // Global department routes
 Route::middleware('permission:departments.read')->group(function () {
     Route::get('departments', [DepartmentController::class, 'index']);
+    Route::get('departments/types', [DepartmentController::class, 'getTypes']);
     Route::get('departments/{department}', [DepartmentController::class, 'show']);
 });
 
@@ -144,6 +138,7 @@ Route::middleware('permission:roles.read')->group(function () {
     Route::get('roles/{role}/permissions', [RoleController::class, 'getPermissions']);
     Route::get('roles/{role}/users', [RoleController::class, 'getUsers']);
     Route::get('roles/hierarchy', [RoleController::class, 'getHierarchy']);
+    Route::get('permissions', [RoleController::class, 'getAllPermissions']);
 });
 
 Route::middleware('permission:roles.write')->group(function () {
@@ -172,8 +167,9 @@ Route::prefix('system')->middleware('permission:system.config')->group(function 
         ]);
     });
     Route::get('permissions', [RoleController::class, 'getAllPermissions']);
-    Route::get('settings', [App\Http\Controllers\SettingsController::class, 'index']);
-    Route::post('settings', [App\Http\Controllers\SettingsController::class, 'update']);
+    // Settings routes commented out until SettingsController is implemented
+    // Route::get('settings', [App\Http\Controllers\SettingsController::class, 'index']);
+    // Route::post('settings', [App\Http\Controllers\SettingsController::class, 'update']);
     Route::get('cache/clear', function () {
         \Artisan::call('cache:clear');
         return response()->json(['message' => 'Cache cleared successfully']);
@@ -236,4 +232,34 @@ Route::prefix('import')->group(function () {
     Route::post('/validate-institutions', [App\Http\Controllers\ImportController::class, 'validateInstitutions'])->middleware('permission:institutions.read');
     Route::get('/templates/users', [App\Http\Controllers\ImportController::class, 'getUserTemplate']);
     Route::get('/templates/institutions', [App\Http\Controllers\ImportController::class, 'getInstitutionTemplate']);
+});
+
+// Sectors management routes
+Route::prefix('sectors')->middleware('permission:institutions.read')->group(function () {
+    Route::get('/', [SectorController::class, 'index']);
+    Route::get('/statistics', [SectorController::class, 'statistics']);
+    Route::get('/managers/available', [SectorController::class, 'getAvailableManagers']);
+    Route::get('/{sector}', [SectorController::class, 'show'])->middleware('permission:institutions.read');
+    Route::post('/', [SectorController::class, 'store'])->middleware('permission:institutions.write');
+    Route::put('/{sector}', [SectorController::class, 'update'])->middleware('permission:institutions.write');
+    Route::delete('/{sector}', [SectorController::class, 'destroy'])->middleware('permission:institutions.write');
+    Route::post('/{sector}/toggle-status', [SectorController::class, 'toggleStatus'])->middleware('permission:institutions.write');
+    Route::get('/{sector}/tasks', [SectorController::class, 'getTasks']);
+    Route::post('/{sector}/tasks', [SectorController::class, 'createTask'])->middleware('permission:tasks.write');
+    Route::get('/{sector}/task-statistics', [SectorController::class, 'getTaskStatistics']);
+    Route::get('/{sector}/documents', [SectorController::class, 'getDocuments']);
+    Route::post('/{sector}/documents', [SectorController::class, 'uploadDocument'])->middleware('permission:documents.write');
+    Route::get('/{sector}/document-statistics', [SectorController::class, 'getDocumentStatistics']);
+    Route::post('/{sector}/documents/{document}/share', [SectorController::class, 'shareDocument'])->middleware('permission:documents.write');
+});
+
+// Preschools management routes
+Route::prefix('preschools')->middleware('permission:institutions.read')->group(function () {
+    Route::get('/', [PreschoolController::class, 'index']);
+    Route::get('/statistics', [PreschoolController::class, 'getPreschoolStatistics']);
+    Route::get('/{preschool}', [PreschoolController::class, 'show'])->middleware('permission:institutions.read');
+    Route::post('/', [PreschoolController::class, 'store'])->middleware('permission:institutions.write');
+    Route::put('/{preschool}', [PreschoolController::class, 'update'])->middleware('permission:institutions.write');
+    Route::delete('/{preschool}', [PreschoolController::class, 'destroy'])->middleware('permission:institutions.write');
+    Route::post('/{preschool}/assign-manager', [PreschoolController::class, 'assignManager'])->middleware('permission:institutions.write');
 });
