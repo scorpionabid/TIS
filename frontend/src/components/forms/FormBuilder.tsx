@@ -33,6 +33,7 @@ export type FieldType =
   | 'number' 
   | 'textarea' 
   | 'select' 
+  | 'multiselect'
   | 'checkbox' 
   | 'radio' 
   | 'switch'
@@ -45,11 +46,16 @@ export interface FormField {
   placeholder?: string;
   description?: string;
   required?: boolean;
-  options?: { label: string; value: string }[];
+  options?: { label: string; value: string; category?: string }[];
   validation?: z.ZodType<any>;
   defaultValue?: any;
   disabled?: boolean;
   className?: string;
+  onChange?: (value: any) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  rows?: number;
 }
 
 export interface FormBuilderProps {
@@ -116,13 +122,33 @@ export function FormBuilder({
                   case 'text':
                   case 'email':
                   case 'password':
-                  case 'number':
                     return (
                       <Input
                         type={field.type}
                         placeholder={field.placeholder}
                         disabled={field.disabled || loading}
                         {...formField}
+                        onChange={(e) => {
+                          formField.onChange(e);
+                          field.onChange?.(e.target.value);
+                        }}
+                      />
+                    );
+
+                  case 'number':
+                    return (
+                      <Input
+                        type="number"
+                        placeholder={field.placeholder}
+                        disabled={field.disabled || loading}
+                        min={field.min}
+                        max={field.max}
+                        step={field.step}
+                        {...formField}
+                        onChange={(e) => {
+                          formField.onChange(e);
+                          field.onChange?.(e.target.value);
+                        }}
                       />
                     );
                   
@@ -140,7 +166,12 @@ export function FormBuilder({
                       <Textarea
                         placeholder={field.placeholder}
                         disabled={field.disabled || loading}
+                        rows={field.rows}
                         {...formField}
+                        onChange={(e) => {
+                          formField.onChange(e);
+                          field.onChange?.(e.target.value);
+                        }}
                       />
                     );
                   
@@ -148,7 +179,10 @@ export function FormBuilder({
                     return (
                       <Select
                         value={formField.value}
-                        onValueChange={formField.onChange}
+                        onValueChange={(value) => {
+                          formField.onChange(value);
+                          field.onChange?.(value);
+                        }}
                         disabled={field.disabled || loading}
                       >
                         <SelectTrigger>
@@ -162,6 +196,41 @@ export function FormBuilder({
                           ))}
                         </SelectContent>
                       </Select>
+                    );
+
+                  case 'multiselect':
+                    return (
+                      <div className="space-y-2">
+                        <div className="max-h-32 overflow-y-auto border rounded-md p-2">
+                          {field.options?.map((option) => (
+                            <div key={option.value} className="flex items-center space-x-2 py-1">
+                              <Checkbox
+                                checked={formField.value?.includes(option.value) || false}
+                                onCheckedChange={(checked) => {
+                                  const currentValues = formField.value || [];
+                                  const newValues = checked
+                                    ? [...currentValues, option.value]
+                                    : currentValues.filter((v: string) => v !== option.value);
+                                  formField.onChange(newValues);
+                                  field.onChange?.(newValues);
+                                }}
+                                disabled={field.disabled || loading}
+                              />
+                              <span className="text-sm">{option.label}</span>
+                              {option.category && (
+                                <span className="text-xs text-muted-foreground">
+                                  ({option.category})
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        {formField.value?.length > 0 && (
+                          <div className="text-sm text-muted-foreground">
+                            {formField.value.length} seçilmiş
+                          </div>
+                        )}
+                      </div>
                     );
                   
                   case 'checkbox':

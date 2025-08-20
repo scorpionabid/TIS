@@ -363,6 +363,33 @@ class AssessmentTypeService {
 
     return errors;
   }
+
+  /**
+   * Get institutions assigned to an assessment type
+   */
+  async getAssignedInstitutions(assessmentTypeId: number): Promise<any[]> {
+    const response = await apiClient.get(`${this.baseURL}/${assessmentTypeId}/institutions`);
+    return response.data || [];
+  }
+
+  /**
+   * Assign institutions to an assessment type
+   */
+  async assignInstitutions(assessmentTypeId: number, institutionIds: number[]): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.post(`${this.baseURL}/${assessmentTypeId}/institutions`, {
+      institution_ids: institutionIds
+    });
+    return response.data;
+  }
+
+  /**
+   * Remove institution assignment from assessment type
+   */
+  async removeInstitutionAssignment(assessmentTypeId: number, institutionId: number): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.delete(`${this.baseURL}/${assessmentTypeId}/institutions/${institutionId}`);
+    return response.data;
+  }
+
 }
 
 export const assessmentTypeService = new AssessmentTypeService();

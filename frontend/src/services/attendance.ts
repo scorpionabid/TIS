@@ -47,6 +47,16 @@ export interface AttendanceStats {
   total_records: number;
 }
 
+export interface BulkAttendanceData {
+  class_id: number;
+  date: string;
+  attendance_records: {
+    student_id: number;
+    status: 'present' | 'absent' | 'late' | 'excused';
+    notes?: string;
+  }[];
+}
+
 export interface AttendanceApiResponse {
   success: boolean;
   data: AttendanceRecord[];
@@ -240,8 +250,97 @@ class AttendanceService extends BaseService {
   /**
    * Get available classes for a school
    */
-  async getSchoolClasses(schoolId: number): Promise<{ success: boolean; data: string[]; message: string }> {
-    return this.get<{ success: boolean; data: string[]; message: string }>(`${this.baseUrl}/schools/${schoolId}/classes`);
+  async getSchoolClasses(schoolId?: number): Promise<string[]> {
+    if (!schoolId) {
+      // Return default class options if no school specified
+      return [
+        '1A', '1B', '1C', '1D', '2A', '2B', '2C', '2D',
+        '3A', '3B', '3C', '3D', '4A', '4B', '4C', '4D',
+        '5A', '5B', '5C', '5D', '6A', '6B', '6C', '6D',
+        '7A', '7B', '7C', '7D', '8A', '8B', '8C', '8D',
+        '9A', '9B', '9C', '9D', '10A', '10B', '10C', '10D',
+        '11A', '11B', '11C', '11D'
+      ];
+    }
+    const response = await this.get<{ success: boolean; data: string[]; message: string }>(`${this.baseUrl}/schools/${schoolId}/classes`);
+    return response.data?.data || [];
+  }
+
+  /**
+   * Get students by class (integrates with student service)
+   */
+  async getStudentsByClass(classId: number, institutionId?: number): Promise<any[]> {
+    try {
+      // Import student service dynamically to avoid circular imports
+      const { studentService } = await import('./students');
+      
+      if (institutionId) {
+        // Get students by institution and filter by class
+        const response = await studentService.getStudentsByInstitution(institutionId, {
+          class_name: classId.toString(),
+          per_page: 100
+        });
+        return response.students || [];
+      }
+      
+      // Fallback: return empty if no institution
+      return [];
+    } catch (error) {
+      console.error('Error fetching students by class:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get attendance for specific class and date
+   */
+  async getAttendanceForClass(classId: number, date: string): Promise<AttendanceRecord[]> {
+    const response = await this.getAttendanceRecords({
+      class_name: classId.toString(), // Assuming classId maps to class_name
+      date: date
+    });
+    return response.data || [];
+  }
+
+  /**
+   * Record bulk attendance (using school-attendance API)
+   */
+  async recordBulkAttendance(data: BulkAttendanceData): Promise<AttendanceRecord[]> {
+    const response = await this.post<{ data: AttendanceRecord[] }>(`${this.baseUrl}/bulk`, data);
+    return response.data?.data || [];
+  }
+
+  /**
+   * Record class attendance (using class-attendance API as fallback)
+   */
+  async recordClassAttendance(data: any): Promise<any> {
+    try {
+      // Try school-attendance API first
+      return await this.recordBulkAttendance(data);
+    } catch (error) {
+      // Fallback to class-attendance API
+      const response = await this.post<{ data: any }>('/class-attendance', data);
+      return response.data?.data || {};
+    }
+  }
+
+  /**
+   * Get attendance statistics for a class/date range
+   */
+  async getAttendanceStatsForClass(classId?: number, dateFrom?: string, dateTo?: string): Promise<AttendanceStats> {
+    const filters = {
+      class_name: classId?.toString(),
+      start_date: dateFrom,
+      end_date: dateTo
+    };
+    const response = await this.getAttendanceStats(filters);
+    return response.data || {
+      total_students: 0,
+      average_attendance: 0,
+      trend_direction: 'stable',
+      total_days: 0,
+      total_records: 0
+    };
   }
 }
 

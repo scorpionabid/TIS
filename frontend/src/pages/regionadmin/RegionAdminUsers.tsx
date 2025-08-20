@@ -62,7 +62,7 @@ export default function RegionAdminUsers() {
           });
 
           // Get authentication token properly
-          const token = localStorage.getItem('auth_token') || localStorage.getItem('token') || '';
+          const token = localStorage.getItem('auth_token') || '';
           console.log('🔐 Authentication token found:', !!token);
           console.log('🔐 Token length:', token.length);
           console.log('🔐 Token starts with:', token.substring(0, 20) + '...');

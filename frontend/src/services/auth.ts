@@ -115,16 +115,18 @@ class AuthService {
 
   async getCurrentUser(): Promise<User> {
     console.log('🔍 Auth Service: Calling /me endpoint');
+    console.log('🔍 Auth Service: Current token before /me call:', apiClient.getToken());
     const response = await apiClient.get<any>('/me');
     
     console.log('📥 Auth Service: /me response:', response);
     console.log('📥 Auth Service: /me response.data:', response.data);
-    console.log('📥 Auth Service: /me response.data.user exists:', !!response.data?.user);
+    console.log('📥 Auth Service: /me response.user exists:', !!response.user);
     
-    if (response.user) {
-      // Backend returns {user: {...}} structure from AuthController /me  
-      const userData = response.user;
-      console.log('👤 Auth Service: User data:', userData);
+    // Backend might return response.user directly or response.data
+    const userData = response.user || response.data || response;
+    console.log('👤 Auth Service: Extracted user data:', userData);
+    
+    if (userData && userData.id) {
       console.log('🎭 Auth Service: Roles array:', userData.roles);
       console.log('🎭 Auth Service: First role:', userData.roles?.[0]);
       
@@ -147,6 +149,7 @@ class AuthService {
     }
     
     console.error('❌ Auth Service: No user data in response');
+    console.error('❌ Auth Service: Full response structure:', JSON.stringify(response, null, 2));
     throw new Error('Failed to get current user');
   }
 
@@ -166,7 +169,10 @@ class AuthService {
   }
 
   isAuthenticated(): boolean {
-    return apiClient.isAuthenticated();
+    const hasToken = apiClient.isAuthenticated();
+    const token = apiClient.getToken();
+    console.log('🔍 Auth Service: isAuthenticated check - hasToken:', hasToken, 'token exists:', !!token);
+    return hasToken;
   }
 
   getToken(): string | null {

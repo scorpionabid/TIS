@@ -17,6 +17,7 @@ class UserProfile extends Model
      */
     protected $fillable = [
         'user_id',
+        'utis_code',
         'first_name',
         'last_name',
         'patronymic',
@@ -35,6 +36,29 @@ class UserProfile extends Model
         'employment_history',
         'certifications',
         'preferences',
+        // Professional teacher fields
+        'subjects',
+        'specialty',
+        'experience_years',
+        'miq_score',
+        'certification_score',
+        'last_certification_date',
+        'qualifications',
+        'training_courses',
+        'degree_level',
+        'graduation_university',
+        'graduation_year',
+        'university_gpa',
+        // Student academic fields
+        'student_miq_score',
+        'academic_achievements',
+        'extracurricular_activities',
+        'health_info',
+        'previous_school',
+        'parent_occupation',
+        'family_income',
+        'special_needs',
+        'notes',
     ];
 
     /**
@@ -47,11 +71,28 @@ class UserProfile extends Model
         return [
             'birth_date' => 'date',
             'date_of_birth' => 'date',
+            'last_certification_date' => 'date',
             'address' => 'array',
             'education_history' => 'array',
             'employment_history' => 'array',
             'certifications' => 'array',
             'preferences' => 'array',
+            // Professional teacher fields
+            'subjects' => 'array',
+            'qualifications' => 'array',
+            'training_courses' => 'array',
+            // Student academic fields
+            'academic_achievements' => 'array',
+            'extracurricular_activities' => 'array',
+            'health_info' => 'array',
+            'parent_occupation' => 'array',
+            'special_needs' => 'array',
+            // Numeric fields
+            'miq_score' => 'decimal:2',
+            'certification_score' => 'decimal:2',
+            'university_gpa' => 'decimal:2',
+            'student_miq_score' => 'decimal:2',
+            'family_income' => 'decimal:2',
         ];
     }
 

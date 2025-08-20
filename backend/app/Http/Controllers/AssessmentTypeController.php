@@ -92,7 +92,18 @@ class AssessmentTypeController extends Controller
             'scoring_method' => ['required', Rule::in(['percentage', 'points', 'grades'])],
             'grade_levels' => 'nullable|array',
             'subjects' => 'nullable|array',
-            'institution_id' => 'nullable|exists:institutions,id'
+            'institution_id' => 'nullable|exists:institutions,id',
+            'institution_assignments' => 'nullable|array',
+            'institution_assignments.*' => 'exists:institutions,id',
+            'due_date' => 'nullable|date|after:today',
+            'is_recurring' => 'boolean',
+            'recurring_frequency' => 'nullable|in:weekly,monthly,quarterly,yearly',
+            'notification_settings' => 'nullable|array',
+            'allows_bulk_entry' => 'boolean',
+            'allows_excel_import' => 'boolean',
+            'validation_rules' => 'nullable|array',
+            'minimum_score' => 'nullable|numeric|min:0',
+            'approval_required' => 'nullable|in:none,teacher,admin,region'
         ]);
 
         if ($validator->fails()) {
@@ -125,7 +136,17 @@ class AssessmentTypeController extends Controller
         }
 
         $assessmentType = AssessmentType::create($data);
-        $assessmentType->load(['creator', 'institution']);
+        
+        // Handle institution assignments if provided
+        if (isset($data['institution_assignments']) && !empty($data['institution_assignments'])) {
+            $assessmentType->assignToInstitutions(
+                $data['institution_assignments'], 
+                $user, 
+                $data['due_date'] ?? null
+            );
+        }
+        
+        $assessmentType->load(['creator', 'institution', 'assignedInstitutions']);
 
         return response()->json([
             'success' => true,
@@ -149,7 +170,7 @@ class AssessmentTypeController extends Controller
             ], 403);
         }
 
-        $assessmentType->load(['creator', 'institution']);
+        $assessmentType->load(['creator', 'institution', 'assignedInstitutions']);
 
         return response()->json([
             'success' => true,
@@ -184,7 +205,18 @@ class AssessmentTypeController extends Controller
             'scoring_method' => ['required', Rule::in(['percentage', 'points', 'grades'])],
             'grade_levels' => 'nullable|array',
             'subjects' => 'nullable|array',
-            'institution_id' => 'nullable|exists:institutions,id'
+            'institution_id' => 'nullable|exists:institutions,id',
+            'institution_assignments' => 'nullable|array',
+            'institution_assignments.*' => 'exists:institutions,id',
+            'due_date' => 'nullable|date|after:today',
+            'is_recurring' => 'boolean',
+            'recurring_frequency' => 'nullable|in:weekly,monthly,quarterly,yearly',
+            'notification_settings' => 'nullable|array',
+            'allows_bulk_entry' => 'boolean',
+            'allows_excel_import' => 'boolean',
+            'validation_rules' => 'nullable|array',
+            'minimum_score' => 'nullable|numeric|min:0',
+            'approval_required' => 'nullable|in:none,teacher,admin,region'
         ]);
 
         if ($validator->fails()) {
@@ -208,7 +240,17 @@ class AssessmentTypeController extends Controller
         }
 
         $assessmentType->update($data);
-        $assessmentType->load(['creator', 'institution']);
+        
+        // Handle institution assignments if provided
+        if (isset($data['institution_assignments'])) {
+            $assessmentType->assignToInstitutions(
+                $data['institution_assignments'], 
+                $user, 
+                $data['due_date'] ?? null
+            );
+        }
+        
+        $assessmentType->load(['creator', 'institution', 'assignedInstitutions']);
 
         return response()->json([
             'success' => true,
@@ -234,7 +276,8 @@ class AssessmentTypeController extends Controller
 
         // Check if there are any results associated with this type
         $hasResults = $assessmentType->ksqResults()->exists() || 
-                     $assessmentType->bsqResults()->exists();
+                     $assessmentType->bsqResults()->exists() ||
+                     $assessmentType->assessmentEntries()->exists();
 
         if ($hasResults) {
             return response()->json([
@@ -311,6 +354,74 @@ class AssessmentTypeController extends Controller
             'success' => true,
             'data' => $assessmentType,
             'message' => "Qiymətləndirmə növü {$status} edildi"
+        ]);
+    }
+    
+    /**
+     * Get assigned institutions for an assessment type
+     */
+    public function getAssignedInstitutions(AssessmentType $assessmentType): JsonResponse
+    {
+        $user = Auth::user();
+        
+        if (!$this->canUserAccessAssessmentType($user, $assessmentType)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu qiymətləndirmə növünə giriş icazəniz yoxdur'
+            ], 403);
+        }
+        
+        $assignments = $assessmentType->assignedInstitutions()
+            ->withPivot(['assigned_date', 'due_date', 'is_active', 'notification_settings', 'assigned_by', 'notes'])
+            ->with(['assignedBy'])
+            ->get();
+        
+        return response()->json([
+            'success' => true,
+            'data' => $assignments,
+            'message' => 'Təyin edilmiş müəssisələr'
+        ]);
+    }
+    
+    /**
+     * Assign assessment type to institutions
+     */
+    public function assignToInstitutions(Request $request, AssessmentType $assessmentType): JsonResponse
+    {
+        $user = Auth::user();
+        
+        if (!$assessmentType->canBeEditedBy($user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu qiymətləndirmə növünü təyin etmək icazəniz yoxdur'
+            ], 403);
+        }
+        
+        $validator = Validator::make($request->all(), [
+            'institution_ids' => 'required|array',
+            'institution_ids.*' => 'exists:institutions,id',
+            'due_date' => 'nullable|date|after:today',
+            'notification_settings' => 'nullable|array',
+            'notes' => 'nullable|string|max:500'
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasiya xətası',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+        
+        $assessmentType->assignToInstitutions(
+            $request->institution_ids,
+            $user,
+            $request->due_date
+        );
+        
+        return response()->json([
+            'success' => true,
+            'message' => count($request->institution_ids) . ' müəssisəyə təyin edildi'
         ]);
     }
 

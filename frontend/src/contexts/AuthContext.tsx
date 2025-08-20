@@ -4,6 +4,24 @@ import { useToast } from '@/hooks/use-toast';
 
 export type UserRole = 'superadmin' | 'regionadmin' | 'regionoperator' | 'sektoradmin' | 'məktəbadmin' | 'müəllim' | 'user';
 
+// Backend to Frontend role mapping
+const mapBackendRoleToFrontend = (backendRole: string): UserRole => {
+  const roleMapping: Record<string, UserRole> = {
+    'superadmin': 'superadmin',
+    'regionadmin': 'regionadmin', 
+    'regionoperator': 'regionoperator',
+    'sektoradmin': 'sektoradmin',
+    'schooladmin': 'məktəbadmin', // Backend schooladmin → Frontend məktəbadmin
+    'muavin': 'müəllim',
+    'ubr': 'müəllim', 
+    'tesarrufat': 'müəllim',
+    'psixoloq': 'müəllim',
+    'müəllim': 'müəllim'
+  };
+  
+  return roleMapping[backendRole] || 'user';
+};
+
 export interface User {
   id: number;
   name: string;
@@ -62,23 +80,66 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Check authentication status on mount
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkAuth = async (retryCount = 0) => {
       try {
-        console.log('🔍 AuthContext: Checking authentication');
-        if (authService.isAuthenticated()) {
-          console.log('🔍 AuthContext: User is authenticated, getting current user');
+        console.log('🔍 AuthContext: Checking authentication (attempt', retryCount + 1, ')');
+        
+        const hasToken = authService.isAuthenticated();
+        console.log('🔍 AuthContext: Has token:', hasToken);
+        
+        if (hasToken) {
+          console.log('🔍 AuthContext: Token found, getting current user');
           const user = await authService.getCurrentUser();
           console.log('👤 AuthContext: Got current user:', user);
-          console.log('🎭 AuthContext: Current user role:', user.role);
-          setCurrentUser(user);
+          console.log('🎭 AuthContext: Raw backend role:', user.role);
+          
+          // Map backend role to frontend role
+          const mappedUser = {
+            ...user,
+            role: mapBackendRoleToFrontend(user.role)
+          };
+          console.log('🎭 AuthContext: Mapped frontend role:', mappedUser.role);
+          
+          setCurrentUser(mappedUser);
           setIsAuthenticated(true);
+          
+          // Save user to localStorage for debugging
+          localStorage.setItem('current_user', JSON.stringify(mappedUser));
+          console.log('✅ AuthContext: Authentication successful');
         } else {
-          console.log('🔍 AuthContext: User is not authenticated');
+          console.log('🔍 AuthContext: No token found - user not authenticated');
+          setIsAuthenticated(false);
+          setCurrentUser(null);
         }
       } catch (error) {
-        console.error('Auth check failed:', error);
-        authService.clearAuth();
+        console.error('❌ Auth check failed (attempt', retryCount + 1, '):', error);
+        
+        // Check if it's a network error and we should retry
+        const isNetworkError = error instanceof Error && (
+          error.message.includes('fetch') || 
+          error.message.includes('NetworkError') ||
+          error.message.includes('Failed to fetch')
+        );
+        
+        const is401Error = error instanceof Error && error.message.includes('401');
+        
+        if (is401Error) {
+          console.log('🔍 AuthContext: 401 error - invalid/expired token');
+          authService.clearAuth();
+          setIsAuthenticated(false);
+          setCurrentUser(null);
+        } else if (isNetworkError && retryCount < 2) {
+          console.log('🔄 AuthContext: Network error - retrying in 1 second...');
+          setTimeout(() => checkAuth(retryCount + 1), 1000);
+          return; // Don't continue to finally block
+        } else {
+          console.log('🔍 AuthContext: Other error or max retries reached - assuming not authenticated');
+          // For other errors after retries, assume not authenticated
+          setIsAuthenticated(false);
+          setCurrentUser(null);
+        }
       } finally {
+        // Only set loading to false if we're not retrying
         setLoading(false);
       }
     };
@@ -93,14 +154,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       console.log('🔍 AuthContext: Login response:', response);
       console.log('👤 AuthContext: Setting user:', response.user);
-      console.log('🎭 AuthContext: User role:', response.user.role);
+      console.log('🎭 AuthContext: Raw backend role:', response.user.role);
+      console.log('🔑 AuthContext: Token set in apiClient:', !!authService.getToken());
       
-      setCurrentUser(response.user);
+      // Map backend role to frontend role
+      const mappedUser = {
+        ...response.user,
+        role: mapBackendRoleToFrontend(response.user.role)
+      };
+      console.log('🎭 AuthContext: Mapped frontend role:', mappedUser.role);
+      
+      setCurrentUser(mappedUser);
       setIsAuthenticated(true);
+      
+      // Save user to localStorage for debugging
+      localStorage.setItem('current_user', JSON.stringify(mappedUser));
+      
+      console.log('✅ AuthContext: Login completed - isAuthenticated:', true);
+      console.log('✅ AuthContext: Current user set:', mappedUser.username);
       
       toast({
         title: 'Uğurlu giriş',
-        description: `Xoş gəlmisiniz, ${response.user.name}!`,
+        description: `Xoş gəlmisiniz, ${mappedUser.name}!`,
       });
       
       return true;
@@ -127,6 +202,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       setCurrentUser(null);
       setIsAuthenticated(false);
+      
+      // Clear user from localStorage
+      localStorage.removeItem('current_user');
       
       toast({
         title: 'Çıxış',

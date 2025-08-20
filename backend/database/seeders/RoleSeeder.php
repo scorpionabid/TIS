@@ -45,47 +45,59 @@ class RoleSeeder extends Seeder
                 'level' => 5
             ],
             [
-                'name' => 'muavin_mudir',
-                'display_name' => 'Deputy Director',
-                'description' => 'School deputy management',
-                'level' => 6
+                'name' => 'muavin',
+                'display_name' => 'Müavin (Dərs İdarəetməsi)',
+                'description' => 'Dərs cədvəli, sinif bölgüsü və akademik proseslərin idarəetməsi',
+                'level' => 6,
+                'parent_role' => 'schooladmin'
             ],
             [
-                'name' => 'ubr_müəllimi',
-                'display_name' => 'UBR Müəllimi',
-                'description' => 'Education-science referent',
-                'level' => 6
+                'name' => 'ubr',
+                'display_name' => 'Tədris-Bilimlər Referenti',
+                'description' => 'Tədbir planlaması, ekskursiyalar və məktəb fəaliyyətləri',
+                'level' => 6,
+                'parent_role' => 'schooladmin'
             ],
             [
-                'name' => 'təsərrüfat_məsulu',
-                'display_name' => 'Economic Affairs Manager',
-                'description' => 'School economic affairs management',
-                'level' => 6
+                'name' => 'tesarrufat',
+                'display_name' => 'Təsərrüfat Müdiri',
+                'description' => 'İnventarizasiya, avadanlıq və təsərrüfat işlərinin idarəetməsi',
+                'level' => 6,
+                'parent_role' => 'schooladmin'
             ],
             [
                 'name' => 'psixoloq',
-                'display_name' => 'Psixoloq',
-                'description' => 'School psychologist',
-                'level' => 6
+                'display_name' => 'Məktəb Psixoloquu',
+                'description' => 'Şagird qayğısı, psixoloji dəstək və inkişaf izləməsi',
+                'level' => 6,
+                'parent_role' => 'schooladmin'
             ],
             [
-                'name' => 'muellim',
-                'display_name' => 'Müəllim',
-                'description' => 'Teacher',
-                'level' => 6
+                'name' => 'müəllim',
+                'display_name' => 'Fənn Müəllimi',
+                'description' => 'Tədris prosesi, qiymətləndirmə və davamiyyət qeydiyyatı',
+                'level' => 7,
+                'parent_role' => 'muavin'
             ],
         ];
 
         foreach (['web', 'api'] as $guard) {
             foreach ($roles as $roleData) {
-                Role::firstOrCreate([
-                    'name' => $roleData['name'],
-                    'guard_name' => $guard
-                ], [
+                $attributes = [
                     'display_name' => $roleData['display_name'],
                     'description' => $roleData['description'],
                     'level' => $roleData['level']
-                ]);
+                ];
+                
+                // Add parent_role if exists
+                if (isset($roleData['parent_role'])) {
+                    $attributes['parent_role'] = $roleData['parent_role'];
+                }
+                
+                Role::firstOrCreate([
+                    'name' => $roleData['name'],
+                    'guard_name' => $guard
+                ], $attributes);
             }
         }
     }

@@ -4,8 +4,8 @@ console.log('🔧 Environment check:', {
   all_env: import.meta.env
 });
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001/api';
-const SANCTUM_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:8001';
+const API_BASE_URL = 'http://localhost:8001/api'; // Temporarily hardcoded
+const SANCTUM_BASE_URL = 'http://localhost:8001';
 
 console.log('🔗 API URLs:', { API_BASE_URL, SANCTUM_BASE_URL });
 
@@ -42,16 +42,19 @@ class ApiClient {
 
   private loadToken(): void {
     this.token = localStorage.getItem('auth_token');
+    console.log('🔍 API Client: Loading token from localStorage:', !!this.token, this.token ? `(${this.token.substring(0, 20)}...)` : 'null');
   }
 
   private saveToken(token: string): void {
     this.token = token;
     localStorage.setItem('auth_token', token);
+    console.log('💾 API Client: Token saved to localStorage:', `(${token.substring(0, 20)}...)`);
   }
 
   private removeToken(): void {
     this.token = null;
     localStorage.removeItem('auth_token');
+    console.log('🗑️ API Client: Token removed from localStorage');
   }
 
   private getHeaders(): Record<string, string> {
@@ -62,7 +65,10 @@ class ApiClient {
     };
 
     if (this.token) {
+      console.log('🔑 API Client: Adding Authorization header with token (first 30 chars):', this.token.substring(0, 30) + '...');
       headers.Authorization = `Bearer ${this.token}`;
+    } else {
+      console.warn('🔑 API Client: No token available for authorization');
     }
 
     return headers;
@@ -81,9 +87,46 @@ class ApiClient {
       
       if (!response.ok) {
         console.error('❌ API Error:', data);
+        console.error('❌ Response status:', response.status, response.statusText);
+        console.error('❌ Response URL:', response.url);
+        if (data.errors) {
+          console.error('❌ Validation Errors:', data.errors);
+        }
         if (response.status === 401) {
-          this.removeToken();
-          window.location.href = '/login';
+          console.warn('🚪 401 Unauthorized detected');
+          console.warn('🚪 Current token before removal:', this.token ? `(${this.token.substring(0, 20)}...)` : 'null');
+          console.warn('🚪 Failed API call URL:', response.url);
+          console.warn('🚪 Failed API call endpoint:', response.url.replace(this.baseURL, '').replace(SANCTUM_BASE_URL, ''));
+          console.warn('🚪 Full response data:', data);
+          
+          // Get current user info from localStorage if available
+          const currentUserStr = localStorage.getItem('current_user');
+          if (currentUserStr) {
+            try {
+              const currentUser = JSON.parse(currentUserStr);
+              console.warn('🚪 Current user during 401:', {
+                username: currentUser.username,
+                role: currentUser.role,
+                institution: currentUser.institution?.name
+              });
+            } catch (e) {
+              console.warn('🚪 Could not parse current user from localStorage');
+            }
+          }
+          
+          // Only auto-logout if this isn't the initial auth check
+          // Let AuthContext handle the initial authentication properly
+          const isInitialAuthCheck = response.url.includes('/me') && !window.location.pathname.includes('/login');
+          
+          if (!isInitialAuthCheck) {
+            console.warn('🚪 Auto-logout: Removing token and redirecting to login');
+            this.removeToken();
+            window.location.href = '/login';
+          } else {
+            console.warn('🚪 Initial auth check failed - letting AuthContext handle it');
+            // Don't auto-logout on initial auth check
+            this.removeToken(); // Still remove invalid token
+          }
         }
         throw new Error(data.message || `HTTP error! status: ${response.status}`);
       }
@@ -207,7 +250,9 @@ class ApiClient {
   }
 
   isAuthenticated(): boolean {
-    return !!this.token;
+    const authenticated = !!this.token;
+    console.log('🔍 API Client: isAuthenticated check - token exists:', authenticated, 'token value:', this.token ? `(${this.token.substring(0, 20)}...)` : 'null');
+    return authenticated;
   }
 }
 

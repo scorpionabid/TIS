@@ -35,8 +35,8 @@ import {
 } from "lucide-react";
 import { assessmentTypeService, AssessmentType, AssessmentTypeFilters } from '@/services/assessmentTypes';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import AssessmentTypeModal from '@/components/modals/AssessmentTypeModal';
-// import { QuickAuth } from '@/components/auth/QuickAuth';
 
 export default function AssessmentTypes() {
   const [filters, setFilters] = useState<AssessmentTypeFilters>({
@@ -47,6 +47,7 @@ export default function AssessmentTypes() {
   const [selectedAssessmentType, setSelectedAssessmentType] = useState<AssessmentType | undefined>();
 
   const { toast } = useToast();
+  const { currentUser, hasRole } = useAuth();
 
   // Fetch assessment types data
   const { data: assessmentTypes, isLoading, error, refetch } = useQuery({
@@ -419,6 +420,9 @@ export default function AssessmentTypes() {
         onClose={() => setIsModalOpen(false)}
         assessmentType={selectedAssessmentType}
         onSuccess={handleAssessmentTypeSuccess}
+        mode={hasRole('regionadmin') ? 'enhanced' : 'basic'}
+        showInstitutionAssignment={hasRole(['superadmin', 'regionadmin'])}
+        showScheduling={hasRole(['superadmin', 'regionadmin'])}
       />
     </div>
   );

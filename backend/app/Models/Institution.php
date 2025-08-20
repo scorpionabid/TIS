@@ -22,6 +22,7 @@ class Institution extends Model
         'name',
         'short_name',
         'type',
+        'utis_code',
         'parent_id',
         'level',
         'region_code',

@@ -25,6 +25,8 @@ class Subject extends Model
         'description',
         'is_active',
         'grade_levels',
+        'weekly_hours',
+        'metadata',
     ];
 
     /**
@@ -39,6 +41,8 @@ class Subject extends Model
             'class_level_end' => 'integer',
             'is_active' => 'boolean',
             'grade_levels' => 'array',
+            'weekly_hours' => 'integer',
+            'metadata' => 'array',
         ];
     }
 

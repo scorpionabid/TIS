@@ -251,6 +251,7 @@ class PermissionSeeder extends Seeder
                 'documents.create', 'documents.read', 'documents.update', 'documents.share',
                 'tasks.read', 'tasks.update',
                 'assessments.create', 'assessments.read', 'assessments.update',
+                'assessment-types.read',
                 'rooms.create', 'rooms.read', 'rooms.update', 'rooms.manage', 'rooms.assign',
                 'events.create', 'events.read', 'events.update', 'events.manage', 'events.approve', 'events.register', 'events.cancel',
                 'psychology.read', 'psychology.manage',
@@ -271,34 +272,61 @@ class PermissionSeeder extends Seeder
                 'events.read', 'events.register',
                 'reports.read'
             ],
-            'müəllim' => [
-                'surveys.read', 'surveys.respond',
-                'schedules.read', 'grades.create', 'grades.read', 'attendance.manage', 'attendance.create', 'attendance.read', 'attendance.update',
-                'documents.read', 'documents.create', 'documents.share',
+            'muavin' => [
+                'schedules.create', 'schedules.read', 'schedules.update',
+                'classes.create', 'classes.read', 'classes.update', 'classes.manage', 'classes.assign',
+                'subjects.create', 'subjects.read', 'subjects.update', 'subjects.manage', 'subjects.assign',
+                'rooms.read', 'rooms.update', 'rooms.assign',
+                'grades.read', 'grades.update',
+                'attendance.read', 'attendance.update',
+                'documents.read', 'documents.create', 'documents.update',
+                'assessments.read', 'assessments.update',
                 'tasks.read', 'tasks.update',
-                'assessments.read',
-                'rooms.read',
-                'grades.read',
-                'events.read', 'events.register',
-                'view teacher_performance'
+                'view teacher_performance', 'edit teacher_performance',
+                'reports.read'
             ],
             'ubr' => [
-                'surveys.read', 'surveys.respond',
-                'schedules.read', 'grades.read', 'attendance.read',
+                'events.create', 'events.read', 'events.update', 'events.manage', 'events.register', 'events.cancel',
+                'schedules.read',
+                'grades.read', 'attendance.read',
                 'documents.read', 'documents.create', 'documents.share',
                 'tasks.read', 'tasks.update',
                 'assessments.read',
                 'rooms.read',
-                'grades.read',
-                'events.create', 'events.read', 'events.update', 'events.manage', 'events.register', 'events.cancel'
+                'surveys.read', 'surveys.respond',
+                'reports.read'
+            ],
+            'tesarrufat' => [
+                'inventory.create', 'inventory.read', 'inventory.update', 'inventory.manage', 
+                'inventory.assign', 'inventory.maintenance',
+                'rooms.read', 'rooms.update', 'rooms.manage',
+                'documents.read', 'documents.create', 'documents.update',
+                'tasks.read', 'tasks.update',
+                'reports.read',
+                'surveys.read', 'surveys.respond'
             ],
             'psixoloq' => [
-                'surveys.read', 'surveys.respond',
-                'schedules.read', 'grades.read', 'attendance.read',
+                'psychology.create', 'psychology.read', 'psychology.update', 'psychology.manage', 'psychology.assess',
+                'students.read', 'students.update',
+                'grades.read', 'attendance.read',
                 'documents.read', 'documents.create', 'documents.share',
                 'tasks.read', 'tasks.update',
                 'assessments.read',
-                'psychology.create', 'psychology.read', 'psychology.update', 'psychology.manage', 'psychology.assess'
+                'surveys.read', 'surveys.respond',
+                'reports.read'
+            ],
+            'müəllim' => [
+                'surveys.read', 'surveys.respond',
+                'schedules.read', 'grades.create', 'grades.read', 'grades.update',
+                'attendance.manage', 'attendance.create', 'attendance.read', 'attendance.update',
+                'documents.read', 'documents.create', 'documents.share',
+                'tasks.read', 'tasks.update',
+                'assessments.read', 'assessments.create', 'assessments.update',
+                'students.read',
+                'classes.read',
+                'rooms.read',
+                'events.read', 'events.register',
+                'view teacher_performance'
             ],
         ];
 

@@ -1,9 +1,10 @@
 import { SuperAdminDashboard } from "@/components/dashboard/SuperAdminDashboard";
 import { RegionAdminDashboard } from "@/components/regionadmin/RegionAdminDashboard";
 import { SektorAdminDashboard } from "@/components/sektoradmin/SektorAdminDashboard";
-import { SchoolAdminDashboard } from "@/components/dashboard/SchoolAdminDashboard";
+import { RoleBasedDashboard } from "@/components/dashboard/RoleBasedDashboard";
 import { TeacherDashboard } from "@/components/teacher/TeacherDashboard";
 import { useAuth } from "@/contexts/AuthContext";
+import { SCHOOL_ROLES } from "@/types/schoolRoles";
 import { Loader2 } from "lucide-react";
 
 const Index = () => {
@@ -21,7 +22,9 @@ const Index = () => {
   }
 
   // Role-based dashboard rendering
-  switch (currentUser?.role) {
+  const userRole = currentUser?.role;
+  
+  switch (userRole) {
     case 'superadmin':
       return (
         <div className="p-6">
@@ -42,19 +45,16 @@ const Index = () => {
         </div>
       );
     
-    case 'məktəbadmin':
-      return (
-        <div className="p-6">
-          <SchoolAdminDashboard />
-        </div>
-      );
-    
-    case 'müəllim':
-      return (
-        <div className="p-6">
-          <TeacherDashboard />
-        </div>
-      );
+    // School-related roles use the new role-based dashboard
+    case SCHOOL_ROLES.SCHOOL_ADMIN:
+    case 'məktəbadmin': // Legacy role name support
+    case SCHOOL_ROLES.MUAVIN:
+    case SCHOOL_ROLES.UBR:
+    case SCHOOL_ROLES.TESARRUFAT:
+    case SCHOOL_ROLES.PSIXOLOQ:
+    case SCHOOL_ROLES.MUELLIM:
+    case 'müəllim': // Legacy role name support
+      return <RoleBasedDashboard />;
     
     default:
       return (
@@ -62,7 +62,7 @@ const Index = () => {
           <div className="text-center py-12">
             <h2 className="text-2xl font-bold text-foreground">Dashboard</h2>
             <p className="text-muted-foreground mt-2">
-              Rol: {currentUser?.role || 'Təyin edilməyib'}
+              Rol: {userRole || 'Təyin edilməyib'}
             </p>
           </div>
         </div>

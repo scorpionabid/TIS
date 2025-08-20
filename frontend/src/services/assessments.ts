@@ -411,6 +411,184 @@ class AssessmentService {
     };
     return labels[status as keyof typeof labels] || status;
   }
+
+  /**
+   * Generate Excel template for assessment data entry
+   */
+  async generateExcelTemplate(params: {
+    institution_id: number;
+    assessment_type_id: number;
+    grade_level?: string;
+    class_name?: string;
+  }): Promise<Blob> {
+    const response = await apiClient.get('/assessment-excel/template', {
+      params,
+      responseType: 'blob'
+    });
+    return response.data;
+  }
+
+  /**
+   * Import assessment data from Excel file
+   */
+  async importExcelData(formData: FormData): Promise<{
+    total_rows: number;
+    successful_imports: number;
+    failed_imports: number;
+    errors: Array<{
+      row: number;
+      field: string;
+      message: string;
+      student_name?: string;
+    }>;
+    warnings: string[];
+    import_id: string;
+  }> {
+    const response = await apiClient.post('/assessment-excel/import', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  }
+
+  /**
+   * Export assessment data to Excel/CSV
+   */
+  async exportAssessmentData(params: {
+    institution_id: number;
+    assessment_type_id?: number;
+    grade_level?: string;
+    class_name?: string;
+    date_from?: string;
+    date_to?: string;
+    format: 'xlsx' | 'csv' | 'pdf';
+  }): Promise<Blob> {
+    const response = await apiClient.get('/assessment-excel/export', {
+      params,
+      responseType: 'blob'
+    });
+    return response.data;
+  }
+
+  /**
+   * Submit bulk assessment entries
+   */
+  async submitBulkAssessmentEntries(data: {
+    assessment_type_id: number;
+    institution_id: number;
+    assessment_date: string;
+    entries: Array<{
+      student_id: number;
+      score: number;
+      notes?: string;
+    }>;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    session_id: string;
+    entries_count: number;
+  }> {
+    const response = await apiClient.post('/bulk-assessments/submit', data);
+    return response.data;
+  }
+
+  /**
+   * Get region performance data
+   */
+  async getRegionPerformance(regionId: number, filters?: {
+    assessment_type_id?: number;
+    date_from?: string;
+    date_to?: string;
+    institution_type?: string;
+    district?: string;
+  }): Promise<{
+    region_id: number;
+    total_institutions: number;
+    assessed_institutions: number;
+    total_students: number;
+    assessed_students: number;
+    performance_distribution: {
+      excellent: number;
+      good: number;
+      satisfactory: number;
+      needs_improvement: number;
+      unsatisfactory: number;
+    };
+    top_performers: Array<{
+      institution_id: number;
+      institution_name: string;
+      average_score: number;
+      student_count: number;
+    }>;
+    low_performers: Array<{
+      institution_id: number;
+      institution_name: string;
+      average_score: number;
+      student_count: number;
+    }>;
+    trends?: {
+      monthly_averages: Array<{
+        month: string;
+        average_score: number;
+        student_count: number;
+      }>;
+    };
+    district_comparison?: Array<{
+      district: string;
+      average_score: number;
+      institution_count: number;
+      student_count: number;
+    }>;
+  }> {
+    const response = await apiClient.get(`/region-assessments/${regionId}/performance`, {
+      params: filters
+    });
+    return response.data;
+  }
+
+  /**
+   * Get region assessment summary statistics
+   */
+  async getRegionSummary(regionId: number): Promise<{
+    current_period: {
+      total_assessments: number;
+      completed_assessments: number;
+      pending_assessments: number;
+      average_score: number;
+    };
+    comparison: {
+      previous_period_score: number;
+      improvement_percentage: number;
+      trend: 'improving' | 'declining' | 'stable';
+    };
+    institution_breakdown: Array<{
+      type: string;
+      count: number;
+      average_score: number;
+      completion_rate: number;
+    }>;
+  }> {
+    const response = await apiClient.get(`/region-assessments/${regionId}/summary`);
+    return response.data;
+  }
+
+  /**
+   * Export region assessment report
+   */
+  async exportRegionReport(regionId: number, params: {
+    format: 'pdf' | 'xlsx';
+    include_charts?: boolean;
+    include_institution_details?: boolean;
+    date_from?: string;
+    date_to?: string;
+  }): Promise<Blob> {
+    const response = await apiClient.get(`/region-assessments/${regionId}/export`, {
+      params,
+      responseType: 'blob'
+    });
+    return response.data;
+  }
 }
 
 export const assessmentService = new AssessmentService();

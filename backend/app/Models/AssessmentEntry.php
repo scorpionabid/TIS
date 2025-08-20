@@ -27,6 +27,13 @@ class AssessmentEntry extends Model
         'approved_by',
         'approval_notes',
         'metadata',
+        'bulk_session_id',
+        'excel_import_id',
+        'entry_method',
+        'requires_review',
+        'reviewed_at',
+        'reviewed_by',
+        'review_notes',
     ];
 
     protected $casts = [
@@ -36,6 +43,8 @@ class AssessmentEntry extends Model
         'submitted_at' => 'datetime',
         'approved_at' => 'datetime',
         'metadata' => 'array',
+        'requires_review' => 'boolean',
+        'reviewed_at' => 'datetime',
     ];
 
     /**
@@ -55,7 +64,8 @@ class AssessmentEntry extends Model
 
     protected $appends = [
         'status_label',
-        'grade_label'
+        'grade_label',
+        'entry_method_label'
     ];
 
     /**
@@ -128,6 +138,30 @@ class AssessmentEntry extends Model
     }
 
     /**
+     * Relationship: Assessment entry reviewed by user
+     */
+    public function reviewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    /**
+     * Relationship: Assessment entry belongs to Excel import
+     */
+    public function excelImport(): BelongsTo
+    {
+        return $this->belongsTo(AssessmentExcelImport::class, 'excel_import_id');
+    }
+
+    /**
+     * Relationship: Assessment entry belongs to bulk session
+     */
+    public function bulkSession(): BelongsTo
+    {
+        return $this->belongsTo(BulkAssessmentSession::class, 'bulk_session_id', 'session_id');
+    }
+
+    /**
      * Scope: Filter by institution
      */
     public function scopeForInstitution($query, $institutionId)
@@ -171,6 +205,38 @@ class AssessmentEntry extends Model
     public function scopeByGradeLevel($query, $gradeLevel)
     {
         return $query->where('grade_level', $gradeLevel);
+    }
+
+    /**
+     * Scope: Filter by entry method
+     */
+    public function scopeByEntryMethod($query, $method)
+    {
+        return $query->where('entry_method', $method);
+    }
+
+    /**
+     * Scope: Filter entries requiring review
+     */
+    public function scopeRequiringReview($query)
+    {
+        return $query->where('requires_review', true)->whereNull('reviewed_at');
+    }
+
+    /**
+     * Scope: Filter by bulk session
+     */
+    public function scopeByBulkSession($query, $sessionId)
+    {
+        return $query->where('bulk_session_id', $sessionId);
+    }
+
+    /**
+     * Scope: Filter by Excel import
+     */
+    public function scopeByExcelImport($query, $importId)
+    {
+        return $query->where('excel_import_id', $importId);
     }
 
     /**
@@ -260,5 +326,57 @@ class AssessmentEntry extends Model
         ]);
         
         return true;
+    }
+
+    /**
+     * Mark entry as reviewed
+     */
+    public function markReviewed($user, $notes = null): bool
+    {
+        $this->update([
+            'requires_review' => false,
+            'reviewed_at' => now(),
+            'reviewed_by' => $user->id,
+            'review_notes' => $notes
+        ]);
+        
+        return true;
+    }
+
+    /**
+     * Check if entry was created via bulk method
+     */
+    public function isBulkEntry(): bool
+    {
+        return $this->entry_method === 'bulk';
+    }
+
+    /**
+     * Check if entry was imported via Excel
+     */
+    public function isExcelImport(): bool
+    {
+        return $this->entry_method === 'excel_import';
+    }
+
+    /**
+     * Check if entry requires review
+     */
+    public function needsReview(): bool
+    {
+        return $this->requires_review && !$this->reviewed_at;
+    }
+
+    /**
+     * Get entry method label
+     */
+    public function getEntryMethodLabelAttribute(): string
+    {
+        return match($this->entry_method) {
+            'manual' => 'Manual Daxiletmə',
+            'bulk' => 'Kütləvi Daxiletmə',
+            'excel_import' => 'Excel İmport',
+            default => 'Bilinməyən'
+        };
     }
 }

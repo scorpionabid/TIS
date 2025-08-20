@@ -57,6 +57,54 @@ export interface QuickAction {
   permission_required?: string[];
 }
 
+// School Student interfaces  
+export interface SchoolStudent {
+  id: number;
+  student_id: string;
+  utis_code?: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  date_of_birth?: string;
+  gender?: 'male' | 'female';
+  grade_level?: number;
+  class_name?: string;
+  enrollment_status: 'active' | 'inactive' | 'transferred' | 'graduated';
+  enrollment_date?: string;
+  guardian_name?: string;
+  guardian_phone?: string;
+  guardian_email?: string;
+  address?: string;
+  current_classes?: string[];
+}
+
+export interface CreateStudentData {
+  first_name: string;
+  last_name: string;
+  email?: string;
+  date_of_birth: string;
+  gender: 'male' | 'female';
+  guardian_name?: string;
+  guardian_phone?: string;
+  guardian_email?: string;
+  grade_id: number;
+  student_number?: string;
+  address?: string;
+}
+
+export interface ImportResult {
+  message: string;
+  success_count: number;
+  errors: string[];
+  total_processed: number;
+}
+
+export interface TemplateInfo {
+  download_url: string;
+  filename: string;
+  headers: string[];
+}
+
 // School-specific survey interfaces
 export interface SchoolSurvey extends Survey {
   response_status: 'not_started' | 'in_progress' | 'completed' | 'overdue';
@@ -343,6 +391,11 @@ class SchoolAdminService {
     return response.data || response as any;
   }
 
+  async createTeacher(data: Partial<SchoolTeacher>): Promise<SchoolTeacher> {
+    const response = await apiClient.post<SchoolTeacher>(`${this.baseEndpoint}/teachers`, data);
+    return response.data || response as any;
+  }
+
   async updateTeacher(teacherId: number, data: Partial<SchoolTeacher>): Promise<SchoolTeacher> {
     const response = await apiClient.put<SchoolTeacher>(`${this.baseEndpoint}/teachers/${teacherId}`, data);
     return response.data || response as any;
@@ -402,8 +455,58 @@ class SchoolAdminService {
   }
 
   // Students for school context
-  async getSchoolStudents(params?: PaginationParams & { class_id?: number }): Promise<Student[]> {
-    const response = await apiClient.get<Student[]>(`${this.baseEndpoint}/students`, params);
+  async getSchoolStudents(params?: PaginationParams & { 
+    grade_id?: number; 
+    enrollment_status?: string;
+    search?: string;
+  }): Promise<SchoolStudent[]> {
+    const response = await apiClient.get<SchoolStudent[]>(`${this.baseEndpoint}/students`, { params });
+    return response.data || response as any;
+  }
+
+  async createStudent(data: CreateStudentData): Promise<SchoolStudent> {
+    const response = await apiClient.post<SchoolStudent>(`${this.baseEndpoint}/students`, data);
+    return response.data || response as any;
+  }
+
+  async enrollStudent(studentId: number, gradeId: number): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.post<{ success: boolean; message: string }>(`${this.baseEndpoint}/students/enroll`, {
+      student_id: studentId,
+      grade_id: gradeId
+    });
+    return response.data || response as any;
+  }
+
+  async unenrollStudent(studentId: number, gradeId: number): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.post<{ success: boolean; message: string }>(`${this.baseEndpoint}/students/unenroll`, {
+      student_id: studentId,
+      grade_id: gradeId
+    });
+    return response.data || response as any;
+  }
+
+  // Import methods
+  async importStudents(file: File): Promise<ImportResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await apiClient.post<ImportResult>(`${this.baseEndpoint}/import/students`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data || response as any;
+  }
+
+  async importTeachers(file: File): Promise<ImportResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await apiClient.post<ImportResult>(`${this.baseEndpoint}/import/teachers`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data || response as any;
   }
 
@@ -412,13 +515,6 @@ class SchoolAdminService {
     return response.data || response as any;
   }
 
-  async enrollStudent(studentId: number, classId: number): Promise<void> {
-    await apiClient.post(`${this.baseEndpoint}/classes/${classId}/students/${studentId}`);
-  }
-
-  async unenrollStudent(studentId: number, classId: number): Promise<void> {
-    await apiClient.delete(`${this.baseEndpoint}/classes/${classId}/students/${studentId}`);
-  }
 
   // Utility methods
   async exportData(type: 'attendance' | 'grades' | 'students', params?: any): Promise<Blob> {

@@ -32,6 +32,9 @@ import { studentService, Student } from '@/services/students';
 import { assessmentEntryService, AssessmentEntryForm } from '@/services/assessmentEntries';
 import { useToast } from '@/hooks/use-toast';
 import { QuickAuth } from '@/components/auth/QuickAuth';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BulkEntryInterface } from '@/components/assessment/BulkEntryInterface';
+import { ExcelImportExport } from '@/components/assessment/ExcelImportExport';
 
 
 interface AssessmentEntry {
@@ -57,6 +60,7 @@ export default function AssessmentEntry() {
   const [assessmentDate, setAssessmentDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [searchTerm, setSearchTerm] = useState('');
   const [assessmentEntries, setAssessmentEntries] = useState<Map<number, AssessmentEntry>>(new Map());
+  const [selectedTab, setSelectedTab] = useState('individual');
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -76,8 +80,24 @@ export default function AssessmentEntry() {
   // Fetch institutions
   const { data: institutionsResponse, isLoading: institutionsLoading } = useQuery({
     queryKey: ['institutions-dropdown'],
-    queryFn: () => institutionService.getInstitutions({ per_page: 100 }),
+    queryFn: () => {
+      console.log('🏢 AssessmentEntry: Fetching institutions...');
+      console.log('🔑 AssessmentEntry: Current token exists:', !!localStorage.getItem('auth_token'));
+      console.log('👤 AssessmentEntry: Current user:', JSON.stringify({ 
+        name: currentUser?.name, 
+        role: currentUser?.role,
+        permissions: currentUser?.permissions?.slice(0, 5) 
+      }));
+      return institutionService.getInstitutions({ per_page: 100 });
+    },
     staleTime: 1000 * 60 * 10,
+    onSuccess: (data) => {
+      console.log('✅ AssessmentEntry: Institutions loaded successfully:', data?.data?.length || 0, 'items');
+    },
+    onError: (error) => {
+      console.error('❌ AssessmentEntry: Failed to load institutions:', error);
+      console.error('❌ AssessmentEntry: Institution API call failed - this might cause logout');
+    }
   });
 
   // Extract institutions array from response
@@ -86,8 +106,25 @@ export default function AssessmentEntry() {
   // Fetch assessment types
   const { data: assessmentTypes, isLoading: assessmentTypesLoading } = useQuery({
     queryKey: ['assessment-types-dropdown'],
-    queryFn: () => assessmentTypeService.getAssessmentTypesDropdown(),
+    queryFn: () => {
+      console.log('📋 AssessmentEntry: Fetching assessment types...');
+      console.log('🔑 AssessmentEntry: Token check before assessment types call:', !!localStorage.getItem('auth_token'));
+      console.log('👤 AssessmentEntry: User permissions for assessment-types:', 
+        currentUser?.permissions?.filter(p => p.includes('assessment')) || []
+      );
+      return assessmentTypeService.getAssessmentTypesDropdown();
+    },
     staleTime: 1000 * 60 * 10,
+    onSuccess: (data) => {
+      console.log('✅ AssessmentEntry: Assessment types loaded successfully:', data?.length || 0, 'items');
+      data?.forEach(type => {
+        console.log(`  - ${type.name} (${type.category}) - ID: ${type.id}`);
+      });
+    },
+    onError: (error) => {
+      console.error('❌ AssessmentEntry: Failed to load assessment types:', error);
+      console.error('❌ AssessmentEntry: Assessment types API call failed - this LIKELY causes logout for school1_admin');
+    }
   });
 
   // Fetch students for selected institution
@@ -410,34 +447,43 @@ export default function AssessmentEntry() {
         </Card>
       )}
 
-      {/* Students Table */}
+      {/* Data Entry Methods */}
       {selectedInstitution && selectedAssessmentType && (
         <Card>
           <CardHeader>
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle className="flex items-center space-x-2">
-                  <Users className="h-5 w-5" />
-                  <span>Şagird Qiymətləndirmələri</span>
-                </CardTitle>
-                <CardDescription>
-                  {studentsData?.pagination?.total || filteredStudents.length} şagird • {assessmentEntries.size} qiymət daxil edilib
-                </CardDescription>
-              </div>
-              <Button 
-                onClick={handleSubmit}
-                disabled={submitAssessmentMutation.isPending || assessmentEntries.size === 0}
-              >
-                {submitAssessmentMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4 mr-2" />
-                )}
-                Saxla
-              </Button>
-            </div>
+            <CardTitle className="flex items-center space-x-2">
+              <Users className="h-5 w-5" />
+              <span>Qiymətləndirmə Daxil Etmə</span>
+            </CardTitle>
+            <CardDescription>
+              {studentsData?.pagination?.total || filteredStudents.length} şagird • {assessmentEntries.size} qiymət daxil edilib
+            </CardDescription>
           </CardHeader>
           <CardContent>
+            <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="individual">Fərdi Daxiletmə</TabsTrigger>
+                <TabsTrigger value="bulk">Kütləvi Daxiletmə</TabsTrigger>
+                <TabsTrigger value="excel">Excel Import/Export</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="individual" className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <p className="text-sm text-muted-foreground">
+                    Hər şagird üçün ayrıca qiymət daxil edin
+                  </p>
+                  <Button 
+                    onClick={handleSubmit}
+                    disabled={submitAssessmentMutation.isPending || assessmentEntries.size === 0}
+                  >
+                    {submitAssessmentMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    Saxla
+                  </Button>
+                </div>
             {studentsLoading ? (
               <div className="flex justify-center items-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin" />
@@ -517,6 +563,42 @@ export default function AssessmentEntry() {
                 </p>
               </div>
             )}
+              </TabsContent>
+
+              <TabsContent value="bulk" className="space-y-4">
+                <BulkEntryInterface
+                  institutionId={selectedInstitution}
+                  assessmentTypeId={selectedAssessmentType.id}
+                  assessmentType={selectedAssessmentType}
+                  assessmentDate={assessmentDate}
+                  gradeLevel={selectedGradeLevel || undefined}
+                  className={undefined}
+                  onSave={(entries) => {
+                    toast({
+                      title: 'Kütləvi daxiletmə tamamlandı',
+                      description: `${entries.length} qiymətləndirmə saxlanıldı`,
+                    });
+                    // Refresh the individual tab data
+                    refetchStudents();
+                  }}
+                />
+              </TabsContent>
+
+              <TabsContent value="excel" className="space-y-4">
+                <ExcelImportExport
+                  selectedInstitution={selectedInstitution}
+                  selectedAssessmentType={selectedAssessmentType.id}
+                  onImportComplete={(result) => {
+                    toast({
+                      title: 'Excel import tamamlandı',
+                      description: `${result.successful_imports} qiymətləndirmə uğurla import edildi`,
+                    });
+                    // Refresh the individual tab data
+                    refetchStudents();
+                  }}
+                />
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       )}

@@ -36,8 +36,6 @@ import SchoolSchedules from "./pages/SchoolSchedules";
 import AssessmentTypes from "./pages/AssessmentTypes";
 import AssessmentResults from "./pages/AssessmentResults";
 import AssessmentEntry from "./pages/AssessmentEntry";
-import AttendanceReport from "./pages/AttendanceReport";
-import AttendanceRegistration from "./pages/AttendanceRegistration";
 import RegionAdminIndex from "./pages/regionadmin/RegionAdminIndex";
 import RegionAdminUsers from "./pages/regionadmin/RegionAdminUsers";
 import RegionAdminSectors from "./pages/regionadmin/RegionAdminSectors";
@@ -49,6 +47,7 @@ import SchoolClasses from "./pages/school/SchoolClasses";
 import SchoolAttendanceRecord from "./pages/school/SchoolAttendanceRecord";
 import SchoolGradebook from "./pages/school/SchoolGradebook";
 import SchoolAssessments from "./pages/SchoolAssessments";
+import AttendanceReports from "./pages/AttendanceReports";
 import { useState } from "react";
 
 const queryClient = new QueryClient();
@@ -152,9 +151,6 @@ const App = () => (
               <Route path="assessments/results" element={<AssessmentResults />} />
               <Route path="assessments/entry" element={<AssessmentEntry />} />
               
-              {/* Attendance Management Routes */}
-              <Route path="school/attendance/report" element={<AttendanceReport />} />
-              <Route path="school/attendance/registration" element={<AttendanceRegistration />} />
               
               {/* RegionAdmin Routes */}
               <Route path="regionadmin" element={<RegionAdminIndex />} />
@@ -178,6 +174,7 @@ const App = () => (
               <Route path="school/teachers" element={<SchoolTeachers />} />
               <Route path="school/classes" element={<SchoolClasses />} />
               <Route path="school/attendance" element={<SchoolAttendanceRecord />} />
+              <Route path="school/attendance/reports" element={<AttendanceReports />} />
               <Route path="school/assessments" element={<SchoolAssessments />} />
               <Route path="school/assessments/reports" element={<AssessmentResults />} />
               <Route path="school/gradebook" element={<SchoolGradebook />} />

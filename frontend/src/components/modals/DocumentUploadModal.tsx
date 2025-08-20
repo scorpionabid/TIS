@@ -1,47 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import { useForm } from 'react-hook-form';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Checkbox } from '@/components/ui/checkbox';
-import { 
-  Upload, 
-  File, 
-  X, 
-  Loader2,
-  FileText,
-  Image,
-  Archive,
-  Video,
-  Music,
-  AlertCircle,
-  Building2,
-  Users,
-  Search
-} from 'lucide-react';
-import { documentService, CreateDocumentData } from '@/services/documents';
-import { institutionService, Institution } from '@/services/institutions';
-import { departmentService, Department } from '@/services/departments';
-import { useToast } from '@/hooks/use-toast';
-import { useQueryClient, useQuery } from '@tanstack/react-query';
+// Re-export the new modular document upload modal
+export { default } from '../documents/DocumentUploadModal';
 
+// Keep the old interface for backward compatibility
 interface DocumentUploadModalProps {
   isOpen: boolean;
   onClose: () => void;

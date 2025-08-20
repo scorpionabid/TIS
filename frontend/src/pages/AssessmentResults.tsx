@@ -38,6 +38,7 @@ import { institutionService } from '@/services/institutions';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { QuickAuth } from '@/components/auth/QuickAuth';
+import { RegionAssessmentDashboard } from '@/components/dashboard/RegionAssessmentDashboard';
 
 export default function AssessmentResults() {
   const [filters, setFilters] = useState<AssessmentFilters>({
@@ -413,7 +414,7 @@ export default function AssessmentResults() {
 
       {/* Main Content Tabs */}
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className={`grid w-full ${hasRole(['superadmin', 'regionadmin']) ? 'grid-cols-4' : 'grid-cols-3'}`}>
           <TabsTrigger value="overview" className="flex items-center space-x-2">
             <BarChart3 className="h-4 w-4" />
             <span>Ümumi Baxış</span>
@@ -426,6 +427,12 @@ export default function AssessmentResults() {
             <Globe className="h-4 w-4" />
             <span>BSQ Nəticələri</span>
           </TabsTrigger>
+          {hasRole(['superadmin', 'regionadmin']) && (
+            <TabsTrigger value="region-analysis" className="flex items-center space-x-2">
+              <Users className="h-4 w-4" />
+              <span>Region Analizi</span>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -635,6 +642,12 @@ export default function AssessmentResults() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {hasRole(['superadmin', 'regionadmin']) && (
+          <TabsContent value="region-analysis" className="space-y-4">
+            <RegionAssessmentDashboard />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

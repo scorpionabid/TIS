@@ -22,6 +22,14 @@ export const ModernSidebar: React.FC<ModernSidebarProps> = ({ onLogout }) => {
       console.log('Current User:', currentUser);
       const menuGroups = getMenuForRole(currentUser.role);
       console.log('Menu Groups for Role:', menuGroups);
+      
+      // Debug each menu group
+      menuGroups.forEach((group, index) => {
+        console.log(`Menu Group ${index + 1}:`, group.label, 'Items:', group.items.length);
+        group.items.forEach((item, itemIndex) => {
+          console.log(`  Item ${itemIndex + 1}:`, item.label, 'Path:', item.path, 'Children:', item.children?.length || 0);
+        });
+      });
     }
   }, [currentUser]);
 
