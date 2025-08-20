@@ -231,7 +231,7 @@ class UserSession extends Model
     /**
      * Extend session expiration
      */
-    public function extend(int $hours = null): void
+    public function extend(?int $hours = null): void
     {
         $hours = $hours ?? self::SESSION_TIMEOUT_HOURS;
         
