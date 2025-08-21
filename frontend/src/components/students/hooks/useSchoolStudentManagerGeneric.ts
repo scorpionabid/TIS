@@ -56,7 +56,7 @@ export const useSchoolStudentManager = () => {
     entityType: 'students',
     entityName: 'Şagird',
     service: {
-      get: schoolAdminService.getStudents,
+      get: schoolAdminService.getSchoolStudents,
       create: schoolAdminService.createStudent,
       update: schoolAdminService.updateStudent,
       delete: schoolAdminService.deleteStudent,

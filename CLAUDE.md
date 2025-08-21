@@ -238,9 +238,9 @@ src/components/
 - **Docker Frontend**: http://localhost:3000
 
 ## Test Credentials
-- **SuperAdmin**: superadmin / admin123
-- **RegionAdmin**: admin / admin123  
-- **TestUser**: testuser / test123
+- **SuperAdmin**: superadmin@atis.az / admin123
+- **RegionAdmin**: admin@atis.az / admin123  
+- **TestUser**: test@example.com / test123
 
 ## Production Considerations
 - Set `APP_ENV=production` and `APP_DEBUG=false`

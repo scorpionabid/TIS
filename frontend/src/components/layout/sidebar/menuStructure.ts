@@ -17,7 +17,11 @@ import {
   ClipboardIcon,
   DownloadIcon,
   BabyIcon,
-  LinkIcon
+  LinkIcon,
+  CalendarIcon,
+  Clock,
+  BookOpen,
+  CheckSquare
 } from "lucide-react";
 import { MenuGroup, MenuItem } from "./types";
 
@@ -41,6 +45,8 @@ export const getSuperAdminMenuStructure = (): MenuGroup[] => [
       { icon: MapPinIcon, label: "Regionlar", path: "/regions" },
       { icon: UsersIcon, label: "Sektorlar", path: "/sectors" },
       { icon: DatabaseIcon, label: "İerarxiya İdarəetməsi", path: "/hierarchy" },
+      { icon: SettingsIcon, label: "Müəssisə Növləri", path: "/institution-types-management" },
+      { icon: BookOpen, label: "Fənnlər", path: "/subjects" },
     ]
   },
   {
@@ -64,10 +70,52 @@ export const getSuperAdminMenuStructure = (): MenuGroup[] => [
         hasSubmenu: true,
         key: "school",
         submenu: [
-          { label: "Dərs Yükü", path: "/school/workload" },
-          { label: "Dərs Cədvəli", path: "/school/schedules" },
-          { label: "Davamiyyət", path: "/school/attendance" },
+          { label: "Fənnlər", path: "/subjects" },
+          { label: "Şagirdlər", path: "/school/students" },
+          { label: "Müəllimlər", path: "/school/teachers" },
+          { label: "Siniflər", path: "/school/classes" },
+          { label: "Davamiyyət Qeydiyyatı", path: "/school/attendance" },
+          { label: "Davamiyyət Hesabatları", path: "/school/attendance/reports" },
           { label: "Qiymətləndirmələr", path: "/school/assessments" },
+          { label: "Qiymət Kitabı", path: "/school/gradebook" },
+          { label: "Məktəb Sorğuları", path: "/school/surveys" },
+          { label: "Məktəb Tapşırıqları", path: "/school/tasks" },
+        ]
+      }
+    ]
+  },
+  {
+    groupLabel: "Cədvəl İdarəetməsi",
+    items: [
+      {
+        icon: CalendarIcon,
+        label: "Dərs Cədvəlləri",
+        hasSubmenu: true,
+        key: "schedules",
+        submenu: [
+          { label: "Məktəb Cədvəl İdarəetməsi", path: "/school/schedule-management" },
+          { label: "Məktəb Cədvəlləri", path: "/school/schedules" },
+          { label: "Regional Cədvəl Nəzarəti", path: "/regionadmin/schedules" },
+          { label: "Müəllim Cədvəli", path: "/teacher/schedule" },
+          { label: "Dərs Yükü", path: "/school/workload" },
+        ]
+      }
+    ]
+  },
+  {
+    groupLabel: "Regional İdarəetmə",
+    items: [
+      {
+        icon: MapPinIcon,
+        label: "Regional İdarəetmə",
+        hasSubmenu: true,
+        key: "regionadmin",
+        submenu: [
+          { label: "Regional İstifadəçilər", path: "/regionadmin/users/operators" },
+          { label: "Sektor Adminləri", path: "/regionadmin/users/sektoradmins" },
+          { label: "Məktəb Adminləri", path: "/regionadmin/users/schooladmins" },
+          { label: "Müəllimlər", path: "/regionadmin/users/teachers" },
+          { label: "Regional Sektorlar", path: "/regionadmin/sectors" },
         ]
       }
     ]
@@ -120,8 +168,10 @@ export const getOtherRoleMenuStructure = (userRole: string): MenuItem[] => {
 
   const roleSpecificItems: Record<string, MenuItem[]> = {
     RegionAdmin: [
+      { icon: BookOpen, label: "Fənnlər", path: "/subjects" },
       { icon: ClipboardListIcon, label: "Sorğular", path: "/surveys" },
       { icon: BarChart3Icon, label: "Sorğu Nəticələri", path: "/survey-results" },
+      { icon: CalendarIcon, label: "Cədvəl Nəzarəti", path: "/regionadmin/schedules" },
       { icon: UsersIcon, label: "Sektorlar", path: "/sectors" },
       { icon: FolderIcon, label: "Sənədlər", path: "/documents" },
       { icon: BarChart3Icon, label: "Hesabatlar", path: "/reports" },
@@ -140,10 +190,12 @@ export const getOtherRoleMenuStructure = (userRole: string): MenuItem[] => {
     SchoolAdmin: [
       { icon: ClipboardListIcon, label: "Sorğular", path: "/surveys" },
       { icon: FileTextIcon, label: "Tapşırıqlar", path: "/tasks" },
+      { icon: CalendarIcon, label: "Cədvəl İdarəetməsi", path: "/school/schedule-management" },
       { icon: UsersIcon, label: "Personallar", path: "/staff" },
       { icon: BarChart3Icon, label: "Məktəb hesabatları", path: "/school-reports" },
     ],
     Teacher: [
+      { icon: CalendarIcon, label: "Mənim Cədvəlim", path: "/teacher/schedule" },
       { icon: ClipboardListIcon, label: "Tapşırıqlar", path: "/assignments" },
       { icon: FileTextIcon, label: "Dərs planları", path: "/lesson-plans" },
       { icon: BarChart3Icon, label: "Qiymətləndirmələr", path: "/assessments" },

@@ -24,6 +24,8 @@ import {
   ClipboardCheck,
   Target,
   Award,
+  Calendar,
+  Clock,
   LucideIcon,
 } from 'lucide-react';
 import { UserRole } from '@/contexts/AuthContext';
@@ -123,6 +125,13 @@ export const improvedNavigationConfig: MenuGroup[] = [
         label: 'İerarxiya İdarəsi',
         path: '/hierarchy',
         icon: Database,
+        roles: ['superadmin', 'regionadmin']
+      },
+      {
+        id: 'subjects',
+        label: 'Fənnlər',
+        path: '/subjects',
+        icon: BookOpen,
         roles: ['superadmin', 'regionadmin']
       }
     ]
@@ -265,6 +274,52 @@ export const improvedNavigationConfig: MenuGroup[] = [
     ]
   },
 
+  // 📅 Cədvəl İdarəetməsi
+  {
+    id: 'schedule-management',
+    label: 'Cədvəl İdarəetməsi',
+    roles: ['superadmin', 'regionadmin', 'sektoradmin', 'məktəbadmin', 'müəllim'],
+    items: [
+      {
+        id: 'schedule-overview',
+        label: 'Dərs Cədvəlləri',
+        icon: Calendar,
+        roles: ['superadmin', 'regionadmin', 'sektoradmin', 'məktəbadmin', 'müəllim'],
+        children: [
+          {
+            id: 'school-schedule-management',
+            label: 'Məktəb Cədvəl İdarəetməsi',
+            path: '/school/schedule-management',
+            roles: ['superadmin', 'məktəbadmin']
+          },
+          {
+            id: 'school-schedules',
+            label: 'Məktəb Cədvəlləri',
+            path: '/school/schedules',
+            roles: ['superadmin', 'məktəbadmin']
+          },
+          {
+            id: 'regional-schedules',
+            label: 'Regional Cədvəl Nəzarəti',
+            path: '/regionadmin/schedules',
+            roles: ['superadmin', 'regionadmin']
+          },
+          {
+            id: 'teacher-schedule',
+            label: 'Müəllim Cədvəli',
+            path: '/teacher/schedule',
+            roles: ['superadmin', 'müəllim']
+          },
+          {
+            id: 'school-workload',
+            label: 'Dərs Yükü',
+            path: '/school/workload',
+            roles: ['superadmin', 'məktəbadmin']
+          }
+        ]
+      }
+    ]
+  },
 
   // 📁 Məzmun İdarəetməsi
   {

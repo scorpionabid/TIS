@@ -44,13 +44,14 @@ Route::prefix('approvals')->group(function () {
 Route::prefix('teaching-loads')->group(function () {
     Route::get('/', [TeachingLoadApiController::class, 'index'])->middleware('permission:teaching_loads.read');
     Route::post('/', [TeachingLoadApiController::class, 'store'])->middleware('permission:teaching_loads.write');
-    Route::get('/{teachingLoad}', [TeachingLoadApiController::class, 'show'])->middleware('permission:teaching_loads.read');
-    Route::put('/{teachingLoad}', [TeachingLoadApiController::class, 'update'])->middleware('permission:teaching_loads.write');
-    Route::delete('/{teachingLoad}', [TeachingLoadApiController::class, 'destroy'])->middleware('permission:teaching_loads.write');
+    Route::get('/statistics', [TeachingLoadApiController::class, 'getAnalytics'])->middleware('permission:teaching_loads.analytics');
     Route::get('/teacher/{teacher}', [TeachingLoadApiController::class, 'getByTeacher'])->middleware('permission:teaching_loads.read');
     Route::get('/institution/{institution}', [TeachingLoadApiController::class, 'getByInstitution'])->middleware('permission:teaching_loads.read');
     Route::post('/bulk-assign', [TeachingLoadApiController::class, 'bulkAssign'])->middleware('permission:teaching_loads.bulk');
     Route::get('/analytics/overview', [TeachingLoadApiController::class, 'getAnalytics'])->middleware('permission:teaching_loads.analytics');
+    Route::get('/{teachingLoad}', [TeachingLoadApiController::class, 'show'])->middleware('permission:teaching_loads.read');
+    Route::put('/{teachingLoad}', [TeachingLoadApiController::class, 'update'])->middleware('permission:teaching_loads.write');
+    Route::delete('/{teachingLoad}', [TeachingLoadApiController::class, 'destroy'])->middleware('permission:teaching_loads.write');
 });
 
 // Attendance Management Routes

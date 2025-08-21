@@ -1,11 +1,11 @@
-import { BaseService } from './BaseService';
+import { apiClient } from './api';
 
 export interface TeachingLoad {
   id: number;
   teacher_id: number;
   subject_id: number;
   class_id: number;
-  hours_per_week: number;
+  weekly_hours: number;
   academic_year_id: number;
   teacher_name?: string;
   subject_name: string;
@@ -26,23 +26,21 @@ export interface CreateTeachingLoadData {
   teacher_id: number;
   subject_id: number;
   class_id: number;
-  hours_per_week: number;
+  weekly_hours: number;
   academic_year_id: number;
 }
 
 export interface UpdateTeachingLoadData {
-  hours_per_week: number;
+  weekly_hours: number;
 }
 
-class WorkloadService extends BaseService {
-  constructor() {
-    super('/teaching-loads');
-  }
+class WorkloadService {
+  private baseUrl = '/teaching-loads';
 
   async getTeachingLoads(): Promise<{ success: boolean; data: TeachingLoad[] }> {
     console.log('🔍 WorkloadService.getTeachingLoads called');
     try {
-      const response = await this.get<TeachingLoad[]>(this.baseUrl);
+      const response = await apiClient.get<TeachingLoad[]>(this.baseUrl);
       console.log('✅ WorkloadService.getTeachingLoads successful:', response);
       return response as { success: boolean; data: TeachingLoad[] };
     } catch (error) {
@@ -54,7 +52,7 @@ class WorkloadService extends BaseService {
   async getTeacherWorkload(teacherId: number): Promise<{ success: boolean; data: TeacherWorkload }> {
     console.log('🔍 WorkloadService.getTeacherWorkload called for teacher:', teacherId);
     try {
-      const response = await this.get<TeacherWorkload>(`${this.baseUrl}/teacher/${teacherId}`);
+      const response = await apiClient.get<TeacherWorkload>(`${this.baseUrl}/teacher/${teacherId}`);
       console.log('✅ WorkloadService.getTeacherWorkload successful:', response);
       return response as { success: boolean; data: TeacherWorkload };
     } catch (error) {
@@ -66,7 +64,7 @@ class WorkloadService extends BaseService {
   async createTeachingLoad(data: CreateTeachingLoadData): Promise<{ success: boolean; message: string; data: { id: number } }> {
     console.log('🔍 WorkloadService.createTeachingLoad called with:', data);
     try {
-      const response = await this.post<{ id: number }>(this.baseUrl, data);
+      const response = await apiClient.post<{ id: number }>(this.baseUrl, data);
       console.log('✅ WorkloadService.createTeachingLoad successful:', response);
       return response as { success: boolean; message: string; data: { id: number } };
     } catch (error) {
@@ -78,7 +76,7 @@ class WorkloadService extends BaseService {
   async updateTeachingLoad(id: number, data: UpdateTeachingLoadData): Promise<{ success: boolean; message: string }> {
     console.log('🔍 WorkloadService.updateTeachingLoad called for ID:', id, 'with data:', data);
     try {
-      const response = await this.put<void>(`${this.baseUrl}/${id}`, data);
+      const response = await apiClient.put<void>(`${this.baseUrl}/${id}`, data);
       console.log('✅ WorkloadService.updateTeachingLoad successful:', response);
       return response as { success: boolean; message: string };
     } catch (error) {
@@ -90,7 +88,7 @@ class WorkloadService extends BaseService {
   async deleteTeachingLoad(id: number): Promise<{ success: boolean; message: string }> {
     console.log('🔍 WorkloadService.deleteTeachingLoad called for ID:', id);
     try {
-      const response = await this.delete<void>(`${this.baseUrl}/${id}`);
+      const response = await apiClient.delete<void>(`${this.baseUrl}/${id}`);
       console.log('✅ WorkloadService.deleteTeachingLoad successful:', response);
       return response as { success: boolean; message: string };
     } catch (error) {
@@ -110,7 +108,7 @@ class WorkloadService extends BaseService {
   }> {
     console.log('🔍 WorkloadService.getWorkloadStatistics called');
     try {
-      const response = await this.get<{
+      const response = await apiClient.get<{
         total_teachers: number;
         overloaded_teachers: number;
         total_hours_assigned: number;

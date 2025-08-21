@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, X } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { subjectService } from '@/services/subjects';
 import type { NewAssessmentData } from './hooks/useAssessmentGradebook';
 
 interface AssessmentCreateModalProps {
@@ -64,20 +66,13 @@ export const AssessmentCreateModal: React.FC<AssessmentCreateModalProps> = ({
     { value: 'practical', label: 'Praktiki' }
   ];
 
-  const subjectSuggestions = [
-    'Riyaziyyat',
-    'Fizika', 
-    'Kimya',
-    'Biologiya',
-    'Tarix',
-    'Coğrafiya',
-    'Ədəbiyyat',
-    'İngilis dili',
-    'İnformatika',
-    'Bədən tərbiyəsi',
-    'Musiqi',
-    'Təsviri sənət'
-  ];
+  // Load subjects dynamically
+  const { data: subjectsResponse } = useQuery({
+    queryKey: ['assessment-subjects'],
+    queryFn: () => subjectService.getSubjects(),
+  });
+
+  const subjectSuggestions = (subjectsResponse?.data || []).map((subject: any) => subject.name);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

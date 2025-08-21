@@ -380,6 +380,10 @@ class SchoolAdminService {
     return response.data || response as any;
   }
 
+  async deleteClass(classId: number): Promise<void> {
+    await apiClient.delete(`${this.baseEndpoint}/classes/${classId}`);
+  }
+
   // Teacher management methods
   async getTeachers(params?: PaginationParams): Promise<SchoolTeacher[]> {
     const response = await apiClient.get<SchoolTeacher[]>(`${this.baseEndpoint}/teachers`, params);
@@ -399,6 +403,10 @@ class SchoolAdminService {
   async updateTeacher(teacherId: number, data: Partial<SchoolTeacher>): Promise<SchoolTeacher> {
     const response = await apiClient.put<SchoolTeacher>(`${this.baseEndpoint}/teachers/${teacherId}`, data);
     return response.data || response as any;
+  }
+
+  async deleteTeacher(teacherId: number): Promise<void> {
+    await apiClient.delete(`${this.baseEndpoint}/teachers/${teacherId}`);
   }
 
   // Attendance methods
@@ -513,6 +521,15 @@ class SchoolAdminService {
   async getStudentsByClass(classId: number): Promise<Student[]> {
     const response = await apiClient.get<Student[]>(`${this.baseEndpoint}/classes/${classId}/students`);
     return response.data || response as any;
+  }
+
+  async updateStudent(studentId: number, data: Partial<CreateStudentData>): Promise<SchoolStudent> {
+    const response = await apiClient.put<SchoolStudent>(`${this.baseEndpoint}/students/${studentId}`, data);
+    return response.data || response as any;
+  }
+
+  async deleteStudent(studentId: number): Promise<void> {
+    await apiClient.delete(`${this.baseEndpoint}/students/${studentId}`);
   }
 
 

@@ -193,6 +193,15 @@ class PermissionSeeder extends Seeder
             'departments.update',
             'departments.delete',
             'departments.manage',
+
+            // Teaching Load Management - Phase 3 API
+            'teaching_loads.create',
+            'teaching_loads.read',
+            'teaching_loads.update',
+            'teaching_loads.delete',
+            'teaching_loads.write',
+            'teaching_loads.bulk',
+            'teaching_loads.analytics',
         ];
 
         foreach ($permissions as $permissionName) {
@@ -223,6 +232,7 @@ class PermissionSeeder extends Seeder
                 'reports.read', 'reports.create', 'reports.export',
                 'assessments.create', 'assessments.read', 'assessments.update', 'assessments.delete', 'assessments.approve', 'assessments.manage', 'assessments.export',
                 'assessment-types.create', 'assessment-types.read', 'assessment-types.update', 'assessment-types.delete', 'assessment-types.manage',
+                'subjects.create', 'subjects.read', 'subjects.update', 'subjects.delete', 'subjects.manage', 'subjects.assign',
                 'approvals.create', 'approvals.read', 'approvals.update', 'approvals.delete', 'approvals.approve', 'approvals.reject',
                 'rooms.create', 'rooms.read', 'rooms.update', 'rooms.delete', 'rooms.manage', 'rooms.assign',
                 'grades.create', 'grades.read', 'grades.update', 'grades.delete', 'grades.manage', 'grades.assign',
@@ -231,6 +241,7 @@ class PermissionSeeder extends Seeder
                 'inventory.create', 'inventory.read', 'inventory.update', 'inventory.delete', 'inventory.manage', 'inventory.assign', 'inventory.maintenance',
                 'view teacher_performance', 'create teacher_performance', 'edit teacher_performance', 'delete teacher_performance', 'manage teacher_performance', 'approve teacher_performance',
                 'departments.create', 'departments.read', 'departments.update', 'departments.delete', 'departments.manage',
+                'teaching_loads.create', 'teaching_loads.read', 'teaching_loads.update', 'teaching_loads.delete', 'teaching_loads.write', 'teaching_loads.bulk', 'teaching_loads.analytics',
                 'system.config', 'analytics.view'
             ],
             'regionadmin' => [
@@ -243,6 +254,7 @@ class PermissionSeeder extends Seeder
                 'reports.read', 'reports.create', 'reports.export',
                 'assessments.create', 'assessments.read', 'assessments.update', 'assessments.approve', 'assessments.export',
                 'assessment-types.create', 'assessment-types.read', 'assessment-types.update', 'assessment-types.delete', 'assessment-types.manage',
+                'subjects.create', 'subjects.read', 'subjects.update', 'subjects.delete', 'subjects.manage', 'subjects.assign',
                 'rooms.create', 'rooms.read', 'rooms.update', 'rooms.manage', 'rooms.assign',
                 'grades.create', 'grades.read', 'grades.update', 'grades.manage', 'grades.assign',
                 'events.create', 'events.read', 'events.update', 'events.manage', 'events.approve', 'events.register', 'events.cancel',
@@ -261,6 +273,7 @@ class PermissionSeeder extends Seeder
                 'tasks.read', 'tasks.update',
                 'assessments.create', 'assessments.read', 'assessments.update',
                 'assessment-types.read',
+                'subjects.read',
                 'rooms.create', 'rooms.read', 'rooms.update', 'rooms.manage', 'rooms.assign',
                 'events.create', 'events.read', 'events.update', 'events.manage', 'events.approve', 'events.register', 'events.cancel',
                 'psychology.read', 'psychology.manage',
@@ -276,6 +289,7 @@ class PermissionSeeder extends Seeder
                 'documents.create', 'documents.read', 'documents.update', 'documents.share',
                 'tasks.create', 'tasks.read', 'tasks.update', 'tasks.delete',
                 'assessments.read', 'assessments.update',
+                'subjects.read',
                 'rooms.read', 'rooms.update',
                 'grades.read', 'grades.update',
                 'events.read', 'events.register',

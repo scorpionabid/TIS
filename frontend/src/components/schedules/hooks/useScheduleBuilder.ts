@@ -13,6 +13,7 @@ import {
   ScheduleTemplate,
   CreateScheduleData
 } from '@/services/schedule';
+import { subjectService } from '@/services/subjects';
 import { format, startOfWeek, addDays } from 'date-fns';
 
 export const useScheduleBuilder = (scheduleId?: number, onSave?: (schedule: Schedule) => void) => {
@@ -49,11 +50,12 @@ export const useScheduleBuilder = (scheduleId?: number, onSave?: (schedule: Sche
     queryFn: () => scheduleService.getRooms(),
   });
 
-  // Load subjects
-  const { data: subjects, isLoading: subjectsLoading } = useQuery({
+  // Load subjects - now dynamic
+  const { data: subjectsResponse, isLoading: subjectsLoading } = useQuery({
     queryKey: ['schedule-subjects'],
-    queryFn: () => scheduleService.getSubjects(),
+    queryFn: () => subjectService.getSubjects(),
   });
+  const subjects = subjectsResponse?.data || [];
 
   // Load teachers
   const { data: teachers, isLoading: teachersLoading } = useQuery({

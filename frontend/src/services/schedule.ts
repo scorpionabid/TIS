@@ -3,16 +3,18 @@ import { BaseService } from './BaseService';
 export interface Schedule {
   id: number;
   name: string;
-  type: 'weekly' | 'daily' | 'custom';
-  status: 'draft' | 'active' | 'inactive' | 'pending_approval';
+  type: 'weekly' | 'daily' | 'exam' | 'special';
+  status: 'draft' | 'pending_review' | 'approved' | 'active' | 'inactive';
   institution_id: number;
   academic_year_id: number;
-  start_date: string;
-  end_date: string;
+  effective_from: string;
+  effective_to: string;
+  schedule_data?: Record<string, any>;
+  generation_settings?: Record<string, any>;
+  notes?: string;
   created_by: number;
   approved_by?: number;
   approved_at?: string;
-  metadata?: Record<string, any>;
   creator?: {
     id: number;
     first_name: string;
@@ -59,21 +61,24 @@ export interface ScheduleSlot {
 
 export interface CreateScheduleData {
   name: string;
-  type: 'weekly' | 'daily' | 'custom';
-  institution_id?: number;
+  type: 'weekly' | 'daily' | 'exam' | 'special';
+  institution_id: number;
   academic_year_id: number;
-  start_date: string;
-  end_date: string;
-  metadata?: Record<string, any>;
+  effective_from: string;
+  effective_to?: string;
+  schedule_data: Record<string, any>;
+  generation_settings?: Record<string, any>;
+  notes?: string;
 }
 
 export interface UpdateScheduleData {
   name?: string;
-  type?: 'weekly' | 'daily' | 'custom';
-  start_date?: string;
-  end_date?: string;
-  status?: 'draft' | 'active' | 'inactive' | 'pending_approval';
-  metadata?: Record<string, any>;
+  type?: 'weekly' | 'daily' | 'exam' | 'special';
+  effective_from?: string;
+  effective_to?: string;
+  schedule_data?: Record<string, any>;
+  generation_settings?: Record<string, any>;
+  notes?: string;
 }
 
 export interface ScheduleFilters {
@@ -258,18 +263,65 @@ class ScheduleService extends BaseService {
   }
 
   async generateSchedule(data: {
-    institution_id?: number;
-    academic_year_id: number;
-    type: 'weekly' | 'daily' | 'custom';
-    preferences?: Record<string, any>;
-  }): Promise<{ success: boolean; message: string; data: Schedule }> {
+    settings: {
+      institution_id: number;
+      academic_year_id: number;
+      week_start_date: string;
+      working_days: number[];
+      periods_per_day: number;
+      break_periods?: number[];
+      lunch_period?: number;
+    };
+    time_slots: {
+      period: number;
+      start_time: string;
+      end_time: string;
+    }[];
+  }): Promise<{ success: boolean; message: string; data: any }> {
     console.log('🔍 ScheduleService.generateSchedule called with:', data);
     try {
-      const response = await this.post<Schedule>(`${this.baseUrl}/generate`, data);
+      const response = await this.post<any>(`${this.baseUrl}/generate`, data);
       console.log('✅ ScheduleService.generateSchedule successful:', response);
-      return response as { success: boolean; message: string; data: Schedule };
+      return response as { success: boolean; message: string; data: any };
     } catch (error) {
       console.error('❌ ScheduleService.generateSchedule failed:', error);
+      throw error;
+    }
+  }
+
+  // Role-based schedule methods
+  async getTeacherSchedule(teacherId: number): Promise<{ success: boolean; data: ScheduleSlot[] }> {
+    console.log('🔍 ScheduleService.getTeacherSchedule called for teacher:', teacherId);
+    try {
+      const response = await this.get<ScheduleSlot[]>(`${this.baseUrl}/teacher/${teacherId}`);
+      console.log('✅ ScheduleService.getTeacherSchedule successful:', response);
+      return response as { success: boolean; data: ScheduleSlot[] };
+    } catch (error) {
+      console.error('❌ ScheduleService.getTeacherSchedule failed:', error);
+      throw error;
+    }
+  }
+
+  async getClassSchedule(classId: number): Promise<{ success: boolean; data: ScheduleSlot[] }> {
+    console.log('🔍 ScheduleService.getClassSchedule called for class:', classId);
+    try {
+      const response = await this.get<ScheduleSlot[]>(`${this.baseUrl}/class/${classId}`);
+      console.log('✅ ScheduleService.getClassSchedule successful:', response);
+      return response as { success: boolean; data: ScheduleSlot[] };
+    } catch (error) {
+      console.error('❌ ScheduleService.getClassSchedule failed:', error);
+      throw error;
+    }
+  }
+
+  async getRoomSchedule(roomId: string): Promise<{ success: boolean; data: ScheduleSlot[] }> {
+    console.log('🔍 ScheduleService.getRoomSchedule called for room:', roomId);
+    try {
+      const response = await this.get<ScheduleSlot[]>(`${this.baseUrl}/room/${roomId}`);
+      console.log('✅ ScheduleService.getRoomSchedule successful:', response);
+      return response as { success: boolean; data: ScheduleSlot[] };
+    } catch (error) {
+      console.error('❌ ScheduleService.getRoomSchedule failed:', error);
       throw error;
     }
   }

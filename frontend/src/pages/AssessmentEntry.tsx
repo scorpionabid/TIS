@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { assessmentTypeService, AssessmentType } from '@/services/assessmentTypes';
 import { institutionService } from '@/services/institutions';
+import { subjectService } from '@/services/subjects';
 import { studentService, Student } from '@/services/students';
 import { assessmentEntryService, AssessmentEntryForm } from '@/services/assessmentEntries';
 import { useToast } from '@/hooks/use-toast';
@@ -267,7 +268,16 @@ export default function AssessmentEntry() {
   const filteredStudents = students;
 
   const gradeLevels = assessmentTypeService.getGradeLevels();
-  const subjects = assessmentTypeService.getSubjects();
+  
+  // Load subjects dynamically
+  const { data: subjectsResponse } = useQuery({
+    queryKey: ['assessment-entry-subjects'],
+    queryFn: () => subjectService.getSubjects(),
+  });
+  const subjects = (subjectsResponse?.data || []).map((subject: any) => ({ 
+    value: subject.name, 
+    label: subject.name 
+  }));
 
   return (
     <div className="p-6 space-y-6">

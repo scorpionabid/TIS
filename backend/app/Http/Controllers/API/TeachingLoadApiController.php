@@ -11,21 +11,27 @@ class TeachingLoadApiController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $institutionId = $request->user()->institution_id;
+        $user = $request->user();
+        $institutionId = $user->institution_id;
         
-        $teachingLoads = DB::table('teaching_loads')
+        $query = DB::table('teaching_loads')
             ->join('users', 'teaching_loads.teacher_id', '=', 'users.id')
             ->join('subjects', 'teaching_loads.subject_id', '=', 'subjects.id')
             ->join('classes', 'teaching_loads.class_id', '=', 'classes.id')
-            ->where('classes.institution_id', $institutionId)
             ->select([
                 'teaching_loads.*',
-                'users.full_name as teacher_name',
+                'users.username as teacher_name',
                 'subjects.name as subject_name',
                 'classes.name as class_name'
             ])
-            ->orderBy('users.full_name')
-            ->get();
+            ->orderBy('users.username');
+
+        // If user has institution_id, filter by it. SuperAdmin (null institution_id) sees all
+        if ($institutionId !== null) {
+            $query->where('classes.institution_id', $institutionId);
+        }
+
+        $teachingLoads = $query->get();
 
         return response()->json([
             'success' => true,
@@ -39,14 +45,23 @@ class TeachingLoadApiController extends Controller
             'teacher_id' => 'required|exists:users,id',
             'subject_id' => 'required|exists:subjects,id',
             'class_id' => 'required|exists:classes,id',
-            'hours_per_week' => 'required|numeric|min:1|max:40',
+            'weekly_hours' => 'required|numeric|min:1|max:40',
             'academic_year_id' => 'required|exists:academic_years,id'
         ]);
 
-        $teachingLoadId = DB::table('teaching_loads')->insertGetId(array_merge($validated, [
+        // Add default values for required fields that might be missing
+        $data = array_merge($validated, [
+            'total_hours' => $validated['weekly_hours'], // Default total_hours to weekly_hours
+            'status' => 'active', // Default status
+            'start_date' => now()->startOfYear(), // Default to current academic year start
+            'end_date' => now()->endOfYear(), // Default to current academic year end
+            'schedule_slots' => json_encode([]), // Empty array for schedule slots
+            'metadata' => json_encode([]), // Empty metadata
             'created_at' => now(),
             'updated_at' => now()
-        ]));
+        ]);
+
+        $teachingLoadId = DB::table('teaching_loads')->insertGetId($data);
 
         return response()->json([
             'success' => true,
@@ -68,7 +83,7 @@ class TeachingLoadApiController extends Controller
             ])
             ->get();
 
-        $totalHours = $workload->sum('hours_per_week');
+        $totalHours = $workload->sum('weekly_hours');
         $maxHours = 24;
 
         return response()->json([
@@ -86,7 +101,7 @@ class TeachingLoadApiController extends Controller
     public function update(Request $request, string $id): JsonResponse
     {
         $validated = $request->validate([
-            'hours_per_week' => 'required|numeric|min:1|max:40'
+            'weekly_hours' => 'required|numeric|min:1|max:40'
         ]);
 
         $updated = DB::table('teaching_loads')
@@ -122,6 +137,119 @@ class TeachingLoadApiController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Teaching load deleted successfully'
+        ]);
+    }
+
+    public function show(string $id): JsonResponse
+    {
+        $teachingLoad = DB::table('teaching_loads')
+            ->join('users', 'teaching_loads.teacher_id', '=', 'users.id')
+            ->join('subjects', 'teaching_loads.subject_id', '=', 'subjects.id')
+            ->join('classes', 'teaching_loads.class_id', '=', 'classes.id')
+            ->where('teaching_loads.id', $id)
+            ->select([
+                'teaching_loads.*',
+                'users.username as teacher_name',
+                'subjects.name as subject_name',
+                'classes.name as class_name'
+            ])
+            ->first();
+
+        if (!$teachingLoad) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Teaching load not found'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $teachingLoad
+        ]);
+    }
+
+    public function getByTeacher(string $teacherId): JsonResponse
+    {
+        return $this->getTeacherWorkload(request(), $teacherId);
+    }
+
+    public function getByInstitution(string $institutionId): JsonResponse
+    {
+        $teachingLoads = DB::table('teaching_loads')
+            ->join('users', 'teaching_loads.teacher_id', '=', 'users.id')
+            ->join('subjects', 'teaching_loads.subject_id', '=', 'subjects.id')
+            ->join('classes', 'teaching_loads.class_id', '=', 'classes.id')
+            ->where('classes.institution_id', $institutionId)
+            ->select([
+                'teaching_loads.*',
+                'users.username as teacher_name',
+                'subjects.name as subject_name',
+                'classes.name as class_name'
+            ])
+            ->orderBy('users.username')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $teachingLoads
+        ]);
+    }
+
+    public function bulkAssign(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'assignments' => 'required|array',
+            'assignments.*.teacher_id' => 'required|exists:users,id',
+            'assignments.*.subject_id' => 'required|exists:subjects,id',
+            'assignments.*.class_id' => 'required|exists:classes,id',
+            'assignments.*.weekly_hours' => 'required|numeric|min:1|max:40',
+            'assignments.*.academic_year_id' => 'required|exists:academic_years,id'
+        ]);
+
+        $insertData = [];
+        foreach ($validated['assignments'] as $assignment) {
+            $insertData[] = array_merge($assignment, [
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+        }
+
+        DB::table('teaching_loads')->insert($insertData);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Teaching loads assigned successfully',
+            'data' => ['count' => count($insertData)]
+        ]);
+    }
+
+    public function getAnalytics(): JsonResponse
+    {
+        $totalTeachers = DB::table('users')
+            ->join('model_has_roles', 'users.id', '=', 'model_has_roles.model_id')
+            ->join('roles', 'model_has_roles.role_id', '=', 'roles.id')
+            ->where('roles.name', 'müəllim')
+            ->where('model_has_roles.model_type', 'App\\Models\\User')
+            ->count();
+
+        $totalHoursAssigned = DB::table('teaching_loads')->sum('weekly_hours');
+
+        $overloadedTeachers = DB::table('teaching_loads')
+            ->select('teacher_id', DB::raw('SUM(weekly_hours) as total_hours'))
+            ->groupBy('teacher_id')
+            ->having('total_hours', '>', 24)
+            ->count();
+
+        $averageLoadPerTeacher = $totalTeachers > 0 ? $totalHoursAssigned / $totalTeachers : 0;
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'total_teachers' => $totalTeachers,
+                'overloaded_teachers' => $overloadedTeachers,
+                'total_hours_assigned' => $totalHoursAssigned,
+                'average_load_per_teacher' => round($averageLoadPerTeacher, 2)
+            ]
         ]);
     }
 }

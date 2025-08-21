@@ -40,7 +40,7 @@ export const Sidebar = ({ userRole, currentUser, onNavigate, onLogout, currentPa
 
 
   // SuperAdmin layout with grouped menu structure
-  if (userRole === "SuperAdmin") {
+  if (userRole === "superadmin") {
     const menuStructure = getSuperAdminMenuStructure();
     
     return (

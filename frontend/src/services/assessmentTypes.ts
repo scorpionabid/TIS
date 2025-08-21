@@ -1,4 +1,5 @@
 import { apiClient } from './api';
+import { subjectService } from './subjects';
 
 export interface AssessmentType {
   id: number;
@@ -299,24 +300,21 @@ class AssessmentTypeService {
   }
 
   /**
-   * Get available subjects
+   * Get available subjects - now uses dynamic data
    */
-  getSubjects() {
-    return [
-      { value: 'Riyaziyyat', label: 'Riyaziyyat' },
-      { value: 'Azərbaycan dili', label: 'Azərbaycan dili' },
-      { value: 'İngilis dili', label: 'İngilis dili' },
-      { value: 'Ədəbiyyat', label: 'Ədəbiyyat' },
-      { value: 'Tarix', label: 'Tarix' },
-      { value: 'Coğrafiya', label: 'Coğrafiya' },
-      { value: 'Biologiya', label: 'Biologiya' },
-      { value: 'Kimya', label: 'Kimya' },
-      { value: 'Fizika', label: 'Fizika' },
-      { value: 'İnformatika', label: 'İnformatika' },
-      { value: 'İncəsənət', label: 'İncəsənət' },
-      { value: 'Musiqi', label: 'Musiqi' },
-      { value: 'Bədən tərbiyəsi', label: 'Bədən tərbiyəsi' }
-    ];
+  async getSubjects() {
+    try {
+      const response = await subjectService.getSubjects();
+      const subjects = response?.data || [];
+      return subjects.map((subject: any) => ({
+        value: subject.name,
+        label: subject.name
+      }));
+    } catch (error) {
+      console.error('Error loading subjects:', error);
+      // Fallback to empty array if subjects can't be loaded
+      return [];
+    }
   }
 
   /**

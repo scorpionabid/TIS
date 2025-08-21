@@ -5,9 +5,19 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { GraduationCapIcon, Plus, Edit, Eye, BookOpen, Clock, Users, Calculator, Loader2 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { workloadService, TeachingLoad } from "@/services/workload";
+import { subjectService } from "@/services/subjects";
 import { useToast } from "@/hooks/use-toast";
 
 export default function SchoolWorkload() {
@@ -15,7 +25,122 @@ export default function SchoolWorkload() {
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
   const [selectedTeacher, setSelectedTeacher] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
+  const [selectedWorkloadId, setSelectedWorkloadId] = useState<number | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  
+  // Form state
+  const [formData, setFormData] = useState({
+    teacher_id: '',
+    subject_id: '',
+    class_id: '',
+    weekly_hours: '',
+    academic_year_id: '1' // Default to current academic year
+  });
+  
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Form handlers
+  const resetForm = () => {
+    setFormData({
+      teacher_id: '',
+      subject_id: '',
+      class_id: '',
+      weekly_hours: '',
+      academic_year_id: '1'
+    });
+  };
+
+  const handleSubmit = async () => {
+    // Validation
+    if (!formData.teacher_id || !formData.subject_id || !formData.class_id || !formData.weekly_hours) {
+      toast({
+        title: "Xəta",
+        description: "Bütün sahələri doldurun",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const weeklyHours = parseInt(formData.weekly_hours);
+    if (weeklyHours < 1 || weeklyHours > 40) {
+      toast({
+        title: "Xəta", 
+        description: "Həftəlik saat 1 ilə 40 arasında olmalıdır",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        teacher_id: parseInt(formData.teacher_id),
+        subject_id: parseInt(formData.subject_id), 
+        class_id: parseInt(formData.class_id),
+        weekly_hours: weeklyHours,
+        academic_year_id: parseInt(formData.academic_year_id)
+      };
+
+      await workloadService.createTeachingLoad(payload);
+      
+      toast({
+        title: "Uğurla yaradıldı",
+        description: "Yeni dərs yükü əlavə edildi"
+      });
+      
+      setIsCreateModalOpen(false);
+      resetForm();
+      
+      // Refresh data
+      queryClient.invalidateQueries({ queryKey: ['teaching-loads'] });
+      queryClient.invalidateQueries({ queryKey: ['workload-statistics'] });
+    } catch (error: any) {
+      toast({
+        title: "Xəta baş verdi",
+        description: error?.message || "Dərs yükü yaradılarkən xəta",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Button handlers
+  const handleCreateNew = () => {
+    resetForm();
+    setIsCreateModalOpen(true);
+    toast({
+      title: "Yeni Dərs Yükü",
+      description: "Yeni dərs yükü əlavə etmə modalı açılır"
+    });
+  };
+
+  const handleView = (teacherName: string) => {
+    toast({
+      title: "Müəllim məlumatları",
+      description: `${teacherName} müəlliminin dərs yükü detalları göstərilir`
+    });
+    // TODO: Implement view modal
+  };
+
+  const handleEdit = (workloadId?: number, teacherName?: string) => {
+    if (workloadId) {
+      setSelectedWorkloadId(workloadId);
+      toast({
+        title: "Redaktə et",
+        description: `ID ${workloadId} dərs yükü redaktə edilir`
+      });
+    } else if (teacherName) {
+      toast({
+        title: "Redaktə et", 
+        description: `${teacherName} müəlliminin dərs yükü redaktə edilir`
+      });
+    }
+    // TODO: Implement edit modal
+  };
 
   // Load teaching loads
   const { data: teachingLoadsResponse, isLoading: loadsLoading, error } = useQuery({
@@ -30,6 +155,32 @@ export default function SchoolWorkload() {
     queryFn: () => workloadService.getWorkloadStatistics(),
     staleTime: 1000 * 60 * 10, // Cache for 10 minutes
   });
+
+  // Load dropdown data for form (simple mock data for now)
+  const teachersData = [
+    { id: 3, name: 'teacher1' }
+  ];
+  
+  // Load subjects dynamically
+  const { data: subjectsResponse } = useQuery({
+    queryKey: ['workload-subjects'],
+    queryFn: () => subjectService.getSubjects(),
+  });
+
+  const subjectsData = subjectsResponse?.data || [];
+  
+  const classesData = [
+    { id: 1, name: '9-A sinifi' },
+    { id: 2, name: '9-B sinifi' },
+    { id: 3, name: '10-A sinifi' },
+    { id: 4, name: '10-B sinifi' },
+    { id: 5, name: '11-A sinifi' }
+  ];
+  
+  const academicYearsData = [
+    { id: 1, name: '2024-2025' },
+    { id: 2, name: '2025-2026' }
+  ];
 
   const teachingLoads = teachingLoadsResponse?.data || [];
   const stats = statsResponse?.data || {
@@ -86,7 +237,7 @@ export default function SchoolWorkload() {
       }
       
       acc[load.teacher_name].loads.push(load);
-      acc[load.teacher_name].totalHours += load.hours_per_week;
+      acc[load.teacher_name].totalHours += load.weekly_hours;
       acc[load.teacher_name].subjects.add(load.subject_name);
       acc[load.teacher_name].classes.add(load.class_name);
       
@@ -116,7 +267,7 @@ export default function SchoolWorkload() {
           <h1 className="text-3xl font-bold text-foreground">Dərs Yükü İdarəetməsi</h1>
           <p className="text-muted-foreground">Müəllimlərin dərs yükü və fənn təqsimati</p>
         </div>
-        <Button className="flex items-center gap-2">
+        <Button className="flex items-center gap-2" onClick={handleCreateNew}>
           <Plus className="h-4 w-4" />
           Yeni Dərs Yükü
         </Button>
@@ -151,7 +302,7 @@ export default function SchoolWorkload() {
                   {statsLoading ? (
                     <Loader2 className="h-6 w-6 animate-spin" />
                   ) : (
-                    stats.total_hours_assigned || teachingLoads.reduce((sum: number, load: TeachingLoad) => sum + load.hours_per_week, 0)
+                    stats.total_hours_assigned || teachingLoads.reduce((sum: number, load: TeachingLoad) => sum + load.weekly_hours, 0)
                   )}
                 </p>
               </div>
@@ -305,10 +456,10 @@ export default function SchoolWorkload() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" title="Ətraflı bax">
+                    <Button variant="ghost" size="sm" title="Ətraflı bax" onClick={() => handleView(workload.teacher)}>
                       <Eye className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="sm" title="Redaktə et">
+                    <Button variant="ghost" size="sm" title="Redaktə et" onClick={() => handleEdit(undefined, workload.teacher)}>
                       <Edit className="h-4 w-4" />
                     </Button>
                   </div>
@@ -344,10 +495,10 @@ export default function SchoolWorkload() {
                       <TableCell className="font-medium">{load.teacher_name}</TableCell>
                       <TableCell>{load.subject_name}</TableCell>
                       <TableCell>{load.class_name}</TableCell>
-                      <TableCell className="text-center">{load.hours_per_week}</TableCell>
+                      <TableCell className="text-center">{load.weekly_hours}</TableCell>
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-2">
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={() => handleEdit(load.id)}>
                             <Edit className="h-4 w-4" />
                           </Button>
                         </div>
@@ -360,6 +511,112 @@ export default function SchoolWorkload() {
           </CardContent>
         </Card>
       )}
+
+      {/* Create Modal */}
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Yeni Dərs Yükü Əlavə Et</DialogTitle>
+            <DialogDescription>
+              Yeni müəllim dərs yükü məlumatlarını daxil edin.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="teacher">Müəllim *</Label>
+              <Select value={formData.teacher_id} onValueChange={(value) => setFormData(prev => ({...prev, teacher_id: value}))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Müəllim seçin" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teachersData.map((teacher) => (
+                    <SelectItem key={teacher.id} value={teacher.id.toString()}>
+                      {teacher.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="subject">Fənn *</Label>
+              <Select value={formData.subject_id} onValueChange={(value) => setFormData(prev => ({...prev, subject_id: value}))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Fənn seçin" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subjectsData.map((subject) => (
+                    <SelectItem key={subject.id} value={subject.id.toString()}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="class">Sinif *</Label>
+              <Select value={formData.class_id} onValueChange={(value) => setFormData(prev => ({...prev, class_id: value}))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sinif seçin" />
+                </SelectTrigger>
+                <SelectContent>
+                  {classesData.map((classItem) => (
+                    <SelectItem key={classItem.id} value={classItem.id.toString()}>
+                      {classItem.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="hours">Həftəlik saat sayı *</Label>
+              <Input
+                id="hours"
+                type="number"
+                placeholder="Həftəlik saat sayı"
+                min="1"
+                max="40"
+                value={formData.weekly_hours}
+                onChange={(e) => setFormData(prev => ({...prev, weekly_hours: e.target.value}))}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="academic-year">Tədris ili</Label>
+              <Select value={formData.academic_year_id} onValueChange={(value) => setFormData(prev => ({...prev, academic_year_id: value}))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {academicYearsData.map((year) => (
+                    <SelectItem key={year.id} value={year.id.toString()}>
+                      {year.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setIsCreateModalOpen(false)} disabled={isSubmitting}>
+                Ləğv et
+              </Button>
+              <Button onClick={handleSubmit} disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Yadda saxlanır...
+                  </>
+                ) : (
+                  'Yadda saxla'
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

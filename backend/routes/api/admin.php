@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\UserUtilityController;
 use App\Http\Controllers\InstitutionController;
 use App\Http\Controllers\InstitutionTypeController;
 use App\Http\Controllers\Institution\InstitutionHierarchyController;
@@ -58,6 +59,8 @@ Route::middleware('permission:users.write')->group(function () {
 // Users helper endpoints
 Route::middleware('permission:users.read')->group(function () {
     Route::get('users/search/{query}', [UserController::class, 'search']);
+    Route::get('users/roles/available', [UserController::class, 'getAvailableRoles']);
+    Route::get('users/institutions/available', [UserUtilityController::class, 'institutions']);
 });
 
 // Institution bulk operations (must be before parameterized routes)
@@ -190,14 +193,20 @@ Route::prefix('academic-years')->middleware('permission:institutions.read')->gro
 
 // Subjects management  
 Route::prefix('subjects')->group(function () {
+    // Read operations - available to all authorized roles
     Route::get('/', [SubjectController::class, 'index'])->middleware('permission:subjects.read');
-    Route::post('/', [SubjectController::class, 'store'])->middleware('permission:subjects.write');
+    Route::get('/statistics', [SubjectController::class, 'statistics'])->middleware('permission:subjects.read');
+    Route::get('/by-category', [SubjectController::class, 'getByCategory'])->middleware('permission:subjects.read');
+    Route::get('/for-grade/{grade}', [SubjectController::class, 'getForGrade'])->middleware('permission:subjects.read');
     Route::get('/{subject}', [SubjectController::class, 'show'])->middleware('permission:subjects.read');
-    Route::put('/{subject}', [SubjectController::class, 'update'])->middleware('permission:subjects.write');
-    Route::delete('/{subject}', [SubjectController::class, 'destroy'])->middleware('permission:subjects.write');
     
-    // Admin only routes
-    Route::middleware(['permission:subjects.admin'])->group(function () {
+    // Write operations - restricted to SuperAdmin and RegionAdmin only
+    Route::middleware(['role:superadmin|regionadmin'])->group(function () {
+        Route::post('/', [SubjectController::class, 'store']);
+        Route::put('/{subject}', [SubjectController::class, 'update']);
+        Route::delete('/{subject}', [SubjectController::class, 'destroy']);
+        
+        // Bulk operations
         Route::post('/bulk-create', [SubjectController::class, 'bulkCreate']);
         Route::post('/bulk-update', [SubjectController::class, 'bulkUpdate']);
         Route::post('/bulk-delete', [SubjectController::class, 'bulkDelete']);

@@ -1,4 +1,4 @@
-import { BaseService } from './BaseService';
+import { apiClient, ApiResponse, PaginatedResponse } from './api';
 
 export interface Subject {
   id: number;
@@ -32,10 +32,8 @@ export interface UpdateSubjectData extends Partial<CreateSubjectData> {
   is_active?: boolean;
 }
 
-class SubjectService extends BaseService {
-  constructor() {
-    super('subjects');
-  }
+class SubjectService {
+  private baseUrl = '/subjects';
 
   /**
    * Get all active subjects
@@ -47,98 +45,143 @@ class SubjectService extends BaseService {
     ).toString() : '';
     
     const url = queryString ? `${this.baseUrl}?${queryString}` : this.baseUrl;
-    return this.apiClient.get(url);
+    const response = await apiClient.get<Subject[]>(url);
+    return response.data;
   }
 
   /**
    * Get subjects grouped by category
    */
   async getByCategory(): Promise<SubjectsByCategory> {
-    return this.apiClient.get(`${this.baseUrl}/categories`);
+    const response = await apiClient.get<SubjectsByCategory>(`${this.baseUrl}/by-category`);
+    return response.data;
   }
 
   /**
    * Get subjects for a specific grade
    */
   async getForGrade(grade: number): Promise<Subject[]> {
-    return this.apiClient.get(`${this.baseUrl}/grade/${grade}`);
+    const response = await apiClient.get<Subject[]>(`${this.baseUrl}/for-grade/${grade}`);
+    return response.data;
   }
 
   /**
-   * Get a specific subject
+   * Get a single subject by ID
    */
   async getById(id: number): Promise<Subject> {
-    return this.apiClient.get(`${this.baseUrl}/${id}`);
+    const response = await apiClient.get<Subject>(`${this.baseUrl}/${id}`);
+    return response.data;
   }
 
   /**
-   * Create a new subject (SuperAdmin only)
+   * Create a new subject
    */
   async create(data: CreateSubjectData): Promise<Subject> {
-    return this.apiClient.post(this.baseUrl, data);
+    console.log('🔥 SubjectService.create called', data);
+    
+    try {
+      const response = await apiClient.post<Subject>(this.baseUrl, data);
+      console.log('✅ SubjectService.create success', response);
+      return response.data;
+    } catch (error) {
+      console.error('❌ SubjectService.create error', error);
+      throw error;
+    }
   }
 
   /**
-   * Update a subject (SuperAdmin only)
+   * Update an existing subject
    */
   async update(id: number, data: UpdateSubjectData): Promise<Subject> {
-    return this.apiClient.put(`${this.baseUrl}/${id}`, data);
+    console.log(`🔥 SubjectService.update called for ID ${id}`, data);
+    
+    try {
+      const response = await apiClient.put<Subject>(`${this.baseUrl}/${id}`, data);
+      console.log('✅ SubjectService.update success', response);
+      return response.data;
+    } catch (error) {
+      console.error('❌ SubjectService.update error', error);
+      throw error;
+    }
   }
 
   /**
-   * Delete a subject (SuperAdmin only)
+   * Delete a subject
    */
   async delete(id: number): Promise<void> {
-    return this.apiClient.delete(`${this.baseUrl}/${id}`);
+    console.log(`🔥 SubjectService.delete called for ID ${id}`);
+    
+    try {
+      await apiClient.delete(`${this.baseUrl}/${id}`);
+      console.log('✅ SubjectService.delete success');
+    } catch (error) {
+      console.error('❌ SubjectService.delete error', error);
+      throw error;
+    }
   }
 
   /**
-   * Get subject options for forms
+   * Get subjects with detailed data wrapper
    */
-  async getSubjectOptions(): Promise<Array<{ label: string; value: string; category: string }>> {
-    const subjects = await this.getAll();
-    return subjects.map(subject => ({
-      label: `${subject.name} (${subject.code})`,
-      value: subject.id.toString(),
-      category: subject.category
-    }));
+  async getSubjects(): Promise<ApiResponse<Subject[]>> {
+    console.log('🔍 SubjectService.getSubjects called');
+    
+    try {
+      const subjects = await this.getAll();
+      console.log('✅ SubjectService.getSubjects success', subjects);
+      
+      return {
+        data: subjects,
+        message: 'Subjects retrieved successfully'
+      };
+    } catch (error) {
+      console.error('❌ SubjectService: Fetch failed:', error);
+      throw error;
+    }
   }
 
   /**
-   * Get grade level options
+   * Get subjects statistics
    */
-  getGradeLevelOptions(): Array<{ label: string; value: number }> {
-    return Array.from({ length: 11 }, (_, i) => ({
-      label: `${i + 1}. sinif`,
-      value: i + 1
-    }));
+  async getStatistics(): Promise<any> {
+    const response = await apiClient.get(`${this.baseUrl}/statistics`);
+    return response.data;
   }
 
   /**
-   * Get category options
+   * Bulk create subjects
    */
-  getCategoryOptions(): Array<{ label: string; value: Subject['category'] }> {
-    return [
-      { label: 'Əsas fənlər', value: 'core' },
-      { label: 'Elm fənləri', value: 'science' },
-      { label: 'Humanitar fənlər', value: 'humanities' },
-      { label: 'Dil fənləri', value: 'language' },
-      { label: 'İncəsənət', value: 'arts' },
-      { label: 'Bədən tərbiyəsi', value: 'physical' },
-      { label: 'Texniki fənlər', value: 'technical' },
-      { label: 'Seçmə fənlər', value: 'elective' }
-    ];
+  async bulkCreate(subjects: CreateSubjectData[]): Promise<Subject[]> {
+    const response = await apiClient.post<Subject[]>(`${this.baseUrl}/bulk-create`, { subjects });
+    return response.data;
+  }
+
+  /**
+   * Bulk update subjects
+   */
+  async bulkUpdate(updates: { id: number; data: UpdateSubjectData }[]): Promise<Subject[]> {
+    const response = await apiClient.put<Subject[]>(`${this.baseUrl}/bulk-update`, { updates });
+    return response.data;
+  }
+
+  /**
+   * Bulk delete subjects
+   */
+  async bulkDelete(ids: number[]): Promise<void> {
+    await apiClient.post(`${this.baseUrl}/bulk-delete`, { ids });
   }
 }
 
-export const subjectService = new SubjectService();
+// Query keys for react-query
 export const subjectKeys = {
   all: ['subjects'] as const,
   lists: () => [...subjectKeys.all, 'list'] as const,
-  list: (filters: Record<string, any>) => [...subjectKeys.lists(), { filters }] as const,
+  list: (filters: string) => [...subjectKeys.lists(), { filters }] as const,
   details: () => [...subjectKeys.all, 'detail'] as const,
   detail: (id: number) => [...subjectKeys.details(), id] as const,
-  categories: () => [...subjectKeys.all, 'categories'] as const,
-  grade: (grade: number) => [...subjectKeys.all, 'grade', grade] as const,
-  options: () => [...subjectKeys.all, 'options'] as const,
+  statistics: () => [...subjectKeys.all, 'statistics'] as const,
 };
+
+// Export a singleton instance
+export const subjectService = new SubjectService();
+export default subjectService;

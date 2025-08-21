@@ -47,7 +47,7 @@ const Layout = () => {
     if (!currentUser) return "Dashboard";
     
     switch (currentUser.role) {
-      case "SuperAdmin":
+      case "superadmin":
         return "Sistem İdarəetməsi";
       case "RegionAdmin":
         return `${currentUser.region} Regional İdarəetmə`;
@@ -60,7 +60,7 @@ const Layout = () => {
     if (!currentUser) return "";
     
     switch (currentUser.role) {
-      case "SuperAdmin":
+      case "superadmin":
         return "Azərbaycan Təhsil İdarəetmə Sistemi - Ana Panel";
       case "RegionAdmin":
         return `${currentUser.region} regional təhsil idarəsi məlumat sistemi`;

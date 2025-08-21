@@ -3,12 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Schedule;
-use App\Models\ScheduleSlot;
+use App\Models\ScheduleSession;
 use App\Models\ScheduleConflict;
 use App\Models\Classes;
 use App\Models\Subject;
 use App\Models\User;
 use App\Models\TeachingLoad;
+use App\Models\Institution;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -247,7 +248,7 @@ class ScheduleController extends Controller
             // If schedule_data is updated, recreate slots
             if (isset($validatedData['schedule_data'])) {
                 // Delete existing slots
-                ScheduleSlot::where('schedule_id', $schedule->id)->delete();
+                ScheduleSession::where('schedule_id', $schedule->id)->delete();
                 
                 // Create new slots
                 if (isset($validatedData['schedule_data']['slots'])) {
@@ -493,6 +494,96 @@ class ScheduleController extends Controller
     }
 
     /**
+     * Get class schedule
+     */
+    public function getClassSchedule(Request $request, $classId): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $scheduleSlots = ScheduleSession::with(['schedule', 'subject:id,name,short_name', 'teacher:id,first_name,last_name'])
+                ->whereHas('schedule', function($query) use ($user) {
+                    $this->applyAuthorityFilter($query, $user);
+                    $query->where('status', 'active');
+                })
+                ->where('class_id', $classId)
+                ->orderBy('day_of_week')
+                ->orderBy('period_number')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $scheduleSlots
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sinif cədvəli yüklənərkən xəta baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
+     * Get teacher schedule
+     */
+    public function getTeacherSchedule(Request $request, $teacherId): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $scheduleSlots = ScheduleSession::with(['schedule', 'subject:id,name,short_name', 'class:id,name,grade_level'])
+                ->whereHas('schedule', function($query) use ($user) {
+                    $this->applyAuthorityFilter($query, $user);
+                    $query->where('status', 'active');
+                })
+                ->where('teacher_id', $teacherId)
+                ->orderBy('day_of_week')
+                ->orderBy('period_number')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $scheduleSlots
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Müəllim cədvəli yüklənərkən xəta baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
+     * Get room schedule
+     */
+    public function getRoomSchedule(Request $request, $room): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $scheduleSlots = ScheduleSession::with(['schedule', 'subject:id,name,short_name', 'teacher:id,first_name,last_name', 'class:id,name'])
+                ->whereHas('schedule', function($query) use ($user) {
+                    $this->applyAuthorityFilter($query, $user);
+                    $query->where('status', 'active');
+                })
+                ->where('room_location', $room)
+                ->orderBy('day_of_week')
+                ->orderBy('period_number')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $scheduleSlots
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Otaq cədvəli yüklənərkən xəta baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
      * Export schedule
      */
     public function export(Request $request): JsonResponse
@@ -541,7 +632,7 @@ class ScheduleController extends Controller
     private function createScheduleSlots(Schedule $schedule, array $slots): void
     {
         foreach ($slots as $slotData) {
-            ScheduleSlot::create([
+            ScheduleSession::create([
                 'schedule_id' => $schedule->id,
                 'class_id' => $slotData['class_id'],
                 'subject_id' => $slotData['subject_id'],
@@ -551,7 +642,7 @@ class ScheduleController extends Controller
                 'start_time' => $slotData['start_time'],
                 'end_time' => $slotData['end_time'],
                 'room_location' => $slotData['room_location'] ?? null,
-                'slot_type' => $slotData['slot_type'] ?? 'regular',
+                'session_type' => $slotData['session_type'] ?? 'regular',
                 'status' => 'active'
             ]);
         }

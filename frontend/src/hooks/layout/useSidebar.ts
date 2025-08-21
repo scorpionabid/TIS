@@ -13,8 +13,11 @@ export const useSidebar = () => {
   const [sidebarState, setSidebarState] = useState<SidebarState>({
     openGroups: {
       "İdarəetmə": true,
-      "Struktur": false,
+      "Struktur": true,
       "Sorğular": false,
+      "Cədvəl İdarəetməsi": false,
+      "Regional İdarəetmə": false,
+      "Qiymətləndirmə": false,
       "Məzmun": false,
       "Hesabatlar": false,
       "Sistem": false,

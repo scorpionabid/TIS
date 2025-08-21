@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LoginForm } from "@/components/auth/LoginForm";
+import { RoleProtectedRoute } from "@/components/auth/RoleProtectedRoute";
 import Layout from "./components/layout/Layout";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -36,6 +37,7 @@ import SchoolSchedules from "./pages/SchoolSchedules";
 import AssessmentTypes from "./pages/AssessmentTypes";
 import AssessmentResults from "./pages/AssessmentResults";
 import AssessmentEntry from "./pages/AssessmentEntry";
+import SubjectManagement from "./pages/SubjectManagement";
 import RegionAdminIndex from "./pages/regionadmin/RegionAdminIndex";
 import RegionAdminUsers from "./pages/regionadmin/RegionAdminUsers";
 import RegionAdminSectors from "./pages/regionadmin/RegionAdminSectors";
@@ -48,6 +50,9 @@ import SchoolAttendanceRecord from "./pages/school/SchoolAttendanceRecord";
 import SchoolGradebook from "./pages/school/SchoolGradebook";
 import SchoolAssessments from "./pages/SchoolAssessments";
 import AttendanceReports from "./pages/AttendanceReports";
+import TeacherSchedule from "./pages/teacher/TeacherSchedule";
+import SchoolScheduleManagement from "./pages/school/SchoolScheduleManagement";
+import RegionSchedules from "./pages/regionadmin/RegionSchedules";
 import { useState } from "react";
 
 const queryClient = new QueryClient();
@@ -137,6 +142,11 @@ const App = () => (
               <Route path="documents" element={<Documents />} />
               <Route path="links" element={<Links />} />
               <Route path="reports" element={<Reports />} />
+              <Route path="subjects" element={
+                <RoleProtectedRoute allowedRoles={['superadmin', 'regionadmin']}>
+                  <SubjectManagement />
+                </RoleProtectedRoute>
+              } />
               <Route path="institution-types-management" element={<InstitutionTypesManagement />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="analytics" element={<Analytics />} />
@@ -166,6 +176,7 @@ const App = () => (
               <Route path="regionadmin/documents/*" element={<div className="p-6"><h1>Regional Documents</h1><p>Hazırlanmaqdadır...</p></div>} />
               <Route path="regionadmin/reports/*" element={<div className="p-6"><h1>Regional Reports</h1><p>Hazırlanmaqdadır...</p></div>} />
               <Route path="regionadmin/settings/*" element={<div className="p-6"><h1>Regional Settings</h1><p>Hazırlanmaqdadır...</p></div>} />
+              <Route path="regionadmin/schedules" element={<RegionSchedules />} />
               
               {/* SchoolAdmin Routes */}
               <Route path="school/surveys" element={<SchoolSurveys />} />
@@ -178,6 +189,10 @@ const App = () => (
               <Route path="school/assessments" element={<SchoolAssessments />} />
               <Route path="school/assessments/reports" element={<AssessmentResults />} />
               <Route path="school/gradebook" element={<SchoolGradebook />} />
+              <Route path="school/schedule-management" element={<SchoolScheduleManagement />} />
+              
+              {/* Teacher Routes */}
+              <Route path="teacher/schedule" element={<TeacherSchedule />} />
             </Route>
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

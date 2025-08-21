@@ -47,6 +47,12 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
   useEffect(() => {
     if (open) {
       loadOptions();
+      // Reset to first tab when modal opens to ensure proper focus management
+      setActiveTab('basic');
+    } else {
+      // Reset form state when modal closes
+      setSelectedRole('');
+      setLoadingOptions(true);
     }
   }, [open]);
 
@@ -352,7 +358,25 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        className="max-w-4xl max-h-[90vh] overflow-y-auto"
+        onEscapeKeyDown={(e) => {
+          // Allow default escape behavior, just ensure clean close
+          onClose();
+        }}
+        onPointerDownOutside={(e) => {
+          // Allow default outside click behavior, just ensure clean close  
+          onClose();
+        }}
+        onInteractOutside={(e) => {
+          // Handle all outside interactions consistently
+          if (loading) {
+            e.preventDefault();
+            return;
+          }
+          onClose();
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserIcon className="h-5 w-5" />

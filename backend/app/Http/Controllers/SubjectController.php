@@ -67,11 +67,11 @@ class SubjectController extends BaseController
     }
     
     /**
-     * Store a new subject (SuperAdmin only)
+     * Store a new subject (SuperAdmin/RegionAdmin)
      */
     public function store(Request $request): JsonResponse
     {
-        $this->authorize('manage-subjects');
+        // Authorization handled by middleware
         
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -90,11 +90,11 @@ class SubjectController extends BaseController
     }
     
     /**
-     * Update a subject (SuperAdmin only)
+     * Update a subject (SuperAdmin/RegionAdmin)
      */
     public function update(Request $request, Subject $subject): JsonResponse
     {
-        $this->authorize('manage-subjects');
+        // Authorization handled by middleware
         
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
@@ -114,14 +114,107 @@ class SubjectController extends BaseController
     }
     
     /**
-     * Delete a subject (SuperAdmin only)
+     * Delete a subject (SuperAdmin/RegionAdmin only)
      */
     public function destroy(Subject $subject): JsonResponse
     {
-        $this->authorize('manage-subjects');
+        // Authorization handled by middleware
         
         $subject->delete();
         
         return $this->successResponse(null, 'Fənn silindi');
+    }
+    
+    /**
+     * Bulk create subjects
+     */
+    public function bulkCreate(Request $request): JsonResponse
+    {
+        // Authorization handled by middleware
+        
+        $validated = $request->validate([
+            'subjects' => 'required|array|min:1',
+            'subjects.*.name' => 'required|string|max:255',
+            'subjects.*.code' => 'required|string|max:10',
+            'subjects.*.description' => 'nullable|string',
+            'subjects.*.grade_levels' => 'required|array',
+            'subjects.*.grade_levels.*' => 'integer|min:1|max:11',
+            'subjects.*.weekly_hours' => 'required|integer|min:1|max:10',
+            'subjects.*.category' => 'required|string|in:core,science,humanities,language,arts,physical,technical,elective',
+            'subjects.*.metadata' => 'nullable|array',
+        ]);
+        
+        $subjects = collect($validated['subjects'])->map(function ($subjectData) {
+            return Subject::create($subjectData);
+        });
+        
+        return $this->successResponse($subjects, 'Fənlər yaradıldı', 201);
+    }
+    
+    /**
+     * Bulk update subjects
+     */
+    public function bulkUpdate(Request $request): JsonResponse
+    {
+        // Authorization handled by middleware
+        
+        $validated = $request->validate([
+            'subjects' => 'required|array|min:1',
+            'subjects.*.id' => 'required|exists:subjects,id',
+            'subjects.*.name' => 'sometimes|string|max:255',
+            'subjects.*.code' => 'sometimes|string|max:10',
+            'subjects.*.description' => 'nullable|string',
+            'subjects.*.grade_levels' => 'sometimes|array',
+            'subjects.*.grade_levels.*' => 'integer|min:1|max:11',
+            'subjects.*.weekly_hours' => 'sometimes|integer|min:1|max:10',
+            'subjects.*.category' => 'sometimes|string|in:core,science,humanities,language,arts,physical,technical,elective',
+            'subjects.*.is_active' => 'sometimes|boolean',
+            'subjects.*.metadata' => 'nullable|array',
+        ]);
+        
+        $subjects = collect($validated['subjects'])->map(function ($subjectData) {
+            $subject = Subject::find($subjectData['id']);
+            $subject->update($subjectData);
+            return $subject;
+        });
+        
+        return $this->successResponse($subjects, 'Fənlər yeniləndi');
+    }
+    
+    /**
+     * Bulk delete subjects
+     */
+    public function bulkDelete(Request $request): JsonResponse
+    {
+        // Authorization handled by middleware
+        
+        $validated = $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'required|exists:subjects,id',
+        ]);
+        
+        Subject::whereIn('id', $validated['ids'])->delete();
+        
+        return $this->successResponse(null, 'Fənlər silindi');
+    }
+    
+    /**
+     * Get subject statistics
+     */
+    public function statistics(): JsonResponse
+    {
+        // Authorization handled by middleware
+        
+        $stats = [
+            'total_subjects' => Subject::count(),
+            'active_subjects' => Subject::active()->count(),
+            'subjects_by_category' => Subject::active()
+                ->selectRaw('COALESCE(category, "core") as category, COUNT(*) as count')
+                ->groupBy('category')
+                ->pluck('count', 'category'),
+            'subjects_by_grade_range' => []
+        ];
+        
+        return $this->successResponse($stats, 'Fənn statistikaları');
     }
 }
