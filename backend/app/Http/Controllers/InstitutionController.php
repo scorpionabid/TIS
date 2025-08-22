@@ -164,6 +164,58 @@ class InstitutionController extends Controller
     }
 
     /**
+     * Proxy to InstitutionHierarchyController@children
+     */
+    public function getChildren(Institution $institution, Request $request): JsonResponse
+    {
+        return $this->hierarchyController->children($request, $institution);
+    }
+
+    /**
+     * Get users for an institution
+     */
+    public function getUsers(Institution $institution): JsonResponse
+    {
+        try {
+            $users = $institution->users()
+                ->with(['roles:id,name,display_name', 'profile:user_id,first_name,last_name'])
+                ->select('id', 'name', 'username', 'email', 'is_active', 'institution_id')
+                ->get()
+                ->map(function ($user) {
+                    return [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'username' => $user->username,
+                        'email' => $user->email,
+                        'is_active' => $user->is_active,
+                        'roles' => $user->roles->map(function ($role) {
+                            return [
+                                'id' => $role->id,
+                                'name' => $role->name,
+                                'display_name' => $role->display_name,
+                            ];
+                        }),
+                        'profile' => $user->profile ? [
+                            'first_name' => $user->profile->first_name,
+                            'last_name' => $user->profile->last_name,
+                        ] : null,
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => $users,
+                'message' => 'Users retrieved successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error retrieving users: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Get refactoring information
      */
     public function refactorInfo(): JsonResponse

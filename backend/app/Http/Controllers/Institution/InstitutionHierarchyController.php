@@ -432,7 +432,8 @@ class InstitutionHierarchyController extends Controller
             return false;
         }
 
-        if ($user->hasRole('SuperAdmin')) {
+        // Check for SuperAdmin role (case insensitive)
+        if ($user->hasRole('SuperAdmin') || $user->hasRole('superadmin')) {
             return true;
         }
 
