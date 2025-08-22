@@ -170,6 +170,17 @@ class SubjectService {
   async bulkDelete(ids: number[]): Promise<void> {
     await apiClient.post(`${this.baseUrl}/bulk-delete`, { ids });
   }
+
+  /**
+   * Get subject options for select/multiselect components
+   */
+  async getSubjectOptions(): Promise<Array<{ label: string; value: string }>> {
+    const subjects = await this.getAll();
+    return subjects.map(subject => ({
+      label: subject.name,
+      value: subject.id.toString()
+    }));
+  }
 }
 
 // Query keys for react-query
@@ -180,6 +191,7 @@ export const subjectKeys = {
   details: () => [...subjectKeys.all, 'detail'] as const,
   detail: (id: number) => [...subjectKeys.details(), id] as const,
   statistics: () => [...subjectKeys.all, 'statistics'] as const,
+  options: () => [...subjectKeys.all, 'options'] as const,
 };
 
 // Export a singleton instance

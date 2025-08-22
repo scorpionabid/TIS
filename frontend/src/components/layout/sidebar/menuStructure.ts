@@ -59,7 +59,7 @@ export const getSuperAdminMenuStructure = (): MenuGroup[] => [
         key: "surveys",
         submenu: [
           { label: "Sorğular", path: "/surveys" },
-          { label: "Təsdiq", path: "/survey-approval" },
+          { label: "Təsdiq Paneli", path: "/approvals" },
           { label: "Sorğu nəticələri", path: "/survey-results" },
           { label: "Arxiv", path: "/survey-archive" },
         ]

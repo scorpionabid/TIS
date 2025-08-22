@@ -13,6 +13,7 @@ use App\Http\Controllers\API\BulkAssessmentController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\SectorController;
 use App\Http\Controllers\PreschoolController;
+use App\Http\Controllers\API\ApprovalApiController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -271,4 +272,48 @@ Route::prefix('preschools')->middleware('permission:institutions.read')->group(f
     Route::put('/{preschool}', [PreschoolController::class, 'update'])->middleware('permission:institutions.write');
     Route::delete('/{preschool}', [PreschoolController::class, 'destroy'])->middleware('permission:institutions.write');
     Route::post('/{preschool}/assign-manager', [PreschoolController::class, 'assignManager'])->middleware('permission:institutions.write');
+});
+
+// Approval System Routes
+Route::prefix('approvals')->group(function () {
+    // Get approval requests (role-based filtering in controller)
+    Route::get('/', [ApprovalApiController::class, 'index'])->middleware('permission:approvals.read');
+    Route::get('/pending', [ApprovalApiController::class, 'getPending'])->middleware('permission:approvals.read');
+    Route::get('/my-approvals', [ApprovalApiController::class, 'getMyApprovals'])->middleware('permission:approvals.read');
+    
+    // Workflow templates (SuperAdmin and RegionAdmin) - BEFORE {approval} route
+    Route::get('/templates', [ApprovalApiController::class, 'getTemplates'])->middleware('role:superadmin|regionadmin');
+    
+    // Analytics and reports - BEFORE {approval} route
+    Route::get('/analytics', [ApprovalApiController::class, 'getAnalytics'])->middleware('permission:approvals.read');
+    
+    // Survey Response Approval - BEFORE {approval} route
+    Route::get('/surveys', [ApprovalApiController::class, 'getSurveysForApproval'])->middleware('permission:approvals.read');
+    Route::get('/survey-responses', [ApprovalApiController::class, 'getSurveyResponses'])->middleware('permission:approvals.read');
+    Route::post('/survey-responses/{response}/approve', [ApprovalApiController::class, 'approveSurveyResponse'])->middleware('permission:approvals.approve');
+    Route::post('/survey-responses/{response}/reject', [ApprovalApiController::class, 'rejectSurveyResponse'])->middleware('permission:approvals.approve');
+    Route::post('/survey-responses/bulk-approve', [ApprovalApiController::class, 'bulkApproveSurveyResponses'])->middleware('permission:approvals.approve');
+    
+    // Delegation management - BEFORE {approval} route
+    Route::get('/delegations', [ApprovalApiController::class, 'getDelegations'])->middleware('permission:approvals.delegate');
+    Route::post('/delegations', [ApprovalApiController::class, 'createDelegation'])->middleware('permission:approvals.delegate');
+    Route::delete('/delegations/{delegation}', [ApprovalApiController::class, 'revokeDelegation'])->middleware('permission:approvals.delegate');
+    
+    // Notifications - BEFORE {approval} route
+    Route::get('/notifications', [ApprovalApiController::class, 'getNotifications'])->middleware('permission:approvals.read');
+    Route::post('/notifications/{notification}/mark-read', [ApprovalApiController::class, 'markNotificationRead'])->middleware('permission:approvals.read');
+    
+    Route::get('/{approval}', [ApprovalApiController::class, 'show'])->middleware('permission:approvals.read');
+    
+    // Create approval request
+    Route::post('/', [ApprovalApiController::class, 'createRequest'])->middleware('permission:approvals.create');
+    
+    // Approval actions (role-based authorization in controller)
+    Route::post('/{approval}/approve', [ApprovalApiController::class, 'approve'])->middleware('permission:approvals.approve');
+    Route::post('/{approval}/reject', [ApprovalApiController::class, 'reject'])->middleware('permission:approvals.approve');
+    Route::post('/{approval}/return', [ApprovalApiController::class, 'returnForRevision'])->middleware('permission:approvals.approve');
+    
+    // Bulk operations (SektorAdmin and above)
+    Route::post('/bulk-approve', [ApprovalApiController::class, 'bulkApprove'])->middleware('role:sektoradmin|regionadmin|superadmin');
+    Route::post('/bulk-reject', [ApprovalApiController::class, 'bulkReject'])->middleware('role:sektoradmin|regionadmin|superadmin');
 });

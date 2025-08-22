@@ -3,7 +3,6 @@
 use App\Http\Controllers\ClassAttendanceController;
 use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\API\ClassAttendanceApiController;
-use App\Http\Controllers\API\ApprovalApiController;
 use App\Http\Controllers\API\TeachingLoadApiController;
 use App\Http\Controllers\API\ScheduleApiController;
 use App\Http\Controllers\RoomController;
@@ -32,13 +31,6 @@ Route::prefix('class-attendance')->group(function () {
     Route::put('/{attendance}', [ClassAttendanceApiController::class, 'update'])->middleware('permission:attendance.write');
 });
 
-// Approval API Routes
-Route::prefix('approvals')->group(function () {
-    Route::get('/pending', [ApprovalApiController::class, 'getPending'])->middleware('permission:approvals.read');
-    Route::post('/{approval}/approve', [ApprovalApiController::class, 'approve'])->middleware('permission:approvals.write');
-    Route::post('/{approval}/reject', [ApprovalApiController::class, 'reject'])->middleware('permission:approvals.write');
-    Route::get('/history', [ApprovalApiController::class, 'getHistory'])->middleware('permission:approvals.read');
-});
 
 // Teaching Load API Routes
 Route::prefix('teaching-loads')->group(function () {

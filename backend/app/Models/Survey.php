@@ -96,6 +96,14 @@ class Survey extends Model
     }
 
     /**
+     * Get the institution through the creator.
+     */
+    public function institution()
+    {
+        return $this->creator ? $this->creator->institution : null;
+    }
+
+    /**
      * Get the survey questions.
      */
     public function questions(): HasMany

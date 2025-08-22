@@ -18,7 +18,6 @@ import Regions from "./pages/Regions";
 import Sectors from "./pages/Sectors";
 import Hierarchy from "./pages/Hierarchy";
 import Surveys from "./pages/Surveys";
-import SurveyApproval from "./pages/SurveyApproval";
 import SurveyResults from "./pages/SurveyResults";
 import SurveyArchive from "./pages/SurveyArchive";
 import SurveyResponse from "./pages/SurveyResponse";
@@ -38,6 +37,7 @@ import AssessmentTypes from "./pages/AssessmentTypes";
 import AssessmentResults from "./pages/AssessmentResults";
 import AssessmentEntry from "./pages/AssessmentEntry";
 import SubjectManagement from "./pages/SubjectManagement";
+import Approvals from "./pages/Approvals";
 import RegionAdminIndex from "./pages/regionadmin/RegionAdminIndex";
 import RegionAdminUsers from "./pages/regionadmin/RegionAdminUsers";
 import RegionAdminSectors from "./pages/regionadmin/RegionAdminSectors";
@@ -135,7 +135,11 @@ const App = () => (
               <Route path="surveys" element={<Surveys />} />
               <Route path="survey-response/:surveyId" element={<SurveyResponse />} />
               <Route path="survey-response/:surveyId/:responseId" element={<SurveyResponse />} />
-              <Route path="survey-approval" element={<SurveyApproval />} />
+              <Route path="approvals" element={
+                <RoleProtectedRoute allowedRoles={['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin']}>
+                  <Approvals />
+                </RoleProtectedRoute>
+              } />
               <Route path="survey-results" element={<SurveyResults />} />
               <Route path="survey-archive" element={<SurveyArchive />} />
               <Route path="tasks" element={<Tasks />} />

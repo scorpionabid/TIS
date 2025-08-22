@@ -26,6 +26,7 @@ import {
   Award,
   Calendar,
   Clock,
+  CheckCircle,
   LucideIcon,
 } from 'lucide-react';
 import { UserRole } from '@/contexts/AuthContext';
@@ -354,10 +355,10 @@ export const improvedNavigationConfig: MenuGroup[] = [
             roles: ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'məktəbadmin']
           },
           {
-            id: 'survey-approval',
-            label: 'Sorğu Təsdiqi',
-            path: '/survey-approval',
-            roles: ['superadmin', 'regionadmin']
+            id: 'approvals',
+            label: 'Təsdiq Paneli',
+            path: '/approvals',
+            roles: ['superadmin', 'regionadmin', 'sektoradmin', 'məktəbadmin']
           },
           {
             id: 'survey-results',

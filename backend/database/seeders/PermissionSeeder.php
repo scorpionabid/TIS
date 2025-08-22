@@ -141,6 +141,9 @@ class PermissionSeeder extends Seeder
             'approvals.delete',
             'approvals.approve',
             'approvals.reject',
+            'approvals.analytics',
+            'approvals.reports',
+            'approvals.delegate',
 
             // Room Management - Phase 2 API
             'rooms.create',
@@ -233,7 +236,7 @@ class PermissionSeeder extends Seeder
                 'assessments.create', 'assessments.read', 'assessments.update', 'assessments.delete', 'assessments.approve', 'assessments.manage', 'assessments.export',
                 'assessment-types.create', 'assessment-types.read', 'assessment-types.update', 'assessment-types.delete', 'assessment-types.manage',
                 'subjects.create', 'subjects.read', 'subjects.update', 'subjects.delete', 'subjects.manage', 'subjects.assign',
-                'approvals.create', 'approvals.read', 'approvals.update', 'approvals.delete', 'approvals.approve', 'approvals.reject',
+                'approvals.create', 'approvals.read', 'approvals.update', 'approvals.delete', 'approvals.approve', 'approvals.reject', 'approvals.analytics', 'approvals.reports', 'approvals.delegate',
                 'rooms.create', 'rooms.read', 'rooms.update', 'rooms.delete', 'rooms.manage', 'rooms.assign',
                 'grades.create', 'grades.read', 'grades.update', 'grades.delete', 'grades.manage', 'grades.assign',
                 'events.create', 'events.read', 'events.update', 'events.delete', 'events.manage', 'events.approve', 'events.register', 'events.cancel',
@@ -261,6 +264,7 @@ class PermissionSeeder extends Seeder
                 'psychology.read', 'psychology.manage',
                 'inventory.create', 'inventory.read', 'inventory.update', 'inventory.manage', 'inventory.assign', 'inventory.maintenance',
                 'view teacher_performance', 'create teacher_performance', 'edit teacher_performance', 'manage teacher_performance', 'approve teacher_performance',
+                'approvals.create', 'approvals.read', 'approvals.approve', 'approvals.reject', 'approvals.analytics', 'approvals.delegate',
                 'analytics.view'
             ],
             'schooladmin' => [
@@ -279,6 +283,7 @@ class PermissionSeeder extends Seeder
                 'psychology.read', 'psychology.manage',
                 'inventory.create', 'inventory.read', 'inventory.update', 'inventory.manage', 'inventory.assign', 'inventory.maintenance',
                 'view teacher_performance', 'create teacher_performance', 'edit teacher_performance', 'manage teacher_performance',
+                'approvals.create', 'approvals.read',
                 'reports.read'
             ],
             'sektoradmin' => [
@@ -293,6 +298,7 @@ class PermissionSeeder extends Seeder
                 'rooms.read', 'rooms.update',
                 'grades.read', 'grades.update',
                 'events.read', 'events.register',
+                'approvals.read', 'approvals.approve', 'approvals.reject',
                 'reports.read'
             ],
             'muavin' => [
