@@ -41,8 +41,9 @@ class InstitutionCRUDController extends Controller
             $user = Auth::user();
             $query = Institution::with(['institutionType', 'parent', 'children']);
 
+
             // Apply user-based access control
-            if ($user && !$user->hasRole('SuperAdmin')) {
+            if ($user && !$user->hasRole('superadmin')) {
                 if ($user->hasRole('RegionAdmin')) {
                     $regionId = $user->institution->parent_id ?? $user->institution_id;
                     $query->where(function ($q) use ($regionId) {
@@ -109,9 +110,11 @@ class InstitutionCRUDController extends Controller
             $direction = $request->get('direction', 'asc');
             $query->orderBy($sort, $direction);
 
+
             // Paginate results
             $perPage = $request->get('per_page', 15);
             $institutions = $query->paginate($perPage);
+
 
             // Transform the data
             $institutions->getCollection()->transform(function ($institution) {
@@ -164,7 +167,7 @@ class InstitutionCRUDController extends Controller
             $user = Auth::user();
 
             // Check access permissions
-            if ($user && !$user->hasRole('SuperAdmin')) {
+            if ($user && !$user->hasRole('superadmin')) {
                 $hasAccess = $this->checkInstitutionAccess($user, $institution);
                 if (!$hasAccess) {
                     return response()->json([
@@ -392,7 +395,7 @@ class InstitutionCRUDController extends Controller
      */
     private function checkInstitutionAccess($user, $institution): bool
     {
-        if ($user->hasRole('SuperAdmin')) {
+        if ($user->hasRole('superadmin')) {
             return true;
         }
 

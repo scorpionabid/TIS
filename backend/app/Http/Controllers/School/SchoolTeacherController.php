@@ -16,6 +16,14 @@ use Spatie\Permission\Models\Role;
 class SchoolTeacherController extends Controller
 {
     /**
+     * Get all teachers for the school (REST index method)
+     */
+    public function index(Request $request): JsonResponse
+    {
+        return $this->getTeachers($request);
+    }
+
+    /**
      * Get all teachers for the school
      */
     public function getTeachers(Request $request): JsonResponse
@@ -23,17 +31,25 @@ class SchoolTeacherController extends Controller
         $user = Auth::user();
         $school = $user->institution;
 
-        if (!$school) {
+        // SuperAdmin can access all schools
+        if (!$school && !$user->hasRole('superadmin')) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
         }
 
         // Get users with teacher roles in this school with their profiles
-        $teachers = User::where('institution_id', $school->id)
+        $query = User::query();
+        
+        // If school is provided, filter by school, otherwise get all (for SuperAdmin)
+        if ($school) {
+            $query->where('institution_id', $school->id);
+        }
+        
+        $teachers = $query
             ->whereHas('roles', function ($query) {
                 $query->whereIn('name', ['müəllim', 'muavin', 'ubr', 'psixoloq', 'tesarrufat']);
             })
             ->where('is_active', true)
-            ->with(['roles', 'department'])
+            ->with(['roles', 'department', 'institution'])
             ->get()
             ->map(function ($teacher) {
                 // Get profile if exists
@@ -48,6 +64,7 @@ class SchoolTeacherController extends Controller
                     'email' => $teacher->email,
                     'phone' => $profile->contact_phone ?? '',
                     'department' => $teacher->department->name ?? '',
+                    'institution' => $teacher->institution->name ?? '',
                     'position' => $teacher->roles->first()->name ?? '',
                     'hire_date' => $profile->hire_date ?? null,
                     'birth_date' => $profile->birth_date ?? null,

@@ -88,13 +88,13 @@ Route::prefix('schedules')->group(function () {
     Route::post('/templates', [ScheduleController::class, 'saveTemplate'])->middleware('permission:schedules.write');
 });
 
-// Student Management Routes
-Route::prefix('students')->group(function () {
-    Route::get('/', [App\Http\Controllers\StudentController::class, 'index'])->middleware('permission:students.read');
-    Route::post('/', [App\Http\Controllers\StudentController::class, 'store'])->middleware('permission:students.write');
-    Route::get('/{student}', [App\Http\Controllers\StudentController::class, 'show'])->middleware('permission:students.read');
-    Route::put('/{student}', [App\Http\Controllers\StudentController::class, 'update'])->middleware('permission:students.write');
-    Route::delete('/{student}', [App\Http\Controllers\StudentController::class, 'destroy'])->middleware('permission:students.write');
+// Student Management Routes - Using SchoolStudentController for students table
+Route::prefix('students')->middleware('auth:sanctum')->group(function () {
+    Route::get('/', [App\Http\Controllers\School\SchoolStudentController::class, 'index']);
+    Route::post('/', [App\Http\Controllers\School\SchoolStudentController::class, 'store']);
+    Route::get('/{student}', [App\Http\Controllers\School\SchoolStudentController::class, 'show']);
+    Route::put('/{student}', [App\Http\Controllers\School\SchoolStudentController::class, 'update']);
+    Route::delete('/{student}', [App\Http\Controllers\School\SchoolStudentController::class, 'destroy']);
     Route::get('/{student}/grades', [App\Http\Controllers\StudentController::class, 'getGrades'])->middleware('permission:students.grades');
     Route::get('/{student}/attendance', [App\Http\Controllers\StudentController::class, 'getAttendance'])->middleware('permission:students.attendance');
     Route::get('/{student}/schedule', [App\Http\Controllers\StudentController::class, 'getSchedule'])->middleware('permission:students.schedule');
@@ -228,7 +228,7 @@ Route::prefix('assessments')->middleware('permission:assessments.read')->group(f
 // Assessment Type Management Routes
 Route::prefix('assessment-types')->middleware('auth:sanctum')->group(function () {
     Route::get('/', [AssessmentTypeController::class, 'index']);
-    Route::post('/', [AssessmentTypeController::class, 'store'])->middleware('permission:assessment_types.write');
+    Route::post('/', [AssessmentTypeController::class, 'store'])->middleware('permission:assessment-types.create');
     Route::get('/{assessmentType}', [AssessmentTypeController::class, 'show']);
     Route::put('/{assessmentType}', [AssessmentTypeController::class, 'update'])->middleware('permission:assessment_types.write');
     Route::delete('/{assessmentType}', [AssessmentTypeController::class, 'destroy'])->middleware('permission:assessment_types.write');

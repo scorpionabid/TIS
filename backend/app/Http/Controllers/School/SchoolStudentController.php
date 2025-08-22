@@ -29,7 +29,8 @@ class SchoolStudentController extends Controller
         $user = Auth::user();
         $school = $user->institution;
 
-        if (!$school) {
+        // SuperAdmin can access all schools
+        if (!$school && !$user->hasRole('superadmin')) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
         }
 

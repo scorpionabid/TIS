@@ -16,6 +16,14 @@ use Illuminate\Support\Facades\Validator;
 class SchoolClassController extends Controller
 {
     /**
+     * Get all classes for the school (REST index method)
+     */
+    public function index(Request $request): JsonResponse
+    {
+        return $this->getClasses($request);
+    }
+
+    /**
      * Get all classes for the school
      */
     public function getClasses(Request $request): JsonResponse
@@ -30,22 +38,27 @@ class SchoolClassController extends Controller
             'school' => $school ? $school->toArray() : null
         ]);
 
-        if (!$school) {
+        // SuperAdmin can access all schools
+        if (!$school && !$user->hasRole('superadmin')) {
             Log::warning('🏫 User has no institution');
             return response()->json(['error' => 'User is not associated with a school'], 400);
         }
 
-        Log::info('🏫 Building query for institution:', ['institution_id' => $school->id]);
+        Log::info('🏫 Building query for institution:', ['institution_id' => $school ? $school->id : 'all (SuperAdmin)']);
 
-        $query = Grade::with(['room', 'homeroomTeacher', 'academicYear'])
-            ->byInstitution($school->id);
+        $query = Grade::with(['room', 'homeroomTeacher', 'academicYear', 'institution']);
+        
+        // If school is provided, filter by school, otherwise get all (for SuperAdmin)
+        if ($school) {
+            $query->byInstitution($school->id);
+        }
         
         Log::info('🏫 Base query built, checking total grades in DB...');
         $totalGrades = Grade::count();
-        $gradesForInstitution = Grade::where('institution_id', $school->id)->count();
+        $gradesForInstitution = $school ? Grade::where('institution_id', $school->id)->count() : $totalGrades;
         Log::info('🏫 Grade counts:', [
             'total_in_db' => $totalGrades,
-            'for_institution_' . $school->id => $gradesForInstitution
+            'for_query' => $gradesForInstitution
         ]);
 
         // Apply filters if provided
@@ -84,6 +97,11 @@ class SchoolClassController extends Controller
                 'capacity' => $class->capacity,
                 'student_count' => $students,
                 'available_spots' => max(0, ($class->capacity ?? 30) - $students),
+                'institution' => $class->institution ? [
+                    'id' => $class->institution->id,
+                    'name' => $class->institution->name,
+                    'code' => $class->institution->code,
+                ] : null,
                 'room' => $class->room ? [
                     'id' => $class->room->id,
                     'name' => $class->room->name,

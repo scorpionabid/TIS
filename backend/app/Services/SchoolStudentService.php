@@ -14,43 +14,114 @@ use Carbon\Carbon;
 
 class SchoolStudentService
 {
-    public function getStudents(Institution $school, Request $request): array
+    public function getStudents(?Institution $school, Request $request): array
     {
-        $query = Student::where('institution_id', $school->id)
-            ->with(['grade', 'user.profile']);
+        $user = auth()->user();
+        $query = Student::query()
+            ->with(['institution']);
+            
+        // Role-based filtering
+        if ($user->hasRole('superadmin')) {
+            // SuperAdmin can see all students
+            // No filtering needed
+        } elseif ($user->hasRole('regionadmin')) {
+            // RegionAdmin sees students in their region's institutions
+            $query->whereHas('institution', function ($q) use ($user) {
+                $q->where('parent_id', $user->institution_id)
+                  ->orWhere('id', $user->institution_id);
+            });
+        } elseif ($user->hasRole('sektoradmin')) {
+            // SectorAdmin sees students in their sector's schools
+            $query->whereHas('institution', function ($q) use ($user) {
+                $q->where('parent_id', $user->institution_id)
+                  ->orWhere('id', $user->institution_id);
+            });
+        } else {
+            // School staff see only their school students
+            if ($school) {
+                $query->where('institution_id', $school->id);
+            } else {
+                $query->where('institution_id', $user->institution_id ?? 0);
+            }
+        }
+        
+        // Institution filter from request (additional filtering)
+        if ($request->has('institution_id') && $request->institution_id) {
+            $query->where('institution_id', $request->institution_id);
+        }
 
         // Apply filters
-        if ($request->has('grade_id') && $request->grade_id) {
-            $query->where('grade_id', $request->grade_id);
+        if ($request->has('grade_level') && $request->grade_level) {
+            $query->where('grade_level', $request->grade_level);
         }
 
         if ($request->has('status') && $request->status) {
-            $query->where('is_active', $request->status === 'active');
+            if ($request->status === 'active') {
+                $query->where('is_active', true);
+            } elseif ($request->status === 'inactive') {
+                $query->where('is_active', false);
+            }
         }
 
         if ($request->has('search') && $request->search) {
             $search = $request->search;
-            $query->whereHas('user', function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('student_number', 'like', "%{$search}%")
+                  ->orWhereRaw("CONCAT(first_name, ' ', last_name) like ?", ["%{$search}%"]);
             });
         }
 
         // Sorting
-        $sortBy = $request->get('sort_by', 'name');
+        $sortBy = $request->get('sort_by', 'first_name');
         $sortOrder = $request->get('sort_order', 'asc');
 
-        if ($sortBy === 'name') {
-            $query->join('users', 'students.user_id', '=', 'users.id')
-                ->orderBy('users.name', $sortOrder)
-                ->select('students.*');
-        } else {
-            $query->orderBy($sortBy, $sortOrder);
-        }
+        $query->orderBy($sortBy, $sortOrder);
 
-        $perPage = min($request->get('per_page', 15), 100);
+        $perPage = min($request->get('per_page', 50), 100);
         
-        return $query->paginate($perPage)->toArray();
+        $students = $query->paginate($perPage);
+        
+        // Transform data for frontend compatibility
+        $transformedStudents = $students->getCollection()->map(function ($student) {
+            return [
+                'id' => $student->id,
+                'student_number' => $student->student_number,
+                'first_name' => $student->first_name,
+                'last_name' => $student->last_name,
+                'full_name' => $student->first_name . ' ' . $student->last_name,
+                'email' => $student->parent_email, // Using parent email as main contact
+                'phone' => $student->parent_phone,
+                'date_of_birth' => $student->birth_date,
+                'gender' => $student->gender,
+                'address' => $student->address,
+                'enrollment_date' => $student->enrollment_date,
+                'current_grade_level' => $student->grade_level,
+                'class_name' => $student->class_name,
+                'status' => $student->is_active ? 'active' : 'inactive',
+                'institution_id' => $student->institution_id,
+                'institution' => [
+                    'id' => $student->institution->id ?? null,
+                    'name' => $student->institution->name ?? null,
+                ],
+                'is_active' => $student->is_active,
+                'created_at' => $student->created_at,
+                'updated_at' => $student->updated_at,
+            ];
+        });
+        
+        return [
+            'students' => $transformedStudents,
+            'pagination' => [
+                'current_page' => $students->currentPage(),
+                'per_page' => $students->perPage(),
+                'total' => $students->total(),
+                'last_page' => $students->lastPage(),
+                'from' => $students->firstItem(),
+                'to' => $students->lastItem(),
+            ]
+        ];
     }
 
     public function createStudent(Institution $school, array $data): Student

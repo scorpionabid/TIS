@@ -143,9 +143,10 @@ Route::prefix('mektebadmin')->middleware(['role:məktəbadmin', 'regional.access
 // Teacher Dashboard Routes  
 Route::prefix('teacher')->middleware(['role:müəllim', 'regional.access:school', 'audit.logging'])->group(function () {
     // Dashboard endpoints
-    Route::get('dashboard', [App\Http\Controllers\TeacherDashboardController::class, 'getDashboard']);
-    Route::get('dashboard/stats', [App\Http\Controllers\TeacherDashboardController::class, 'getStats']);
-    Route::get('classes', [App\Http\Controllers\TeacherDashboardController::class, 'getTeacherClasses']);
+    // Teacher dashboard routes - TODO: Implement TeacherDashboardController
+    // Route::get('dashboard', [App\Http\Controllers\TeacherDashboardController::class, 'getDashboard']);
+    // Route::get('dashboard/stats', [App\Http\Controllers\TeacherDashboardController::class, 'getStats']);
+    // Route::get('classes', [App\Http\Controllers\TeacherDashboardController::class, 'getTeacherClasses']);
 });
 
 // School Admin Dashboard Routes
