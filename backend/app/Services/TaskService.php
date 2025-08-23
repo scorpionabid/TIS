@@ -27,7 +27,7 @@ class TaskService extends BaseService
             ->where('institution_id', $user->institution_id);
 
         // Filter by user role and permissions
-        if (!$user->hasAnyRole(['SuperAdmin', 'SchoolAdmin'])) {
+        if (!$user->hasAnyRole(['superadmin', 'schooladmin'])) {
             // Regular users can only see tasks assigned to them or created by them
             $query->where(function ($q) use ($user) {
                 $q->where('creator_id', $user->id)
@@ -291,7 +291,7 @@ class TaskService extends BaseService
         $baseQuery = Task::where('institution_id', $institutionId);
         
         // If not admin, filter by user's tasks
-        if (!$user->hasAnyRole(['SuperAdmin', 'SchoolAdmin'])) {
+        if (!$user->hasAnyRole(['superadmin', 'schooladmin'])) {
             $baseQuery->where(function ($q) use ($user) {
                 $q->where('creator_id', $user->id)
                   ->orWhereHas('assignments', function ($subQuery) use ($user) {

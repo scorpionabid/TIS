@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Dialog, 
   DialogContent, 
@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Loader2 } from "lucide-react";
 import { SectorCreateData } from "@/services/sectors";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SectorCreateDialogProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export const SectorCreateDialog = ({
   onSubmit, 
   isCreating 
 }: SectorCreateDialogProps) => {
+  const { currentUser } = useAuth();
   const [newSector, setNewSector] = useState<SectorCreateData>({
     name: '',
     code: '',
@@ -41,6 +43,16 @@ export const SectorCreateDialog = ({
   });
 
   const { toast } = useToast();
+
+  // Set default region for regionadmin
+  useEffect(() => {
+    if (currentUser?.role === 'regionadmin' && currentUser.institution?.id) {
+      setNewSector(prev => ({
+        ...prev,
+        parent_id: currentUser.institution!.id
+      }));
+    }
+  }, [currentUser, isOpen]);
 
   const handleSubmit = () => {
     if (!newSector.name.trim() || newSector.parent_id === 0) {
@@ -55,11 +67,16 @@ export const SectorCreateDialog = ({
   };
 
   const handleClose = () => {
+    // For regionadmin, preserve their region selection
+    const defaultParentId = currentUser?.role === 'regionadmin' && currentUser.institution?.id 
+      ? currentUser.institution.id 
+      : 0;
+    
     setNewSector({
       name: '',
       code: '',
       description: '',
-      parent_id: 0,
+      parent_id: defaultParentId,
       address: '',
       phone: '',
       email: '',
@@ -98,19 +115,29 @@ export const SectorCreateDialog = ({
           </div>
           <div className="space-y-2">
             <Label htmlFor="region">Region</Label>
-            <Select value={newSector.parent_id.toString()} onValueChange={(value) => setNewSector(prev => ({ ...prev, parent_id: parseInt(value) }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Region seçin" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="2">Bakı Şəhər Təhsil İdarəsi</SelectItem>
-                <SelectItem value="3">Gəncə Şəhər Təhsil İdarəsi</SelectItem>
-                <SelectItem value="4">Şəki Rayon Təhsil İdarəsi</SelectItem>
-                <SelectItem value="5">Şamaxı Rayon Təhsil İdarəsi</SelectItem>
-                <SelectItem value="6">Quba Rayon Təhsil İdarəsi</SelectItem>
-                <SelectItem value="30">LARTİ Regional Təhsil İdarəsi</SelectItem>
-              </SelectContent>
-            </Select>
+            {currentUser?.role === 'regionadmin' ? (
+              // For regionadmin, show their region as read-only
+              <Input
+                value={currentUser.institution?.name || 'Bilinməyən region'}
+                disabled
+                className="bg-muted"
+              />
+            ) : (
+              // For other roles, show dropdown
+              <Select value={newSector.parent_id.toString()} onValueChange={(value) => setNewSector(prev => ({ ...prev, parent_id: parseInt(value) }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Region seçin" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2">Bakı Şəhər Təhsil İdarəsi</SelectItem>
+                  <SelectItem value="3">Gəncə Şəhər Təhsil İdarəsi</SelectItem>
+                  <SelectItem value="4">Şəki Rayon Təhsil İdarəsi</SelectItem>
+                  <SelectItem value="5">Şamaxı Rayon Təhsil İdarəsi</SelectItem>
+                  <SelectItem value="6">Quba Rayon Təhsil İdarəsi</SelectItem>
+                  <SelectItem value="30">LARTİ Regional Təhsil İdarəsi</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </div>
           <div className="space-y-2 col-span-2">
             <Label htmlFor="description">Təsvir</Label>

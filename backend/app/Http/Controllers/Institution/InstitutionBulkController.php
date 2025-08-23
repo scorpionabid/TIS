@@ -57,15 +57,15 @@ class InstitutionBulkController extends Controller
             $query = Institution::query();
 
             // Apply user-based filtering
-            if ($user && !$user->hasRole('SuperAdmin')) {
-                if ($user->hasRole('RegionAdmin')) {
+            if ($user && !$user->hasRole('superadmin')) {
+                if ($user->hasRole('regionadmin')) {
                     $regionId = $user->institution->parent_id ?? $user->institution_id;
                     $query->where(function ($q) use ($regionId) {
                         $q->where('id', $regionId)
                           ->orWhere('parent_id', $regionId)
                           ->orWhereHas('parent', fn($pq) => $pq->where('parent_id', $regionId));
                     });
-                } elseif ($user->hasRole('SektorAdmin')) {
+                } elseif ($user->hasRole('sektoradmin')) {
                     $sectorId = $user->institution_id;
                     $query->where(function ($q) use ($sectorId) {
                         $q->where('id', $sectorId)
@@ -117,14 +117,14 @@ class InstitutionBulkController extends Controller
             $query = Institution::onlyTrashed()->with(['institutionType', 'parent']);
 
             // Apply user-based access control
-            if ($user && !$user->hasRole('SuperAdmin')) {
-                if ($user->hasRole('RegionAdmin')) {
+            if ($user && !$user->hasRole('superadmin')) {
+                if ($user->hasRole('regionadmin')) {
                     $regionId = $user->institution->parent_id ?? $user->institution_id;
                     $query->where(function ($q) use ($regionId) {
                         $q->where('id', $regionId)
                           ->orWhere('parent_id', $regionId);
                     });
-                } elseif ($user->hasRole('SektorAdmin')) {
+                } elseif ($user->hasRole('sektoradmin')) {
                     $query->where('parent_id', $user->institution_id);
                 }
             }
@@ -175,7 +175,7 @@ class InstitutionBulkController extends Controller
 
             // Check access permissions
             $user = Auth::user();
-            if (!$user->hasRole('SuperAdmin')) {
+            if (!$user->hasRole('superadmin')) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu əməliyyat üçün icazəniz yoxdur'
@@ -203,8 +203,8 @@ class InstitutionBulkController extends Controller
     public function forceDelete($id): JsonResponse
     {
         try {
-            // Only SuperAdmin can permanently delete
-            if (!Auth::user()->hasRole('SuperAdmin')) {
+            // Only superadmin can permanently delete
+            if (!Auth::user()->hasRole('superadmin')) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu əməliyyat üçün icazəniz yoxdur'
@@ -327,7 +327,7 @@ class InstitutionBulkController extends Controller
     public function bulkRestore(Request $request): JsonResponse
     {
         try {
-            if (!Auth::user()->hasRole('SuperAdmin')) {
+            if (!Auth::user()->hasRole('superadmin')) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu əməliyyat üçün icazəniz yoxdur'
@@ -375,8 +375,8 @@ class InstitutionBulkController extends Controller
             $query = Institution::with(['institutionType', 'parent']);
 
             // Apply user-based access control
-            if ($user && !$user->hasRole('SuperAdmin')) {
-                if ($user->hasRole('RegionAdmin')) {
+            if ($user && !$user->hasRole('superadmin')) {
+                if ($user->hasRole('regionadmin')) {
                     $regionId = $user->institution->parent_id ?? $user->institution_id;
                     $query->where(function ($q) use ($regionId) {
                         $q->where('id', $regionId)

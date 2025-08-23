@@ -44,20 +44,21 @@ class InstitutionCRUDController extends Controller
 
             // Apply user-based access control
             if ($user && !$user->hasRole('superadmin')) {
-                if ($user->hasRole('RegionAdmin')) {
-                    $regionId = $user->institution->parent_id ?? $user->institution_id;
+                if ($user->hasRole('regionadmin')) {
+                    // RegionAdmin manages their own region (level 2) and all institutions under it
+                    $regionId = $user->institution_id;
                     $query->where(function ($q) use ($regionId) {
-                        $q->where('id', $regionId)
-                          ->orWhere('parent_id', $regionId)
-                          ->orWhereHas('parent', fn($pq) => $pq->where('parent_id', $regionId));
+                        $q->where('id', $regionId)                    // Own region
+                          ->orWhere('parent_id', $regionId)           // Sectors under this region
+                          ->orWhereHas('parent', fn($pq) => $pq->where('parent_id', $regionId)); // Schools under sectors
                     });
-                } elseif ($user->hasRole('SektorAdmin')) {
+                } elseif ($user->hasRole('sektoradmin')) {
                     $sectorId = $user->institution_id;
                     $query->where(function ($q) use ($sectorId) {
                         $q->where('id', $sectorId)
                           ->orWhere('parent_id', $sectorId);
                     });
-                } elseif ($user->hasAnyRole(['SchoolAdmin', 'müəllim'])) {
+                } elseif ($user->hasAnyRole(['schooladmin', 'müəllim'])) {
                     $query->where('id', $user->institution_id);
                 }
             }
@@ -410,14 +411,14 @@ class InstitutionCRUDController extends Controller
         }
 
         // Check hierarchical access
-        if ($user->hasRole('RegionAdmin')) {
+        if ($user->hasRole('regionadmin')) {
             $regionId = $userInstitution->level === 2 ? $userInstitution->id : $userInstitution->parent_id;
             return $institution->id === $regionId || 
                    $institution->parent_id === $regionId ||
                    ($institution->parent && $institution->parent->parent_id === $regionId);
         }
 
-        if ($user->hasRole('SektorAdmin')) {
+        if ($user->hasRole('sektoradmin')) {
             return $institution->parent_id === $userInstitution->id;
         }
 

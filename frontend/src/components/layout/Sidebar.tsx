@@ -7,7 +7,7 @@ import {
   SimpleMenu,
   getSuperAdminMenuStructure,
   getOtherRoleMenuStructure
-} from "./sidebar";
+} from "./sidebar/index";
 
 interface SidebarProps {
   userRole: string;
@@ -20,7 +20,6 @@ interface SidebarProps {
 export const Sidebar = ({ userRole, currentUser, onNavigate, onLogout, currentPath }: SidebarProps) => {
   const {
     // State
-    isHovered,
     setIsHovered,
     profileData,
     sidebarState,
@@ -37,7 +36,6 @@ export const Sidebar = ({ userRole, currentUser, onNavigate, onLogout, currentPa
     handleProfileModalClose,
     handlePasswordModalClose,
   } = useSidebar();
-
 
   // SuperAdmin layout with grouped menu structure
   if (userRole === "superadmin") {

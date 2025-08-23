@@ -49,6 +49,7 @@ import {
 import { preschoolsService, type Preschool, type PreschoolFilters, type PreschoolCreateData } from '../services/preschools';
 import { sectorsService } from '../services/sectors';
 import { userService } from '../services/users';
+import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import { PreschoolCreateModal } from '../components/modals/PreschoolCreateModal';
 import { PreschoolEditModal } from '../components/modals/PreschoolEditModal';
@@ -61,6 +62,7 @@ const PRESCHOOL_TYPES = [
 ] as const;
 
 export default function Preschools() {
+  const { currentUser } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedSector, setSelectedSector] = useState<string>('all');
@@ -89,10 +91,27 @@ export default function Preschools() {
     refetchOnWindowFocus: false,
   });
 
-  // Fetch sectors for filters
+  // Load sectors for filters - role-based
   const { data: sectorsResponse } = useQuery({
-    queryKey: ['sectors'],
-    queryFn: () => sectorsService.getSectors(),
+    queryKey: ['sectors', currentUser?.role, currentUser?.institution?.id],
+    queryFn: async () => {
+      if (currentUser?.role === 'superadmin') {
+        // SuperAdmin can see all sectors
+        return await sectorsService.getSectors();
+      } else if (currentUser?.role === 'regionadmin') {
+        // RegionAdmin can only see sectors under their region
+        if (currentUser.institution?.id) {
+          return await sectorsService.getSectorsByRegion(currentUser.institution.id);
+        }
+      } else if (currentUser?.role === 'sektoradmin') {
+        // SektorAdmin can only see their own sector
+        if (currentUser.institution) {
+          return { data: [currentUser.institution] };
+        }
+      }
+      return { data: [] };
+    },
+    enabled: !!currentUser,
     refetchOnWindowFocus: false,
   });
 
@@ -205,10 +224,13 @@ export default function Preschools() {
             Uşaq bağçaları, məktəbəqədər təhsil mərkəzləri və uşaq evlərini idarə edin
           </p>
         </div>
-        <Button onClick={handleOpenCreateModal} className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Yeni Məktəbəqədər Müəssisə
-        </Button>
+        {/* Only superadmin, regionadmin, and sektoradmin can create preschools */}
+        {currentUser?.role && ['superadmin', 'regionadmin', 'sektoradmin'].includes(currentUser.role) && (
+          <Button onClick={handleOpenCreateModal} className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Yeni Məktəbəqədər Müəssisə
+          </Button>
+        )}
       </div>
 
       {/* Statistics Cards */}
@@ -381,17 +403,22 @@ export default function Preschools() {
                           <Eye className="h-4 w-4 mr-2" />
                           Ətraflı baxış
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenEditModal(preschool)}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Redaktə et
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => handleDelete(preschool.id)}
-                          className="text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Sil
-                        </DropdownMenuItem>
+                        {/* Only superadmin, regionadmin, and sektoradmin can edit/delete preschools */}
+                        {currentUser?.role && ['superadmin', 'regionadmin', 'sektoradmin'].includes(currentUser.role) && (
+                          <>
+                            <DropdownMenuItem onClick={() => handleOpenEditModal(preschool)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Redaktə et
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleDelete(preschool.id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Sil
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>

@@ -5,8 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Institution, CreateInstitutionData, InstitutionType } from '@/services/institutions';
+import { Institution, CreateInstitutionData } from '@/services/institutions';
 import { institutionService } from '@/services/institutions';
+import { useAuth } from '@/contexts/AuthContext';
+import { useInstitutionTypes } from '@/hooks/useInstitutionTypes';
 import { useQuery } from '@tanstack/react-query';
 
 interface InstitutionModalProps {
@@ -24,6 +26,7 @@ export const InstitutionModal: React.FC<InstitutionModalProps> = ({
   institution,
   onSave,
 }) => {
+  const { currentUser } = useAuth();
   const [formData, setFormData] = useState<CreateInstitutionData>({
     name: '',
     type: 'school',
@@ -40,11 +43,10 @@ export const InstitutionModal: React.FC<InstitutionModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Load institution types from API
-  const { data: institutionTypesResponse, isLoading: typesLoading } = useQuery({
-    queryKey: ['institution-types'],
-    queryFn: () => institutionService.getInstitutionTypes(),
-    staleTime: 1000 * 60 * 10, // Cache for 10 minutes
+  // Load institution types with role-based fallback
+  const { data: institutionTypesResponse, isLoading: typesLoading } = useInstitutionTypes({
+    userRole: currentUser?.role,
+    enabled: !!currentUser && open
   });
 
   // Transform institution types for UI

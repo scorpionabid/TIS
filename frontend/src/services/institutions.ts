@@ -3,7 +3,12 @@ import { apiClient } from './api';
 
 export interface Institution extends BaseEntity {
   name: string;
-  type: 'ministry' | 'region' | 'sektor' | 'school' | 'secondary_school' | 'primary_school' | 'vocational' | 'university' | 'regional_education_department' | 'sector_education_office' | 'lyceum' | 'gymnasium';
+  type: string | {
+    id: number;
+    name: string;
+    key: string;
+    level: number;
+  };
   level: number;
   code?: string;
   institution_code?: string;

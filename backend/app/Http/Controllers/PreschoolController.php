@@ -10,6 +10,7 @@ use App\Models\InstitutionType;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Auth;
 
 class PreschoolController extends Controller
 {
@@ -21,6 +22,25 @@ class PreschoolController extends Controller
         $query = Institution::with(['parent', 'children', 'users', 'manager'])
             ->whereIn('type', $preschoolTypes)
             ->where('level', 4);
+
+        // Apply user-based access control
+        $user = Auth::user();
+        if ($user && !$user->hasRole('superadmin')) {
+            if ($user->hasRole('regionadmin')) {
+                // RegionAdmin can only see preschools in their region's sectors
+                $regionId = $user->institution_id;
+                $query->whereHas('parent', function ($q) use ($regionId) {
+                    $q->where('parent_id', $regionId); // Sectors under this region
+                });
+            } elseif ($user->hasRole('sektoradmin')) {
+                // SektorAdmin can only see preschools in their sector
+                $sectorId = $user->institution_id;
+                $query->where('parent_id', $sectorId);
+            } elseif ($user->hasRole('schooladmin') || $user->hasRole('müəllim')) {
+                // SchoolAdmin/Teachers can only see their own preschool (if applicable)
+                $query->where('id', $user->institution_id);
+            }
+        }
 
         // Apply filters
         if ($request->has('sector_id') && is_numeric($request->sector_id)) {

@@ -22,6 +22,23 @@ class SectorController extends Controller
             ->where('type', 'sector_education_office')
             ->where('level', 3);
 
+        // Apply role-based filtering
+        $user = auth()->user();
+        if ($user->hasRole('regionadmin')) {
+            // RegionAdmin should only see sectors in their region
+            $userInstitution = $user->institution;
+            if ($userInstitution && $userInstitution->level === 2) {
+                $query->where('parent_id', $userInstitution->id);
+            }
+        } elseif ($user->hasRole('sektoradmin')) {
+            // SektorAdmin should only see their own sector
+            $userInstitution = $user->institution;
+            if ($userInstitution && $userInstitution->level === 3 && $userInstitution->type === 'sector_education_office') {
+                $query->where('id', $userInstitution->id);
+            }
+        }
+        // SuperAdmin sees all sectors (no additional filtering)
+
         // Apply filters
         if ($request->has('region_id') && is_numeric($request->region_id)) {
             $query->where('parent_id', $request->region_id);
@@ -235,22 +252,49 @@ class SectorController extends Controller
 
     public function statistics(): JsonResponse
     {
-        $totalSectors = Institution::where('type', 'sector_education_office')
-            ->where('level', 3)
-            ->count();
+        $sectorsQuery = Institution::where('type', 'sector_education_office')
+            ->where('level', 3);
             
-        $activeSectors = Institution::where('type', 'sector_education_office')
-            ->where('level', 3)
-            ->where('is_active', true)
-            ->count();
+        // Apply role-based filtering
+        $user = auth()->user();
+        if ($user->hasRole('regionadmin')) {
+            // RegionAdmin should only see sectors in their region
+            $userInstitution = $user->institution;
+            if ($userInstitution && $userInstitution->level === 2) {
+                $sectorsQuery->where('parent_id', $userInstitution->id);
+            }
+        } elseif ($user->hasRole('sektoradmin')) {
+            // SektorAdmin should only see their own sector
+            $userInstitution = $user->institution;
+            if ($userInstitution && $userInstitution->level === 3 && $userInstitution->type === 'sector_education_office') {
+                $sectorsQuery->where('id', $userInstitution->id);
+            }
+        }
+        // SuperAdmin sees all sectors (no additional filtering)
             
+        $totalSectors = $sectorsQuery->count();
+        $activeSectors = $sectorsQuery->clone()->where('is_active', true)->count();
         $inactiveSectors = $totalSectors - $activeSectors;
 
         // By region statistics
-        $byRegion = Institution::with('parent')
+        $byRegionQuery = Institution::with('parent')
             ->where('type', 'sector_education_office')
-            ->where('level', 3)
-            ->selectRaw('parent_id, count(*) as sector_count')
+            ->where('level', 3);
+            
+        // Apply the same role-based filtering for region statistics
+        if ($user->hasRole('regionadmin')) {
+            $userInstitution = $user->institution;
+            if ($userInstitution && $userInstitution->level === 2) {
+                $byRegionQuery->where('parent_id', $userInstitution->id);
+            }
+        } elseif ($user->hasRole('sektoradmin')) {
+            $userInstitution = $user->institution;
+            if ($userInstitution && $userInstitution->level === 3 && $userInstitution->type === 'sector_education_office') {
+                $byRegionQuery->where('id', $userInstitution->id);
+            }
+        }
+            
+        $byRegion = $byRegionQuery->selectRaw('parent_id, count(*) as sector_count')
             ->groupBy('parent_id')
             ->get()
             ->map(function ($item) {

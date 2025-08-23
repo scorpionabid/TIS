@@ -169,7 +169,7 @@ class InstitutionHierarchyController extends Controller
         }
 
         // Apply user-based access control
-        if ($user && !$user->hasRole('SuperAdmin')) {
+        if ($user && !$user->hasRole('superadmin')) {
             $query = $this->applyUserAccessControl($query, $user, $request);
         }
 
@@ -188,7 +188,7 @@ class InstitutionHierarchyController extends Controller
      */
     private function applyUserAccessControl($query, $user, $request)
     {
-        if ($user->hasRole('RegionAdmin')) {
+        if ($user->hasRole('regionadmin')) {
             $userInstitution = $user->institution;
             $regionId = $userInstitution->level === 2 ? $userInstitution->id : $userInstitution->parent_id;
             
@@ -205,13 +205,13 @@ class InstitutionHierarchyController extends Controller
                   ->orWhere('parent_id', $regionId)
                   ->orWhereHas('parent', fn($pq) => $pq->where('parent_id', $regionId));
             });
-        } elseif ($user->hasRole('SektorAdmin')) {
+        } elseif ($user->hasRole('sektoradmin')) {
             $sectorId = $user->institution_id;
             $query->where(function ($q) use ($sectorId) {
                 $q->where('id', $sectorId)
                   ->orWhere('parent_id', $sectorId);
             });
-        } elseif ($user->hasAnyRole(['SchoolAdmin', 'müəllim'])) {
+        } elseif ($user->hasAnyRole(['schooladmin', 'müəllim'])) {
             $query->where('id', $user->institution_id);
         }
 
@@ -432,8 +432,8 @@ class InstitutionHierarchyController extends Controller
             return false;
         }
 
-        // Check for SuperAdmin role (case insensitive)
-        if ($user->hasRole('SuperAdmin') || $user->hasRole('superadmin')) {
+        // Check for superadmin role (case insensitive)
+        if ($user->hasRole('superadmin') || $user->hasRole('superadmin')) {
             return true;
         }
 
@@ -448,14 +448,14 @@ class InstitutionHierarchyController extends Controller
         }
 
         // Check hierarchical access
-        if ($user->hasRole('RegionAdmin')) {
+        if ($user->hasRole('regionadmin')) {
             $regionId = $userInstitution->level === 2 ? $userInstitution->id : $userInstitution->parent_id;
             return $institution->id === $regionId || 
                    $institution->parent_id === $regionId ||
                    ($institution->parent && $institution->parent->parent_id === $regionId);
         }
 
-        if ($user->hasRole('SektorAdmin')) {
+        if ($user->hasRole('sektoradmin')) {
             return $institution->id === $userInstitution->id || 
                    $institution->parent_id === $userInstitution->id;
         }

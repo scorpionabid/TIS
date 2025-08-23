@@ -185,7 +185,7 @@ class PsychologyService extends BaseService
         $baseQuery = PsychologySession::where('institution_id', $user->institution_id);
         
         // If user is psychologist, filter by their sessions
-        if ($user->hasRole('Müəllim')) {
+        if ($user->hasRole('müəllim')) {
             $baseQuery->where('psychologist_id', $user->id);
         }
 
@@ -196,7 +196,7 @@ class PsychologyService extends BaseService
 
         $totalAssessments = PsychologyAssessment::whereHas('session', function ($q) use ($user) {
             $q->where('institution_id', $user->institution_id);
-            if ($user->hasRole('Müəllim')) {
+            if ($user->hasRole('müəllim')) {
                 $q->where('psychologist_id', $user->id);
             }
         })->count();
@@ -220,7 +220,7 @@ class PsychologyService extends BaseService
         // Assessment type distribution
         $assessmentTypes = PsychologyAssessment::whereHas('session', function ($q) use ($user) {
             $q->where('institution_id', $user->institution_id);
-            if ($user->hasRole('Müəllim')) {
+            if ($user->hasRole('müəllim')) {
                 $q->where('psychologist_id', $user->id);
             }
         })
