@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Edit, Trash2, Loader2, Building, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Department, departmentService } from "@/services/departments";
 import { DepartmentModal } from "@/components/modals/DepartmentModal";
@@ -35,7 +35,34 @@ export default function Departments() {
   const [departmentAdmins, setDepartmentAdmins] = useState<Record<number, User | null>>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
+  const fetchDepartmentAdmin = async (departmentId: number) => {
+    try {
+      const filters: UserFilters = {
+        department_id: departmentId,
+        role: 'department_admin'
+      };
+      
+      const response = await userService.getUsers(filters);
+      
+      // Find the first active admin for this department
+      const admin = response.data?.find(user => 
+        user.is_active && 
+        user.role === 'department_admin' &&
+        user.department?.id === departmentId
+      ) || null;
+      
+      setDepartmentAdmins(prev => ({
+        ...prev,
+        [departmentId]: admin
+      }));
+      
+      return admin;
+    } catch (error) {
+      console.error('Error fetching department admin:', error);
+      return null;
+    }
+  };
 
 
   // Extend the Department interface to include department_type_display
@@ -59,15 +86,6 @@ export default function Departments() {
         is_active: statusFilter === 'all' ? undefined : statusFilter === 'active',
         department_type: typeFilter === 'all' ? undefined : typeFilter,
       }) as DepartmentApiResponse;
-      
-      // Fetch admins for all departments
-      if (response.data && Array.isArray(response.data)) {
-        response.data.forEach(department => {
-          if (!departmentAdmins[department.id]) {
-            fetchDepartmentAdmin(department.id);
-          }
-        });
-      }
       
       return response;
     },
@@ -93,18 +111,38 @@ export default function Departments() {
       }
     }
     
-    // Fetch admins for departments
-    departmentsList.forEach(department => {
-      if (!departmentAdmins[department.id]) {
-        fetchDepartmentAdmin(department.id);
-      }
-    });
-    
     return departmentsList.map(department => ({
       ...department,
       admin: departmentAdmins[department.id] || null,
     }));
   }, [departmentsResponse, departmentAdmins]);
+
+  // Fetch department admins when departments change
+  useEffect(() => {
+    if (!departmentsResponse) return;
+    
+    // Get the list of department IDs that need admin loading
+    const response = departmentsResponse as any;
+    let departmentsList: Department[] = [];
+    
+    if (response && response.data) {
+      if (Array.isArray(response.data)) {
+        departmentsList = response.data;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        departmentsList = response.data.data;
+      }
+    }
+    
+    // Only fetch for departments that don't have admin data yet
+    const missingAdminDepts = departmentsList.filter(dept => !(dept.id in departmentAdmins));
+    
+    // Batch fetch admins with a small delay to avoid overwhelming the API
+    missingAdminDepts.forEach((department, index) => {
+      setTimeout(() => {
+        fetchDepartmentAdmin(department.id);
+      }, index * 100); // 100ms delay between requests
+    });
+  }, [departmentsResponse]);
 
   // Load department types for filter with proper typing
   interface DepartmentType {
@@ -216,34 +254,6 @@ export default function Departments() {
   });
 
   const departments = pagination.paginatedItems;
-
-  const fetchDepartmentAdmin = async (departmentId: number) => {
-    try {
-      const filters: UserFilters = {
-        department_id: departmentId,
-        role: 'department_admin'
-      };
-      
-      const response = await userService.getUsers(filters);
-      
-      // Find the first active admin for this department
-      const admin = response.data?.find(user => 
-        user.is_active && 
-        user.role === 'department_admin' &&
-        user.department?.id === departmentId
-      ) || null;
-      
-      setDepartmentAdmins(prev => ({
-        ...prev,
-        [departmentId]: admin
-      }));
-      
-      return admin;
-    } catch (error) {
-      console.error('Error fetching department admin:', error);
-      return null;
-    }
-  };
 
   const clearFilters = () => {
     setSearchTerm('');

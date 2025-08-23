@@ -42,7 +42,8 @@ Route::middleware('role:superadmin')->group(function () {
 Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|superadmin', 'regional.access:institutions', 'audit.logging'])->group(function () {
     // Dashboard endpoints
     Route::get('dashboard', [RegionAdminDashboardController::class, 'getDashboard']);
-    Route::get('dashboard/stats', [RegionAdminDashboardController::class, 'getStats']);
+    Route::get('dashboard/stats', [RegionAdminDashboardController::class, 'getDashboardStats']);
+    Route::get('dashboard/activities', [RegionAdminDashboardController::class, 'getDashboardActivities']);
     Route::get('dashboard/analytics', [RegionAdminDashboardController::class, 'getAnalytics']);
     
     // Institution management endpoints - READ operations

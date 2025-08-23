@@ -92,8 +92,13 @@ class InstitutionService extends BaseService<Institution> {
   }
 
   async getChildren(parentId: number) {
-    const response = await apiClient.get<Institution[]>(`${this.baseEndpoint}/${parentId}/children`);
-    return response.data || [];
+    const response = await apiClient.get(`${this.baseEndpoint}/${parentId}/children`);
+    return { data: response.data || [] };
+  }
+
+  async getUsers(institutionId: number) {
+    const response = await apiClient.get(`${this.baseEndpoint}/${institutionId}/users`);
+    return { data: response.data || [] };
   }
 
   async getHierarchy() {

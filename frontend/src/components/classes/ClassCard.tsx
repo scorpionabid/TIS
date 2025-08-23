@@ -39,6 +39,13 @@ export const ClassCard: React.FC<ClassCardProps> = ({
 }) => {
   const capacityPercentage = (schoolClass.current_enrollment / schoolClass.capacity) * 100;
   
+  // Debug log for troubleshooting object rendering issues
+  console.log('🏫 ClassCard render data:', {
+    academic_year: schoolClass.academic_year,
+    class_teacher: schoolClass.class_teacher,
+    schedule: schoolClass.schedule
+  });
+  
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-6">
@@ -55,7 +62,10 @@ export const ClassCard: React.FC<ClassCardProps> = ({
                   {getGradeLevelText(schoolClass.grade_level)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {schoolClass.academic_year} akademik ili
+                  {typeof schoolClass.academic_year === 'object' 
+                    ? schoolClass.academic_year.name || schoolClass.academic_year.year || 'Akademik il'
+                    : schoolClass.academic_year || 'Akademik il'
+                  } akademik ili
                 </p>
               </div>
             </div>
@@ -118,7 +128,12 @@ export const ClassCard: React.FC<ClassCardProps> = ({
             {schoolClass.class_teacher && (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <User className="h-4 w-4" />
-                <span className="truncate">{schoolClass.class_teacher.name}</span>
+                <span className="truncate">
+                  {typeof schoolClass.class_teacher === 'object' 
+                    ? schoolClass.class_teacher.name || schoolClass.class_teacher.full_name || 'Müəllim'
+                    : schoolClass.class_teacher
+                  }
+                </span>
               </div>
             )}
 
@@ -170,7 +185,10 @@ export const ClassCard: React.FC<ClassCardProps> = ({
               <div className="flex flex-wrap gap-1">
                 {schoolClass.schedule.slice(0, 3).map((schedule, index) => (
                   <Badge key={index} variant="outline" className="text-xs">
-                    {schedule.subject_name}
+                    {typeof schedule === 'object' 
+                      ? schedule.subject_name || schedule.name || `Dərs ${index + 1}`
+                      : schedule
+                    }
                   </Badge>
                 ))}
                 {schoolClass.schedule.length > 3 && (

@@ -247,11 +247,16 @@ export interface AssessmentGrade {
 }
 
 class SchoolAdminService {
-  private baseEndpoint = '/school-admin';
+  private baseEndpoint: string;
+  
+  constructor() {
+    this.baseEndpoint = '/school-admin';
+  }
 
   // Dashboard methods
   async getDashboardStats(): Promise<SchoolDashboardStats> {
-    const response = await apiClient.get<SchoolDashboardStats>(`${this.baseEndpoint}/dashboard/stats`);
+    const endpoint = `${this.baseEndpoint || '/school-admin'}/dashboard/stats`;
+    const response = await apiClient.get<SchoolDashboardStats>(endpoint);
     return response.data || response as SchoolDashboardStats;
   }
 
@@ -361,7 +366,8 @@ class SchoolAdminService {
 
   // Class management methods
   async getClasses(params?: PaginationParams): Promise<SchoolClass[]> {
-    const response = await apiClient.get<SchoolClass[]>(`${this.baseEndpoint}/classes`, params);
+    const endpoint = `${this.baseEndpoint || '/school-admin'}/classes`;
+    const response = await apiClient.get<SchoolClass[]>(endpoint, params);
     return response.data || response as any;
   }
 
@@ -386,7 +392,8 @@ class SchoolAdminService {
 
   // Teacher management methods
   async getTeachers(params?: PaginationParams): Promise<SchoolTeacher[]> {
-    const response = await apiClient.get<SchoolTeacher[]>(`${this.baseEndpoint}/teachers`, params);
+    const endpoint = `${this.baseEndpoint || '/school-admin'}/teachers`;
+    const response = await apiClient.get<SchoolTeacher[]>(endpoint, params);
     return response.data || response as any;
   }
 
@@ -407,6 +414,14 @@ class SchoolAdminService {
 
   async deleteTeacher(teacherId: number): Promise<void> {
     await apiClient.delete(`${this.baseEndpoint}/teachers/${teacherId}`);
+  }
+
+  async softDeleteTeacher(teacherId: number): Promise<void> {
+    await apiClient.patch(`${this.baseEndpoint}/teachers/${teacherId}/soft-delete`);
+  }
+
+  async hardDeleteTeacher(teacherId: number): Promise<void> {
+    await apiClient.delete(`${this.baseEndpoint}/teachers/${teacherId}/hard-delete`);
   }
 
   // Attendance methods
@@ -468,8 +483,39 @@ class SchoolAdminService {
     enrollment_status?: string;
     search?: string;
   }): Promise<SchoolStudent[]> {
-    const response = await apiClient.get<SchoolStudent[]>(`${this.baseEndpoint}/students`, { params });
-    return response.data || response as any;
+    
+    // Convert parameters to match the unified students API
+    const studentsParams: any = {
+      per_page: params?.per_page || 20,
+      page: params?.page || 1,
+    };
+    
+    if (params?.grade_id) studentsParams.class_id = params.grade_id;
+    if (params?.enrollment_status) studentsParams.status = params.enrollment_status;
+    if (params?.search) studentsParams.search = params.search;
+    
+    const response = await apiClient.get<{data: {students: SchoolStudent[]; pagination: any}; success: boolean}>('/students', studentsParams);
+    
+    // Transform the unified API response to match expected format
+    if (response.data?.data?.students) {
+      return response.data.data.students.map(student => ({
+        id: student.id,
+        student_id: student.student_number || '',
+        first_name: student.first_name || '',
+        last_name: student.last_name || '',
+        email: student.email || '',
+        date_of_birth: student.date_of_birth,
+        gender: student.gender as 'male' | 'female',
+        grade_level: student.current_grade_level,
+        class_name: student.class_name,
+        enrollment_status: student.status as 'active' | 'inactive' | 'transferred' | 'graduated',
+        enrollment_date: student.enrollment_date,
+        address: student.address,
+        is_active: student.status === 'active',
+      }));
+    }
+    
+    return response.data as any || [];
   }
 
   async createStudent(data: CreateStudentData): Promise<SchoolStudent> {

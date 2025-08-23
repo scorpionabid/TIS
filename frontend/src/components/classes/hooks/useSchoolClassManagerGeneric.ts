@@ -6,6 +6,7 @@ export interface ClassFilters extends BaseFilters {
   academic_year?: string;
   is_active?: boolean;
   class_teacher_id?: number;
+  institution_id?: number;
 }
 
 export interface NewClassData {

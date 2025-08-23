@@ -74,6 +74,7 @@ npm run lint
 - **Frontend**: React 19 with TypeScript, Vite build tool, Tailwind CSS 4.x
 - **Infrastructure**: Docker containers with Nginx reverse proxy
 
+
 ### Core Components
 
 #### Authentication & User Management

@@ -244,6 +244,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return currentUser.role === role;
   };
 
+  console.log('🔗 AuthContext value:', { currentUser, isAuthenticated, loading });
+  
   const value: AuthContextType = {
     isAuthenticated,
     currentUser,

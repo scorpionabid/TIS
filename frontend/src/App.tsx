@@ -10,6 +10,7 @@ import Layout from "./components/layout/Layout";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Users from "./pages/Users";
+import Students from "./pages/Students";
 import Roles from "./pages/Roles";
 import Departments from "./pages/Departments";
 import Institutions from "./pages/Institutions";
@@ -43,7 +44,7 @@ import RegionAdminUsers from "./pages/regionadmin/RegionAdminUsers";
 import RegionAdminSectors from "./pages/regionadmin/RegionAdminSectors";
 import SchoolSurveys from "./pages/school/SchoolSurveys";
 import SchoolTasks from "./pages/school/SchoolTasks";
-import SchoolStudents from "./pages/school/SchoolStudents";
+
 import SchoolTeachers from "./pages/school/SchoolTeachers";
 import SchoolClasses from "./pages/school/SchoolClasses";
 import SchoolAttendanceRecord from "./pages/school/SchoolAttendanceRecord";
@@ -125,6 +126,7 @@ const App = () => (
             >
               <Route index element={<Index />} />
               <Route path="users" element={<Users />} />
+              <Route path="students" element={<Students />} />
               <Route path="roles" element={<Roles />} />
               <Route path="departments" element={<Departments />} />
               <Route path="institutions" element={<Institutions />} />
@@ -163,7 +165,11 @@ const App = () => (
               {/* Assessment Management Routes */}
               <Route path="assessments/types" element={<AssessmentTypes />} />
               <Route path="assessments/results" element={<AssessmentResults />} />
-              <Route path="assessments/entry" element={<AssessmentEntry />} />
+              <Route path="assessments/entry" element={
+                <RoleProtectedRoute allowedRoles={['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'teacher']}>
+                  <AssessmentEntry />
+                </RoleProtectedRoute>
+              } />
               
               
               {/* RegionAdmin Routes */}
@@ -185,7 +191,7 @@ const App = () => (
               {/* SchoolAdmin Routes */}
               <Route path="school/surveys" element={<SchoolSurveys />} />
               <Route path="school/tasks" element={<SchoolTasks />} />
-              <Route path="school/students" element={<SchoolStudents />} />
+              <Route path="school/students" element={<Navigate to="/students" replace />} />
               <Route path="school/teachers" element={<SchoolTeachers />} />
               <Route path="school/classes" element={<SchoolClasses />} />
               <Route path="school/attendance" element={<SchoolAttendanceRecord />} />

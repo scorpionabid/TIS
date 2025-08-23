@@ -11,6 +11,10 @@ interface ClassFiltersProps {
   filters: ClassFilters;
   setFilters: React.Dispatch<React.SetStateAction<ClassFilters>>;
   getCurrentAcademicYear: () => string;
+  // Institution filter props
+  institutionFilter?: string;
+  setInstitutionFilter?: (value: string) => void;
+  availableInstitutions?: Array<{id: number, name: string}>;
 }
 
 export const ClassFilters: React.FC<ClassFiltersProps> = ({
@@ -18,7 +22,10 @@ export const ClassFilters: React.FC<ClassFiltersProps> = ({
   setSearchTerm,
   filters,
   setFilters,
-  getCurrentAcademicYear
+  getCurrentAcademicYear,
+  institutionFilter,
+  setInstitutionFilter,
+  availableInstitutions
 }) => {
   return (
     <Card>
@@ -39,6 +46,26 @@ export const ClassFilters: React.FC<ClassFiltersProps> = ({
           
           {/* Filter Controls */}
           <div className="flex gap-2">
+            {/* Institution Filter */}
+            <Select value={institutionFilter || 'all'} onValueChange={setInstitutionFilter || (() => {})}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Müəssisə" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Bütün müəssisələr</SelectItem>
+                {availableInstitutions && availableInstitutions.length > 0 ? (
+                  availableInstitutions.map((institution) => (
+                    <SelectItem key={institution.id} value={institution.id.toString()}>
+                      {institution.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="no-institutions" disabled>
+                    Müəssisələr yüklənir...
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
             {/* Grade Level Filter */}
             <Select 
               value={filters.grade_level?.toString() || 'all'} 
@@ -49,39 +76,17 @@ export const ClassFilters: React.FC<ClassFiltersProps> = ({
                 }))
               }
             >
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Səviyyə seçin" />
+              <SelectTrigger className="w-[120px]">
+                <SelectValue placeholder="Sinif" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Bütün səviyyələr</SelectItem>
+                <SelectItem value="all">Bütün siniflər</SelectItem>
                 <SelectItem value="0">Anasinifi</SelectItem>
                 {[...Array(11)].map((_, i) => (
                   <SelectItem key={i + 1} value={(i + 1).toString()}>
-                    {`${i + 1}. sinif`}
+                    {`${i + 1} sinif`}
                   </SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-            
-            {/* Academic Year Filter */}
-            <Select 
-              value={filters.academic_year || 'current'} 
-              onValueChange={(value) => 
-                setFilters(prev => ({ 
-                  ...prev, 
-                  academic_year: value === 'current' ? getCurrentAcademicYear() : value 
-                }))
-              }
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Akademik il" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="current">Cari il</SelectItem>
-                <SelectItem value={getCurrentAcademicYear()}>{getCurrentAcademicYear()}</SelectItem>
-                <SelectItem value={`${new Date().getFullYear() - 1}-${new Date().getFullYear()}`}>
-                  {`${new Date().getFullYear() - 1}-${new Date().getFullYear()}`}
-                </SelectItem>
               </SelectContent>
             </Select>
 
@@ -95,8 +100,8 @@ export const ClassFilters: React.FC<ClassFiltersProps> = ({
                 }))
               }
             >
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Status seçin" />
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Bütün statuslar</SelectItem>

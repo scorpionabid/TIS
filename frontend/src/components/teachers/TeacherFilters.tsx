@@ -10,13 +10,20 @@ interface TeacherFiltersProps {
   setSearchTerm: (term: string) => void;
   filters: TeacherFilters;
   setFilters: React.Dispatch<React.SetStateAction<TeacherFilters>>;
+  // Institution filter props
+  institutionFilter?: string;
+  setInstitutionFilter?: (value: string) => void;
+  availableInstitutions?: Array<{id: number, name: string}>;
 }
 
 export const TeacherFilters: React.FC<TeacherFiltersProps> = ({
   searchTerm,
   setSearchTerm,
   filters,
-  setFilters
+  setFilters,
+  institutionFilter,
+  setInstitutionFilter,
+  availableInstitutions
 }) => {
   return (
     <Card>
@@ -27,7 +34,7 @@ export const TeacherFilters: React.FC<TeacherFiltersProps> = ({
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Müəllim adı, email və ya telefon ilə axtarın..."
+                placeholder="Müəllim adı, email ilə axtarın..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -37,6 +44,26 @@ export const TeacherFilters: React.FC<TeacherFiltersProps> = ({
           
           {/* Filter Controls */}
           <div className="flex gap-2">
+            {/* Institution Filter */}
+            <Select value={institutionFilter || 'all'} onValueChange={setInstitutionFilter || (() => {})}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Müəssisə" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Bütün müəssisələr</SelectItem>
+                {availableInstitutions && availableInstitutions.length > 0 ? (
+                  availableInstitutions.map((institution) => (
+                    <SelectItem key={institution.id} value={institution.id.toString()}>
+                      {institution.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="no-institutions" disabled>
+                    Müəssisələr yüklənir...
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
             {/* Department Filter */}
             <Select 
               value={filters.department || 'all'} 
@@ -47,8 +74,8 @@ export const TeacherFilters: React.FC<TeacherFiltersProps> = ({
                 }))
               }
             >
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Şöbə seçin" />
+              <SelectTrigger className="w-[120px]">
+                <SelectValue placeholder="Şöbə" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Bütün şöbələr</SelectItem>
@@ -64,33 +91,6 @@ export const TeacherFilters: React.FC<TeacherFiltersProps> = ({
                 <SelectItem value="other">Digər</SelectItem>
               </SelectContent>
             </Select>
-            
-            {/* Position Filter */}
-            <Select 
-              value={filters.position || 'all'} 
-              onValueChange={(value) => 
-                setFilters(prev => ({ 
-                  ...prev, 
-                  position: value === 'all' ? undefined : value 
-                }))
-              }
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Vəzifə seçin" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Bütün vəzifələr</SelectItem>
-                <SelectItem value="teacher">Müəllim</SelectItem>
-                <SelectItem value="senior_teacher">Böyük müəllim</SelectItem>
-                <SelectItem value="head_teacher">Sinif rəhbəri</SelectItem>
-                <SelectItem value="department_head">Şöbə müdiri</SelectItem>
-                <SelectItem value="deputy_principal">Direktor müavini</SelectItem>
-                <SelectItem value="principal">Direktor</SelectItem>
-                <SelectItem value="substitute">Əvəzedici müəllim</SelectItem>
-                <SelectItem value="intern">Stajçı</SelectItem>
-                <SelectItem value="coordinator">Koordinator</SelectItem>
-              </SelectContent>
-            </Select>
 
             {/* Status Filter */}
             <Select 
@@ -102,8 +102,8 @@ export const TeacherFilters: React.FC<TeacherFiltersProps> = ({
                 }))
               }
             >
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Status seçin" />
+              <SelectTrigger className="w-[120px]">
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Bütün statuslar</SelectItem>

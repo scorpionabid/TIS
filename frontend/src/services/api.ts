@@ -4,7 +4,11 @@ console.log('🔧 Environment check:', {
   all_env: import.meta.env
 });
 
-const API_BASE_URL = 'http://localhost:8001/api'; // Temporarily hardcoded
+// Debug environment variable
+console.log('🔍 Raw env variable:', import.meta.env.VITE_API_BASE_URL);
+
+// Force correct API URL for now
+const API_BASE_URL = 'http://localhost:8001/api';
 const SANCTUM_BASE_URL = 'http://localhost:8001';
 
 console.log('🔗 API URLs:', { API_BASE_URL, SANCTUM_BASE_URL });
@@ -36,6 +40,7 @@ class ApiClient {
   private token: string | null = null;
 
   constructor(baseURL: string = API_BASE_URL) {
+    console.log('🔧 ApiClient constructor:', { baseURL, API_BASE_URL });
     this.baseURL = baseURL;
     this.loadToken();
   }
@@ -141,7 +146,8 @@ class ApiClient {
   }
 
   async get<T>(endpoint: string, params?: Record<string, any>): Promise<ApiResponse<T>> {
-    console.log(`🌐 API GET request: ${endpoint}`, { params });
+    console.log(`🌐 API GET request: baseURL=${this.baseURL}, endpoint=${endpoint}`, { params });
+    console.log('🔍 Full URL will be:', `${this.baseURL}${endpoint}`);
     
     // Handle special Sanctum endpoints
     let requestUrl: string;
@@ -256,4 +262,6 @@ class ApiClient {
   }
 }
 
+// Force recreation with timestamp to avoid cache
+console.log('🔄 Creating new ApiClient instance at:', new Date().toISOString());
 export const apiClient = new ApiClient();

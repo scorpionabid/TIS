@@ -90,9 +90,14 @@ export const useAssessmentTypeForm = (
       setLoadingInstitutions(true);
       try {
         const response = await institutionService.getInstitutions();
-        setInstitutions(response.data || []);
+        console.log('🏫 useAssessmentTypeForm: institutions response:', response);
+        // Handle paginated response format: response.data.data
+        const institutionsData = response?.data?.data || response?.data || response || [];
+        console.log('🏫 useAssessmentTypeForm: setting institutions:', institutionsData);
+        setInstitutions(Array.isArray(institutionsData) ? institutionsData : []);
       } catch (error) {
-        console.error('Failed to load institutions:', error);
+        console.error('❌ Failed to load institutions:', error);
+        setInstitutions([]); // Ensure it's always an array
       } finally {
         setLoadingInstitutions(false);
       }
@@ -167,7 +172,7 @@ export const useAssessmentTypeForm = (
     }
   };
 
-  const filteredInstitutions = institutions.filter(institution =>
+  const filteredInstitutions = (institutions || []).filter(institution =>
     institution.name.toLowerCase().includes(institutionSearch.toLowerCase())
   );
 

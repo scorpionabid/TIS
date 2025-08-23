@@ -6,6 +6,7 @@ export interface TeacherFilters extends BaseFilters {
   department_id?: number;
   is_active?: boolean;
   employment_type?: 'full_time' | 'part_time' | 'contract';
+  institution_id?: number;
 }
 
 export interface NewTeacherData {

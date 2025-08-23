@@ -2,8 +2,14 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, RefreshCw, Download, AlertTriangle, School } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Plus, RefreshCw, Download, AlertTriangle, School, Eye, Edit, Trash2, Users, MapPin, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePagination } from '@/hooks/usePagination';
+import { TablePagination } from '@/components/common/TablePagination';
+import { useQuery } from '@tanstack/react-query';
+import { institutionService } from '@/services/institutions';
+import { useAuth } from '@/contexts/AuthContext';
 import { useSchoolClassManager } from './hooks/useSchoolClassManager';
 import { ClassCard } from './ClassCard';
 import { ClassCreateDialog } from './ClassCreateDialog';
@@ -16,41 +22,133 @@ interface SchoolClassManagerProps {
 }
 
 export const SchoolClassManager: React.FC<SchoolClassManagerProps> = ({ className }) => {
+  // Institution filter state
+  const [institutionFilter, setInstitutionFilter] = React.useState<string>('all');
+  
+  // Auth context for role-based filtering
+  const { currentUser: user } = useAuth();
+  
+  // Fetch institutions for filter (based on user role)
+  const { data: institutionsResponse } = useQuery({
+    queryKey: ['institutions', 'for-filter'],
+    queryFn: () => institutionService.getAll({ per_page: 100 }),
+  });
+
+  const availableInstitutions = React.useMemo(() => {
+    if (!institutionsResponse?.data?.data) return [];
+    
+    // Filter institutions based on user role
+    let institutions = institutionsResponse.data.data;
+    
+    if (!user) return [];
+    
+    // SuperAdmin sees all institutions
+    if (user.role === 'superadmin') {
+      return institutions.filter((inst: any) => inst.level && inst.level >= 3); // Schools and sectors
+    }
+    
+    // RegionAdmin sees institutions in their region
+    if (user.role === 'regionadmin') {
+      const userInstitutionId = user.institution_id;
+      return institutions.filter((inst: any) => 
+        inst.id === userInstitutionId || 
+        (inst.level && inst.level >= 3) // Schools under their region
+      );
+    }
+    
+    // SectorAdmin sees schools in their sector
+    if (user.role === 'sektoradmin') {
+      const userInstitutionId = user.institution_id;
+      return institutions.filter((inst: any) => 
+        inst.id === userInstitutionId ||
+        (inst.level === 4) // Only schools
+      );
+    }
+    
+    // School staff see only their institution
+    if (user.role === 'məktəbadmin' || user.role === 'müəllim') {
+      return institutions.filter((inst: any) => inst.id === user.institution_id);
+    }
+    
+    return [];
+  }, [institutionsResponse, user]);
+
   const {
+    // Data
+    entities: classes,
+    isLoading,
+    error,
+    
     // State
     searchTerm,
     filters,
     selectedTab,
-    selectedClass,
+    selectedEntity: selectedClass,
     createModalOpen,
-    newClassData,
-    
-    // Data
-    classes,
-    teachers,
-    classStats,
-    isLoading,
-    error,
-    
-    // Mutations
-    createClassMutation,
+    newEntityData: newClassData,
     
     // Actions
     setSearchTerm,
     setFilters,
     setSelectedTab,
-    setSelectedClass,
+    setSelectedEntity: setSelectedClass,
     setCreateModalOpen,
-    setNewClassData,
+    setNewEntityData: setNewClassData,
     refetch,
     
     // Event handlers
-    handleCreateClass,
-    
-    // Utilities
-    getGradeLevelText,
-    getCurrentAcademicYear
+    handleCreate: handleCreateClass,
   } = useSchoolClassManager();
+
+  // Update filters when institution filter changes
+  React.useEffect(() => {
+    setFilters(prev => ({
+      ...prev,
+      institution_id: institutionFilter === 'all' ? undefined : parseInt(institutionFilter)
+    }));
+  }, [institutionFilter, setFilters]);
+
+  // Calculate class stats locally
+  const classStats = {
+    total: classes?.length || 0,
+    active: classes?.filter(c => c.is_active)?.length || 0,
+    inactive: classes?.filter(c => !c.is_active)?.length || 0,
+    overcrowded: classes?.filter(c => c.current_enrollment > c.capacity)?.length || 0,
+    needs_teacher: classes?.filter(c => !c.class_teacher_id)?.length || 0,
+  };
+
+  // Filter classes based on search and tab (institution filtering is handled by backend)
+  const filteredClasses = classes?.filter(schoolClass => {
+    const matchesSearch = !searchTerm || 
+      schoolClass.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (typeof schoolClass.class_teacher === 'string' 
+        ? schoolClass.class_teacher.toLowerCase().includes(searchTerm.toLowerCase())
+        : schoolClass.class_teacher?.name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      schoolClass.room_number?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesTab = selectedTab === 'all' || 
+      (selectedTab === 'active' && schoolClass.is_active) ||
+      (selectedTab === 'inactive' && !schoolClass.is_active);
+    
+    return matchesSearch && matchesTab;
+  }) || [];
+
+  // Pagination
+  const pagination = usePagination(filteredClasses, {
+    initialPage: 1,
+    initialItemsPerPage: 20
+  });
+
+  // Utility functions
+  const getGradeLevelText = (level: number) => {
+    if (level <= 4) return 'İbtidai';
+    if (level <= 9) return 'Ümumi';
+    return 'Orta';
+  };
+
+  const getCurrentAcademicYear = () => {
+    return new Date().getFullYear().toString();
+  };
 
   if (error) {
     return (
@@ -110,6 +208,9 @@ export const SchoolClassManager: React.FC<SchoolClassManagerProps> = ({ classNam
         filters={filters}
         setFilters={setFilters}
         getCurrentAcademicYear={getCurrentAcademicYear}
+        institutionFilter={institutionFilter}
+        setInstitutionFilter={setInstitutionFilter}
+        availableInstitutions={availableInstitutions}
       />
 
       {/* Class Tabs */}
@@ -128,37 +229,191 @@ export const SchoolClassManager: React.FC<SchoolClassManagerProps> = ({ classNam
 
         <TabsContent value={selectedTab} className="space-y-4">
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[...Array(6)].map((_, i) => (
-                <Card key={i} className="animate-pulse">
-                  <CardContent className="p-6">
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-muted rounded-lg" />
-                        <div className="space-y-2">
-                          <div className="w-24 h-5 bg-muted rounded" />
-                          <div className="w-32 h-4 bg-muted rounded" />
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[200px]">Sinif adı</TableHead>
+                    <TableHead>Sinif səviyyəsi</TableHead>
+                    <TableHead>Otaq</TableHead>
+                    <TableHead>Sinif rəhbəri</TableHead>
+                    <TableHead>Şagird sayı</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Əməliyyatlar</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {[...Array(10)].map((_, i) => (
+                    <TableRow key={i} className="animate-pulse">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-muted rounded-lg" />
+                          <div className="space-y-2">
+                            <div className="w-24 h-4 bg-muted rounded" />
+                            <div className="w-20 h-3 bg-muted rounded" />
+                          </div>
                         </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="w-full h-3 bg-muted rounded" />
-                        <div className="w-3/4 h-3 bg-muted rounded" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      </TableCell>
+                      <TableCell>
+                        <div className="w-20 h-4 bg-muted rounded" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="w-16 h-4 bg-muted rounded" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="w-24 h-4 bg-muted rounded" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="w-12 h-4 bg-muted rounded" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="w-12 h-6 bg-muted rounded-full" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center gap-1 justify-end">
+                          <div className="w-8 h-8 bg-muted rounded" />
+                          <div className="w-8 h-8 bg-muted rounded" />
+                          <div className="w-8 h-8 bg-muted rounded" />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-          ) : classes.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {classes.map(schoolClass => (
-                <ClassCard 
-                  key={schoolClass.id} 
-                  schoolClass={schoolClass}
-                  onViewDetails={setSelectedClass}
-                  getGradeLevelText={getGradeLevelText}
-                />
-              ))}
+          ) : pagination.totalItems > 0 ? (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[200px]">Sinif adı</TableHead>
+                    <TableHead>Sinif səviyyəsi</TableHead>
+                    <TableHead>Otaq</TableHead>
+                    <TableHead>Sinif rəhbəri</TableHead>
+                    <TableHead>Şagird sayı</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Əməliyyatlar</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pagination.paginatedItems.map(schoolClass => (
+                    <TableRow key={schoolClass.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-blue-100 rounded-lg flex items-center justify-center">
+                            <School className="h-4 w-4 text-green-600" />
+                          </div>
+                          <div>
+                            <div className="font-medium">{schoolClass.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {typeof schoolClass.academic_year === 'object' 
+                                ? schoolClass.academic_year.name || schoolClass.academic_year.year || 'Akademik il'
+                                : schoolClass.academic_year || 'Akademik il'
+                              } akademik ili
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          {getGradeLevelText(schoolClass.grade_level)} - {schoolClass.grade_level}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1 text-sm">
+                          {schoolClass.room_number ? (
+                            <>
+                              <MapPin className="h-4 w-4 text-muted-foreground" />
+                              {schoolClass.room_number}
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground">Təyin edilməyib</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1 text-sm">
+                          {schoolClass.class_teacher ? (
+                            <>
+                              <User className="h-4 w-4 text-muted-foreground" />
+                              {typeof schoolClass.class_teacher === 'object' 
+                                ? schoolClass.class_teacher.name || schoolClass.class_teacher.full_name || 'Müəllim'
+                                : schoolClass.class_teacher
+                              }
+                            </>
+                          ) : (
+                            <span className="text-orange-600">Təyin edilməyib</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <span className="font-medium">
+                            {schoolClass.current_enrollment}/{schoolClass.capacity}
+                          </span>
+                          {schoolClass.current_enrollment > schoolClass.capacity && (
+                            <span className="text-red-600 ml-1">
+                              (+{schoolClass.current_enrollment - schoolClass.capacity})
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          schoolClass.is_active 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {schoolClass.is_active ? 'Aktiv' : 'Passiv'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center gap-1 justify-end">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => setSelectedClass(schoolClass)}
+                            title="Bax"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            title="Redaktə et"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            title="Sil"
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              
+              {/* Pagination */}
+              <TablePagination
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                totalItems={pagination.totalItems}
+                itemsPerPage={pagination.itemsPerPage}
+                startIndex={pagination.startIndex}
+                endIndex={pagination.endIndex}
+                onPageChange={pagination.goToPage}
+                onItemsPerPageChange={pagination.setItemsPerPage}
+                onPrevious={pagination.goToPreviousPage}
+                onNext={pagination.goToNextPage}
+                canGoPrevious={pagination.canGoPrevious}
+                canGoNext={pagination.canGoNext}
+              />
             </div>
           ) : (
             <Card>
@@ -192,9 +447,9 @@ export const SchoolClassManager: React.FC<SchoolClassManagerProps> = ({ classNam
         newClassData={newClassData}
         setNewClassData={setNewClassData}
         onCreateClass={handleCreateClass}
-        teachers={teachers}
+        teachers={[]}
         getCurrentAcademicYear={getCurrentAcademicYear}
-        isCreating={createClassMutation.isPending}
+        isCreating={false}
       />
 
       <ClassDetailsDialog

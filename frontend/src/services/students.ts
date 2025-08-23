@@ -2,19 +2,36 @@ import { apiClient } from './api';
 
 export interface Student {
   id: number;
-  name: string;
   student_number: string;
-  class_name: string;
-  grade_level: string;
   first_name: string;
   last_name: string;
-  age?: number;
+  full_name: string;
+  email: string | null;
+  phone?: string;
+  date_of_birth?: string;
+  gender?: string;
+  address?: string;
+  enrollment_date?: string | null;
+  current_grade_level?: number | string;
+  class_name?: string;
+  status: string;
+  institution_id: number;
+  institution?: {
+    id: number;
+    name: string;
+  };
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface StudentFilters {
-  grade_level?: string;
-  class_name?: string;
+  institution_id?: number;
+  class_id?: number;
+  grade_level?: number;
+  status?: string;
   search?: string;
+  page?: number;
   per_page?: number;
 }
 
@@ -47,30 +64,40 @@ export interface StudentCount {
 }
 
 class StudentService {
-  private baseURL = '/assessment-students';
+  private baseURL = '/students';
 
   /**
-   * Get students by institution
+   * Get all students with role-based filtering
    */
-  async getStudentsByInstitution(
-    institutionId: number,
-    filters: StudentFilters = {}
-  ): Promise<PaginatedStudents> {
+  async getAll(filters: StudentFilters = {}): Promise<{ data: { students: Student[]; pagination: any }; success: boolean; message: string }> {
     try {
       const params = new URLSearchParams();
       
-      if (filters.grade_level) params.append('grade_level', filters.grade_level);
-      if (filters.class_name) params.append('class_name', filters.class_name);
+      if (filters.institution_id) params.append('institution_id', filters.institution_id.toString());
+      if (filters.class_id) params.append('class_id', filters.class_id.toString());
+      if (filters.grade_level) params.append('grade_level', filters.grade_level.toString());
+      if (filters.status) params.append('status', filters.status);
       if (filters.search) params.append('search', filters.search);
+      if (filters.page) params.append('page', filters.page.toString());
       if (filters.per_page) params.append('per_page', filters.per_page.toString());
 
-      const url = `${this.baseURL}/institutions/${institutionId}/students${params.toString() ? `?${params.toString()}` : ''}`;
+      const url = `${this.baseURL}${params.toString() ? `?${params.toString()}` : ''}`;
       
       const response = await apiClient.get(url);
-      return response.data.data;
+      return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Şagirdlər yüklənərkən xəta baş verdi');
     }
+  }
+
+  /**
+   * Get students by institution (legacy method)
+   */
+  async getStudentsByInstitution(
+    institutionId: number,
+    filters: Omit<StudentFilters, 'institution_id'> = {}
+  ): Promise<{ data: { students: Student[]; pagination: any }; success: boolean; message: string }> {
+    return this.getAll({ ...filters, institution_id: institutionId });
   }
 
   /**
@@ -103,6 +130,54 @@ class StudentService {
   }
 
   /**
+   * Get single student by ID
+   */
+  async getById(id: number): Promise<{ data: Student; success: boolean; message: string }> {
+    try {
+      const response = await apiClient.get(`${this.baseURL}/${id}`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Şagird məlumatları yüklənərkən xəta baş verdi');
+    }
+  }
+
+  /**
+   * Create new student
+   */
+  async create(studentData: any): Promise<{ data: Student; success: boolean; message: string }> {
+    try {
+      const response = await apiClient.post(this.baseURL, studentData);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Şagird yaradılarkən xəta baş verdi');
+    }
+  }
+
+  /**
+   * Update student
+   */
+  async update(id: number, studentData: any): Promise<{ data: Student; success: boolean; message: string }> {
+    try {
+      const response = await apiClient.put(`${this.baseURL}/${id}`, studentData);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Şagird yenilənərkən xəta baş verdi');
+    }
+  }
+
+  /**
+   * Delete student
+   */
+  async delete(id: number): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await apiClient.delete(`${this.baseURL}/${id}`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Şagird silinərkən xəta baş verdi');
+    }
+  }
+
+  /**
    * Get student count for institution
    */
   async getStudentCount(
@@ -112,8 +187,8 @@ class StudentService {
     try {
       const params = new URLSearchParams();
       
-      if (filters.grade_level) params.append('grade_level', filters.grade_level);
-      if (filters.class_name) params.append('class_name', filters.class_name);
+      if (filters.grade_level) params.append('grade_level', filters.grade_level.toString());
+      if (filters.class_id) params.append('class_id', filters.class_id.toString());
 
       const url = `${this.baseURL}/institutions/${institutionId}/count${params.toString() ? `?${params.toString()}` : ''}`;
       const response = await apiClient.get(url);

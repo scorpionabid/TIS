@@ -32,6 +32,7 @@ export const getSuperAdminMenuStructure = (): MenuGroup[] => [
       { icon: HomeIcon, label: "Ana səhifə", path: "/" },
       { icon: BellIcon, label: "Bildirişlər", path: "/notifications" },
       { icon: UsersIcon, label: "İstifadəçilər", path: "/users" },
+      { icon: GraduationCapIcon, label: "Şagirdlər", path: "/students" },
       { icon: ShieldIcon, label: "Rollar", path: "/roles" },
       { icon: FileTextIcon, label: "Tapşırıqlar", path: "/tasks" },
     ]
@@ -70,8 +71,6 @@ export const getSuperAdminMenuStructure = (): MenuGroup[] => [
         hasSubmenu: true,
         key: "school",
         submenu: [
-          { label: "Fənnlər", path: "/subjects" },
-          { label: "Şagirdlər", path: "/school/students" },
           { label: "Müəllimlər", path: "/school/teachers" },
           { label: "Siniflər", path: "/school/classes" },
           { label: "Davamiyyət Qeydiyyatı", path: "/school/attendance" },
@@ -167,38 +166,50 @@ export const getOtherRoleMenuStructure = (userRole: string): MenuItem[] => {
   ];
 
   const roleSpecificItems: Record<string, MenuItem[]> = {
-    RegionAdmin: [
+    regionadmin: [
+      { icon: GraduationCapIcon, label: "Şagirdlər", path: "/students" },
       { icon: BookOpen, label: "Fənnlər", path: "/subjects" },
       { icon: ClipboardListIcon, label: "Sorğular", path: "/surveys" },
+      { icon: CheckSquare, label: "Təsdiqlər", path: "/approvals" },
       { icon: BarChart3Icon, label: "Sorğu Nəticələri", path: "/survey-results" },
       { icon: CalendarIcon, label: "Cədvəl Nəzarəti", path: "/regionadmin/schedules" },
       { icon: UsersIcon, label: "Sektorlar", path: "/sectors" },
       { icon: FolderIcon, label: "Sənədlər", path: "/documents" },
       { icon: BarChart3Icon, label: "Hesabatlar", path: "/reports" },
     ],
-    RegionOperator: [
+    regionoperator: [
       { icon: ClipboardListIcon, label: "Sorğular", path: "/surveys" },
       { icon: FolderIcon, label: "Sənədlər", path: "/documents" },
       { icon: FileTextIcon, label: "Tapşırıqlar", path: "/tasks" },
     ],
-    SektorAdmin: [
+    sektoradmin: [
+      { icon: GraduationCapIcon, label: "Şagirdlər", path: "/students" },
       { icon: SchoolIcon, label: "Təhsil müəssisələri", path: "/institutions" },
       { icon: ClipboardListIcon, label: "Sorğular", path: "/surveys" },
+      { icon: CheckSquare, label: "Təsdiqlər", path: "/approvals" },
       { icon: FileTextIcon, label: "Tapşırıqlar", path: "/tasks" },
-      { icon: BarChart3Icon, label: "Sektor hesabatları", path: "/sector-reports" },
+      { icon: BarChart3Icon, label: "Sektor hesabatları", path: "/reports" },
     ],
-    SchoolAdmin: [
-      { icon: ClipboardListIcon, label: "Sorğular", path: "/surveys" },
-      { icon: FileTextIcon, label: "Tapşırıqlar", path: "/tasks" },
+    məktəbadmin: [
+      { icon: GraduationCapIcon, label: "Şagirdlər", path: "/students" },
+      { icon: UsersIcon, label: "Müəllimlər", path: "/school/teachers" },
+      { icon: SchoolIcon, label: "Siniflər", path: "/school/classes" },
+      { icon: ClipboardListIcon, label: "Sorğular", path: "/school/surveys" },
+      { icon: CheckSquare, label: "Təsdiqlər", path: "/approvals" },
+      { icon: FileTextIcon, label: "Tapşırıqlar", path: "/school/tasks" },
       { icon: CalendarIcon, label: "Cədvəl İdarəetməsi", path: "/school/schedule-management" },
-      { icon: UsersIcon, label: "Personallar", path: "/staff" },
-      { icon: BarChart3Icon, label: "Məktəb hesabatları", path: "/school-reports" },
+      { icon: Clock, label: "Davamiyyət", path: "/school/attendance" },
+      { icon: BarChart3Icon, label: "Qiymətləndirmələr", path: "/school/assessments" },
+      { icon: BookOpen, label: "Qiymət Kitabı", path: "/school/gradebook" },
     ],
-    Teacher: [
+    müəllim: [
       { icon: CalendarIcon, label: "Mənim Cədvəlim", path: "/teacher/schedule" },
-      { icon: ClipboardListIcon, label: "Tapşırıqlar", path: "/assignments" },
-      { icon: FileTextIcon, label: "Dərs planları", path: "/lesson-plans" },
-      { icon: BarChart3Icon, label: "Qiymətləndirmələr", path: "/assessments" },
+      { icon: GraduationCapIcon, label: "Şagirdlər", path: "/students" },
+      { icon: Clock, label: "Davamiyyət", path: "/school/attendance" },
+      { icon: BarChart3Icon, label: "Qiymətləndirmələr", path: "/school/assessments" },
+      { icon: BookOpen, label: "Qiymət Kitabı", path: "/school/gradebook" },
+      { icon: ClipboardListIcon, label: "Sorğular", path: "/school/surveys" },
+      { icon: FileTextIcon, label: "Tapşırıqlar", path: "/school/tasks" },
     ]
   };
 

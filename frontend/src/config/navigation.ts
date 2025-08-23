@@ -153,13 +153,13 @@ export const improvedNavigationConfig: MenuGroup[] = [
           {
             id: 'school-students',
             label: 'Şagird Siyahısı',
-            path: '/school/students',
+            path: '/students',
             roles: ['superadmin', 'məktəbadmin']
           },
           {
             id: 'student-enrollment',
             label: 'Yeni Qeydiyyat',
-            path: '/school/students/enrollment',
+            path: '/students',
             roles: ['superadmin', 'məktəbadmin']
           }
         ]

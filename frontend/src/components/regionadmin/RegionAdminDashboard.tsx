@@ -21,13 +21,38 @@ import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/services/api';
 
 interface RegionStats {
-  total_sectors: number;
-  total_schools: number;
-  total_users: number;
-  active_surveys: number;
-  pending_tasks: number;
-  completion_rate: number;
-  performance_trend: number;
+  region_overview: {
+    region_name: string;
+    total_sectors: number;
+    total_schools: number;
+    total_users: number;
+    active_users: number;
+    user_activity_rate: number;
+  };
+  survey_metrics: {
+    total_surveys: number;
+    active_surveys: number;
+    total_responses: number;
+    response_rate: number;
+  };
+  task_metrics: {
+    total_tasks: number;
+    completed_tasks: number;
+    pending_tasks: number;
+    completion_rate: number;
+  };
+  sector_performance: Array<{
+    sector_name: string;
+    schools_count: number;
+    users_count: number;
+    surveys_count: number;
+    tasks_count: number;
+    completion_rate: number;
+  }>;
+  recent_activities: any[];
+  notifications: any[];
+  user_role: string;
+  region_id: number;
 }
 
 interface RecentActivity {
@@ -42,23 +67,38 @@ interface RecentActivity {
 export const RegionAdminDashboard = () => {
   const { currentUser } = useAuth();
 
+  // Debug current user
+  console.log('🏛️ RegionAdminDashboard: Current user:', {
+    id: currentUser?.id,
+    name: currentUser?.name,
+    role: currentUser?.role,
+    institution_id: currentUser?.institution_id,
+    permissions: currentUser?.permissions?.slice(0, 3)
+  });
+
   // Fetch regional statistics
-  const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['regionadmin-stats', currentUser?.institution_id],
+  const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
+    queryKey: ['regionadmin-stats', currentUser?.institution_id || 'no-institution'],
     queryFn: async () => {
+      console.log('📊 RegionAdminDashboard: Fetching stats for user:', currentUser?.name);
       const response = await apiClient.get<RegionStats>('/regionadmin/dashboard/stats');
-      return response.data;
+      console.log('✅ RegionAdminDashboard: Stats response:', response);
+      return response.data || response;
     },
+    enabled: !!currentUser,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   // Fetch recent activities
-  const { data: activities, isLoading: activitiesLoading } = useQuery({
-    queryKey: ['regionadmin-activities', currentUser?.institution_id],
+  const { data: activities, isLoading: activitiesLoading, error: activitiesError } = useQuery({
+    queryKey: ['regionadmin-activities', currentUser?.institution_id || 'no-institution'],
     queryFn: async () => {
+      console.log('📋 RegionAdminDashboard: Fetching activities for user:', currentUser?.name);
       const response = await apiClient.get<RecentActivity[]>('/regionadmin/dashboard/activities');
-      return response.data;
+      console.log('✅ RegionAdminDashboard: Activities response:', response);
+      return response.data || response || [];
     },
+    enabled: !!currentUser,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 
@@ -92,6 +132,11 @@ export const RegionAdminDashboard = () => {
     }
   };
 
+  // Debug logs
+  console.log('🏛️ RegionAdminDashboard: Stats data:', stats);
+  console.log('🏛️ RegionAdminDashboard: Activities data:', activities);
+  console.log('🏛️ RegionAdminDashboard: Errors:', { statsError, activitiesError });
+
   if (statsLoading) {
     return (
       <div className="p-6 space-y-6">
@@ -103,6 +148,36 @@ export const RegionAdminDashboard = () => {
             ))}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // Show error state if there are errors
+  if (statsError || activitiesError) {
+    return (
+      <div className="p-6 space-y-6">
+        <Card className="border-red-200">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              <span>Dashboard yüklənərkən xəta</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {statsError && (
+                <p className="text-sm text-red-600">
+                  Stats xətası: {(statsError as Error).message}
+                </p>
+              )}
+              {activitiesError && (
+                <p className="text-sm text-red-600">
+                  Activities xətası: {(activitiesError as Error).message}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -125,7 +200,7 @@ export const RegionAdminDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Ümumi Sektorlar</p>
-                <p className="text-3xl font-bold text-blue-600">{stats?.total_sectors || 0}</p>
+                <p className="text-3xl font-bold text-blue-600">{stats?.region_overview?.total_sectors || 0}</p>
               </div>
               <Building2 className="h-12 w-12 text-blue-500" />
             </div>
@@ -138,7 +213,7 @@ export const RegionAdminDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Ümumi Məktəblər</p>
-                <p className="text-3xl font-bold text-green-600">{stats?.total_schools || 0}</p>
+                <p className="text-3xl font-bold text-green-600">{stats?.region_overview?.total_schools || 0}</p>
               </div>
               <School className="h-12 w-12 text-green-500" />
             </div>
@@ -151,7 +226,7 @@ export const RegionAdminDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Ümumi İstifadəçilər</p>
-                <p className="text-3xl font-bold text-purple-600">{stats?.total_users || 0}</p>
+                <p className="text-3xl font-bold text-purple-600">{stats?.region_overview?.total_users || 0}</p>
               </div>
               <Users className="h-12 w-12 text-purple-500" />
             </div>
@@ -164,7 +239,7 @@ export const RegionAdminDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Aktiv Sorğular</p>
-                <p className="text-3xl font-bold text-orange-600">{stats?.active_surveys || 0}</p>
+                <p className="text-3xl font-bold text-orange-600">{stats?.survey_metrics?.active_surveys || 0}</p>
               </div>
               <FileText className="h-12 w-12 text-orange-500" />
             </div>
@@ -177,7 +252,7 @@ export const RegionAdminDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Gözləyən Tapşırıqlar</p>
-                <p className="text-3xl font-bold text-red-600">{stats?.pending_tasks || 0}</p>
+                <p className="text-3xl font-bold text-red-600">{stats?.task_metrics?.pending_tasks || 0}</p>
               </div>
               <Clock className="h-12 w-12 text-red-500" />
             </div>
@@ -192,7 +267,7 @@ export const RegionAdminDashboard = () => {
                 <p className="text-sm font-medium text-muted-foreground">Tamamlanma Nisbəti</p>
                 <div className="flex items-center space-x-2">
                   <p className="text-3xl font-bold text-teal-600">
-                    {stats?.completion_rate ? `${stats.completion_rate.toFixed(1)}%` : '0%'}
+                    {stats?.region_overview?.user_activity_rate ? `${stats.region_overview.user_activity_rate}%` : '0%'}
                   </p>
                   {stats?.performance_trend !== undefined && (
                     stats.performance_trend > 0 ? (

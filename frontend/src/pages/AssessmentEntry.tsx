@@ -36,6 +36,7 @@ import { QuickAuth } from '@/components/auth/QuickAuth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BulkEntryInterface } from '@/components/assessment/BulkEntryInterface';
 import { ExcelImportExport } from '@/components/assessment/ExcelImportExport';
+import { useAuth } from '@/contexts/AuthContext';
 
 
 interface AssessmentEntry {
@@ -65,6 +66,7 @@ export default function AssessmentEntry() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { currentUser } = useAuth();
 
   // Helper function to safely validate SelectItem values
   const getSafeSelectValue = (value: any): string => {
