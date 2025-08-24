@@ -66,7 +66,7 @@ export const SchoolClassManager: React.FC<SchoolClassManagerProps> = ({ classNam
     }
     
     // School staff see only their institution
-    if (user.role === 'məktəbadmin' || user.role === 'müəllim') {
+    if (user.role === 'schooladmin' || user.role === 'müəllim') {
       return institutions.filter((inst: any) => inst.id === user.institution_id);
     }
     

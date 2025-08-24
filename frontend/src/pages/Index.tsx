@@ -47,7 +47,7 @@ const Index = () => {
     
     // School-related roles use the new role-based dashboard
     case SCHOOL_ROLES.SCHOOL_ADMIN:
-    case 'məktəbadmin': // Legacy role name support
+    case 'schooladmin': // Legacy role name support
     case SCHOOL_ROLES.MUAVIN:
     case SCHOOL_ROLES.UBR:
     case SCHOOL_ROLES.TESARRUFAT:

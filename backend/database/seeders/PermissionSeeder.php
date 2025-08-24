@@ -64,6 +64,9 @@ class PermissionSeeder extends Seeder
             'documents.update',
             'documents.delete',
             'documents.share',
+            'documents.bulk',
+            'documents.analytics',
+            'documents.tracking',
 
             // Task Management
             'tasks.create',
@@ -205,6 +208,16 @@ class PermissionSeeder extends Seeder
             'teaching_loads.write',
             'teaching_loads.bulk',
             'teaching_loads.analytics',
+
+            // Link Share Management
+            'links.create',
+            'links.read',
+            'links.update',
+            'links.delete',
+            'links.share',
+            'links.bulk',
+            'links.analytics',
+            'links.tracking',
         ];
 
         foreach ($permissions as $permissionName) {
@@ -245,14 +258,15 @@ class PermissionSeeder extends Seeder
                 'view teacher_performance', 'create teacher_performance', 'edit teacher_performance', 'delete teacher_performance', 'manage teacher_performance', 'approve teacher_performance',
                 'departments.create', 'departments.read', 'departments.update', 'departments.delete', 'departments.manage',
                 'teaching_loads.create', 'teaching_loads.read', 'teaching_loads.update', 'teaching_loads.delete', 'teaching_loads.write', 'teaching_loads.bulk', 'teaching_loads.analytics',
+                'links.create', 'links.read', 'links.update', 'links.delete', 'links.share', 'links.bulk', 'links.analytics', 'links.tracking',
                 'system.config', 'analytics.view'
             ],
             'regionadmin' => [
                 'users.read', 'users.create', 'users.update', 'users.delete',
-                'institutions.create', 'institutions.read', 'institutions.update',
+                'institutions.create', 'institutions.read', 'institutions.update', 'institutions.hierarchy',
                 'surveys.create', 'surveys.read', 'surveys.update', 'surveys.publish', 'surveys.approve',
                 'schedules.read', 'schedules.update', 'grades.read', 'attendance.manage', 'attendance.read', 'attendance.update', 'attendance.approve',
-                'documents.create', 'documents.read', 'documents.update', 'documents.delete', 'documents.share',
+                'documents.create', 'documents.read', 'documents.update', 'documents.delete', 'documents.share', 'documents.bulk', 'documents.analytics', 'documents.tracking',
                 'tasks.create', 'tasks.read', 'tasks.update', 'tasks.delete',
                 'reports.read', 'reports.create', 'reports.export',
                 'assessments.create', 'assessments.read', 'assessments.update', 'assessments.approve', 'assessments.export',
@@ -265,6 +279,7 @@ class PermissionSeeder extends Seeder
                 'inventory.create', 'inventory.read', 'inventory.update', 'inventory.manage', 'inventory.assign', 'inventory.maintenance',
                 'view teacher_performance', 'create teacher_performance', 'edit teacher_performance', 'manage teacher_performance', 'approve teacher_performance',
                 'approvals.create', 'approvals.read', 'approvals.approve', 'approvals.reject', 'approvals.analytics', 'approvals.delegate',
+                'links.create', 'links.read', 'links.update', 'links.delete', 'links.share', 'links.bulk', 'links.analytics', 'links.tracking',
                 'analytics.view'
             ],
             'schooladmin' => [
@@ -273,7 +288,7 @@ class PermissionSeeder extends Seeder
                 'surveys.create', 'surveys.read', 'surveys.update',
                 'schedules.create', 'schedules.read', 'schedules.update',
                 'grades.create', 'grades.read', 'grades.update', 'grades.manage', 'grades.assign', 'attendance.manage', 'attendance.create', 'attendance.read', 'attendance.update',
-                'documents.create', 'documents.read', 'documents.update', 'documents.share',
+                'documents.create', 'documents.read',
                 'tasks.read', 'tasks.update',
                 'assessments.create', 'assessments.read', 'assessments.update',
                 'assessment-types.read',
@@ -284,14 +299,15 @@ class PermissionSeeder extends Seeder
                 'inventory.create', 'inventory.read', 'inventory.update', 'inventory.manage', 'inventory.assign', 'inventory.maintenance',
                 'view teacher_performance', 'create teacher_performance', 'edit teacher_performance', 'manage teacher_performance',
                 'approvals.create', 'approvals.read',
+                'links.read',
                 'reports.read'
             ],
             'sektoradmin' => [
                 'users.read', 'users.create', 'users.update',
-                'institutions.read',
+                'institutions.read', 'institutions.hierarchy',
                 'surveys.create', 'surveys.read', 'surveys.update',
                 'schedules.read', 'schedules.update', 'grades.read', 'attendance.read', 'attendance.update',
-                'documents.create', 'documents.read', 'documents.update', 'documents.share',
+                'documents.create', 'documents.read',
                 'tasks.create', 'tasks.read', 'tasks.update', 'tasks.delete',
                 'assessments.read', 'assessments.update',
                 'subjects.read',
@@ -299,6 +315,11 @@ class PermissionSeeder extends Seeder
                 'grades.read', 'grades.update',
                 'events.read', 'events.register',
                 'approvals.read', 'approvals.approve', 'approvals.reject',
+                'departments.read',
+                'students.read',
+                'classes.read',
+                'teaching_loads.read',
+                'links.read',
                 'reports.read'
             ],
             'muavin' => [
@@ -312,6 +333,7 @@ class PermissionSeeder extends Seeder
                 'assessments.read', 'assessments.update',
                 'tasks.read', 'tasks.update',
                 'view teacher_performance', 'edit teacher_performance',
+                'links.read',
                 'reports.read'
             ],
             'ubr' => [
@@ -323,6 +345,7 @@ class PermissionSeeder extends Seeder
                 'assessments.read',
                 'rooms.read',
                 'surveys.read', 'surveys.respond',
+                'links.read',
                 'reports.read'
             ],
             'tesarrufat' => [
@@ -331,6 +354,7 @@ class PermissionSeeder extends Seeder
                 'rooms.read', 'rooms.update', 'rooms.manage',
                 'documents.read', 'documents.create', 'documents.update',
                 'tasks.read', 'tasks.update',
+                'links.read',
                 'reports.read',
                 'surveys.read', 'surveys.respond'
             ],
@@ -342,6 +366,7 @@ class PermissionSeeder extends Seeder
                 'tasks.read', 'tasks.update',
                 'assessments.read',
                 'surveys.read', 'surveys.respond',
+                'links.read',
                 'reports.read'
             ],
             'müəllim' => [
@@ -351,10 +376,12 @@ class PermissionSeeder extends Seeder
                 'documents.read', 'documents.create', 'documents.share',
                 'tasks.read', 'tasks.update',
                 'assessments.read', 'assessments.create', 'assessments.update',
+                'assessment-types.read',
                 'students.read',
                 'classes.read',
                 'rooms.read',
                 'events.read', 'events.register',
+                'links.read',
                 'view teacher_performance'
             ],
         ];

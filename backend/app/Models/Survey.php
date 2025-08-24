@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
 class Survey extends Model
 {
@@ -100,7 +101,14 @@ class Survey extends Model
      */
     public function institution()
     {
-        return $this->creator ? $this->creator->institution : null;
+        return $this->hasOneThrough(
+            Institution::class,
+            User::class,
+            'id', // Foreign key on users table
+            'id', // Foreign key on institutions table  
+            'creator_id', // Local key on surveys table
+            'institution_id' // Local key on users table
+        );
     }
 
     /**

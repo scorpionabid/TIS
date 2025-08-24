@@ -13,14 +13,30 @@ use Carbon\Carbon;
 class MektebAdminDashboardController extends Controller
 {
     /**
-     * Get MəktəbAdmin dashboard data
+     * Get SchoolAdmin dashboard data
+     */
+    public function getDashboard(Request $request): JsonResponse
+    {
+        return $this->getDashboardStats($request);
+    }
+
+    /**
+     * Get SchoolAdmin stats for legacy compatibility
+     */
+    public function getStats(Request $request): JsonResponse
+    {
+        return $this->getDashboardStats($request);
+    }
+
+    /**
+     * Get SchoolAdmin dashboard data
      */
     public function getDashboardStats(Request $request): JsonResponse
     {
         $user = $request->user();
         
-        // Verify user has məktəbadmin role
-        if (!$user->hasRole('məktəbadmin')) {
+        // Verify user has schooladmin role
+        if (!$user->hasRole('schooladmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -98,7 +114,7 @@ class MektebAdminDashboardController extends Controller
     {
         $user = $request->user();
         
-        if (!$user->hasRole('məktəbadmin')) {
+        if (!$user->hasRole('schooladmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -160,13 +176,67 @@ class MektebAdminDashboardController extends Controller
     }
 
     /**
+     * Get school analytics for dashboard
+     */
+    public function getAnalytics(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        if (!$user->hasRole('schooladmin')) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        try {
+            $userSchool = $user->institution;
+            
+            if (!$userSchool) {
+                return response()->json([
+                    'message' => 'İstifadəçi məktəbə təyin edilməyib'
+                ], 400);
+            }
+
+            // Mock analytics data for now
+            $analytics = [
+                'studentEnrollment' => [
+                    'current' => rand(400, 600),
+                    'lastYear' => rand(350, 550),
+                    'growthRate' => rand(5, 15) / 100
+                ],
+                'academicPerformance' => [
+                    'averageGrade' => rand(70, 85) / 10,
+                    'passRate' => rand(85, 95),
+                    'topPerformers' => rand(15, 30)
+                ],
+                'teacherMetrics' => [
+                    'totalTeachers' => rand(30, 60),
+                    'experiencedTeachers' => rand(15, 35),
+                    'averageExperience' => rand(8, 20)
+                ],
+                'attendanceMetrics' => [
+                    'averageAttendance' => rand(90, 98),
+                    'chronicAbsenteeism' => rand(2, 8),
+                    'monthlyTrend' => [85, 88, 92, 89, 91, 94]
+                ]
+            ];
+
+            return response()->json($analytics);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Analytics məlumatları yüklənə bilmədi',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Get school teachers information
      */
     public function getSchoolTeachers(Request $request): JsonResponse
     {
         $user = $request->user();
         
-        if (!$user->hasRole('məktəbadmin')) {
+        if (!$user->hasRole('schooladmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 

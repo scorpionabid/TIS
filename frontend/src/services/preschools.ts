@@ -175,10 +175,22 @@ class PreschoolsService {
   }
 
   async getPreschoolStatistics(): Promise<{ success: boolean; data: PreschoolStatistics }> {
-    console.log('🔍 PreschoolsService.getPreschoolStatistics called');
     try {
       const response = await apiClient.get<PreschoolStatistics>(`${this.baseUrl}/statistics`);
-      console.log('✅ PreschoolsService.getPreschoolStatistics successful:', response);
+      
+      // Handle the backend response format: {success: true, data: {...}}
+      if (response && typeof response === 'object' && 'data' in response) {
+        const backendData = response.data;
+        // Successfully loaded statistics data
+        
+        // Return in expected format
+        return {
+          success: true,
+          data: backendData as PreschoolStatistics
+        };
+      }
+      
+      // Fallback to original response
       return response as { success: boolean; data: PreschoolStatistics };
     } catch (error) {
       console.error('❌ PreschoolsService.getPreschoolStatistics failed:', error);

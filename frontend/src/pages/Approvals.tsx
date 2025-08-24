@@ -20,7 +20,7 @@ const Approvals: React.FC = () => {
       return false;
     }
     
-    const approvalRoles = ['superadmin', 'regionadmin', 'sektoradmin', 'məktəbadmin'];
+    const approvalRoles = ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'];
     console.log('hasApprovalPermissions - approvalRoles:', approvalRoles);
     
     // Check user.role

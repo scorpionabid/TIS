@@ -5,19 +5,36 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Download, Eye, Calendar, BarChart3, FileText, TrendingUp, Loader2, Users, Activity, AlertCircle } from "lucide-react";
+import { Plus, Download, Eye, Calendar, BarChart3, FileText, TrendingUp, Loader2, Users, Activity, AlertCircle, AlertTriangle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { reportsService, ReportFilters } from "@/services/reports";
 import { useToast } from "@/hooks/use-toast";
 import { format, subDays, startOfMonth, endOfMonth } from "date-fns";
 import { az } from "date-fns/locale";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Reports() {
+  const { currentUser } = useAuth();
   const [selectedReportType, setSelectedReportType] = useState<string>('overview');
   const [selectedDateRange, setSelectedDateRange] = useState<string>('this_month');
   const [startDate, setStartDate] = useState<string>(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState<string>(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const { toast } = useToast();
+
+  // Security check - hierarchical access to reports based on roles
+  if (!currentUser || !['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role)) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız idarəçi rolları daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Build filters based on selections
   const filters: ReportFilters = useMemo(() => {
@@ -55,7 +72,7 @@ export default function Reports() {
 
   // Load overview stats
   const { data: overviewResponse, isLoading: overviewLoading, error: overviewError } = useQuery({
-    queryKey: ['reports-overview', filters],
+    queryKey: ['reports-overview', filters, currentUser?.role, currentUser?.institution_id],
     queryFn: () => reportsService.getOverviewStats(filters),
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
     retry: 1,
@@ -64,17 +81,17 @@ export default function Reports() {
 
   // Load institutional performance
   const { data: institutionalResponse, isLoading: institutionalLoading } = useQuery({
-    queryKey: ['reports-institutional', filters],
+    queryKey: ['reports-institutional', filters, currentUser?.role, currentUser?.institution_id],
     queryFn: () => reportsService.getInstitutionalPerformance(filters),
     enabled: selectedReportType === 'institutional',
     staleTime: 1000 * 60 * 5,
   });
 
-  // Load user activity report
+  // Load user activity report - restricted to SuperAdmin and RegionAdmin only
   const { data: userActivityResponse, isLoading: userActivityLoading } = useQuery({
-    queryKey: ['reports-user-activity', filters],
+    queryKey: ['reports-user-activity', filters, currentUser?.role, currentUser?.institution_id],
     queryFn: () => reportsService.getUserActivityReport(filters),
-    enabled: selectedReportType === 'user_activity',
+    enabled: selectedReportType === 'user_activity' && ['superadmin', 'regionadmin'].includes(currentUser?.role || ''),
     staleTime: 1000 * 60 * 5,
   });
 
@@ -141,10 +158,12 @@ export default function Reports() {
             <Download className="h-4 w-4" />
             PDF Export
           </Button>
-          <Button className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Yeni Hesabat
-          </Button>
+          {['superadmin', 'regionadmin'].includes(currentUser?.role || '') && (
+            <Button className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Yeni Hesabat
+            </Button>
+          )}
         </div>
       </div>
 
@@ -246,9 +265,13 @@ export default function Reports() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="overview">Ümumi icmal</SelectItem>
-                <SelectItem value="institutional">Müəssisə performansı</SelectItem>
+                {(['superadmin', 'regionadmin', 'sektoradmin'].includes(currentUser?.role || '')) && (
+                  <SelectItem value="institutional">Müəssisə performansı</SelectItem>
+                )}
                 <SelectItem value="survey">Sorğu analitikası</SelectItem>
-                <SelectItem value="user_activity">İstifadəçi fəaliyyəti</SelectItem>
+                {(['superadmin', 'regionadmin'].includes(currentUser?.role || '')) && (
+                  <SelectItem value="user_activity">İstifadəçi fəaliyyəti</SelectItem>
+                )}
               </SelectContent>
             </Select>
 
@@ -394,7 +417,7 @@ export default function Reports() {
         </Card>
       )}
 
-      {selectedReportType === 'user_activity' && (
+      {selectedReportType === 'user_activity' && ['superadmin', 'regionadmin'].includes(currentUser?.role || '') && (
         <Card>
           <CardHeader>
             <CardTitle>İstifadəçi Fəaliyyət Hesabatı</CardTitle>

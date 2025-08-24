@@ -237,7 +237,7 @@ class LinkShare extends Model
     /**
      * Record link access
      */
-    public function recordAccess(User $user = null, string $ipAddress = null, string $userAgent = null): void
+    public function recordAccess(?User $user = null, ?string $ipAddress = null, ?string $userAgent = null): void
     {
         // Increment click count
         $this->increment('click_count');

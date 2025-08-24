@@ -56,6 +56,22 @@ interface AttendanceStats {
 
 export default function AttendanceReports() {
   const { currentUser } = useAuth();
+
+  // Security check - only educational administrative roles can access attendance reports
+  if (!currentUser || !['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'müəllim'].includes(currentUser.role)) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız təhsil idarəçiləri və müəllimlər daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const [selectedSchool, setSelectedSchool] = useState<string>('all');
   const [selectedClass, setSelectedClass] = useState<string>('all');
   const [reportType, setReportType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
@@ -71,11 +87,11 @@ export default function AttendanceReports() {
   const isSuperAdmin = currentUser?.role === 'superadmin';
   const isRegionAdmin = currentUser?.role === 'regionadmin';
   const isSektorAdmin = currentUser?.role === 'sektoradmin';
-  const isSchoolAdmin = currentUser?.role === 'məktəbadmin';
+  const isSchoolAdmin = currentUser?.role === 'schooladmin';
 
   // Load schools data (only for higher admins)
   const { data: schoolsResponse } = useQuery({
-    queryKey: ['institutions', 'schools'],
+    queryKey: ['institutions', 'schools', currentUser?.role, currentUser?.institution_id],
     queryFn: () => institutionService.getAll(),
     enabled: isSuperAdmin || isRegionAdmin || isSektorAdmin
   });
@@ -90,7 +106,7 @@ export default function AttendanceReports() {
 
   // Load attendance data
   const { data: attendanceResponse, isLoading: attendanceLoading, refetch } = useQuery({
-    queryKey: ['attendance-reports', selectedSchool, selectedClass, startDate, endDate, reportType],
+    queryKey: ['attendance-reports', selectedSchool, selectedClass, startDate, endDate, reportType, currentUser?.role, currentUser?.institution_id],
     queryFn: () => {
       const filters: any = {
         start_date: startDate,
@@ -114,7 +130,7 @@ export default function AttendanceReports() {
 
   // Load attendance stats
   const { data: statsResponse } = useQuery({
-    queryKey: ['attendance-stats-reports', selectedSchool, startDate, endDate],
+    queryKey: ['attendance-stats-reports', selectedSchool, startDate, endDate, currentUser?.role, currentUser?.institution_id],
     queryFn: () => {
       const filters: any = {
         start_date: startDate,

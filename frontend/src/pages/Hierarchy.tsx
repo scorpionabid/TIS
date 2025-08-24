@@ -29,8 +29,41 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 export default function Hierarchy() {
-  const { user } = useAuth();
+  const { currentUser: user, loading } = useAuth();
   const queryClient = useQueryClient();
+
+  console.log('Hierarchy Page - User:', user);
+  console.log('Hierarchy Page - Loading:', loading);
+  console.log('User Role:', user?.role);
+  console.log('Role Check Result:', ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(user?.role || ''));
+  
+  // Show loading while authentication is being checked
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+          <p className="text-muted-foreground">Yüklənir...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Security check - only administrative roles can access hierarchy management
+  if (!user || !['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(user.role)) {
+    console.log('Access denied for user:', user);
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız idarəçi rolları daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState<HierarchyFilters>({
@@ -56,7 +89,7 @@ export default function Hierarchy() {
     error: hierarchyError,
     refetch: refetchHierarchy 
   } = useQuery({
-    queryKey: ['hierarchy', filters],
+    queryKey: ['hierarchy', filters, user?.role, user?.institution_id],
     queryFn: () => hierarchyService.getHierarchy(filters),
     refetchOnWindowFocus: false,
     staleTime: 1000 * 60 * 5, // 5 minutes
@@ -67,7 +100,7 @@ export default function Hierarchy() {
     data: statisticsData, 
     isLoading: statsLoading 
   } = useQuery({
-    queryKey: ['hierarchy-statistics'],
+    queryKey: ['hierarchy-statistics', user?.role, user?.institution_id],
     queryFn: () => hierarchyService.getStatistics(),
     refetchOnWindowFocus: false,
     staleTime: 1000 * 60 * 10, // 10 minutes
@@ -90,7 +123,7 @@ export default function Hierarchy() {
     data: searchResults, 
     isLoading: searchLoading 
   } = useQuery({
-    queryKey: ['hierarchy-search', searchTerm, filters],
+    queryKey: ['hierarchy-search', searchTerm, filters, user?.role, user?.institution_id],
     queryFn: () => hierarchyService.searchInstitutions(searchTerm, filters),
     enabled: searchTerm.length >= 2,
     refetchOnWindowFocus: false,
@@ -235,14 +268,16 @@ export default function Hierarchy() {
             <RefreshCw className={`h-4 w-4 mr-2 ${hierarchyLoading ? 'animate-spin' : ''}`} />
             Yenilə
           </Button>
-          <Button 
-            variant="outline" 
-            onClick={handleValidation}
-            disabled={validationLoading}
-          >
-            <Shield className="h-4 w-4 mr-2" />
-            Validasiya
-          </Button>
+          {['superadmin', 'regionadmin'].includes(user?.role || '') && (
+            <Button 
+              variant="outline" 
+              onClick={handleValidation}
+              disabled={validationLoading}
+            >
+              <Shield className="h-4 w-4 mr-2" />
+              Validasiya
+            </Button>
+          )}
           {canModify && (
             <Button className="flex items-center gap-2">
               <Settings className="h-4 w-4" />

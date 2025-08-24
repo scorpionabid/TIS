@@ -47,7 +47,7 @@ export default function RegionAdminUsers() {
           const roleMapping: Record<string, string> = {
             'operators': 'regionoperator',
             'sektoradmins': 'sektoradmin', 
-            'schooladmins': 'məktəbadmin',
+            'schooladmins': 'schooladmin',
             'teachers': 'müəllim'
           };
 

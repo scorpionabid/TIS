@@ -21,6 +21,103 @@ class SchoolDashboardController extends Controller
     }
 
     /**
+     * Get dashboard overview for school admin
+     */
+    public function getOverview(): JsonResponse
+    {
+        $user = Auth::user();
+        
+        if (!$user->hasRole('schooladmin')) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+        
+        $school = $user->institution;
+
+        if (!$school) {
+            return response()->json(['error' => 'User is not associated with a school'], 400);
+        }
+
+        $overview = $this->dashboardService->getDashboardStats($school);
+        
+        return response()->json([
+            'success' => true,
+            'data' => $overview
+        ]);
+    }
+
+    /**
+     * Get dashboard statistics for school admin
+     */
+    public function getStatistics(): JsonResponse
+    {
+        $user = Auth::user();
+        
+        if (!$user->hasRole('schooladmin')) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+        
+        $school = $user->institution;
+
+        if (!$school) {
+            return response()->json(['error' => 'User is not associated with a school'], 400);
+        }
+
+        $stats = $this->dashboardService->getDashboardStats($school);
+
+        return response()->json([
+            'success' => true,
+            'data' => $stats
+        ]);
+    }
+
+    /**
+     * Get dashboard analytics for school admin
+     */
+    public function getAnalytics(): JsonResponse
+    {
+        $user = Auth::user();
+        
+        if (!$user->hasRole('schooladmin')) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+        
+        $school = $user->institution;
+
+        if (!$school) {
+            return response()->json(['error' => 'User is not associated with a school'], 400);
+        }
+
+        // Mock analytics data for now
+        $analytics = [
+            'student_enrollment' => [
+                'current' => 450,
+                'last_year' => 420,
+                'growth_rate' => 7.1
+            ],
+            'academic_performance' => [
+                'average_grade' => 8.2,
+                'pass_rate' => 94,
+                'top_performers' => 25
+            ],
+            'teacher_metrics' => [
+                'total_teachers' => 42,
+                'experienced_teachers' => 28,
+                'average_experience' => 12
+            ],
+            'attendance_metrics' => [
+                'average_attendance' => 96.5,
+                'chronic_absenteeism' => 3.2,
+                'monthly_trend' => [92, 94, 95, 93, 96, 98]
+            ]
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => $analytics
+        ]);
+    }
+
+    /**
      * Get dashboard statistics for school admin
      */
     public function getDashboardStats(): JsonResponse
@@ -46,6 +143,11 @@ class SchoolDashboardController extends Controller
     public function getRecentActivities(): JsonResponse
     {
         $user = Auth::user();
+        
+        if (!$user->hasRole('schooladmin')) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+        
         $school = $user->institution;
 
         if (!$school) {
@@ -242,6 +344,12 @@ class SchoolDashboardController extends Controller
      */
     public function getQuickActions(): JsonResponse
     {
+        $user = Auth::user();
+        
+        if (!$user->hasRole('schooladmin')) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
         return response()->json([
             [
                 'id' => 'add_student',

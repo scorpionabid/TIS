@@ -250,18 +250,43 @@ class SchoolAdminService {
   private baseEndpoint: string;
   
   constructor() {
-    this.baseEndpoint = '/school-admin';
+    this.baseEndpoint = '/schooladmin';
+    
+    // Bind all methods to preserve context - auto-bind all methods
+    Object.getOwnPropertyNames(SchoolAdminService.prototype).forEach(methodName => {
+      if (methodName !== 'constructor' && typeof this[methodName] === 'function') {
+        this[methodName] = this[methodName].bind(this);
+      }
+    });
   }
 
   // Dashboard methods
   async getDashboardStats(): Promise<SchoolDashboardStats> {
-    const endpoint = `${this.baseEndpoint || '/school-admin'}/dashboard/stats`;
+    const endpoint = `${this.baseEndpoint}/dashboard/stats`;
     const response = await apiClient.get<SchoolDashboardStats>(endpoint);
     return response.data || response as SchoolDashboardStats;
   }
 
+  async getDashboardOverview(): Promise<any> {
+    const endpoint = `${this.baseEndpoint}/dashboard/overview`;
+    const response = await apiClient.get<any>(endpoint);
+    return response.data || response as any;
+  }
+
+  async getDashboardStatistics(): Promise<any> {
+    const endpoint = `${this.baseEndpoint}/dashboard/statistics`;
+    const response = await apiClient.get<any>(endpoint);
+    return response.data || response as any;
+  }
+
+  async getDashboardAnalytics(): Promise<any> {
+    const endpoint = `${this.baseEndpoint}/dashboard/analytics`;
+    const response = await apiClient.get<any>(endpoint);
+    return response.data || response as any;
+  }
+
   async getRecentActivities(limit: number = 10): Promise<SchoolActivity[]> {
-    const response = await apiClient.get<SchoolActivity[]>(`${this.baseEndpoint}/dashboard/activities`, { limit });
+    const response = await apiClient.get<SchoolActivity[]>(`${this.baseEndpoint}/dashboard/recent-activity`, { limit });
     return response.data || response as SchoolActivity[];
   }
 
@@ -366,7 +391,10 @@ class SchoolAdminService {
 
   // Class management methods
   async getClasses(params?: PaginationParams): Promise<SchoolClass[]> {
-    const endpoint = `${this.baseEndpoint || '/school-admin'}/classes`;
+    const baseEndpoint = this.baseEndpoint || '/schooladmin';
+    console.log('🔍 SchoolAdminService.getClasses called with:', { baseEndpoint, thisBaseEndpoint: this.baseEndpoint, params });
+    const endpoint = `${baseEndpoint}/classes`;
+    console.log('🔍 Final endpoint:', endpoint);
     const response = await apiClient.get<SchoolClass[]>(endpoint, params);
     return response.data || response as any;
   }
@@ -390,9 +418,12 @@ class SchoolAdminService {
     await apiClient.delete(`${this.baseEndpoint}/classes/${classId}`);
   }
 
-  // Teacher management methods
+  // Teacher management methods  
   async getTeachers(params?: PaginationParams): Promise<SchoolTeacher[]> {
-    const endpoint = `${this.baseEndpoint || '/school-admin'}/teachers`;
+    const baseEndpoint = this.baseEndpoint || '/schooladmin';
+    console.log('🔍 SchoolAdminService.getTeachers called with:', { baseEndpoint, thisBaseEndpoint: this.baseEndpoint, params });
+    const endpoint = `${baseEndpoint}/teachers`;
+    console.log('🔍 Final endpoint:', endpoint);
     const response = await apiClient.get<SchoolTeacher[]>(endpoint, params);
     return response.data || response as any;
   }
@@ -578,10 +609,29 @@ class SchoolAdminService {
     await apiClient.delete(`${this.baseEndpoint}/students/${studentId}`);
   }
 
+  // Inventory management methods
+  async getInventoryItems(filters?: {
+    category?: string;
+    condition?: string;
+    location?: string;
+  }) {
+    const response = await apiClient.get(`${this.baseEndpoint}/inventory`, filters);
+    return response.data || response as any;
+  }
+
+  async getInventoryItem(itemId: number) {
+    const response = await apiClient.get(`${this.baseEndpoint}/inventory/${itemId}`);
+    return response.data || response as any;
+  }
+
+  async getInventoryStatistics() {
+    const response = await apiClient.get(`${this.baseEndpoint}/inventory/statistics/overview`);
+    return response.data || response as any;
+  }
 
   // Utility methods
   async exportData(type: 'attendance' | 'grades' | 'students', params?: any): Promise<Blob> {
-    const response = await fetch(`${(apiClient as any).baseURL}/school-admin/export/${type}`, {
+    const response = await fetch(`${(apiClient as any).baseURL}/schooladmin/export/${type}`, {
       method: 'POST',
       headers: {
         ...(apiClient as any).getHeaders(),
@@ -599,6 +649,13 @@ class SchoolAdminService {
 }
 
 export const schoolAdminService = new SchoolAdminService();
+
+// Debug: Check if binding worked
+console.log('🔍 Testing schoolAdminService binding:', {
+  hasBaseEndpoint: !!(schoolAdminService as any)['baseEndpoint'],
+  getTeachersType: typeof schoolAdminService.getTeachers,
+  getClassesType: typeof schoolAdminService.getClasses
+});
 
 // Query keys for React Query
 export const schoolAdminKeys = {
@@ -621,4 +678,7 @@ export const schoolAdminKeys = {
   attendance: (classId?: number, date?: string) => [...schoolAdminKeys.all, 'attendance', { classId, date }] as const,
   assessments: (classId?: number) => [...schoolAdminKeys.all, 'assessments', { classId }] as const,
   assessment: (id: number) => [...schoolAdminKeys.assessments(), id] as const,
+  inventory: () => [...schoolAdminKeys.all, 'inventory'] as const,
+  inventoryItem: (id: number) => [...schoolAdminKeys.inventory(), id] as const,
+  inventoryStats: () => [...schoolAdminKeys.inventory(), 'statistics'] as const,
 };

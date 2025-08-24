@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Filter, FileText, Download, Eye, Upload, Share, X, Calendar, User, Building2 } from "lucide-react";
+import { Plus, Search, Filter, FileText, Download, Eye, Upload, Share, X, Calendar, User, Building2, AlertTriangle } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
@@ -10,8 +10,10 @@ import { useState } from "react";
 import { DocumentUploadModal } from "@/components/modals/DocumentUploadModal";
 import { DocumentViewModal } from "@/components/modals/DocumentViewModal";
 import { DocumentShareModal } from "@/components/modals/DocumentShareModal";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Documents() {
+  const { currentUser } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -23,9 +25,28 @@ export default function Documents() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+
+  // Security check - all authenticated users can access documents
+  if (!currentUser) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş tələb olunur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə daxil olmaq üçün sistemə giriş etməlisiniz
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check document upload permissions
+  const canUploadDocuments = currentUser && ['superadmin', 'regionadmin'].includes(currentUser.role);
+  const canTrackDocuments = currentUser && ['superadmin', 'regionadmin'].includes(currentUser.role);
   
   const { data: documents, isLoading } = useQuery({
-    queryKey: ['documents', searchTerm, categoryFilter, typeFilter, accessLevelFilter, uploaderFilter, dateFilter],
+    queryKey: ['documents', searchTerm, categoryFilter, typeFilter, accessLevelFilter, uploaderFilter, dateFilter, currentUser?.role, currentUser?.institution_id],
     queryFn: () => documentService.getAll({
       search: searchTerm || undefined,
       category: categoryFilter === 'all' ? undefined : categoryFilter,
@@ -88,10 +109,12 @@ export default function Documents() {
             <h1 className="text-3xl font-bold text-foreground">Sənədlər</h1>
             <p className="text-muted-foreground">Sistem sənədlərinin idarə edilməsi və saxlanması</p>
           </div>
-          <Button className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Yeni Sənəd
-          </Button>
+          {['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || '') && (
+            <Button className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Yeni Sənəd
+            </Button>
+          )}
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -110,13 +133,15 @@ export default function Documents() {
           <h1 className="text-3xl font-bold text-foreground">Sənədlər</h1>
           <p className="text-muted-foreground">Regional icazələr əsasında sənədlərin idarə edilməsi və saxlanması</p>
         </div>
-        <Button 
-          className="flex items-center gap-2"
-          onClick={() => setIsUploadModalOpen(true)}
-        >
-          <Upload className="h-4 w-4" />
-          Sənəd Yüklə
-        </Button>
+        {canUploadDocuments && (
+          <Button 
+            className="flex items-center gap-2"
+            onClick={() => setIsUploadModalOpen(true)}
+          >
+            <Upload className="h-4 w-4" />
+            Sənəd Yüklə
+          </Button>
+        )}
       </div>
 
       <div className="space-y-4">
@@ -287,14 +312,16 @@ export default function Documents() {
           <div className="col-span-full text-center py-8">
             <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground">Hələlik sənəd yoxdur</p>
-            <Button 
-              className="mt-4" 
-              variant="outline"
-              onClick={() => setIsUploadModalOpen(true)}
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              İlk sənədi yüklə
-            </Button>
+            {canUploadDocuments && (
+              <Button 
+                className="mt-4" 
+                variant="outline"
+                onClick={() => setIsUploadModalOpen(true)}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                İlk sənədi yüklə
+              </Button>
+            )}
           </div>
         ) : (
           <>
@@ -389,15 +416,17 @@ export default function Documents() {
               </Card>
             ))}
             
-            <Card 
-              className="border-dashed cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={() => setIsUploadModalOpen(true)}
-            >
-              <CardContent className="flex flex-col items-center justify-center h-32">
-                <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">Yeni sənəd yüklə</p>
-              </CardContent>
-            </Card>
+            {canUploadDocuments && (
+              <Card 
+                className="border-dashed cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => setIsUploadModalOpen(true)}
+              >
+                <CardContent className="flex flex-col items-center justify-center h-32">
+                  <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">Yeni sənəd yüklə</p>
+                </CardContent>
+              </Card>
+            )}
           </>
         )}
       </div>

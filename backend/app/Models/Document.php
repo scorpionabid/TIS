@@ -103,8 +103,19 @@ class Document extends Model
         'deleted' => 'Silinmiş',
     ];
 
-    // PRD-2: File size limits - Tək fayl: 10MB maksimum
-    const MAX_FILE_SIZE = 10485760; // 10MB in bytes
+    // PRD-2: File size limits - Role-based limits
+    const MAX_FILE_SIZE = 10485760; // 10MB in bytes (default)
+    const ROLE_FILE_SIZE_LIMITS = [
+        'superadmin' => 52428800,    // 50MB
+        'regionadmin' => 52428800,   // 50MB
+        'schooladmin' => 20971520,   // 20MB
+        'sektoradmin' => 20971520,   // 20MB
+        'muavin' => 20971520,        // 20MB
+        'ubr' => 20971520,           // 20MB
+        'tesarrufat' => 20971520,    // 20MB
+        'psixoloq' => 20971520,      // 20MB
+        'müəllim' => 20971520,       // 20MB
+    ];
     
     // PRD-2: Allowed file types - PDF, Excel, Word (JPG minimal hallarda)
     const ALLOWED_MIME_TYPES = [
@@ -534,15 +545,16 @@ class Document extends Model
     }
 
     /**
-     * Validate file before upload
+     * Validate file before upload with role-based size limits
      */
-    public static function validateFile($file): array
+    public static function validateFile($file, $userRole = null): array
     {
         $errors = [];
 
-        // Check file size (PRD-2: max 10MB)
-        if ($file->getSize() > self::MAX_FILE_SIZE) {
-            $maxSizeMB = self::MAX_FILE_SIZE / 1048576;
+        // Check file size with role-based limits
+        $maxFileSize = self::getMaxFileSizeForRole($userRole);
+        if ($file->getSize() > $maxFileSize) {
+            $maxSizeMB = round($maxFileSize / 1048576);
             $errors[] = "Fayl ölçüsü {$maxSizeMB}MB-dan böyük ola bilməz.";
         }
 
@@ -558,6 +570,18 @@ class Document extends Model
         }
 
         return $errors;
+    }
+
+    /**
+     * Get maximum file size for a user role
+     */
+    public static function getMaxFileSizeForRole($userRole = null): int
+    {
+        if ($userRole && isset(self::ROLE_FILE_SIZE_LIMITS[$userRole])) {
+            return self::ROLE_FILE_SIZE_LIMITS[$userRole];
+        }
+        
+        return self::MAX_FILE_SIZE;
     }
 
     /**

@@ -48,7 +48,7 @@ const getRoleDisplayName = (role: any) => {
     'regionadmin': 'Regional Administrator', 
     'regionoperator': 'Regional Operator',
     'sektoradmin': 'Sector Administrator',
-    'məktəbadmin': 'School Administrator',
+    'schooladmin': 'School Administrator',
     'müəllim': 'Teacher'
   };
   return roleMap[roleName.toLowerCase()] || roleName;
@@ -61,7 +61,7 @@ const getRoleBadgeVariant = (role: any) => {
     case 'regionadmin': return 'default';
     case 'regionoperator': return 'secondary';
     case 'sektoradmin': return 'outline';
-    case 'məktəbadmin': return 'secondary';
+    case 'schooladmin': return 'secondary';
     case 'müəllim': return 'outline';
     default: return 'secondary';
   }

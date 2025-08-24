@@ -189,10 +189,10 @@ export const PreschoolCreateModal: React.FC<PreschoolCreateModalProps> = ({
                   <SelectContent>
                     {PRESCHOOL_TYPES.map((type) => (
                       <SelectItem key={type.value} value={type.value}>
-                        <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-2">
                           <span>{type.icon}</span>
                           <span>{type.label}</span>
-                        </div>
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -3,18 +3,20 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, Loader2, Shield, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter } from "lucide-react";
+import { Plus, Edit, Trash2, Loader2, Shield, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter, AlertTriangle } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Role, CreateRoleData, roleService } from "@/services/roles";
 import { RoleModal } from "@/components/modals/RoleModal";
 import { DeleteConfirmationModal } from "@/components/modals/DeleteConfirmationModal";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 type SortField = 'name' | 'display_name' | 'level' | 'role_category' | 'permissions';
 type SortDirection = 'asc' | 'desc';
 
 export default function Roles() {
+  const { currentUser } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -26,6 +28,21 @@ export default function Roles() {
   const [levelFilter, setLevelFilter] = useState<string>('all');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Security check - only SuperAdmin can access roles management
+  if (!currentUser || currentUser.role !== 'superadmin') {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız SuperAdmin istifadəçiləri daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Load roles
   const { data: rolesResponse, isLoading, error } = useQuery({

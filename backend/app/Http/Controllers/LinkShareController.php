@@ -67,6 +67,14 @@ class LinkShareController extends Controller
     {
         $user = Auth::user();
 
+        // Check if user can create links (only SuperAdmin and RegionAdmin)
+        if (!$user->hasRole(['superadmin', 'regionadmin'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Link yaratmaq üçün icazəniz yoxdur.',
+            ], 403);
+        }
+
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:300',
             'description' => 'nullable|string|max:1000',
@@ -140,6 +148,15 @@ class LinkShareController extends Controller
                 'thumbnail_url' => $request->thumbnail_url,
                 'is_featured' => $request->boolean('is_featured', false),
                 'status' => 'active',
+            ]);
+
+            // Log link creation
+            LinkAccessLog::create([
+                'link_share_id' => $linkShare->id,
+                'user_id' => $user->id,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'referrer' => $request->header('referer'),
             ]);
 
             return response()->json([
@@ -579,5 +596,362 @@ class LinkShareController extends Controller
                        ->where('institution_id', $userInstitution->id);
               });
         });
+    }
+
+    /**
+     * Get link statistics for dashboard
+     */
+    public function getStats(): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $query = LinkShare::query()->active();
+
+            // Apply role-based filtering
+            $this->applyRegionalFilter($query, $user);
+
+            $totalLinks = $query->count();
+            $recentLinks = $query->where('created_at', '>=', now()->subDays(30))->count();
+            $totalClicks = $query->sum('click_count');
+            $featuredLinks = $query->where('is_featured', true)->count();
+
+            // Link type breakdown
+            $typeBreakdown = $query->selectRaw('link_type, count(*) as count')
+                ->groupBy('link_type')
+                ->pluck('count', 'link_type')
+                ->toArray();
+
+            // Recent activity
+            $recentActivity = LinkAccessLog::query()
+                ->with(['linkShare:id,title', 'user:id,first_name,last_name'])
+                ->orderBy('created_at', 'desc')
+                ->limit(10)
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total_links' => $totalLinks,
+                    'recent_links' => $recentLinks,
+                    'total_clicks' => $totalClicks,
+                    'featured_links' => $featuredLinks,
+                    'type_breakdown' => $typeBreakdown,
+                    'recent_activity' => $recentActivity,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Statistikalar yüklənərkən xəta baş verdi.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get popular links
+     */
+    public function getPopularLinks(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $limit = $request->get('limit', 10);
+            
+            $query = LinkShare::query()
+                ->active()
+                ->orderBy('click_count', 'desc');
+
+            $this->applyRegionalFilter($query, $user);
+
+            $popularLinks = $query->take($limit)->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $popularLinks,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Populyar linklər yüklənərkən xəta baş verdi.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get featured links
+     */
+    public function getFeaturedLinks(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $limit = $request->get('limit', 5);
+            
+            $query = LinkShare::query()
+                ->active()
+                ->where('is_featured', true)
+                ->orderBy('created_at', 'desc');
+
+            $this->applyRegionalFilter($query, $user);
+
+            $featuredLinks = $query->take($limit)->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $featuredLinks,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Seçilmiş linklər yüklənərkən xəta baş verdi.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Record link click
+     */
+    public function recordClick(LinkShare $linkShare, Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+
+            // Check if user can access this link
+            $query = LinkShare::where('id', $linkShare->id);
+            $this->applyRegionalFilter($query, $user);
+            
+            if (!$query->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu linkə giriş icazəniz yoxdur.',
+                ], 403);
+            }
+
+            // Record the click
+            $linkShare->increment('click_count');
+            
+            // Log the access
+            LinkAccessLog::create([
+                'link_share_id' => $linkShare->id,
+                'user_id' => $user->id,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'referrer' => $request->header('referer'),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Link kliki qeydə alındı.',
+                'data' => [
+                    'click_count' => $linkShare->click_count,
+                    'url' => $linkShare->url,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Link kliki qeydə alınarkən xəta baş verdi.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get link tracking activity for RegionAdmin
+     */
+    public function getTrackingActivity(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $filters = $request->only(['date_from', 'date_to', 'link_id', 'user_id']);
+            
+            $query = LinkAccessLog::query()
+                ->with(['linkShare:id,title,url', 'user:id,first_name,last_name'])
+                ->orderBy('created_at', 'desc');
+
+            // Apply filters
+            if (!empty($filters['date_from'])) {
+                $query->whereDate('created_at', '>=', $filters['date_from']);
+            }
+
+            if (!empty($filters['date_to'])) {
+                $query->whereDate('created_at', '<=', $filters['date_to']);
+            }
+
+            if (!empty($filters['link_id'])) {
+                $query->where('link_share_id', $filters['link_id']);
+            }
+
+            if (!empty($filters['user_id'])) {
+                $query->where('user_id', $filters['user_id']);
+            }
+
+            // Role-based access control
+            if (!$user->hasRole('superadmin')) {
+                if ($user->hasRole('regionadmin')) {
+                    // RegionAdmin can see activities in their region
+                    $query->whereHas('linkShare', function($q) use ($user) {
+                        $subQuery = LinkShare::query();
+                        $this->applyRegionalFilter($subQuery, $user);
+                        $q->whereIn('id', $subQuery->select('id'));
+                    });
+                }
+            }
+
+            $activities = $query->paginate($request->get('per_page', 20));
+
+            return response()->json([
+                'success' => true,
+                'data' => $activities,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aktivlik məlumatları yüklənərkən xəta baş verdi.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get specific link access history
+     */
+    public function getLinkHistory(LinkShare $linkShare, Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            // Check access permissions
+            $query = LinkShare::where('id', $linkShare->id);
+            $this->applyRegionalFilter($query, $user);
+            
+            if (!$query->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu linkə giriş icazəniz yoxdur.',
+                ], 403);
+            }
+
+            $history = LinkAccessLog::where('link_share_id', $linkShare->id)
+                ->with(['user:id,first_name,last_name'])
+                ->orderBy('created_at', 'desc')
+                ->paginate($request->get('per_page', 20));
+
+            return response()->json([
+                'success' => true,
+                'data' => $history,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Link tarixçəsi yüklənərkən xəta baş verdi.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Bulk create links
+     */
+    public function bulkCreate(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+
+            if (!$user->hasRole(['superadmin', 'regionadmin'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu əməliyyatı həyata keçirmək üçün icazəniz yoxdur.',
+                ], 403);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'links' => 'required|array|min:1|max:10',
+                'links.*.title' => 'required|string|max:300',
+                'links.*.url' => 'required|url|max:2048',
+                'links.*.description' => 'nullable|string|max:1000',
+                'links.*.link_type' => 'nullable|in:external,video,form,document',
+                'links.*.share_scope' => 'required|in:public,regional,sectoral,institutional',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validasiya xətası',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $createdLinks = [];
+            foreach ($request->links as $linkData) {
+                $linkData['shared_by'] = $user->id;
+                $linkData['institution_id'] = $user->institution_id;
+                $linkData['link_type'] = $linkData['link_type'] ?? 'external';
+                
+                $createdLinks[] = LinkShare::create($linkData);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => count($createdLinks) . ' link uğurla yaradıldı.',
+                'data' => $createdLinks,
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Linklər yaradılarkən xəta baş verdi.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Bulk delete links
+     */
+    public function bulkDelete(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+
+            if (!$user->hasRole(['superadmin', 'regionadmin'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu əməliyyatı həyata keçirmək üçün icazəniz yoxdur.',
+                ], 403);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'link_ids' => 'required|array|min:1',
+                'link_ids.*' => 'integer|exists:link_shares,id',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validasiya xətası',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $query = LinkShare::whereIn('id', $request->link_ids);
+            
+            // Apply regional filter to ensure user can only delete accessible links
+            $this->applyRegionalFilter($query, $user);
+            
+            $deletedCount = $query->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => $deletedCount . ' link uğurla silindi.',
+                'data' => ['deleted_count' => $deletedCount],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Linklər silinərkən xəta baş verdi.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
     }
 }

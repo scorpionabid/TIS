@@ -3,18 +3,35 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Edit, Trash2, Settings, Eye, Shield } from 'lucide-react';
+import { Plus, Edit, Trash2, Settings, Eye, Shield, AlertTriangle } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { institutionService, InstitutionType } from '@/services/institutions';
 import { useToast } from '@/hooks/use-toast';
 import { InstitutionTypeModal } from '@/components/modals/InstitutionTypeModal';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function InstitutionTypesManagement() {
+  const { currentUser } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<InstitutionType | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'hierarchy'>('table');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Security check - only SuperAdmin can access institution types management
+  if (!currentUser || currentUser.role !== 'superadmin') {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız SuperAdmin istifadəçiləri daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Load institution types
   const { data: typesResponse, isLoading, error } = useQuery({

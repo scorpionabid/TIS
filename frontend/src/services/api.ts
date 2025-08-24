@@ -39,27 +39,115 @@ class ApiClient {
   private baseURL: string;
   private token: string | null = null;
 
-  constructor(baseURL: string = API_BASE_URL) {
-    console.log('🔧 ApiClient constructor:', { baseURL, API_BASE_URL });
-    this.baseURL = baseURL;
+  constructor(baseURL?: string) {
+    const fallbackURL = 'http://localhost:8001/api';
+    console.log('🔧 ApiClient constructor:', { baseURL, API_BASE_URL, fallbackURL });
+    
+    // Set baseURL with multiple fallbacks
+    if (baseURL) {
+      this.baseURL = baseURL;
+    } else if (API_BASE_URL) {
+      this.baseURL = API_BASE_URL;
+    } else {
+      this.baseURL = fallbackURL;
+    }
+    
+    console.log('🔧 Final baseURL set to:', this.baseURL);
+    
+    // Verify it's not undefined
+    if (!this.baseURL || this.baseURL === 'undefined') {
+      console.error('❌ baseURL is still invalid, forcing fallback');
+      this.baseURL = fallbackURL;
+    }
+    
+    console.log('🔧 Verified baseURL:', this.baseURL);
     this.loadToken();
   }
 
+  private getCookie(name: string): string | null {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+    return null;
+  }
+
+  private setCookie(name: string, value: string, days: number = 30): void {
+    const expires = new Date(Date.now() + days * 864e5).toUTCString();
+    document.cookie = `${name}=${value}; expires=${expires}; path=/; SameSite=Lax`;
+  }
+
+  private deleteCookie(name: string): void {
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+  }
+
   private loadToken(): void {
-    this.token = localStorage.getItem('auth_token');
-    console.log('🔍 API Client: Loading token from localStorage:', !!this.token, this.token ? `(${this.token.substring(0, 20)}...)` : 'null');
+    // Try multiple sources in order of preference
+    const localStorageToken = localStorage.getItem('auth_token');
+    const sessionStorageToken = sessionStorage.getItem('auth_token');
+    const windowToken = window.__authToken;
+    const cookieToken = this.getCookie('auth_token');
+    
+    const storedToken = localStorageToken || sessionStorageToken || windowToken || cookieToken;
+    
+    console.log('🔍 API Client: Token search across all storage types:', {
+      localStorage: !!localStorageToken,
+      sessionStorage: !!sessionStorageToken,
+      window: !!windowToken,
+      cookie: !!cookieToken,
+      finalToken: !!storedToken,
+      tokenLength: storedToken?.length || 0,
+      localStorageKeys: Object.keys(localStorage),
+      sessionStorageKeys: Object.keys(sessionStorage),
+      allCookies: document.cookie,
+      source: localStorageToken ? 'localStorage' : sessionStorageToken ? 'sessionStorage' : windowToken ? 'window' : cookieToken ? 'cookie' : 'none'
+    });
+    
+    if (storedToken) {
+      this.token = storedToken;
+      // Sync all storage locations
+      localStorage.setItem('auth_token', storedToken);
+      sessionStorage.setItem('auth_token', storedToken);
+      window.__authToken = storedToken;
+      this.setCookie('auth_token', storedToken);
+      console.log('🔄 Token found and synced across all storage types including cookie');
+    }
+    
+    console.log('🔍 API Client: Loading token result:', !!this.token, this.token ? `(${this.token.substring(0, 20)}...)` : 'null');
   }
 
   private saveToken(token: string): void {
     this.token = token;
+    // Save to all possible storage locations for maximum persistence
     localStorage.setItem('auth_token', token);
-    console.log('💾 API Client: Token saved to localStorage:', `(${token.substring(0, 20)}...)`);
+    sessionStorage.setItem('auth_token', token);
+    window.__authToken = token;
+    this.setCookie('auth_token', token);
+    console.log('💾 API Client: Token saved to all storage types including cookie:', `(${token.substring(0, 20)}...)`);
+    
+    // Verify save immediately
+    const localToken = localStorage.getItem('auth_token');
+    const sessionToken = sessionStorage.getItem('auth_token');
+    const windowToken = window.__authToken;
+    const cookieToken = this.getCookie('auth_token');
+    console.log('💾 API Client: Multi-storage verification:', {
+      originalLength: token.length,
+      localStorage: { saved: !!localToken, matches: localToken === token },
+      sessionStorage: { saved: !!sessionToken, matches: sessionToken === token },
+      window: { saved: !!windowToken, matches: windowToken === token },
+      cookie: { saved: !!cookieToken, matches: cookieToken === token },
+      firstChars: token.substring(0, 10)
+    });
   }
 
   private removeToken(): void {
+    console.log('🗑️ API Client: removeToken called from:', new Error().stack?.split('\n')[2]?.trim());
     this.token = null;
+    // Remove from all storage locations
     localStorage.removeItem('auth_token');
-    console.log('🗑️ API Client: Token removed from localStorage');
+    sessionStorage.removeItem('auth_token');
+    window.__authToken = null;
+    this.deleteCookie('auth_token');
+    console.log('🗑️ API Client: Token removed from all storage types including cookie');
   }
 
   private getHeaders(): Record<string, string> {
@@ -123,14 +211,28 @@ class ApiClient {
           // Let AuthContext handle the initial authentication properly
           const isInitialAuthCheck = response.url.includes('/me') && !window.location.pathname.includes('/login');
           
-          if (!isInitialAuthCheck) {
+          // Additional checks to prevent unnecessary logouts
+          const isAssessmentContext = response.url.includes('/assessment');
+          const hasToken = !!this.token;
+          
+          console.warn('🚪 401 Analysis:', {
+            isInitialAuthCheck,
+            isAssessmentContext, 
+            hasToken,
+            currentPath: window.location.pathname,
+            endpoint: response.url.replace(this.baseURL, '')
+          });
+          
+          // Don't auto-logout for assessment-related permission errors or initial auth check
+          if (!isInitialAuthCheck && !isAssessmentContext && hasToken) {
             console.warn('🚪 Auto-logout: Removing token and redirecting to login');
             this.removeToken();
             window.location.href = '/login';
-          } else {
+          } else if (isInitialAuthCheck) {
             console.warn('🚪 Initial auth check failed - letting AuthContext handle it');
-            // Don't auto-logout on initial auth check
             this.removeToken(); // Still remove invalid token
+          } else {
+            console.warn('🚪 Skipping auto-logout for assessment context - letting component handle 401 gracefully');
           }
         }
         throw new Error(data.message || `HTTP error! status: ${response.status}`);
@@ -147,6 +249,16 @@ class ApiClient {
 
   async get<T>(endpoint: string, params?: Record<string, any>): Promise<ApiResponse<T>> {
     console.log(`🌐 API GET request: baseURL=${this.baseURL}, endpoint=${endpoint}`, { params });
+    console.log('🔍 baseURL type:', typeof this.baseURL, 'value:', this.baseURL);
+    console.log('🔍 endpoint type:', typeof endpoint, 'value:', endpoint);
+    
+    // Safety check to prevent undefined baseURL
+    if (!this.baseURL || this.baseURL === 'undefined' || this.baseURL === undefined) {
+      console.error('❌ baseURL is invalid!', { current: this.baseURL, API_BASE_URL });
+      this.baseURL = 'http://localhost:8001/api';
+      console.error('❌ Fixed baseURL to:', this.baseURL);
+    }
+    
     console.log('🔍 Full URL will be:', `${this.baseURL}${endpoint}`);
     
     // Handle special Sanctum endpoints
@@ -264,4 +376,41 @@ class ApiClient {
 
 // Force recreation with timestamp to avoid cache
 console.log('🔄 Creating new ApiClient instance at:', new Date().toISOString());
-export const apiClient = new ApiClient();
+
+// Use singleton pattern to prevent HMR from clearing tokens
+declare global {
+  interface Window {
+    __apiClient?: ApiClient;
+    __authToken?: string | null;
+  }
+}
+
+// Explicitly pass the URL to prevent any undefined issues
+export const apiClient = (() => {
+  if (window.__apiClient) {
+    console.log('🔄 Reusing existing ApiClient instance from window');
+    // Restore token from window if available
+    if (window.__authToken && !window.__apiClient.getToken()) {
+      console.log('🔄 Restoring token from window to ApiClient');
+      window.__apiClient.setToken(window.__authToken);
+    }
+    return window.__apiClient;
+  }
+  
+  const client = new ApiClient('http://localhost:8001/api');
+  
+  // Restore token from window or localStorage
+  const windowToken = window.__authToken;
+  const localStorageToken = localStorage.getItem('auth_token');
+  const tokenToRestore = windowToken || localStorageToken;
+  
+  if (tokenToRestore) {
+    console.log('🔄 Restoring token during ApiClient creation:', tokenToRestore.substring(0, 20) + '...');
+    client.setToken(tokenToRestore);
+    window.__authToken = tokenToRestore;
+  }
+  
+  window.__apiClient = client;
+  console.log('🔄 Created new ApiClient instance and stored in window');
+  return client;
+})();

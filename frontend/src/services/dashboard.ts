@@ -167,7 +167,7 @@ class DashboardService {
   async getSchoolAdminStats() {
     console.log('🔍 DashboardService.getSchoolAdminStats called');
     try {
-      const response = await apiClient.get('/mektebadmin/dashboard');
+      const response = await apiClient.get('/schooladmin/dashboard');
       console.log('✅ DashboardService.getSchoolAdminStats successful:', response);
       return response;
     } catch (error) {
@@ -200,12 +200,12 @@ class DashboardService {
   }
 
   async getSchoolClasses() {
-    const response = await apiClient.get('/mektebadmin/classes');
+    const response = await apiClient.get('/schooladmin/classes');
     return response;
   }
 
   async getSchoolTeachers() {
-    const response = await apiClient.get('/mektebadmin/teachers');
+    const response = await apiClient.get('/schooladmin/teachers');
     return response;
   }
 }

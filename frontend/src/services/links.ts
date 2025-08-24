@@ -117,7 +117,7 @@ export interface SharingOptions {
 
 class LinkService extends BaseService<LinkShare> {
   constructor() {
-    super('/link-shares');
+    super('/links');
   }
 
   async getAll(params?: LinkFilters) {
@@ -262,22 +262,23 @@ class LinkService extends BaseService<LinkShare> {
 
   // Helper methods for categorization
   async getFeaturedLinks(limit = 10): Promise<LinkShare[]> {
-    const response = await this.getAll({ 
-      is_featured: true, 
-      per_page: limit, 
-      sort_by: 'click_count', 
-      sort_direction: 'desc' 
-    });
-    return response.data?.data || [];
+    try {
+      const response = await apiClient.get(`${this.baseEndpoint}/featured/list`, { limit });
+      return response.data || [];
+    } catch (error) {
+      console.error('❌ getFeaturedLinks failed:', error);
+      return [];
+    }
   }
 
   async getPopularLinks(limit = 10): Promise<LinkShare[]> {
-    const response = await this.getAll({ 
-      per_page: limit, 
-      sort_by: 'click_count', 
-      sort_direction: 'desc' 
-    });
-    return response.data?.data || [];
+    try {
+      const response = await apiClient.get(`${this.baseEndpoint}/popular/list`, { limit });
+      return response.data || [];
+    } catch (error) {
+      console.error('❌ getPopularLinks failed:', error);
+      return [];
+    }
   }
 
   async getRecentLinks(limit = 10): Promise<LinkShare[]> {
@@ -304,29 +305,23 @@ class LinkService extends BaseService<LinkShare> {
     console.log('📈 LinkService.getLinkStats called');
     
     try {
-      // Get overview statistics from the first page
-      const response = await this.getAll({ per_page: 1 });
-      const totalLinks = response.data?.total || 0;
+      const response = await apiClient.get(`${this.baseEndpoint}/stats`);
+      console.log('✅ LinkService.getLinkStats successful:', response.data);
       
-      // Get featured links count
-      const featuredResponse = await this.getAll({ is_featured: true, per_page: 1 });
-      const featuredCount = featuredResponse.data?.total || 0;
-      
-      // Get link type breakdown
-      const externalLinks = await this.getAll({ link_type: 'external', per_page: 1 });
-      const videoLinks = await this.getAll({ link_type: 'video', per_page: 1 });
-      const formLinks = await this.getAll({ link_type: 'form', per_page: 1 });
-      const documentLinks = await this.getAll({ link_type: 'document', per_page: 1 });
-      
+      // Transform response to match frontend expectations
+      const data = response.data;
       return {
-        total_links: totalLinks,
-        featured_links: featuredCount,
-        by_type: {
-          external: externalLinks.data?.total || 0,
-          video: videoLinks.data?.total || 0,
-          form: formLinks.data?.total || 0,
-          document: documentLinks.data?.total || 0,
+        total_links: data.total_links || 0,
+        recent_links: data.recent_links || 0,
+        total_clicks: data.total_clicks || 0,
+        featured_links: data.featured_links || 0,
+        by_type: data.type_breakdown || {
+          external: 0,
+          video: 0,
+          form: 0,
+          document: 0,
         },
+        recent_activity: data.recent_activity || [],
       };
     } catch (error) {
       console.error('❌ LinkService.getLinkStats failed:', error);

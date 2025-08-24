@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, ClipboardList, Calendar, TrendingUp, Eye, Edit, Trash2, Play, Pause, BarChart3 } from "lucide-react";
+import { Plus, ClipboardList, Calendar, TrendingUp, Eye, Edit, Trash2, Play, Pause, BarChart3, AlertTriangle } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { surveyService, Survey, CreateSurveyData } from "@/services/surveys";
 import { Badge } from "@/components/ui/badge";
@@ -8,8 +8,10 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SurveyModal } from "@/components/modals/SurveyModal";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Surveys() {
+  const { currentUser } = useAuth();
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'active' | 'completed' | 'archived'>('all');
   const [showSurveyModal, setShowSurveyModal] = useState(false);
   const [selectedSurvey, setSelectedSurvey] = useState<Survey | null>(null);
@@ -17,9 +19,24 @@ export default function Surveys() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+
+  // Security check - only administrative roles can access surveys
+  if (!currentUser || !['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role)) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız idarəçi rolları daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
   
   const { data: surveys, isLoading, error } = useQuery({
-    queryKey: ['surveys', statusFilter],
+    queryKey: ['surveys', statusFilter, currentUser?.role, currentUser?.institution_id],
     queryFn: () => surveyService.getAll({
       status: statusFilter === 'all' ? undefined : statusFilter,
       per_page: 20
@@ -190,10 +207,12 @@ export default function Surveys() {
             <h1 className="text-3xl font-bold text-foreground">Sorğular</h1>
             <p className="text-muted-foreground">Sorğuların yaradılması və idarə edilməsi</p>
           </div>
-          <Button className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Yeni Sorğu
-          </Button>
+          {['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || '') && (
+            <Button className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Yeni Sorğu
+            </Button>
+          )}
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -226,13 +245,15 @@ export default function Surveys() {
           <h1 className="text-3xl font-bold text-foreground">Sorğular</h1>
           <p className="text-muted-foreground">Sorğuların yaradılması və idarə edilməsi</p>
         </div>
-        <Button 
-          className="flex items-center gap-2"
-          onClick={() => setShowSurveyModal(true)}
-        >
-          <Plus className="h-4 w-4" />
-          Yeni Sorğu
-        </Button>
+        {['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || '') && (
+          <Button 
+            className="flex items-center gap-2"
+            onClick={() => setShowSurveyModal(true)}
+          >
+            <Plus className="h-4 w-4" />
+            Yeni Sorğu
+          </Button>
+        )}
       </div>
 
       {/* Status Filter */}
@@ -315,14 +336,16 @@ export default function Surveys() {
               <div className="text-center py-8">
                 <ClipboardList className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">Hələlik sorğu yoxdur</p>
-                <Button 
-                  className="mt-4" 
-                  variant="outline"
-                  onClick={() => setShowSurveyModal(true)}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  İlk sorğunu yarat
-                </Button>
+                {['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || '') && (
+                  <Button 
+                    className="mt-4" 
+                    variant="outline"
+                    onClick={() => setShowSurveyModal(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    İlk sorğunu yarat
+                  </Button>
+                )}
               </div>
             ) : (
               surveys?.data?.data?.map((survey: Survey) => (
@@ -356,41 +379,51 @@ export default function Surveys() {
                     >
                       <BarChart3 className="h-4 w-4" />
                     </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => handleEditSurvey(survey)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    {survey.status === 'draft' && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handlePublishSurvey(survey.id)}
-                        disabled={publishSurveyMutation.isPending}
-                      >
-                        <Play className="h-4 w-4" />
-                      </Button>
+                    {(
+                      currentUser?.role === 'superadmin' || 
+                      survey.created_by === currentUser?.id ||
+                      (['regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || ''))
+                    ) && (
+                      <>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleEditSurvey(survey)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        {survey.status === 'draft' && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handlePublishSurvey(survey.id)}
+                            disabled={publishSurveyMutation.isPending}
+                          >
+                            <Play className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {survey.status === 'active' && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handlePauseSurvey(survey.id)}
+                            disabled={pauseSurveyMutation.isPending}
+                          >
+                            <Pause className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {(currentUser?.role === 'superadmin' || survey.created_by === currentUser?.id) && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleDeleteSurvey(survey.id)}
+                            disabled={deleteSurveyMutation.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </>
                     )}
-                    {survey.status === 'active' && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handlePauseSurvey(survey.id)}
-                        disabled={pauseSurveyMutation.isPending}
-                      >
-                        <Pause className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => handleDeleteSurvey(survey.id)}
-                      disabled={deleteSurveyMutation.isPending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                   </div>
                 </div>
               ))

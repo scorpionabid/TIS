@@ -33,8 +33,30 @@ import { LinkEditModal } from "@/components/modals/LinkEditModal";
 import { linkService, LinkShare } from "@/services/links";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Links() {
+  const { currentUser } = useAuth();
+  
+  // Security check - all authenticated users can access links
+  if (!currentUser) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş tələb olunur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə daxil olmaq üçün sistemə giriş etməlisiniz
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check link creation permissions
+  const canCreateLinks = currentUser && ['superadmin', 'regionadmin'].includes(currentUser.role);
+  const canTrackLinks = currentUser && ['superadmin', 'regionadmin'].includes(currentUser.role);
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedScope, setSelectedScope] = useState<string>('all');
@@ -234,10 +256,12 @@ export default function Links() {
           <h1 className="text-3xl font-bold text-foreground">Linklər</h1>
           <p className="text-muted-foreground">Faydalı linklərin təşkili və idarə edilməsi</p>
         </div>
-        <Button className="flex items-center gap-2" onClick={() => setCreateModalOpen(true)}>
-          <Plus className="h-4 w-4" />
-          Yeni Link
-        </Button>
+        {canCreateLinks && (
+          <Button className="flex items-center gap-2" onClick={() => setCreateModalOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Yeni Link
+          </Button>
+        )}
       </div>
 
       {/* Search and Filters */}
@@ -308,7 +332,7 @@ export default function Links() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-primary">{linkStats.total_links}</div>
+                  <div className="text-2xl font-bold text-primary">{linkStats?.total_links || 0}</div>
                   <div className="text-sm text-muted-foreground">Ümumi Link</div>
                 </div>
                 <Globe className="h-8 w-8 text-primary opacity-50" />
@@ -320,7 +344,7 @@ export default function Links() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-yellow-600">{linkStats.featured_links}</div>
+                  <div className="text-2xl font-bold text-yellow-600">{linkStats?.featured_links || 0}</div>
                   <div className="text-sm text-muted-foreground">Xüsusi Link</div>
                 </div>
                 <Bookmark className="h-8 w-8 text-yellow-600 opacity-50" />
@@ -332,7 +356,7 @@ export default function Links() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-green-600">{linkStats.by_type.external || 0}</div>
+                  <div className="text-2xl font-bold text-green-600">{linkStats?.by_type?.external || 0}</div>
                   <div className="text-sm text-muted-foreground">Xarici Link</div>
                 </div>
                 <ExternalLink className="h-8 w-8 text-green-600 opacity-50" />
@@ -344,7 +368,7 @@ export default function Links() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-red-600">{linkStats.by_type.video || 0}</div>
+                  <div className="text-2xl font-bold text-red-600">{linkStats?.by_type?.video || 0}</div>
                   <div className="text-sm text-muted-foreground">Video</div>
                 </div>
                 <Video className="h-8 w-8 text-red-600 opacity-50" />
@@ -446,15 +470,17 @@ export default function Links() {
           ))}
 
           {/* Add New Link Card */}
-          <Card 
-            className="border-dashed hover:border-solid hover:shadow-lg transition-all cursor-pointer"
-            onClick={() => setCreateModalOpen(true)}
-          >
-            <CardContent className="flex flex-col items-center justify-center h-48">
-              <Plus className="h-12 w-12 text-muted-foreground mb-3" />
-              <p className="text-sm text-muted-foreground">Yeni link əlavə et</p>
-            </CardContent>
-          </Card>
+          {canCreateLinks && (
+            <Card 
+              className="border-dashed hover:border-solid hover:shadow-lg transition-all cursor-pointer"
+              onClick={() => setCreateModalOpen(true)}
+            >
+              <CardContent className="flex flex-col items-center justify-center h-48">
+                <Plus className="h-12 w-12 text-muted-foreground mb-3" />
+                <p className="text-sm text-muted-foreground">Yeni link əlavə et</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       ) : (
         <div className="text-center py-12">
@@ -463,10 +489,12 @@ export default function Links() {
           <p className="text-muted-foreground mb-4">
             {searchTerm ? 'Axtarış şərtlərinə uyğun link tapılmadı' : 'Hələ ki heç bir link əlavə edilməyib'}
           </p>
-          <Button onClick={() => setCreateModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            İlk Linki Əlavə Et
-          </Button>
+          {canCreateLinks && (
+            <Button onClick={() => setCreateModalOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              İlk Linki Əlavə Et
+            </Button>
+          )}
         </div>
       )}
 
@@ -556,11 +584,13 @@ export default function Links() {
       </div>
 
       {/* Modals */}
-      <LinkCreateModal
-        isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        onLinkCreated={handleLinkCreated}
-      />
+      {canCreateLinks && (
+        <LinkCreateModal
+          isOpen={createModalOpen}
+          onClose={() => setCreateModalOpen(false)}
+          onLinkCreated={handleLinkCreated}
+        />
+      )}
 
       <LinkViewModal
         isOpen={viewModalOpen}

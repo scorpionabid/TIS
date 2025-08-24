@@ -35,7 +35,82 @@ class InstitutionHierarchyController extends Controller
                 $query->where('is_active', true);
             }
 
-            $institutions = $query->roots()->get();
+            // Apply role-based filtering like other controllers
+            $user = Auth::user();
+            if ($user && !$user->hasRole('superadmin')) {
+                if ($user->hasRole('regionadmin')) {
+                    // RegionAdmin can only see their region and institutions under it
+                    $regionId = $user->institution_id;
+                    
+                    // Get the region and all its descendants
+                    $query->where(function($q) use ($regionId) {
+                        $q->where('id', $regionId) // Include the region itself
+                          ->orWhere('parent_id', $regionId) // Include sectors under this region
+                          ->orWhereIn('parent_id', function($subQuery) use ($regionId) {
+                              // Include institutions under sectors of this region
+                              $subQuery->select('id')
+                                       ->from('institutions')
+                                       ->where('parent_id', $regionId);
+                          })
+                          ->orWhereIn('parent_id', function($subQuery) use ($regionId) {
+                              // Include preschools under sectors of this region  
+                              $subQuery->select('id')
+                                       ->from('institutions')
+                                       ->whereIn('parent_id', function($innerQuery) use ($regionId) {
+                                           $innerQuery->select('id')
+                                                      ->from('institutions')
+                                                      ->where('parent_id', $regionId);
+                                       });
+                          });
+                    });
+                } else if ($user->hasRole('sektoradmin')) {
+                    // SektorAdmin can only see their sector and institutions under it
+                    $sectorId = $user->institution_id;
+                    $query->where(function($q) use ($sectorId) {
+                        $q->where('id', $sectorId)
+                          ->orWhere('parent_id', $sectorId)
+                          ->orWhereIn('parent_id', function($subQuery) use ($sectorId) {
+                              $subQuery->select('id')
+                                       ->from('institutions')
+                                       ->where('parent_id', $sectorId);
+                          });
+                    });
+                } else if ($user->hasRole('schooladmin')) {
+                    // SchoolAdmin can only see their own institution
+                    $institutionId = $user->institution_id;
+                    $query->where('id', $institutionId);
+                }
+            }
+
+            // For role-based access, get institutions at the appropriate root level
+            if ($user && !$user->hasRole('superadmin')) {
+                if ($user->hasRole('regionadmin')) {
+                    // For RegionAdmin, their region is the root
+                    $institutions = $query->where('id', $user->institution_id)->get();
+                } else if ($user->hasRole('sektoradmin')) {
+                    // For SektorAdmin, their sector is the root
+                    $institutions = $query->where('id', $user->institution_id)->get();
+                } else if ($user->hasRole('schooladmin')) {
+                    // For SchoolAdmin, their school is the root
+                    $institutions = $query->where('id', $user->institution_id)->get();
+                } else {
+                    $institutions = $query->roots()->get();
+                }
+            } else {
+                // SuperAdmin sees actual root institutions
+                $institutions = $query->roots()->get();
+            }
+            
+            // Debug: Log filtered institutions for regionadmin
+            if ($user && $user->hasRole('regionadmin')) {
+                \Log::info('RegionAdmin Hierarchy Query Result:', [
+                    'user_id' => $user->id,
+                    'region_id' => $user->institution_id,
+                    'institutions_count' => $institutions->count(),
+                    'institution_ids' => $institutions->pluck('id')->toArray(),
+                    'institution_names' => $institutions->pluck('name')->toArray(),
+                ]);
+            }
             
             $hierarchyData = $this->buildHierarchyTree($institutions, [
                 'max_depth' => $request->get('max_depth', 5),
@@ -508,20 +583,67 @@ class InstitutionHierarchyController extends Controller
      */
     private function getHierarchyStatistics($institutions): array
     {
-        $totalInstitutions = Institution::count();
-        $activeInstitutions = Institution::where('is_active', true)->count();
+        // Apply the same role-based filtering for statistics as used in main query
+        $user = Auth::user();
+        $baseQuery = Institution::query();
+        
+        if ($user && !$user->hasRole('superadmin')) {
+            if ($user->hasRole('regionadmin')) {
+                $regionId = $user->institution_id;
+                $baseQuery->where(function($q) use ($regionId) {
+                    $q->where('id', $regionId)
+                      ->orWhere('parent_id', $regionId)
+                      ->orWhereIn('parent_id', function($subQuery) use ($regionId) {
+                          $subQuery->select('id')
+                                   ->from('institutions')
+                                   ->where('parent_id', $regionId);
+                      })
+                      ->orWhereIn('parent_id', function($subQuery) use ($regionId) {
+                          $subQuery->select('id')
+                                   ->from('institutions')
+                                   ->whereIn('parent_id', function($innerQuery) use ($regionId) {
+                                       $innerQuery->select('id')
+                                                  ->from('institutions')
+                                                  ->where('parent_id', $regionId);
+                                   });
+                      });
+                });
+            } else if ($user->hasRole('sektoradmin')) {
+                $sectorId = $user->institution_id;
+                $baseQuery->where(function($q) use ($sectorId) {
+                    $q->where('id', $sectorId)
+                      ->orWhere('parent_id', $sectorId)
+                      ->orWhereIn('parent_id', function($subQuery) use ($sectorId) {
+                          $subQuery->select('id')
+                                   ->from('institutions')
+                                   ->where('parent_id', $sectorId);
+                      });
+                });
+            } else if ($user->hasRole('schooladmin')) {
+                $institutionId = $user->institution_id;
+                $baseQuery->where('id', $institutionId);
+            }
+        }
+        
+        $totalInstitutions = $baseQuery->count();
+        $activeInstitutions = (clone $baseQuery)->where('is_active', true)->count();
+        $maxDepth = (clone $baseQuery)->max('level') ?? 0;
+        
+        $byLevel = (clone $baseQuery)->select('level', \DB::raw('count(*) as count'))
+                                     ->groupBy('level')
+                                     ->pluck('count', 'level');
+                                     
+        $byType = (clone $baseQuery)->select('type', \DB::raw('count(*) as count'))
+                                    ->groupBy('type')
+                                    ->pluck('count', 'type');
         
         return [
             'total_institutions' => $totalInstitutions,
             'active_institutions' => $activeInstitutions,
             'root_institutions' => $institutions->count(),
-            'max_depth' => Institution::max('level'),
-            'by_level' => Institution::select('level', \DB::raw('count(*) as count'))
-                                    ->groupBy('level')
-                                    ->pluck('count', 'level'),
-            'by_type' => Institution::select('type', \DB::raw('count(*) as count'))
-                                   ->groupBy('type')
-                                   ->pluck('count', 'type'),
+            'max_depth' => $maxDepth,
+            'by_level' => $byLevel,
+            'by_type' => $byType,
         ];
     }
 }

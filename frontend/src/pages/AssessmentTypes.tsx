@@ -49,6 +49,23 @@ export default function AssessmentTypes() {
   const { toast } = useToast();
   const { currentUser, hasRole } = useAuth();
 
+  // Check if user has permission to access this page
+  if (!hasRole(['superadmin', 'regionadmin'])) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex justify-center items-center min-h-[400px]">
+          <div className="text-center space-y-4">
+            <FileText className="h-12 w-12 text-destructive mx-auto" />
+            <div>
+              <h3 className="text-lg font-semibold">Giriş icazəsi yoxdur</h3>
+              <p className="text-muted-foreground">Bu səhifəyə yalnız SuperAdmin və RegionAdmin rolları daxil ola bilər.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Fetch assessment types data
   const { data: assessmentTypes, isLoading, error, refetch } = useQuery({
     queryKey: ['assessment-types', filters],

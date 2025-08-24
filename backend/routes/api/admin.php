@@ -4,7 +4,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserUtilityController;
 use App\Http\Controllers\InstitutionController;
 use App\Http\Controllers\InstitutionTypeController;
-use App\Http\Controllers\Institution\InstitutionHierarchyController;
+use App\Http\Controllers\InstitutionHierarchyController;
 use App\Http\Controllers\InstitutionDepartmentController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\DepartmentController;
@@ -104,10 +104,10 @@ Route::middleware('role:superadmin')->prefix('institution-types')->group(functio
 
 // Institution Hierarchy Management
 Route::middleware('permission:institutions.hierarchy')->group(function () {
-    Route::get('hierarchy', [InstitutionHierarchyController::class, 'hierarchy']);
-    Route::get('institutions-hierarchy', [InstitutionHierarchyController::class, 'hierarchy']);
-    Route::get('hierarchy/children/{institution}', [InstitutionHierarchyController::class, 'children']);
-    Route::get('hierarchy/path/{institution}', [InstitutionHierarchyController::class, 'path']);
+    Route::get('hierarchy', [InstitutionHierarchyController::class, 'getHierarchy']);
+    Route::get('institutions-hierarchy', [InstitutionHierarchyController::class, 'getHierarchy']);
+    Route::get('hierarchy/children/{institution}', [InstitutionHierarchyController::class, 'getSubTree']);
+    Route::get('hierarchy/path/{institution}', [InstitutionHierarchyController::class, 'getPath']);
 });
 
 // Department management (institution-specific)

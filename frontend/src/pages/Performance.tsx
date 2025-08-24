@@ -4,8 +4,25 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MonitorIcon, Activity, Cpu, HardDrive, Wifi, AlertTriangle, TrendingUp, Database, Server } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Performance() {
+  const { currentUser } = useAuth();
+
+  // Security check - only SuperAdmin and RegionAdmin can access system performance monitoring
+  if (!currentUser || !['superadmin', 'regionadmin'].includes(currentUser.role)) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız SuperAdmin və RegionAdmin istifadəçiləri daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -25,9 +42,11 @@ export default function Performance() {
               <SelectItem value="7d">Son 7 gün</SelectItem>
             </SelectContent>
           </Select>
-          <Button>
-            Hesabat Al
-          </Button>
+          {currentUser?.role === 'superadmin' && (
+            <Button>
+              Hesabat Al
+            </Button>
+          )}
         </div>
       </div>
 

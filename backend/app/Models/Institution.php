@@ -110,6 +110,14 @@ class Institution extends Model
     }
 
     /**
+     * Get all students belonging to this institution
+     */
+    public function students(): HasMany
+    {
+        return $this->hasMany(Student::class);
+    }
+
+    /**
      * Get the manager (admin) of this institution.
      * For sectors, this is the sektoradmin user assigned to this institution.
      */

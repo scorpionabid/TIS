@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Route;
 // Document Management Routes
 Route::prefix('documents')->group(function () {
     Route::get('/', [DocumentController::class, 'index'])->middleware('permission:documents.read');
+    Route::get('/stats', [DocumentController::class, 'getStats'])->middleware('permission:documents.read');
     Route::post('/', [DocumentController::class, 'store'])->middleware('permission:documents.write');
     Route::get('/{document}', [DocumentController::class, 'show'])->middleware('permission:documents.read');
     Route::put('/{document}', [DocumentController::class, 'update'])->middleware('permission:documents.write');
@@ -35,6 +36,8 @@ Route::prefix('documents')->group(function () {
     Route::get('/analytics/storage', [DocumentController::class, 'getStorageAnalytics'])->middleware('permission:documents.analytics');
     Route::post('/{document}/tags', [DocumentController::class, 'addTags'])->middleware('permission:documents.write');
     Route::delete('/{document}/tags', [DocumentController::class, 'removeTags'])->middleware('permission:documents.write');
+    Route::get('/tracking/activity', [DocumentController::class, 'getTrackingActivity'])->middleware('permission:documents.tracking');
+    Route::get('/{document}/tracking/history', [DocumentController::class, 'getDocumentHistory'])->middleware('permission:documents.tracking');
 });
 
 // Document Sharing Routes

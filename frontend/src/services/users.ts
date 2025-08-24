@@ -84,8 +84,36 @@ export interface UserStatistics {
 
 class UserService {
   async getUsers(filters?: UserFilters): Promise<PaginatedResponse<User>> {
-    const response = await apiClient.get<User[]>('/users', filters);
-    return response as PaginatedResponse<User>;
+    try {
+      const response = await apiClient.get<User[]>('/users', filters);
+      
+      // Handle the backend response format: {success: true, data: [...]}
+      if (response && typeof response === 'object' && 'data' in response) {
+        const backendData = response.data;
+        
+        // Return in the expected format
+        return {
+          data: backendData || [],
+          current_page: 1,
+          last_page: 1,
+          per_page: 100,
+          total: Array.isArray(backendData) ? backendData.length : 0,
+          first_page_url: '',
+          last_page_url: '',
+          next_page_url: null,
+          prev_page_url: null,
+          path: '',
+          from: 1,
+          to: Array.isArray(backendData) ? backendData.length : 0
+        } as PaginatedResponse<User>;
+      }
+      
+      // Fallback to original response
+      return response as PaginatedResponse<User>;
+    } catch (error) {
+      console.error('UserService.getUsers error:', error);
+      throw error;
+    }
   }
 
   async getUser(id: number): Promise<User> {
@@ -197,6 +225,7 @@ class UserService {
     
     return [];
   }
+
 }
 
 export const userService = new UserService();

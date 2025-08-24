@@ -58,7 +58,7 @@ export const RoleBasedDashboard: React.FC<RoleBasedDashboardProps> = ({ classNam
   // Map auth role to school roles
   const getSchoolRole = (authRole: string) => {
     switch (authRole) {
-      case 'məktəbadmin':
+      case 'schooladmin':
         return SCHOOL_ROLES.SCHOOL_ADMIN;
       case 'müəllim':
         return SCHOOL_ROLES.MUELLIM;

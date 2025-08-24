@@ -12,6 +12,7 @@ import { DeleteConfirmationModal } from "@/components/modals/DeleteConfirmationM
 import { useToast } from "@/hooks/use-toast";
 import { usePagination } from "@/hooks/usePagination";
 import { TablePagination } from "@/components/common/TablePagination";
+import { useAuth } from "@/contexts/AuthContext";
 
 type SortField = 'name' | 'email' | 'role' | 'status' | 'created_at';
 type SortDirection = 'asc' | 'desc';
@@ -22,7 +23,7 @@ const roleLabels: Record<string, string> = {
   regionadmin: 'Regional Admin',
   regionoperator: 'Regional Operator',
   sektoradmin: 'Sektor Admin',
-  məktəbadmin: 'Məktəb Admin',
+  schooladmin: 'Məktəb Admin',
   müəllim: 'Müəllim',
   user: 'İstifadəçi',
 };
@@ -55,6 +56,7 @@ const extractUniqueStrings = (users: any[], field: string): string[] => {
 };
 
 export default function Users() {
+  const { currentUser } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -67,16 +69,24 @@ export default function Users() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Load users
+  // Load users with role-based filtering
   const { data: usersResponse, isLoading, error } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => userService.getUsers(),
+    queryKey: ['users', currentUser?.role, currentUser?.institution?.id],
+    queryFn: async () => {
+      if (!currentUser) return null;
+      
+      // Backend automatically applies role-based filtering
+      // All users can use the same endpoint - backend handles access control
+      return await userService.getUsers();
+    },
+    enabled: !!currentUser,
   });
 
-  // Debug: log the response structure
-  console.log('🔍 Users API Response:', usersResponse);
-  console.log('🔍 Raw users array length:', usersResponse?.data?.length || 0);
-  console.log('🔍 Is response paginated?', !!usersResponse?.meta);
+  // Debug: log basic info about users loading
+  const userCount = usersResponse?.data?.length || 0;
+  if (userCount === 0 && !isLoading && currentUser) {
+    console.log('⚠️ No users loaded for current user role:', currentUser.role);
+  }
 
   const rawUsers = useMemo(() => {
     if (!usersResponse) return [];
@@ -309,7 +319,7 @@ export default function Users() {
 
   const getRoleBadgeVariant = (role: string) => {
     if (['superadmin', 'regionadmin'].includes(role)) return 'destructive';
-    if (['sektoradmin', 'məktəbadmin'].includes(role)) return 'secondary';
+    if (['sektoradmin', 'schooladmin'].includes(role)) return 'secondary';
     return 'outline';
   };
 
@@ -376,10 +386,13 @@ export default function Users() {
             <FileDown className="h-4 w-4" />
             Export
           </Button>
-          <Button className="flex items-center gap-2" onClick={() => handleOpenModal()}>
-            <Plus className="h-4 w-4" />
-            Yeni İstifadəçi
-          </Button>
+          {/* Only administrative roles can create new users */}
+          {currentUser?.role && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role) && (
+            <Button className="flex items-center gap-2" onClick={() => handleOpenModal()}>
+              <Plus className="h-4 w-4" />
+              Yeni İstifadəçi
+            </Button>
+          )}
         </div>
       </div>
 
@@ -558,22 +571,27 @@ export default function Users() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center gap-1 justify-end">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleOpenModal(user)}
-                          title="Redaktə et"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleDeleteClick(user)}
-                          title="Sil"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {/* Only administrative roles can edit/delete users */}
+                        {currentUser?.role && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role) && (
+                          <>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleOpenModal(user)}
+                              title="Redaktə et"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleDeleteClick(user)}
+                              title="Sil"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

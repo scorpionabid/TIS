@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Document;
 use App\Models\DocumentShare;
+use App\Models\DocumentAccessLog;
 use App\Services\DocumentService;
 use App\Services\DocumentDownloadService;
 use App\Services\DocumentSharingService;
@@ -78,8 +79,11 @@ class DocumentController extends Controller
 
             $file = $request->file('file');
             
-            // Validate file
-            $fileValidationErrors = Document::validateFile($file);
+            // Get user role for file size validation
+            $userRole = $user->getRoleNames()->first();
+            
+            // Validate file with role-based limits
+            $fileValidationErrors = Document::validateFile($file, $userRole);
             if (!empty($fileValidationErrors)) {
                 return response()->json([
                     'success' => false,
@@ -92,6 +96,9 @@ class DocumentController extends Controller
                 $validator->validated(),
                 $file
             );
+
+            // Log document upload
+            DocumentAccessLog::logAccess($document->id, $user->id, 'upload', $request);
 
             return response()->json([
                 'success' => true,
@@ -240,7 +247,7 @@ class DocumentController extends Controller
     /**
      * Download document
      */
-    public function download(Document $document): StreamedResponse
+    public function download(Document $document, Request $request): StreamedResponse
     {
         $user = Auth::user();
         
@@ -252,6 +259,9 @@ class DocumentController extends Controller
         if (!$document->canDownload($user)) {
             abort(403, 'Bu sənədi yükləmək icazəniz yoxdur.');
         }
+
+        // Log document download
+        DocumentAccessLog::logAccess($document->id, $user->id, 'download', $request);
 
         return $this->downloadService->downloadDocument($document);
     }
@@ -710,4 +720,97 @@ class DocumentController extends Controller
         $allowedInstitutions = $this->getSectorInstitutions($userSektorId);
         return $allowedInstitutions->contains($document->institution_id);
     }
+
+    /**
+     * Get document tracking activity for RegionAdmin
+     */
+    public function getTrackingActivity(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $filters = $request->only(['action', 'date_from', 'date_to', 'institution_id', 'user_id']);
+            
+            $query = DocumentAccessLog::query()
+                ->with(['document:id,title,original_filename', 'user:id,first_name,last_name', 'institution:id,name'])
+                ->orderBy('accessed_at', 'desc');
+
+            // Apply filters
+            if (!empty($filters['action'])) {
+                $query->where('action', $filters['action']);
+            }
+
+            if (!empty($filters['date_from'])) {
+                $query->whereDate('accessed_at', '>=', $filters['date_from']);
+            }
+
+            if (!empty($filters['date_to'])) {
+                $query->whereDate('accessed_at', '<=', $filters['date_to']);
+            }
+
+            if (!empty($filters['institution_id'])) {
+                $query->where('institution_id', $filters['institution_id']);
+            }
+
+            if (!empty($filters['user_id'])) {
+                $query->where('user_id', $filters['user_id']);
+            }
+
+            // Role-based access control
+            if (!$user->hasRole('superadmin')) {
+                // RegionAdmin can only see activities in their region
+                if ($user->hasRole('regionadmin')) {
+                    $institutionIds = $this->getRegionalInstitutions($user->institution_id)->pluck('id');
+                    $query->whereIn('institution_id', $institutionIds);
+                }
+            }
+
+            $activities = $query->paginate($request->get('per_page', 20));
+
+            return response()->json([
+                'success' => true,
+                'data' => $activities,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aktivlik məlumatları yüklənərkən xəta baş verdi.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get specific document access history
+     */
+    public function getDocumentHistory(Document $document, Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            // Check access permissions
+            if (!$document->canAccess($user)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu sənədə giriş icazəniz yoxdur.',
+                ], 403);
+            }
+
+            $history = DocumentAccessLog::where('document_id', $document->id)
+                ->with(['user:id,first_name,last_name', 'institution:id,name'])
+                ->orderBy('accessed_at', 'desc')
+                ->paginate($request->get('per_page', 20));
+
+            return response()->json([
+                'success' => true,
+                'data' => $history,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sənəd tarixçəsi yüklənərkən xəta baş verdi.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
+
 }

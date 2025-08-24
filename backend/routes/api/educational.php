@@ -206,33 +206,33 @@ Route::prefix('assessments')->middleware('permission:assessments.read')->group(f
     Route::put('/{assessment}', [AssessmentController::class, 'update'])->middleware('permission:assessments.write');
     Route::delete('/{assessment}', [AssessmentController::class, 'destroy'])->middleware('permission:assessments.write');
     
-    // KSQ Assessment Routes
+    // KSQ Assessment Routes - TODO: Implement KSQAssessmentController
     Route::prefix('ksq')->group(function () {
-        Route::get('/', [App\Http\Controllers\KSQAssessmentController::class, 'index']);
-        Route::post('/', [App\Http\Controllers\KSQAssessmentController::class, 'store'])->middleware('permission:assessments.write');
-        Route::get('/{assessment}', [App\Http\Controllers\KSQAssessmentController::class, 'show']);
-        Route::put('/{assessment}', [App\Http\Controllers\KSQAssessmentController::class, 'update'])->middleware('permission:assessments.write');
-        Route::delete('/{assessment}', [App\Http\Controllers\KSQAssessmentController::class, 'destroy'])->middleware('permission:assessments.write');
+        // Route::get('/', [App\Http\Controllers\KSQAssessmentController::class, 'index']);
+        // Route::post('/', [App\Http\Controllers\KSQAssessmentController::class, 'store'])->middleware('permission:assessments.write');
+        // Route::get('/{assessment}', [App\Http\Controllers\KSQAssessmentController::class, 'show']);
+        // Route::put('/{assessment}', [App\Http\Controllers\KSQAssessmentController::class, 'update'])->middleware('permission:assessments.write');
+        // Route::delete('/{assessment}', [App\Http\Controllers\KSQAssessmentController::class, 'destroy'])->middleware('permission:assessments.write');
     });
     
-    // BSQ Assessment Routes  
+    // BSQ Assessment Routes - TODO: Implement BSQAssessmentController
     Route::prefix('bsq')->group(function () {
-        Route::get('/', [App\Http\Controllers\BSQAssessmentController::class, 'index']);
-        Route::post('/', [App\Http\Controllers\BSQAssessmentController::class, 'store'])->middleware('permission:assessments.write');
-        Route::get('/{assessment}', [App\Http\Controllers\BSQAssessmentController::class, 'show']);
-        Route::put('/{assessment}', [App\Http\Controllers\BSQAssessmentController::class, 'update'])->middleware('permission:assessments.write');
-        Route::delete('/{assessment}', [App\Http\Controllers\BSQAssessmentController::class, 'destroy'])->middleware('permission:assessments.write');
+        // Route::get('/', [App\Http\Controllers\BSQAssessmentController::class, 'index']);
+        // Route::post('/', [App\Http\Controllers\BSQAssessmentController::class, 'store'])->middleware('permission:assessments.write');
+        // Route::get('/{assessment}', [App\Http\Controllers\BSQAssessmentController::class, 'show']);
+        // Route::put('/{assessment}', [App\Http\Controllers\BSQAssessmentController::class, 'update'])->middleware('permission:assessments.write');
+        // Route::delete('/{assessment}', [App\Http\Controllers\BSQAssessmentController::class, 'destroy'])->middleware('permission:assessments.write');
     });
 });
 
 // Assessment Type Management Routes
 Route::prefix('assessment-types')->middleware('auth:sanctum')->group(function () {
-    Route::get('/', [AssessmentTypeController::class, 'index']);
+    Route::get('/', [AssessmentTypeController::class, 'index'])->middleware('permission:assessment-types.read');
     Route::post('/', [AssessmentTypeController::class, 'store'])->middleware('permission:assessment-types.create');
-    Route::get('/{assessmentType}', [AssessmentTypeController::class, 'show']);
+    Route::get('/{assessmentType}', [AssessmentTypeController::class, 'show'])->middleware('permission:assessment-types.read');
     Route::put('/{assessmentType}', [AssessmentTypeController::class, 'update'])->middleware('permission:assessment_types.write');
     Route::delete('/{assessmentType}', [AssessmentTypeController::class, 'destroy'])->middleware('permission:assessment_types.write');
-    Route::get('/by-institution/{institution}', [AssessmentTypeController::class, 'getByInstitution']);
+    Route::get('/by-institution/{institution}', [AssessmentTypeController::class, 'getByInstitution'])->middleware('permission:assessment-types.read');
     Route::post('/bulk-create', [AssessmentTypeController::class, 'bulkCreate'])->middleware('permission:assessment_types.bulk');
     
     // Institution assignment routes

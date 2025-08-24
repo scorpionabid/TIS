@@ -37,6 +37,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Document & Task Management Routes
     require __DIR__ . '/api/documents.php';
     
+    // Link Share Management Routes
+    require __DIR__ . '/api/links.php';
+    
     // Specialized Module Routes
     require __DIR__ . '/api/specialized.php';
     

@@ -56,14 +56,14 @@ export const universalNavigationConfig: MenuGroup[] = [
   {
     id: 'dashboard',
     label: 'Ana Səhifə',
-    roles: ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'məktəbadmin', 'müəllim'],
+    roles: ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'schooladmin', 'müəllim'],
     items: [
       {
         id: 'dashboard-home',
         label: 'Dashboard',
         path: '/',
         icon: LayoutDashboard,
-        roles: ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'məktəbadmin', 'müəllim']
+        roles: ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'schooladmin', 'müəllim']
       }
     ]
   },
@@ -98,7 +98,7 @@ export const universalNavigationConfig: MenuGroup[] = [
         label: 'Tapşırıqlar',
         path: '/tasks',
         icon: FileText,
-        roles: ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'məktəbadmin']
+        roles: ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'schooladmin']
       }
     ]
   },
@@ -154,31 +154,31 @@ export const universalNavigationConfig: MenuGroup[] = [
   {
     id: 'sorqular',
     label: 'Sorğular',
-    roles: ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'məktəbadmin', 'müəllim'],
+    roles: ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'schooladmin', 'müəllim'],
     items: [
       {
         id: 'school-management',
         label: 'Məktəb İdarəetməsi',
         icon: School,
-        roles: ['superadmin', 'regionadmin', 'sektoradmin', 'məktəbadmin', 'müəllim'],
+        roles: ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'müəllim'],
         children: [
           {
             id: 'student-management',
             label: 'Şagird İdarəetməsi',
             icon: Users,
-            roles: ['superadmin', 'məktəbadmin'],
+            roles: ['superadmin', 'schooladmin'],
             children: [
               {
                 id: 'school-students',
                 label: 'Şagirdlər',
                 path: '/school/students',
-                roles: ['superadmin', 'məktəbadmin']
+                roles: ['superadmin', 'schooladmin']
               },
               {
                 id: 'student-enrollment',
                 label: 'Qeydiyyat',
                 path: '/school/students/enrollment',
-                roles: ['superadmin', 'məktəbadmin']
+                roles: ['superadmin', 'schooladmin']
               }
             ]
           },
@@ -186,19 +186,19 @@ export const universalNavigationConfig: MenuGroup[] = [
             id: 'teacher-management',
             label: 'Müəllim İdarəetməsi',
             icon: GraduationCap,
-            roles: ['superadmin', 'məktəbadmin'],
+            roles: ['superadmin', 'schooladmin'],
             children: [
               {
                 id: 'school-teachers',
                 label: 'Müəllimlər',
                 path: '/school/teachers',
-                roles: ['superadmin', 'məktəbadmin']
+                roles: ['superadmin', 'schooladmin']
               },
               {
                 id: 'teacher-performance',
                 label: 'Performans',
                 path: '/school/teachers/performance',
-                roles: ['superadmin', 'məktəbadmin']
+                roles: ['superadmin', 'schooladmin']
               }
             ]
           },
@@ -206,19 +206,19 @@ export const universalNavigationConfig: MenuGroup[] = [
             id: 'class-management',
             label: 'Sinif İdarəetməsi',
             icon: Building2,
-            roles: ['superadmin', 'məktəbadmin'],
+            roles: ['superadmin', 'schooladmin'],
             children: [
               {
                 id: 'school-classes',
                 label: 'Siniflər',
                 path: '/school/classes',
-                roles: ['superadmin', 'məktəbadmin']
+                roles: ['superadmin', 'schooladmin']
               },
               {
                 id: 'class-schedules',
                 label: 'Dərs Cədvəlləri',
                 path: '/school/classes/schedules',
-                roles: ['superadmin', 'məktəbadmin']
+                roles: ['superadmin', 'schooladmin']
               }
             ]
           },
@@ -226,19 +226,19 @@ export const universalNavigationConfig: MenuGroup[] = [
             id: 'attendance-management',
             label: 'Davamiyyət İdarəetməsi',
             icon: UserCheck,
-            roles: ['superadmin', 'regionadmin', 'məktəbadmin', 'müəllim'],
+            roles: ['superadmin', 'regionadmin', 'schooladmin', 'müəllim'],
             children: [
               {
                 id: 'attendance-record',
                 label: 'Davamiyyət Qeydiyyatı',
                 path: '/school/attendance',
-                roles: ['superadmin', 'regionadmin', 'məktəbadmin', 'müəllim']
+                roles: ['superadmin', 'regionadmin', 'schooladmin', 'müəllim']
               },
               {
                 id: 'attendance-reports',
                 label: 'Davamiyyət Hesabatları',
                 path: '/school/attendance/reports',
-                roles: ['superadmin', 'regionadmin', 'sektoradmin', 'məktəbadmin']
+                roles: ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin']
               }
             ]
           },
@@ -246,7 +246,7 @@ export const universalNavigationConfig: MenuGroup[] = [
             id: 'assessment-management',
             label: 'Qiymətləndirmə İdarəetməsi',
             icon: Calculator,
-            roles: ['superadmin', 'regionadmin', 'sektoradmin', 'məktəbadmin', 'müəllim'],
+            roles: ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'müəllim'],
             children: [
               {
                 id: 'assessment-types',
@@ -258,31 +258,31 @@ export const universalNavigationConfig: MenuGroup[] = [
                 id: 'assessment-entry',
                 label: 'Qiymətləndirmə Daxil Etmə',
                 path: '/assessments/entry',
-                roles: ['superadmin', 'regionadmin', 'sektoradmin', 'məktəbadmin', 'müəllim']
+                roles: ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'müəllim']
               },
               {
                 id: 'assessments',
                 label: 'Qiymətləndirmələr',
                 path: '/school/assessments',
-                roles: ['superadmin', 'məktəbadmin', 'müəllim']
+                roles: ['superadmin', 'schooladmin', 'müəllim']
               },
               {
                 id: 'gradebook',
                 label: 'Qiymət Dəftəri',
                 path: '/school/gradebook',
-                roles: ['superadmin', 'məktəbadmin', 'müəllim']
+                roles: ['superadmin', 'schooladmin', 'müəllim']
               },
               {
                 id: 'assessment-results',
                 label: 'Qiymətləndirmə Nəticələri',
                 path: '/assessments/results',
-                roles: ['superadmin', 'regionadmin', 'sektoradmin', 'məktəbadmin']
+                roles: ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin']
               },
               {
                 id: 'assessment-reports',
                 label: 'Qiymətləndirmə Hesabatları',
                 path: '/school/assessments/reports',
-                roles: ['superadmin', 'məktəbadmin']
+                roles: ['superadmin', 'schooladmin']
               }
             ]
           },
@@ -299,21 +299,21 @@ export const universalNavigationConfig: MenuGroup[] = [
   {
     id: 'mezmun',
     label: 'Məzmun',
-    roles: ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'məktəbadmin'],
+    roles: ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'schooladmin'],
     items: [
       {
         id: 'documents',
         label: 'Sənədlər',
         path: '/documents',
         icon: FileText,
-        roles: ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'məktəbadmin']
+        roles: ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'schooladmin']
       },
       {
         id: 'links',
         label: 'Linklər',
         path: '/links',
         icon: Link,
-        roles: ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'məktəbadmin']
+        roles: ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'schooladmin']
       },
       {
         id: 'survey-management',
@@ -325,7 +325,7 @@ export const universalNavigationConfig: MenuGroup[] = [
             id: 'surveys',
             label: 'Sorğular',
             path: '/surveys',
-            roles: ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'məktəbadmin']
+            roles: ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'schooladmin']
           },
           {
             id: 'survey-approval',
@@ -352,28 +352,28 @@ export const universalNavigationConfig: MenuGroup[] = [
         label: 'Məktəb Sorğuları',
         path: '/school/surveys',
         icon: ClipboardList,
-        roles: ['superadmin', 'məktəbadmin']
+        roles: ['superadmin', 'schooladmin']
       },
       {
         id: 'school-tasks',
         label: 'Tapşırıqlar',
         path: '/school/tasks',
         icon: ClipboardCheck,
-        roles: ['superadmin', 'məktəbadmin']
+        roles: ['superadmin', 'schooladmin']
       }
     ]
   },
   {
     id: 'hesabatlar',
     label: 'Hesabatlar',
-    roles: ['superadmin', 'regionadmin', 'sektoradmin', 'məktəbadmin'],
+    roles: ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'],
     items: [
       {
         id: 'reports',
         label: 'Hesabatlar',
         path: '/reports',
         icon: Download,
-        roles: ['superadmin', 'regionadmin', 'sektoradmin', 'məktəbadmin']
+        roles: ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin']
       },
       {
         id: 'analytics',

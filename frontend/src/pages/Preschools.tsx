@@ -63,6 +63,22 @@ const PRESCHOOL_TYPES = [
 
 export default function Preschools() {
   const { currentUser } = useAuth();
+
+  // Security check - only administrative and educational roles can access preschools
+  if (!currentUser || !['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'müəllim'].includes(currentUser.role)) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız təhsil idarəçiləri və müəllimlər daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedSector, setSelectedSector] = useState<string>('all');
@@ -86,7 +102,7 @@ export default function Preschools() {
 
   // Fetch preschools
   const { data: preschoolsResponse, isLoading, error } = useQuery({
-    queryKey: ['preschools', filters],
+    queryKey: ['preschools', filters, currentUser?.role, currentUser?.institution_id],
     queryFn: () => preschoolsService.getPreschools(filters),
     refetchOnWindowFocus: false,
   });
@@ -117,7 +133,7 @@ export default function Preschools() {
 
   // Fetch statistics
   const { data: statisticsResponse } = useQuery({
-    queryKey: ['preschool-statistics'],
+    queryKey: ['preschool-statistics', currentUser?.role, currentUser?.institution_id],
     queryFn: () => preschoolsService.getPreschoolStatistics(),
     refetchOnWindowFocus: false,
   });
@@ -125,6 +141,11 @@ export default function Preschools() {
   const preschools = preschoolsResponse?.data || [];
   const sectors = sectorsResponse?.data || [];
   const statistics = statisticsResponse?.data;
+
+  // Log statistics for debugging if needed
+  if (!statistics && currentUser) {
+    console.log('⚠️ No preschool statistics loaded for user role:', currentUser.role);
+  }
 
   // Mutations
   const createMutation = useMutation({
@@ -242,7 +263,7 @@ export default function Preschools() {
                 <Building2 className="h-8 w-8 text-blue-600" />
                 <div className="ml-4">
                   <p className="text-sm font-medium text-muted-foreground">Ümumi</p>
-                  <p className="text-2xl font-bold">{statistics.total_preschools}</p>
+                  <p className="text-2xl font-bold">{statistics?.total_preschools || 0}</p>
                 </div>
               </div>
             </CardContent>
@@ -253,7 +274,7 @@ export default function Preschools() {
                 <CheckCircle className="h-8 w-8 text-green-600" />
                 <div className="ml-4">
                   <p className="text-sm font-medium text-muted-foreground">Aktiv</p>
-                  <p className="text-2xl font-bold">{statistics.active_preschools}</p>
+                  <p className="text-2xl font-bold">{statistics?.active_preschools || 0}</p>
                 </div>
               </div>
             </CardContent>
@@ -264,7 +285,7 @@ export default function Preschools() {
                 <Users className="h-8 w-8 text-purple-600" />
                 <div className="ml-4">
                   <p className="text-sm font-medium text-muted-foreground">Uşaqlar</p>
-                  <p className="text-2xl font-bold">{statistics.performance_summary.total_children}</p>
+                  <p className="text-2xl font-bold">{statistics?.performance_summary?.total_children || 0}</p>
                 </div>
               </div>
             </CardContent>
@@ -275,7 +296,7 @@ export default function Preschools() {
                 <BookOpen className="h-8 w-8 text-orange-600" />
                 <div className="ml-4">
                   <p className="text-sm font-medium text-muted-foreground">Müəllimlər</p>
-                  <p className="text-2xl font-bold">{statistics.performance_summary.total_teachers}</p>
+                  <p className="text-2xl font-bold">{statistics?.performance_summary?.total_teachers || 0}</p>
                 </div>
               </div>
             </CardContent>
@@ -359,10 +380,12 @@ export default function Preschools() {
             <p className="text-muted-foreground mb-4">
               Axtarış kriteriyalarınıza uyğun məktəbəqədər müəssisə yoxdur
             </p>
-            <Button onClick={handleOpenCreateModal}>
-              <Plus className="h-4 w-4 mr-2" />
-              İlk məktəbəqədər müəssisəni yaradın
-            </Button>
+            {currentUser?.role && ['superadmin', 'regionadmin', 'sektoradmin'].includes(currentUser.role) && (
+              <Button onClick={handleOpenCreateModal}>
+                <Plus className="h-4 w-4 mr-2" />
+                İlk məktəbəqədər müəssisəni yaradın
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (

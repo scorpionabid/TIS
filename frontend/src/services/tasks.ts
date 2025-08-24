@@ -181,10 +181,66 @@ class TaskService extends BaseService<Task> {
     return response as any; // PaginatedResponse
   }
 
-  async getStats(filters?: Partial<TaskFilters>) {
-    console.log('🔍 TaskService.getStats called', filters);
+  async getStats(filters?: Partial<TaskFilters>, userRole?: string) {
+    console.log('🔍 TaskService.getStats called', { filters, userRole });
     try {
-      const response = await apiClient.get('/tasks/statistics', filters);
+      let endpoint: string;
+      
+      // Use role-specific endpoint for statistics based on available routes
+      if (userRole === 'sektoradmin') {
+        endpoint = '/sektoradmin/tasks/statistics';
+      } else {
+        // For other roles, try to get basic task analytics from the general analytics endpoint
+        // or return a mock/calculated response since specific endpoints don't exist yet
+        console.warn('⚠️ Task statistics endpoint not available for role:', userRole);
+        
+        // Try to get basic statistics by fetching all tasks and calculating stats
+        try {
+          const tasksResponse = await this.getAll();
+          const tasks = Array.isArray(tasksResponse.data) ? tasksResponse.data : tasksResponse;
+          
+          if (Array.isArray(tasks)) {
+            // Calculate basic statistics from tasks
+            const stats: TaskStats = {
+              total: tasks.length,
+              pending: tasks.filter(t => t.status === 'pending').length,
+              in_progress: tasks.filter(t => t.status === 'in_progress').length,
+              completed: tasks.filter(t => t.status === 'completed').length,
+              overdue: tasks.filter(t => {
+                if (!t.deadline) return false;
+                return new Date(t.deadline) < new Date() && t.status !== 'completed';
+              }).length,
+              by_priority: {
+                low: tasks.filter(t => t.priority === 'low').length,
+                medium: tasks.filter(t => t.priority === 'medium').length,
+                high: tasks.filter(t => t.priority === 'high').length,
+                urgent: tasks.filter(t => t.priority === 'urgent').length,
+              },
+              completion_rate: tasks.length > 0 ? (tasks.filter(t => t.status === 'completed').length / tasks.length) * 100 : 0,
+              average_completion_time: 0, // Could be calculated if needed
+            };
+            
+            console.log('✅ TaskService.getStats calculated from tasks:', stats);
+            return stats;
+          }
+        } catch (tasksError) {
+          console.error('❌ Failed to fetch tasks for stats calculation:', tasksError);
+        }
+        
+        // Return empty stats if calculation fails
+        return {
+          total: 0,
+          pending: 0,
+          in_progress: 0,
+          completed: 0,
+          overdue: 0,
+          by_priority: { low: 0, medium: 0, high: 0, urgent: 0 },
+          completion_rate: 0,
+          average_completion_time: 0,
+        };
+      }
+      
+      const response = await apiClient.get(endpoint, filters);
       console.log('✅ TaskService.getStats successful:', response);
       return response.data || response;
     } catch (error) {

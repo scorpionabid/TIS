@@ -1,17 +1,34 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Building, Plus } from "lucide-react";
+import { Building, Plus, AlertTriangle } from "lucide-react";
 import { useSectors } from "@/hooks/sectors/useSectors";
 import { SectorFilters } from "@/components/sectors/SectorFilters";
 import { SectorStatistics } from "@/components/sectors/SectorStatistics";
 import { SectorCard } from "@/components/sectors/SectorCard";
 import { SectorCreateDialog } from "@/components/sectors/SectorCreateDialog";
 import { SectorDetailsDialog } from "@/components/sectors/SectorDetailsDialog";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Sectors() {
+  const { currentUser } = useAuth();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+
+  // Security check - only administrative roles can access sector management
+  if (!currentUser || !['superadmin', 'regionadmin', 'sektoradmin'].includes(currentUser.role)) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız sektor idarəçiləri daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
   
   const {
     // State
@@ -125,13 +142,15 @@ export default function Sectors() {
           ))
         )}
 
-        {/* Add New Sector Card */}
-        <Card className="border-dashed hover:bg-accent/50 transition-colors cursor-pointer" onClick={() => setShowCreateDialog(true)}>
-          <CardContent className="flex flex-col items-center justify-center h-full min-h-[200px]">
-            <Plus className="h-12 w-12 text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">Yeni sektor əlavə et</p>
-          </CardContent>
-        </Card>
+        {/* Add New Sector Card - Only for SuperAdmin and RegionAdmin */}
+        {['superadmin', 'regionadmin'].includes(currentUser?.role || '') && (
+          <Card className="border-dashed hover:bg-accent/50 transition-colors cursor-pointer" onClick={() => setShowCreateDialog(true)}>
+            <CardContent className="flex flex-col items-center justify-center h-full min-h-[200px]">
+              <Plus className="h-12 w-12 text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground">Yeni sektor əlavə et</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Create Dialog */}

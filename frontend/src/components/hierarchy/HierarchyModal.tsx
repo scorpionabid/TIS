@@ -321,13 +321,13 @@ export const HierarchyModal: React.FC<HierarchyModalProps> = ({
                       const typeInfo = getTypeInfo(parent.type);
                       return (
                         <SelectItem key={parent.id} value={parent.id.toString()}>
-                          <div className="flex items-center gap-2">
+                          <span className="flex items-center gap-2">
                             <span>{typeInfo?.icon || '🏢'}</span>
                             <span>{parent.name}</span>
                             <span className="text-xs text-muted-foreground">
                               L{parent.level}
                             </span>
-                          </div>
+                          </span>
                         </SelectItem>
                       );
                     })}
@@ -386,10 +386,10 @@ export const HierarchyModal: React.FC<HierarchyModalProps> = ({
                       <SelectContent>
                         {INSTITUTION_TYPES.map((type) => (
                           <SelectItem key={type.value} value={type.value}>
-                            <div className="flex items-center gap-2">
+                            <span className="flex items-center gap-2">
                               <span>{type.icon}</span>
                               <span>{type.label}</span>
-                            </div>
+                            </span>
                           </SelectItem>
                         ))}
                       </SelectContent>

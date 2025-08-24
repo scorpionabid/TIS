@@ -3,9 +3,27 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardIcon, Search, Filter, Download, Eye, Calendar, User, Activity } from "lucide-react";
+import { ClipboardIcon, Search, Filter, Download, Eye, Calendar, User, Activity, AlertTriangle } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AuditLogs() {
+  const { currentUser } = useAuth();
+
+  // Security check - only SuperAdmin and RegionAdmin can access audit logs
+  if (!currentUser || !['superadmin', 'regionadmin'].includes(currentUser.role)) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız SuperAdmin və RegionAdmin istifadəçiləri daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -106,11 +124,11 @@ export default function AuditLogs() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Bütün rollar</SelectItem>
-                <SelectItem value="SuperAdmin">SuperAdmin</SelectItem>
-                <SelectItem value="RegionAdmin">RegionAdmin</SelectItem>
-                <SelectItem value="SektorAdmin">SektorAdmin</SelectItem>
-                <SelectItem value="SchoolAdmin">SchoolAdmin</SelectItem>
-                <SelectItem value="Teacher">Teacher</SelectItem>
+                <SelectItem value="superadmin">SuperAdmin</SelectItem>
+                <SelectItem value="regionadmin">RegionAdmin</SelectItem>
+                <SelectItem value="sektoradmin">SektorAdmin</SelectItem>
+                <SelectItem value="schooladmin">SchoolAdmin</SelectItem>
+                <SelectItem value="müəllim">Müəllim</SelectItem>
               </SelectContent>
             </Select>
             <Select>

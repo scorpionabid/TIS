@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, Loader2, Building, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter } from "lucide-react";
+import { Plus, Edit, Trash2, Loader2, Building, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter, AlertTriangle } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Department, departmentService } from "@/services/departments";
@@ -14,6 +14,7 @@ import { TablePagination } from "@/components/common/TablePagination";
 import { User, userService, UserFilters } from "@/services/users";
 import { CreateDepartmentData } from "@/services/departments";
 import { ApiResponse } from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface DepartmentApiResponse extends ApiResponse<Department[]> {
   success: boolean;
@@ -23,6 +24,7 @@ type SortField = 'name' | 'short_name' | 'department_type' | 'institution' | 'is
 type SortDirection = 'asc' | 'desc';
 
 export default function Departments() {
+  const { currentUser } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -35,6 +37,21 @@ export default function Departments() {
   const [departmentAdmins, setDepartmentAdmins] = useState<Record<number, User | null>>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Security check - only administrative roles can access department management
+  if (!currentUser || !['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role)) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız idarəçi rolları daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const fetchDepartmentAdmin = async (departmentId: number) => {
     try {
@@ -78,7 +95,9 @@ export default function Departments() {
       status: statusFilter, 
       type: typeFilter, 
       sortField, 
-      sortDirection 
+      sortDirection,
+      userRole: currentUser?.role,
+      institutionId: currentUser?.institution_id
     }],
     queryFn: async () => {
       const response = await departmentService.getAll({
@@ -415,10 +434,12 @@ export default function Departments() {
           <h1 className="text-3xl font-bold text-foreground">Departmentlər</h1>
           <p className="text-muted-foreground">Regional icazələr əsasında departmentlərin idarə edilməsi</p>
         </div>
-        <Button className="flex items-center gap-2" onClick={() => handleOpenModal()}>
-          <Plus className="h-4 w-4" />
-          Yeni Departament
-        </Button>
+        {['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || '') && (
+          <Button className="flex items-center gap-2" onClick={() => handleOpenModal()}>
+            <Plus className="h-4 w-4" />
+            Yeni Departament
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -590,22 +611,26 @@ export default function Departments() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center gap-1 justify-end">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleOpenModal(department)}
-                        title="Redaktə et"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleDeleteClick(department)}
-                        title="Sil"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || '') && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleOpenModal(department)}
+                          title="Redaktə et"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {['superadmin', 'regionadmin', 'sektoradmin'].includes(currentUser?.role || '') && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleDeleteClick(department)}
+                          title="Sil"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

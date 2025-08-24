@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { authService, User as AuthUser, LoginCredentials } from '@/services/auth';
 import { useToast } from '@/hooks/use-toast';
 
-export type UserRole = 'superadmin' | 'regionadmin' | 'regionoperator' | 'sektoradmin' | 'məktəbadmin' | 'müəllim' | 'user';
+export type UserRole = 'superadmin' | 'regionadmin' | 'regionoperator' | 'sektoradmin' | 'schooladmin' | 'müəllim' | 'user';
 
 // Backend to Frontend role mapping
 const mapBackendRoleToFrontend = (backendRole: string): UserRole => {
@@ -11,7 +11,7 @@ const mapBackendRoleToFrontend = (backendRole: string): UserRole => {
     'regionadmin': 'regionadmin', 
     'regionoperator': 'regionoperator',
     'sektoradmin': 'sektoradmin',
-    'schooladmin': 'məktəbadmin', // Backend schooladmin → Frontend məktəbadmin
+    'schooladmin': 'schooladmin', // Backend schooladmin → Frontend schooladmin
     'muavin': 'müəllim',
     'ubr': 'müəllim', 
     'tesarrufat': 'müəllim',
@@ -85,7 +85,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('🔍 AuthContext: Checking authentication (attempt', retryCount + 1, ')');
         
         const hasToken = authService.isAuthenticated();
-        console.log('🔍 AuthContext: Has token:', hasToken);
+        const rawToken = authService.getToken();
+        const localStorageToken = localStorage.getItem('auth_token');
+        console.log('🔍 AuthContext: Token status:', {
+          hasToken: hasToken,
+          authServiceToken: rawToken ? `${rawToken.substring(0, 15)}...` : 'null',
+          localStorageToken: localStorageToken ? `${localStorageToken.substring(0, 15)}...` : 'null',
+          localStorageKeys: Object.keys(localStorage),
+          tokenLengths: {
+            authService: rawToken?.length || 0,
+            localStorage: localStorageToken?.length || 0
+          }
+        });
         
         if (hasToken) {
           console.log('🔍 AuthContext: Token found, getting current user');

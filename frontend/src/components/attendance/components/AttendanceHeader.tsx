@@ -32,7 +32,7 @@ export const AttendanceHeader: React.FC<AttendanceHeaderProps> = ({
         <p className="text-muted-foreground">
           Şagirdlərin davamiyyətini qeydə alın və izləyin
         </p>
-        {currentUser?.role === 'məktəbadmin' && (
+        {currentUser?.role === 'schooladmin' && (
           <p className="text-xs text-blue-600 mt-1">
             💡 Sizin məktəbinizin şagirdləri üçün davamiyyət qeydiyyatı
           </p>

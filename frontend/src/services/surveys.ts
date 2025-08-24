@@ -174,7 +174,7 @@ class SurveyService extends BaseService<Survey> {
   }
 
   async getStats(id: number) {
-    const response = await apiClient.get<SurveyStats>(`${this.baseEndpoint}/${id}/stats`);
+    const response = await apiClient.get<SurveyStats>(`${this.baseEndpoint}/${id}/statistics`);
     return response.data;
   }
 

@@ -235,19 +235,22 @@ class AssessmentTypeService {
    */
   async getAssessmentTypesDropdown(category?: 'ksq' | 'bsq' | 'custom'): Promise<AssessmentTypeDropdownItem[]> {
     try {
-      const params = new URLSearchParams();
-      if (category) params.append('category', category);
-
-      const queryString = params.toString();
-      const url = queryString ? `${this.baseURL}/dropdown?${queryString}` : `${this.baseURL}/dropdown`;
+      // Use the main getAssessmentTypes method instead of non-existent dropdown endpoint
+      const filters: AssessmentTypeFilters = {
+        is_active: true,
+        category: category,
+        per_page: 100 // Get all active types
+      };
       
-      const response = await apiClient.get(url);
+      const response = await this.getAssessmentTypes(filters);
 
-      if (!response.success) {
-        throw new Error(response.message || 'Assessment types dropdown yüklənərkən xəta baş verdi');
-      }
-
-      return response.data;
+      // Convert to dropdown format
+      return response.data.map(assessmentType => ({
+        id: assessmentType.id,
+        name: assessmentType.name,
+        category: assessmentType.category,
+        institution_id: assessmentType.institution_id
+      }));
     } catch (error: any) {
       console.error('Error fetching assessment types dropdown:', error);
       throw new Error(

@@ -3,6 +3,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Plus } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SectorFiltersProps {
   selectedType: string;
@@ -23,6 +24,7 @@ export const SectorFilters = ({
   setSearchQuery,
   onCreateSector
 }: SectorFiltersProps) => {
+  const { currentUser } = useAuth();
   return (
     <div className="flex items-center gap-2">
       <Select value={selectedType} onValueChange={setSelectedType}>
@@ -58,10 +60,12 @@ export const SectorFilters = ({
         className="w-64"
       />
       
-      <Button className="flex items-center gap-2" onClick={onCreateSector}>
-        <Plus className="h-4 w-4" />
-        Yeni Sektor
-      </Button>
+      {['superadmin', 'regionadmin'].includes(currentUser?.role || '') && (
+        <Button className="flex items-center gap-2" onClick={onCreateSector}>
+          <Plus className="h-4 w-4" />
+          Yeni Sektor
+        </Button>
+      )}
     </div>
   );
 };

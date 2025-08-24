@@ -268,10 +268,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
     }
   };
 
-  console.log('🔍 ProfileEditModal render:', { isOpen, profileData: !!profileData });
-
   if (!profileData) {
-    console.log('⏳ ProfileEditModal waiting for profile data');
     if (!isOpen) return null;
     
     return (

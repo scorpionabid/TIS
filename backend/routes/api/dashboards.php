@@ -127,18 +127,47 @@ Route::prefix('sektoradmin')->middleware(['role:sektoradmin', 'regional.access:s
     
     // Task Approval endpoints
     Route::get('tasks/pending', [SektorAdminDashboardController::class, 'getPendingTasks']);
+    Route::get('tasks/statistics', [SektorAdminDashboardController::class, 'getTaskStatistics']);
     Route::get('tasks/{taskId}', [SektorAdminDashboardController::class, 'getTaskDetails']);
     Route::post('tasks/{taskId}/approve', [SektorAdminDashboardController::class, 'approveTask']);
     Route::post('tasks/{taskId}/reject', [SektorAdminDashboardController::class, 'rejectTask']);
-    Route::get('tasks/statistics', [SektorAdminDashboardController::class, 'getTaskStatistics']);
-});
-
-// MektebAdmin Dashboard Routes
-Route::prefix('mektebadmin')->middleware(['role:məktəbadmin', 'regional.access:school', 'audit.logging'])->group(function () {
-    // Dashboard endpoints
-    Route::get('dashboard', [MektebAdminDashboardController::class, 'getDashboard']);
-    Route::get('dashboard/stats', [MektebAdminDashboardController::class, 'getStats']);
-    Route::get('dashboard/analytics', [MektebAdminDashboardController::class, 'getAnalytics']);
+    
+    // Enhanced SektorAdmin Management Routes
+    
+    // User Management
+    Route::get('users', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'getSectorUsers']);
+    Route::get('teachers', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'getSectorTeachers']);
+    Route::post('users', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'createSchoolUser']);
+    Route::get('available-schools', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'getAvailableSchools']);
+    
+    // Student Management
+    Route::get('students', [App\Http\Controllers\SektorAdmin\SektorStudentController::class, 'getSectorStudents']);
+    Route::get('schools/{schoolId}/students', [App\Http\Controllers\SektorAdmin\SektorStudentController::class, 'getStudentsBySchool']);
+    Route::get('students/statistics', [App\Http\Controllers\SektorAdmin\SektorStudentController::class, 'getStudentStatistics']);
+    Route::get('students/export', [App\Http\Controllers\SektorAdmin\SektorStudentController::class, 'exportStudentData']);
+    
+    // Class Management
+    Route::get('classes', [App\Http\Controllers\SektorAdmin\SektorClassController::class, 'getSectorClasses']);
+    Route::get('schools/{schoolId}/classes', [App\Http\Controllers\SektorAdmin\SektorClassController::class, 'getClassesBySchool']);
+    Route::get('classes/{classId}/students', [App\Http\Controllers\SektorAdmin\SektorClassController::class, 'getClassStudents']);
+    Route::get('classes/schedules', [App\Http\Controllers\SektorAdmin\SektorClassController::class, 'getClassSchedules']);
+    
+    // Schedule Management
+    Route::get('schedules', [App\Http\Controllers\SektorAdmin\SektorScheduleController::class, 'getSectorSchedules']);
+    Route::get('schedules/teachers', [App\Http\Controllers\SektorAdmin\SektorScheduleController::class, 'getTeacherSchedules']);
+    Route::get('schedules/statistics', [App\Http\Controllers\SektorAdmin\SektorScheduleController::class, 'getScheduleStatistics']);
+    
+    // Attendance Management
+    Route::get('attendance/reports', [App\Http\Controllers\SektorAdmin\SektorAttendanceController::class, 'getAttendanceReports']);
+    Route::get('attendance/daily', [App\Http\Controllers\SektorAdmin\SektorAttendanceController::class, 'getDailyAttendanceSummary']);
+    Route::get('attendance/trends', [App\Http\Controllers\SektorAdmin\SektorAttendanceController::class, 'getAttendanceTrends']);
+    Route::get('attendance/analysis', [App\Http\Controllers\SektorAdmin\SektorAttendanceController::class, 'getAbsenteeismAnalysis']);
+    
+    // Assessment Management
+    Route::get('assessments/reports', [App\Http\Controllers\SektorAdmin\SektorAssessmentController::class, 'getAssessmentReports']);
+    Route::get('assessments/comparative', [App\Http\Controllers\SektorAdmin\SektorAssessmentController::class, 'getComparativeAnalysis']);
+    Route::get('assessments/trends', [App\Http\Controllers\SektorAdmin\SektorAssessmentController::class, 'getAssessmentTrends']);
+    Route::get('assessments/export', [App\Http\Controllers\SektorAdmin\SektorAssessmentController::class, 'exportAssessmentData']);
 });
 
 // Teacher Dashboard Routes  
@@ -150,14 +179,20 @@ Route::prefix('teacher')->middleware(['role:müəllim', 'regional.access:school'
     // Route::get('classes', [App\Http\Controllers\TeacherDashboardController::class, 'getTeacherClasses']);
 });
 
-// School Admin Dashboard Routes
-Route::prefix('school-admin')->middleware(['auth:sanctum'])->group(function () {
+// School Admin Dashboard Routes - Unified routing structure
+Route::prefix('schooladmin')->middleware(['role:schooladmin', 'regional.access:school', 'audit.logging'])->group(function () {
     // Dashboard endpoints - using new controllers
     Route::get('dashboard/overview', [SchoolDashboardController::class, 'getOverview']);
     Route::get('dashboard/statistics', [SchoolDashboardController::class, 'getStatistics']);
     Route::get('dashboard/analytics', [SchoolDashboardController::class, 'getAnalytics']);
-    Route::get('dashboard/recent-activity', [SchoolDashboardController::class, 'getRecentActivity']);
+    
+    // Legacy MektebAdmin dashboard endpoints for backward compatibility
+    Route::get('dashboard', [MektebAdminDashboardController::class, 'getDashboard']);
+    Route::get('dashboard/stats', [MektebAdminDashboardController::class, 'getStats']);
+    Route::get('dashboard/recent-activity', [SchoolDashboardController::class, 'getRecentActivities']);
     Route::get('dashboard/quick-actions', [SchoolDashboardController::class, 'getQuickActions']);
+    Route::get('dashboard/notifications', [SchoolDashboardController::class, 'getNotifications']);
+    Route::get('dashboard/deadlines', [SchoolDashboardController::class, 'getUpcomingDeadlines']);
     
     // Student management endpoints
     Route::get('students', [SchoolStudentController::class, 'index']);
@@ -188,11 +223,24 @@ Route::prefix('school-admin')->middleware(['auth:sanctum'])->group(function () {
     
     // Teacher management routes
     Route::get('teachers', [SchoolTeacherController::class, 'index']);
+    Route::get('test', function() {
+        return response()->json([
+            'success' => true,
+            'message' => 'SchoolAdmin endpoint işləyir',
+            'timestamp' => now()->toISOString(),
+            'user' => auth()->user() ? auth()->user()->username : 'not authenticated'
+        ]);
+    });
     Route::get('teachers/{teacher}', [SchoolTeacherController::class, 'show']);
     Route::post('teachers/{teacher}/assign-classes', [SchoolTeacherController::class, 'assignClasses']);
     Route::get('teachers/{teacher}/performance', [SchoolTeacherController::class, 'getPerformance']);
     
-    // Import routes for school admin
-    Route::post('import/students', [App\Http\Controllers\School\SchoolImportController::class, 'importStudents']);
-    Route::post('import/teachers', [App\Http\Controllers\School\SchoolImportController::class, 'importTeachers']);
+    // Inventory management routes
+    Route::get('inventory', [App\Http\Controllers\School\SchoolInventoryController::class, 'getInventoryItems']);
+    Route::get('inventory/{item}', [App\Http\Controllers\School\SchoolInventoryController::class, 'getInventoryItem']);
+    Route::get('inventory/statistics/overview', [App\Http\Controllers\School\SchoolInventoryController::class, 'getInventoryStatistics']);
+    
+    // Import routes for school admin - TODO: implement SchoolImportController
+    // Route::post('import/students', [App\Http\Controllers\School\SchoolImportController::class, 'importStudents']);
+    // Route::post('import/teachers', [App\Http\Controllers\School\SchoolImportController::class, 'importTeachers']);
 });

@@ -13,16 +13,17 @@ class DocumentAccessLog extends Model
     protected $fillable = [
         'document_id',
         'user_id',
-        'share_id',
-        'access_type',
+        'institution_id',
+        'action',
         'ip_address',
         'user_agent',
-        'referrer',
-        'access_metadata',
+        'metadata',
+        'accessed_at',
     ];
 
     protected $casts = [
-        'access_metadata' => 'array',
+        'metadata' => 'array',
+        'accessed_at' => 'datetime',
     ];
 
     /**
@@ -42,19 +43,19 @@ class DocumentAccessLog extends Model
     }
 
     /**
-     * Document share relationship
+     * Institution relationship
      */
-    public function share(): BelongsTo
+    public function institution(): BelongsTo
     {
-        return $this->belongsTo(DocumentShare::class);
+        return $this->belongsTo(Institution::class);
     }
 
     /**
-     * Scope: Filter by access type
+     * Scope: Filter by action type
      */
-    public function scopeByType($query, string $type)
+    public function scopeByAction($query, string $action)
     {
-        return $query->where('access_type', $type);
+        return $query->where('action', $action);
     }
 
     /**
@@ -62,7 +63,7 @@ class DocumentAccessLog extends Model
      */
     public function scopeRecent($query, int $days = 7)
     {
-        return $query->where('created_at', '>=', now()->subDays($days));
+        return $query->where('accessed_at', '>=', now()->subDays($days));
     }
 
     /**
@@ -70,7 +71,7 @@ class DocumentAccessLog extends Model
      */
     public function scopeDownloads($query)
     {
-        return $query->where('access_type', 'download');
+        return $query->where('action', 'download');
     }
 
     /**
@@ -78,6 +79,22 @@ class DocumentAccessLog extends Model
      */
     public function scopeViews($query)
     {
-        return $query->where('access_type', 'view');
+        return $query->where('action', 'view');
+    }
+
+    /**
+     * Log document access
+     */
+    public static function logAccess($documentId, $userId, $action, $request = null)
+    {
+        return self::create([
+            'document_id' => $documentId,
+            'user_id' => $userId,
+            'institution_id' => auth()->user()?->institution_id,
+            'action' => $action,
+            'ip_address' => $request?->ip(),
+            'user_agent' => $request?->userAgent(),
+            'accessed_at' => now(),
+        ]);
     }
 }

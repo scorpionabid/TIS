@@ -64,7 +64,7 @@ const Institutions = () => {
     console.log('🔍 Fetching admin for institution:', institutionId);
     try {
       // Try different admin roles based on institution level/type
-      const adminRoles = ['schooladmin', 'məktəbadmin', 'regionadmin', 'sektoradmin'];
+      const adminRoles = ['schooladmin', 'schooladmin', 'regionadmin', 'sektoradmin'];
       let admin = null;
       
       for (const role of adminRoles) {
@@ -449,7 +449,7 @@ const Institutions = () => {
             {currentUser?.role === 'superadmin' && 'Bütün təhsil müəssisələrinin idarə edilməsi və yeni növlər əlavə etmək'}
             {currentUser?.role === 'regionadmin' && `${currentUser?.institution?.name || 'Region'} ərazisindəki təhsil müəssisələrinin idarə edilməsi`}
             {currentUser?.role === 'sektoradmin' && `${currentUser?.institution?.name || 'Sektor'} ərazisindəki təhsil müəssisələrinin idarə edilməsi`}
-            {(currentUser?.role === 'schooladmin' || currentUser?.role === 'məktəbadmin') && `${currentUser?.institution?.name || 'Məktəb'} məlumatlarının görüntülənməsi`}
+            {(currentUser?.role === 'schooladmin' || currentUser?.role === 'schooladmin') && `${currentUser?.institution?.name || 'Məktəb'} məlumatlarının görüntülənməsi`}
             {!currentUser?.role && 'Təhsil müəssisələrinin idarə edilməsi'}
           </p>
         </div>
@@ -621,7 +621,7 @@ const Institutions = () => {
                       </>
                     )}
                     {/* schooladmin can only see school level */}
-                    {(currentUser?.role === 'schooladmin' || currentUser?.role === 'məktəbadmin') && (
+                    {(currentUser?.role === 'schooladmin' || currentUser?.role === 'schooladmin') && (
                       <SelectItem value="4">4-cü səviyyə (Məktəb)</SelectItem>
                     )}
                   </SelectContent>
@@ -838,7 +838,7 @@ const Institutions = () => {
             {currentUser?.role === 'superadmin' && `Ümumi: ${institutionsResponse?.pagination?.total || 0} müəssisə`}
             {currentUser?.role === 'regionadmin' && `${currentUser?.institution?.name || 'Region'} - ${institutionsResponse?.pagination?.total || 0} müəssisə`}
             {currentUser?.role === 'sektoradmin' && `${currentUser?.institution?.name || 'Sektor'} - ${institutionsResponse?.pagination?.total || 0} müəssisə`}
-            {(currentUser?.role === 'schooladmin' || currentUser?.role === 'məktəbadmin') && `${currentUser?.institution?.name || 'Məktəb'} məlumatları`}
+            {(currentUser?.role === 'schooladmin' || currentUser?.role === 'schooladmin') && `${currentUser?.institution?.name || 'Məktəb'} məlumatları`}
             {!currentUser?.role && `Ümumi: ${institutionsResponse?.pagination?.total || 0} müəssisə`}
             {selectedType !== 'all' && ` (filtirli)`}
           </p>

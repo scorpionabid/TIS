@@ -24,6 +24,7 @@ import { Task, CreateTaskData, TaskFilters, taskService } from "@/services/tasks
 import { TaskModal } from "@/components/modals/TaskModal";
 import { DeleteConfirmationModal } from "@/components/modals/DeleteConfirmationModal";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 type SortField = 'title' | 'category' | 'priority' | 'status' | 'deadline' | 'assignee';
 type SortDirection = 'asc' | 'desc';
@@ -62,6 +63,7 @@ const statusLabels: Record<string, string> = {
 };
 
 export default function Tasks() {
+  const { currentUser } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -75,9 +77,24 @@ export default function Tasks() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Security check - only administrative roles can access task management
+  if (!currentUser || !['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role)) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız idarəçi rolları daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Load tasks
   const { data: tasksResponse, isLoading, error } = useQuery({
-    queryKey: ['tasks'],
+    queryKey: ['tasks', currentUser?.role, currentUser?.institution_id],
     queryFn: () => taskService.getAll(),
   });
 
@@ -85,8 +102,8 @@ export default function Tasks() {
 
   // Load task statistics
   const { data: taskStats } = useQuery({
-    queryKey: ['task-stats'],
-    queryFn: () => taskService.getStats(),
+    queryKey: ['task-stats', currentUser?.role],
+    queryFn: () => taskService.getStats(undefined, currentUser?.role),
   });
 
   // Filtering and Sorting logic
@@ -364,10 +381,12 @@ export default function Tasks() {
           <h1 className="text-3xl font-bold text-foreground">Tapşırıq İdarəetməsi</h1>
           <p className="text-muted-foreground">Sistem genelində bütün tapşırıqların görülməsi və idarəsi</p>
         </div>
-        <Button className="flex items-center gap-2" onClick={() => handleOpenModal()}>
-          <Plus className="h-4 w-4" />
-          Yeni Tapşırıq
-        </Button>
+        {['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || '') && (
+          <Button className="flex items-center gap-2" onClick={() => handleOpenModal()}>
+            <Plus className="h-4 w-4" />
+            Yeni Tapşırıq
+          </Button>
+        )}
       </div>
 
       {/* Statistics Cards */}
@@ -559,10 +578,12 @@ export default function Tasks() {
                   <div className="flex flex-col items-center gap-2">
                     <Users className="h-12 w-12 text-muted-foreground" />
                     <p className="text-muted-foreground">Heç bir tapşırıq tapılmadı.</p>
-                    <Button variant="outline" size="sm" onClick={() => handleOpenModal()}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      İlk tapşırığı yarat
-                    </Button>
+                    {['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || '') && (
+                      <Button variant="outline" size="sm" onClick={() => handleOpenModal()}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        İlk tapşırığı yarat
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
@@ -644,18 +665,28 @@ export default function Tasks() {
                           <Eye className="mr-2 h-4 w-4" />
                           Ətraflı bax
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenModal(task)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Redaktə et
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          onClick={() => handleDeleteClick(task)}
-                          className="text-red-600"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Sil
-                        </DropdownMenuItem>
+                        {(
+                          currentUser?.role === 'superadmin' || 
+                          task.created_by === currentUser?.id ||
+                          (['regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || ''))
+                        ) && (
+                          <DropdownMenuItem onClick={() => handleOpenModal(task)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Redaktə et
+                          </DropdownMenuItem>
+                        )}
+                        {(currentUser?.role === 'superadmin' || task.created_by === currentUser?.id) && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => handleDeleteClick(task)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Sil
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

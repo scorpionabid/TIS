@@ -196,10 +196,10 @@ export const PreschoolEditModal: React.FC<PreschoolEditModalProps> = ({
                   <SelectContent>
                     {PRESCHOOL_TYPES.map((type) => (
                       <SelectItem key={type.value} value={type.value}>
-                        <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-2">
                           <span>{type.icon}</span>
                           <span>{type.label}</span>
-                        </div>
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -318,14 +318,14 @@ export const PreschoolEditModal: React.FC<PreschoolEditModalProps> = ({
                   <SelectItem value="none">Hələlik menecersiz</SelectItem>
                   {managers.map((manager) => (
                     <SelectItem key={manager.id} value={manager.id.toString()}>
-                      <div className="flex items-center gap-2">
+                      <span className="flex items-center gap-2">
                         <UserIcon className="h-4 w-4" />
                         <span>
                           {manager.first_name && manager.last_name 
                             ? `${manager.first_name} ${manager.last_name}` 
                             : manager.username} ({manager.email})
                         </span>
-                      </div>
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -126,7 +126,7 @@ export const getFallbackTypesForRole = (userRole?: string): InstitutionType[] =>
         updated_at: '' 
       }
     );
-  } else if (userRole === 'schooladmin' || userRole === 'məktəbadmin') {
+  } else if (userRole === 'schooladmin') {
     fallbackTypes.push(
       { 
         id: 3, 
@@ -257,7 +257,7 @@ export const canAccessInstitutionType = (userRole: string | undefined, typeKey: 
     return ['sector', 'sektor', 'school', 'lyceum', 'gymnasium', 'kindergarten', 'preschool_center', 'vocational_school', 'special_education_school'].includes(typeKey);
   }
   
-  if (userRole === 'schooladmin' || userRole === 'məktəbadmin') {
+  if (userRole === 'schooladmin') {
     return ['school', 'lyceum', 'gymnasium', 'kindergarten', 'preschool_center', 'vocational_school', 'special_education_school'].includes(typeKey);
   }
   

@@ -24,7 +24,8 @@ import {
   Grid3X3,
   RefreshCw,
   Upload,
-  Download
+  Download,
+  AlertTriangle
 } from "lucide-react";
 import { Student, studentService, StudentFilters } from "@/services/students";
 import { institutionService } from "@/services/institutions";
@@ -56,6 +57,21 @@ export default function Students() {
   const { currentUser: user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Security check - only educational administrative roles can access student management
+  if (!user || !['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'müəllim'].includes(user.role)) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız təhsil idarəçiləri və müəllimlər daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
   
   // State
   const [viewMode, setViewMode] = useState<ViewMode>('table');
@@ -111,7 +127,7 @@ export default function Students() {
     }
     
     // School staff see only their institution
-    if (user.role === 'məktəbadmin' || user.role === 'müəllim') {
+    if (user.role === 'schooladmin' || user.role === 'müəllim') {
       return institutions.filter((inst: Institution) => inst.id === user.institution_id);
     }
     
@@ -469,16 +485,18 @@ export default function Students() {
             <Download className="h-4 w-4 mr-2" />
             İxrac et
           </Button>
-          <Button 
-            onClick={() => {
-              setEditingStudent(null);
-              setIsUserModalOpen(true);
-            }}
-            className="flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Yeni Şagird
-          </Button>
+          {['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(user?.role || '') && (
+            <Button 
+              onClick={() => {
+                setEditingStudent(null);
+                setIsUserModalOpen(true);
+              }}
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Yeni Şagird
+            </Button>
+          )}
         </div>
       </div>
 
@@ -705,22 +723,26 @@ export default function Students() {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleEditStudent(student)}
-                          title="Redaktə et"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          title="Sil"
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(user?.role || '') && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleEditStudent(student)}
+                            title="Redaktə et"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(user?.role || '') && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            title="Sil"
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -742,16 +764,18 @@ export default function Students() {
                       ? 'Axtarış kriteriyasına uyğun şagird tapılmadı'
                       : 'Hələ ki yaradılmış şagird yoxdur'}
                   </p>
-                  <Button 
-                    className="mt-4" 
-                    onClick={() => {
-                      setEditingStudent(null);
-                      setIsUserModalOpen(true);
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    İlk şagirdi yarat
-                  </Button>
+                  {['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(user?.role || '') && (
+                    <Button 
+                      className="mt-4" 
+                      onClick={() => {
+                        setEditingStudent(null);
+                        setIsUserModalOpen(true);
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      İlk şagirdi yarat
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>

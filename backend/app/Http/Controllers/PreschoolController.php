@@ -335,10 +335,40 @@ class PreschoolController extends Controller
     {
         $preschoolTypes = ['kindergarten', 'preschool_center', 'nursery'];
         
+        // Create base query with role-based filtering
+        $query = Institution::whereIn('type', $preschoolTypes)->where('level', 4);
+        
+        // Apply user-based access control (same as index method)
+        $user = Auth::user();
+        if ($user && !$user->hasRole('superadmin')) {
+            if ($user->hasRole('regionadmin')) {
+                // RegionAdmin can only see preschools in their region's sectors
+                $regionId = $user->institution_id;
+                // Find sectors under this region first
+                $sectorIds = Institution::where('parent_id', $regionId)->pluck('id');
+                $query->whereIn('parent_id', $sectorIds);
+            } elseif ($user->hasRole('sektoradmin')) {
+                // SektorAdmin can only see preschools in their sector
+                $sectorId = $user->institution_id;
+                $query->where('parent_id', $sectorId);
+            } elseif ($user->hasRole('schooladmin') || $user->hasRole('müəllim')) {
+                // SchoolAdmin/Teachers can only see their own preschool (if applicable)
+                $query->where('id', $user->institution_id);
+            }
+        }
+        
+        // Get all filtered preschools for statistics with relations
+        $allFilteredPreschools = $query->with(['parent', 'manager'])->get();
+        
+        // Calculate basic counts from the collection
+        $totalPreschools = $allFilteredPreschools->count();
+        $activePreschools = $allFilteredPreschools->where('is_active', true)->count();
+        $inactivePreschools = $allFilteredPreschools->where('is_active', false)->count();
+        
         $statistics = [
-            'total_preschools' => Institution::whereIn('type', $preschoolTypes)->count(),
-            'active_preschools' => Institution::whereIn('type', $preschoolTypes)->where('is_active', true)->count(),
-            'inactive_preschools' => Institution::whereIn('type', $preschoolTypes)->where('is_active', false)->count(),
+            'total_preschools' => $totalPreschools,
+            'active_preschools' => $activePreschools,
+            'inactive_preschools' => $inactivePreschools,
             'by_type' => [],
             'by_sector' => [],
             'performance_summary' => [
@@ -348,10 +378,11 @@ class PreschoolController extends Controller
                 'total_teachers' => 0,
             ]
         ];
+        
 
-        // Statistics by type
+        // Statistics by type (from filtered results)
         foreach ($preschoolTypes as $type) {
-            $count = Institution::where('type', $type)->count();
+            $count = $allFilteredPreschools->where('type', $type)->count();
             $statistics['by_type'][] = [
                 'type' => $type,
                 'type_label' => $this->getPreschoolTypeLabel($type),
@@ -360,10 +391,8 @@ class PreschoolController extends Controller
             ];
         }
 
-        // Statistics by sector
-        $sectorStats = Institution::whereIn('type', $preschoolTypes)
-            ->with('parent')
-            ->get()
+        // Statistics by sector (from filtered results)
+        $sectorStats = $allFilteredPreschools
             ->groupBy('parent_id')
             ->map(function ($preschools, $sectorId) {
                 $sector = $preschools->first()->parent;
@@ -377,9 +406,11 @@ class PreschoolController extends Controller
 
         $statistics['by_sector'] = $sectorStats->values()->toArray();
 
-        // Performance summary
-        $statistics['performance_summary']['preschools_with_managers'] = Institution::whereIn('type', $preschoolTypes)
-            ->whereHas('manager')->count();
+        // Performance summary (from filtered results)
+        $statistics['performance_summary']['preschools_with_managers'] = $allFilteredPreschools
+            ->filter(function($preschool) {
+                return $preschool->manager !== null;
+            })->count();
         $statistics['performance_summary']['preschools_without_managers'] = $statistics['total_preschools'] - 
             $statistics['performance_summary']['preschools_with_managers'];
 

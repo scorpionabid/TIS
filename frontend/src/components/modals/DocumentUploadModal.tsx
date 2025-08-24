@@ -1,7 +1,49 @@
-// Re-export the new modular document upload modal
-export { default } from '../documents/DocumentUploadModal';
+import React, { useState, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle 
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
+import { 
+  Upload, 
+  X, 
+  FileText, 
+  Image, 
+  Video, 
+  Music, 
+  File, 
+  Archive, 
+  Building2, 
+  Users, 
+  Search, 
+  Loader2,
+  AlertCircle
+} from 'lucide-react';
+import { documentService, CreateDocumentData } from '@/services/documents';
+import { institutionService } from '@/services/institutions';
+import { departmentService } from '@/services/departments';
+import { Institution } from '@/services/institutions';
+import { Department } from '@/services/departments';
 
-// Keep the old interface for backward compatibility
 interface DocumentUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -891,3 +933,5 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     </Dialog>
   );
 };
+
+export default DocumentUploadModal;

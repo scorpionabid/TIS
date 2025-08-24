@@ -99,6 +99,17 @@ class AuthService {
       };
       
       apiClient.setToken(loginResponse.token);
+      
+      // Debug: Verify token was saved immediately after login
+      console.log('🔐 Auth Service: Login successful, verifying token save:', {
+        tokenLength: loginResponse.token.length,
+        tokenStart: loginResponse.token.substring(0, 20),
+        apiClientHasToken: !!apiClient.getToken(),
+        localStorageHasToken: !!localStorage.getItem('auth_token'),
+        localStorageToken: localStorage.getItem('auth_token')?.substring(0, 20),
+        allLocalStorageKeys: Object.keys(localStorage)
+      });
+      
       return loginResponse;
     }
     

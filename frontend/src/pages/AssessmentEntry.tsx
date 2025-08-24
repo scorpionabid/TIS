@@ -32,7 +32,6 @@ import { subjectService } from '@/services/subjects';
 import { studentService, Student } from '@/services/students';
 import { assessmentEntryService, AssessmentEntryForm } from '@/services/assessmentEntries';
 import { useToast } from '@/hooks/use-toast';
-import { QuickAuth } from '@/components/auth/QuickAuth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BulkEntryInterface } from '@/components/assessment/BulkEntryInterface';
 import { ExcelImportExport } from '@/components/assessment/ExcelImportExport';
@@ -105,6 +104,19 @@ export default function AssessmentEntry() {
 
   // Extract institutions array from response
   const institutions = institutionsResponse?.data || [];
+
+  // Auto-select school admin's institution
+  useEffect(() => {
+    if (currentUser?.role === 'schooladmin' && currentUser?.institution?.id && !selectedInstitution && institutions.length > 0) {
+      const userInstitutionId = currentUser.institution.id;
+      // Check if the user's institution exists in the institutions list
+      const userInstitutionExists = institutions.some(inst => inst.id === userInstitutionId);
+      if (userInstitutionExists) {
+        console.log('🏫 Auto-selecting school admin institution:', userInstitutionId, currentUser.institution.name);
+        setSelectedInstitution(userInstitutionId);
+      }
+    }
+  }, [currentUser, institutions, selectedInstitution]);
 
   // Fetch assessment types
   const { data: assessmentTypes, isLoading: assessmentTypesLoading } = useQuery({
@@ -277,13 +289,13 @@ export default function AssessmentEntry() {
     queryFn: () => subjectService.getSubjects(),
   });
   const subjects = (subjectsResponse?.data || []).map((subject: any) => ({ 
+    id: subject.id,
     value: subject.name, 
     label: subject.name 
   }));
 
   return (
     <div className="p-6 space-y-6">
-      <QuickAuth />
       
       <div className="flex justify-between items-center">
         <div>
@@ -310,7 +322,7 @@ export default function AssessmentEntry() {
               <Select 
                 value={selectedInstitution?.toString() || ''} 
                 onValueChange={handleInstitutionChange}
-                disabled={institutionsLoading}
+                disabled={institutionsLoading || currentUser?.role === 'schooladmin'}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Təşkilat seçin" />
@@ -395,7 +407,7 @@ export default function AssessmentEntry() {
                 <SelectContent>
                   <SelectItem value="all">Hamısı</SelectItem>
                   {subjects.map((subject) => (
-                    <SelectItem key={subject.value} value={subject.value}>
+                    <SelectItem key={`subject-${subject.id}-${subject.value}`} value={subject.value}>
                       {subject.label}
                     </SelectItem>
                   ))}

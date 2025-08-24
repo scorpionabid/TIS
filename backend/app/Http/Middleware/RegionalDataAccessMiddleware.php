@@ -72,7 +72,7 @@ class RegionalDataAccessMiddleware
             case 'sektoradmin':
                 return $this->validateSektorAdminAccess($user, $resourceType, $request);
                 
-            case 'məktəbadmin':
+            case 'schooladmin':
                 return $this->validateMektebAdminAccess($user, $resourceType, $request);
                 
             case 'müəllim':
