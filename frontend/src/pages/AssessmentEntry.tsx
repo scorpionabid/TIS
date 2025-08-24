@@ -57,6 +57,7 @@ export default function AssessmentEntry() {
   const [selectedInstitution, setSelectedInstitution] = useState<number | null>(null);
   const [selectedAssessmentType, setSelectedAssessmentType] = useState<AssessmentType | null>(null);
   const [selectedGradeLevel, setSelectedGradeLevel] = useState<string>('');
+  const [selectedClassName, setSelectedClassName] = useState<string>('');
   const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [assessmentDate, setAssessmentDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -142,7 +143,7 @@ export default function AssessmentEntry() {
     }
   });
 
-  // Fetch students for selected institution
+  // Fetch all students for selected institution (we'll filter by class on frontend)
   const { data: studentsData, isLoading: studentsLoading, refetch: refetchStudents } = useQuery({
     queryKey: ['students', selectedInstitution, selectedGradeLevel, searchTerm],
     queryFn: async () => {
@@ -160,7 +161,53 @@ export default function AssessmentEntry() {
     staleTime: 1000 * 60 * 5,
   });
 
-  const students = studentsData?.students || [];
+  // Get available classes for the selected institution and grade level
+  const { data: availableClasses = [] } = useQuery({
+    queryKey: ['available-classes', selectedInstitution, selectedGradeLevel],
+    queryFn: async () => {
+      if (!selectedInstitution) return [];
+      
+      // Get unique classes from students data  
+      const allStudents = await studentService.getStudentsByInstitution(selectedInstitution, { per_page: 1000 });
+      const students = allStudents?.data?.students || [];
+      
+      // Filter by grade level if selected
+      const filteredStudents = selectedGradeLevel && selectedGradeLevel !== 'all' 
+        ? students.filter(s => s.grade_level?.toString() === selectedGradeLevel)
+        : students;
+      
+      // Get unique grade+class combinations
+      const classSet = new Set();
+      filteredStudents.forEach(student => {
+        if (student.grade_level && student.class_name) {
+          classSet.add(`${student.grade_level}${student.class_name}`);
+        }
+      });
+      
+      return Array.from(classSet).sort();
+    },
+    enabled: !!selectedInstitution,
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const allStudents = studentsData?.students || [];
+  
+  // Filter students by selected class name (frontend filtering)
+  const students = React.useMemo(() => {
+    if (!selectedClassName || selectedClassName === 'all') {
+      return allStudents;
+    }
+    
+    // Parse selected class (e.g., "9A" -> grade: 9, class: "A")
+    const match = selectedClassName.match(/^(\d+)([A-Z])$/);
+    if (!match) return allStudents;
+    
+    const [, gradeLevel, className] = match;
+    return allStudents.filter(student => 
+      student.grade_level?.toString() === gradeLevel && 
+      student.class_name === className
+    );
+  }, [allStudents, selectedClassName]);
 
   // Submit assessment entries mutation
   const submitAssessmentMutation = useMutation({
@@ -379,16 +426,40 @@ export default function AssessmentEntry() {
               <Label htmlFor="grade_level">Sinif Səviyyəsi</Label>
               <Select 
                 value={selectedGradeLevel} 
-                onValueChange={setSelectedGradeLevel}
+                onValueChange={(value) => {
+                  setSelectedGradeLevel(value);
+                  setSelectedClassName(''); // Reset class selection when grade changes
+                }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Sinif seçin" />
+                  <SelectValue placeholder="Sinif səviyyəsi seçin" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Hamısı</SelectItem>
                   {gradeLevels.map((grade) => (
                     <SelectItem key={grade.value} value={grade.value}>
                       {grade.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="class_name">Sinif</Label>
+              <Select 
+                value={selectedClassName} 
+                onValueChange={setSelectedClassName}
+                disabled={!selectedInstitution}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sinif seçin" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Hamısı</SelectItem>
+                  {availableClasses.map((className) => (
+                    <SelectItem key={className} value={className}>
+                      {className}
                     </SelectItem>
                   ))}
                 </SelectContent>
