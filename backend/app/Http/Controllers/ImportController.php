@@ -8,6 +8,7 @@ use App\Imports\InstitutionsImport;
 use App\Exports\StudentTemplateExport;
 use App\Exports\TeacherTemplateExport;
 use App\Exports\InstitutionTemplateExport;
+use App\Exports\InstitutionExport;
 use App\Models\Institution;
 use App\Services\UtisCodeService;
 use Illuminate\Http\Request;
@@ -366,6 +367,154 @@ class ImportController extends Controller
             Log::error('Template file download error: ' . $e->getMessage());
             return response()->json([
                 'error' => 'Template file download failed',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Export institutions to Excel/CSV (SuperAdmin only)
+     */
+    public function exportInstitutions(Request $request)
+    {
+        try {
+            $user = Auth::user();
+
+            // Check if user is SuperAdmin
+            if (!$user->hasRole('superadmin')) {
+                return response()->json(['error' => 'Only SuperAdmin can export institutions'], 403);
+            }
+
+            $request->validate([
+                'type' => 'nullable|string',
+                'level' => 'nullable|integer|min:1|max:4',
+                'parent_id' => 'nullable|integer|exists:institutions,id',
+                'region_code' => 'nullable|string|max:10',
+                'is_active' => 'nullable|string|in:true,false',
+                'search' => 'nullable|string|max:255',
+                'format' => 'nullable|string|in:xlsx,csv'
+            ]);
+
+            $filters = $request->only([
+                'type', 'level', 'parent_id', 'region_code', 'is_active', 'search'
+            ]);
+
+            // Remove empty filters
+            $filters = array_filter($filters, function ($value) {
+                return $value !== null && $value !== '';
+            });
+
+            $format = $request->input('format', 'xlsx');
+            $filename = 'tehsil_muessiseler_' . date('Y-m-d_H-i-s') . '.' . $format;
+
+            Log::info('Starting institution export', [
+                'filters' => $filters,
+                'format' => $format,
+                'user_id' => $user->id
+            ]);
+
+            return Excel::download(new InstitutionExport($filters), $filename);
+
+        } catch (\Exception $e) {
+            Log::error('Institution export error: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Export failed',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get export statistics (SuperAdmin only)
+     */
+    public function getExportStats(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+
+            if (!$user->hasRole('superadmin')) {
+                return response()->json(['error' => 'Only SuperAdmin can view export statistics'], 403);
+            }
+
+            $filters = $request->only([
+                'type', 'level', 'parent_id', 'region_code', 'is_active', 'search'
+            ]);
+
+            // Remove empty filters
+            $filters = array_filter($filters, function ($value) {
+                return $value !== null && $value !== '';
+            });
+
+            $query = Institution::query();
+
+            // Apply same filters as export
+            if (!empty($filters['type'])) {
+                $query->where('type', $filters['type']);
+            }
+
+            if (!empty($filters['level'])) {
+                $query->where('level', $filters['level']);
+            }
+
+            if (!empty($filters['parent_id'])) {
+                $query->where('parent_id', $filters['parent_id']);
+            }
+
+            if (!empty($filters['region_code'])) {
+                $query->where('region_code', $filters['region_code']);
+            }
+
+            if (!empty($filters['is_active'])) {
+                $query->where('is_active', $filters['is_active'] === 'true');
+            }
+
+            if (!empty($filters['search'])) {
+                $search = $filters['search'];
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'ilike', "%{$search}%")
+                      ->orWhere('institution_code', 'ilike', "%{$search}%")
+                      ->orWhere('utis_code', 'ilike', "%{$search}%");
+                });
+            }
+
+            $totalCount = $query->count();
+            $activeCount = (clone $query)->where('is_active', true)->count();
+            $inactiveCount = $totalCount - $activeCount;
+
+            // Count by levels
+            $levelCounts = (clone $query)
+                ->selectRaw('level, COUNT(*) as count')
+                ->groupBy('level')
+                ->orderBy('level')
+                ->get()
+                ->mapWithKeys(function ($item) {
+                    return [$item->level => $item->count];
+                });
+
+            // Count by types
+            $typeCounts = (clone $query)
+                ->selectRaw('type, COUNT(*) as count')
+                ->groupBy('type')
+                ->orderBy('count', 'desc')
+                ->get()
+                ->mapWithKeys(function ($item) {
+                    return [$item->type => $item->count];
+                });
+
+            return response()->json([
+                'filters_applied' => $filters,
+                'total_institutions' => $totalCount,
+                'active_institutions' => $activeCount,
+                'inactive_institutions' => $inactiveCount,
+                'level_breakdown' => $levelCounts,
+                'type_breakdown' => $typeCounts,
+                'export_ready' => $totalCount > 0
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Export stats error: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to get export statistics',
                 'message' => $e->getMessage()
             ], 500);
         }

@@ -51,9 +51,12 @@ export const InstitutionModal: React.FC<InstitutionModalProps> = ({
 
   // Transform institution types for UI
   const institutionTypes = React.useMemo(() => {
-    if (!institutionTypesResponse?.institution_types) return [];
+    if (!institutionTypesResponse?.institution_types) {
+      console.log('❌ No institution types in response:', institutionTypesResponse);
+      return [];
+    }
     
-    return institutionTypesResponse.institution_types.map((type: InstitutionType) => ({
+    const transformed = institutionTypesResponse.institution_types.map((type: InstitutionType) => ({
       value: type.key,
       label: type.label_az || type.label,
       level: type.default_level,
@@ -62,44 +65,82 @@ export const InstitutionModal: React.FC<InstitutionModalProps> = ({
       color: type.color,
       originalType: type
     }));
+    
+    console.log('✅ Transformed institution types:', transformed);
+    return transformed;
   }, [institutionTypesResponse]);
 
   // Get potential parent institutions based on selected type
   const { data: parentInstitutions } = useQuery({
-    queryKey: ['parent-institutions', formData.type],
+    queryKey: ['parent-institutions', formData.type, institutionTypes.length],
     queryFn: async () => {
       console.log('🏢 Loading parent institutions for type:', formData.type);
       
-      if (formData.type === 'ministry') {
-        console.log('👑 Ministry selected - no parent institutions needed');
+      if (!formData.type || institutionTypes.length === 0) {
         return Promise.resolve({ data: [] });
       }
       
-      // Map frontend form type to determine backend parent type  
-      const parentType = 
-        formData.type === 'region' ? 'ministry' :
-        formData.type === 'sektor' ? 'regional_education_department' :
-        formData.type === 'school' ? 'sector_education_office' : null;
+      // Find selected type details
+      const selectedType = institutionTypes.find(type => type.value === formData.type);
+      if (!selectedType) {
+        console.log('❌ Selected type not found in institutionTypes');
+        return Promise.resolve({ data: [] });
+      }
+      
+      const currentLevel = selectedType.level;
+      console.log('📊 Current type level:', currentLevel);
+      
+      // Level 1 (ministry) has no parents
+      if (currentLevel <= 1) {
+        console.log('👑 Level 1 - no parent institutions needed');
+        return Promise.resolve({ data: [] });
+      }
+      
+      // Find parent types (level - 1)
+      const parentLevel = currentLevel - 1;
+      const parentTypes = institutionTypes
+        .filter(type => type.level === parentLevel)
+        .map(type => type.value);
         
-      console.log('🔗 Parent type determination:', { formType: formData.type, parentType });
+      console.log('🔗 Parent types for level', parentLevel, ':', parentTypes);
       
-      console.log('🔍 Determined parent type:', parentType);
-      
-      if (!parentType) {
-        console.log('❌ No valid parent type found');
+      if (parentTypes.length === 0) {
+        console.log('❌ No parent types found for level', parentLevel);
         return Promise.resolve({ data: [] });
       }
       
+      // Load institutions of parent types
       try {
-        const result = await institutionService.getByType(parentType as any);
-        console.log('📦 Parent institutions loaded:', result);
-        return result;
+        const allParents = [];
+        for (const parentType of parentTypes) {
+          try {
+            console.log('🔄 Loading institutions for parent type:', parentType);
+            // Use getAll with type filter instead of getByType
+            const result = await institutionService.getAll({ type: parentType });
+            console.log('📋 GetAll result structure for type', parentType, ':', result);
+            
+            // Handle paginated response structure: result.data.data contains the actual institutions array
+            const institutions = result?.data?.data || result?.data;
+            if (institutions && Array.isArray(institutions)) {
+              console.log('✅ Found', institutions.length, 'institutions for type', parentType);
+              allParents.push(...institutions);
+            } else {
+              console.log('⚠️ Unexpected result format for type', parentType, ':', typeof result, result);
+              console.log('⚠️ Expected institutions array, got:', institutions);
+            }
+          } catch (err) {
+            console.warn('⚠️ Failed to load institutions for type:', parentType, err);
+          }
+        }
+        
+        console.log('📦 All parent institutions loaded:', allParents.length, allParents);
+        return Promise.resolve({ data: allParents });
       } catch (error) {
         console.error('❌ Failed to load parent institutions:', error);
         throw error;
       }
     },
-    enabled: open && formData.type !== 'ministry',
+    enabled: !!formData.type && institutionTypes.length > 0 && open,
   });
 
   useEffect(() => {
@@ -192,7 +233,7 @@ export const InstitutionModal: React.FC<InstitutionModalProps> = ({
       
       const emptyFormData = {
         name: '',
-        type: 'school',
+        type: '',
         level: 4,
         code: '',
         address: '',
@@ -205,6 +246,7 @@ export const InstitutionModal: React.FC<InstitutionModalProps> = ({
       
       console.log('📋 CREATE MODE: Setting form data:', emptyFormData);
       setFormData(emptyFormData);
+      setErrors({});
     }
     
     console.log('🧹 Clearing errors');
@@ -273,8 +315,18 @@ export const InstitutionModal: React.FC<InstitutionModalProps> = ({
 
     setLoading(true);
     try {
-      console.log('📤 Calling onSave with data:', formData);
-      await onSave(formData);
+      // Transform formData for API - send both type and type_id
+      const selectedType = institutionTypes.find(type => type.value === formData.type);
+      const apiData = {
+        ...formData,
+        type: formData.type,  // Keep the type key for model
+        type_id: selectedType?.originalType?.id,  // Add type_id for validation
+      };
+      
+      console.log('📤 Transformed data for API:', apiData);
+      console.log('🔍 Selected type details:', { selectedType, typeKey: formData.type, typeId: selectedType?.originalType?.id });
+      
+      await onSave(apiData);
       console.log('✅ Save successful, closing modal');
       onClose();
     } catch (error) {
@@ -288,7 +340,19 @@ export const InstitutionModal: React.FC<InstitutionModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto"
+        onOpenAutoFocus={(e) => {
+          // Prevent auto focus to avoid aria-hidden conflicts
+          e.preventDefault();
+          setTimeout(() => {
+            const nameInput = e.currentTarget?.querySelector<HTMLInputElement>('#name');
+            if (nameInput) {
+              nameInput.focus();
+            }
+          }, 100);
+        }}
+      >
         <DialogHeader>
           <DialogTitle>
             {institution ? 'Müəssisəni redaktə et' : 'Yeni müəssisə əlavə et'}
@@ -321,7 +385,29 @@ export const InstitutionModal: React.FC<InstitutionModalProps> = ({
                 onValueChange={(value) => handleInputChange('type', value)}
               >
                 <SelectTrigger className={errors.type ? 'border-destructive' : ''}>
-                  <SelectValue placeholder="Müəssisə növünü seçin" />
+                  {formData.type && institutionTypes.length > 0 ? (
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {(() => {
+                        const selectedType = institutionTypes.find(type => type.value === formData.type);
+                        console.log('🔍 Rendering selected type:', { formType: formData.type, selectedType, allTypes: institutionTypes });
+                        return selectedType ? (
+                          <>
+                            <div 
+                              className="w-3 h-3 rounded-full flex-shrink-0" 
+                              style={{ backgroundColor: selectedType.color }}
+                            />
+                            <span className="truncate">{selectedType.label} (Səviyyə {selectedType.level})</span>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground truncate">
+                            Növ: {formData.type}
+                          </span>
+                        )
+                      })()}
+                    </div>
+                  ) : (
+                    <SelectValue placeholder="Müəssisə növünü seçin" />
+                  )}
                 </SelectTrigger>
                 <SelectContent>
                   {typesLoading ? (
@@ -331,16 +417,7 @@ export const InstitutionModal: React.FC<InstitutionModalProps> = ({
                   ) : institutionTypes.length > 0 ? (
                     institutionTypes.map((type) => (
                       <SelectItem key={type.value} value={type.value}>
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-3 h-3 rounded-full" 
-                            style={{ backgroundColor: type.color }}
-                          />
-                          <span>{type.label}</span>
-                          <span className="text-xs text-muted-foreground">
-                            (Səviyyə {type.level})
-                          </span>
-                        </div>
+                        {type.label} (Səviyyə {type.level})
                       </SelectItem>
                     ))
                   ) : (
@@ -382,18 +459,17 @@ export const InstitutionModal: React.FC<InstitutionModalProps> = ({
                   } />
                 </SelectTrigger>
                 <SelectContent>
-                  {parentInstitutions?.institutions && parentInstitutions.institutions.length > 0 ? (
-                    parentInstitutions.institutions.map((parent: Institution) => (
+                  {parentInstitutions?.data && parentInstitutions.data.length > 0 ? (
+                    parentInstitutions.data.map((parent: Institution) => (
                       <SelectItem key={parent.id} value={parent.id.toString()}>
-                        <div className="flex flex-col">
-                          <div className="font-medium">{parent.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {parent.type === 'ministry' ? 'Nazirlik' :
-                             parent.type === 'regional_education_department' ? 'Regional Təhsil İdarəsi' :
-                             parent.type === 'sector_education_office' ? 'Sektor Təhsil Şöbəsi' : 
-                             parent.type}
-                          </div>
-                        </div>
+                        {(() => {
+                          const typeKey = typeof parent.type === 'object' ? parent.type?.key : parent.type;
+                          const typeName = typeKey === 'ministry' ? 'Nazirlik' :
+                                         typeKey === 'regional_education_department' ? 'Regional Təhsil İdarəsi' :
+                                         typeKey === 'sector_education_office' ? 'Sektor Təhsil Şöbəsi' : 
+                                         (typeof parent.type === 'object' ? parent.type?.name || typeKey : typeKey);
+                          return `${parent.name} (${typeName})`;
+                        })()}
                       </SelectItem>
                     ))
                   ) : (

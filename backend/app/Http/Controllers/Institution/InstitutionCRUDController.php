@@ -242,7 +242,7 @@ class InstitutionCRUDController extends Controller
 
             // Get institution type to determine level
             $institutionType = InstitutionType::findOrFail($request->type_id);
-            $level = $institutionType->level;
+            $level = $institutionType->default_level;
 
             // Validate parent relationship based on level
             if ($request->parent_id) {
@@ -262,16 +262,23 @@ class InstitutionCRUDController extends Controller
 
             $institution = Institution::create([
                 'name' => $request->name,
-                'code' => $request->code,
-                'institution_type_id' => $request->type_id,
+                'institution_code' => $request->code,
+                'type' => $request->type,  // Use 'type' field that exists in database
                 'level' => $level,
                 'parent_id' => $request->parent_id,
-                'address' => $request->address,
-                'phone' => $request->phone,
-                'email' => $request->email,
-                'website' => $request->website,
-                'description' => $request->description,
-                'settings' => $request->settings ?? [],
+                'contact_info' => json_encode([
+                    'address' => $request->address,
+                    'phone' => $request->phone,
+                    'email' => $request->email,
+                    'website' => $request->website,
+                ]),
+                'location' => json_encode([
+                    'address' => $request->address,
+                ]),
+                'metadata' => json_encode([
+                    'description' => $request->description,
+                    'settings' => $request->settings ?? [],
+                ]),
                 'is_active' => $request->get('is_active', true),
             ]);
 

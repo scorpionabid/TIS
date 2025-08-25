@@ -43,6 +43,46 @@ class ImportService {
     return response.data || response as any;
   }
 
+  // Export institutions (SuperAdmin only)
+  async exportInstitutions(filters: {
+    type?: string;
+    level?: number;
+    parent_id?: number;
+    region_code?: string;
+    is_active?: string;
+    search?: string;
+    format?: 'xlsx' | 'csv';
+  } = {}): Promise<Blob> {
+    const response = await apiClient.get(`${this.baseEndpoint}/export/institutions`, {
+      params: filters,
+      responseType: 'blob'
+    });
+    return response.data;
+  }
+
+  // Get export statistics (SuperAdmin only)
+  async getExportStats(filters: {
+    type?: string;
+    level?: number;
+    parent_id?: number;
+    region_code?: string;
+    is_active?: string;
+    search?: string;
+  } = {}): Promise<{
+    filters_applied: Record<string, any>;
+    total_institutions: number;
+    active_institutions: number;
+    inactive_institutions: number;
+    level_breakdown: Record<number, number>;
+    type_breakdown: Record<string, number>;
+    export_ready: boolean;
+  }> {
+    const response = await apiClient.get(`${this.baseEndpoint}/export/stats`, {
+      params: filters
+    });
+    return response.data || response as any;
+  }
+
   // Utility method to download file blob
   downloadFileBlob(blob: Blob, filename: string) {
     const url = window.URL.createObjectURL(blob);

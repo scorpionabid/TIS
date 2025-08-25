@@ -234,14 +234,23 @@ Route::prefix('bulk-assessments')->middleware('auth:sanctum')->group(function ()
     Route::post('/sessions/{sessionId}/approve', [BulkAssessmentController::class, 'approveSession'])->middleware('permission:assessments.approve');
 });
 
-// Import routes (accessible by different roles)
+// Import/Export routes (accessible by different roles)
 Route::prefix('import')->group(function () {
-    Route::post('/users', [App\Http\Controllers\ImportController::class, 'importUsers'])->middleware('permission:users.import');
-    Route::post('/institutions', [App\Http\Controllers\ImportController::class, 'importInstitutions'])->middleware('permission:institutions.import');
-    Route::post('/validate-users', [App\Http\Controllers\ImportController::class, 'validateUsers'])->middleware('permission:users.read');
-    Route::post('/validate-institutions', [App\Http\Controllers\ImportController::class, 'validateInstitutions'])->middleware('permission:institutions.read');
-    Route::get('/templates/users', [App\Http\Controllers\ImportController::class, 'getUserTemplate']);
-    Route::get('/templates/institutions', [App\Http\Controllers\ImportController::class, 'getInstitutionTemplate']);
+    // Import operations
+    Route::post('/students', [App\Http\Controllers\ImportController::class, 'importStudents'])->middleware('permission:users.import');
+    Route::post('/teachers', [App\Http\Controllers\ImportController::class, 'importTeachers'])->middleware('permission:users.import');
+    Route::post('/institutions', [App\Http\Controllers\ImportController::class, 'importInstitutions'])->middleware('role:superadmin');
+    
+    // Template downloads
+    Route::get('/template', [App\Http\Controllers\ImportController::class, 'downloadTemplate']);
+    Route::get('/template/download/{type}', [App\Http\Controllers\ImportController::class, 'downloadTemplateFile'])->name('import.template.download');
+    
+    // UTIS code generation (SuperAdmin only)
+    Route::post('/generate-utis-codes', [App\Http\Controllers\ImportController::class, 'generateMissingUtisCode'])->middleware('role:superadmin');
+    
+    // Export operations (SuperAdmin only)
+    Route::get('/export/institutions', [App\Http\Controllers\ImportController::class, 'exportInstitutions'])->middleware('role:superadmin');
+    Route::get('/export/stats', [App\Http\Controllers\ImportController::class, 'getExportStats'])->middleware('role:superadmin');
 });
 
 // Sectors management routes

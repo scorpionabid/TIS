@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Loader2, Edit, Trash2, Settings, MoreHorizontal, Search, Filter, X } from "lucide-react";
+import { Plus, Loader2, Edit, Trash2, Settings, MoreHorizontal, Search, Filter, X, Upload, Download } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { institutionService, Institution, CreateInstitutionData } from "@/services/institutions";
@@ -10,6 +10,7 @@ import { User, userService, UserFilters } from "@/services/users";
 import { InstitutionModal } from "@/components/modals/InstitutionModal";
 import { DeleteInstitutionModal } from "@/components/modals/DeleteInstitutionModal";
 import { InstitutionDetailsModal } from "@/components/modals/InstitutionDetailsModal";
+import InstitutionImportExport from "@/components/superadmin/InstitutionImportExport";
 import { useState } from "react";
 import React, { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +30,7 @@ const Institutions = () => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [institutionToDelete, setInstitutionToDelete] = useState<Institution | null>(null);
   const [institutionAdmins, setInstitutionAdmins] = useState<Record<number, User | null>>({});
+  const [showImportExport, setShowImportExport] = useState(false);
   
   // Filter states
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -461,15 +463,38 @@ const Institutions = () => {
             </Button>
           )}
           {currentUser?.role === 'superadmin' && (
-            <Button 
-              variant="outline" 
-              className="flex items-center gap-2" 
-              onClick={() => window.open('/institution-types-management', '_blank')}
-              title="Yalnız superadmin istifadəçilər üçün mövcuddur"
-            >
-              <Settings className="h-4 w-4" />
-              Müəssisə Növlərini İdarə Et
-            </Button>
+            <>
+              <Button 
+                variant="outline" 
+                className="flex items-center gap-2" 
+                onClick={() => {
+                  console.log('🔄 Toggle import/export:', !showImportExport, 'Current user role:', currentUser?.role);
+                  setShowImportExport(!showImportExport);
+                }}
+                title="Müəssisələri idxal və ixrac et"
+              >
+                {showImportExport ? (
+                  <>
+                    <X className="h-4 w-4" />
+                    Bağla
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" />
+                    İdxal/İxrac
+                  </>
+                )}
+              </Button>
+              <Button 
+                variant="outline" 
+                className="flex items-center gap-2" 
+                onClick={() => window.open('/institution-types-management', '_blank')}
+                title="Yalnız superadmin istifadəçilər üçün mövcuddur"
+              >
+                <Settings className="h-4 w-4" />
+                Müəssisə Növlərini İdarə Et
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -1023,6 +1048,13 @@ const Institutions = () => {
           canGoPrevious={currentPage > 1}
           canGoNext={currentPage < institutionsResponse.pagination.lastPage}
         />
+      )}
+
+      {/* Import/Export Section */}
+      {showImportExport && currentUser?.role === 'superadmin' && (
+        <div className="mt-6">
+          <InstitutionImportExport />
+        </div>
       )}
 
       <InstitutionModal
