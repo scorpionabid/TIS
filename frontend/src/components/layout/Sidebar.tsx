@@ -6,7 +6,8 @@ import {
   SuperAdminMenu, 
   SimpleMenu,
   getSuperAdminMenuStructure,
-  getOtherRoleMenuStructure
+  getOtherRoleMenuStructure,
+  getPermissionBasedMenuStructure
 } from "./sidebar/index";
 
 interface SidebarProps {
@@ -15,9 +16,10 @@ interface SidebarProps {
   onNavigate: (path: string) => void;
   onLogout: () => void;
   currentPath: string;
+  userPermissions?: string[]; // Add permissions prop
 }
 
-export const Sidebar = ({ userRole, currentUser, onNavigate, onLogout, currentPath }: SidebarProps) => {
+export const Sidebar = ({ userRole, currentUser, onNavigate, onLogout, currentPath, userPermissions = [] }: SidebarProps) => {
   const {
     // State
     setIsHovered,
@@ -79,8 +81,10 @@ export const Sidebar = ({ userRole, currentUser, onNavigate, onLogout, currentPa
     );
   }
 
-  // For other roles, use simpler structure
-  const menuItems = getOtherRoleMenuStructure(userRole);
+  // For other roles, use permission-based menu structure
+  const menuItems = userPermissions.length > 0 
+    ? getPermissionBasedMenuStructure(userPermissions)
+    : getOtherRoleMenuStructure(userRole); // Fallback to role-based
   
   return (
     <div 

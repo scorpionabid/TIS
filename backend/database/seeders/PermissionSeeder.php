@@ -298,7 +298,6 @@ class PermissionSeeder extends Seeder
                 'psychology.read', 'psychology.manage',
                 'inventory.create', 'inventory.read', 'inventory.update', 'inventory.manage', 'inventory.assign', 'inventory.maintenance',
                 'view teacher_performance', 'create teacher_performance', 'edit teacher_performance', 'manage teacher_performance',
-                'approvals.create', 'approvals.read',
                 'links.read',
                 'reports.read'
             ],

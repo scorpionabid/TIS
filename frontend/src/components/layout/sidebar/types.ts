@@ -6,7 +6,8 @@ export interface MenuItem {
   path?: string;
   hasSubmenu?: boolean;
   key?: string;
-  submenu?: { label: string; path: string }[];
+  submenu?: { label: string; path: string; permission?: string }[];
+  permission?: string; // Permission required to see this menu item
 }
 
 export interface MenuGroup {

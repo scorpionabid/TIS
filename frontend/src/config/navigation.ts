@@ -481,7 +481,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
             id: 'approvals',
             label: 'Təsdiq Paneli',
             path: '/approvals',
-            roles: ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin']
+            roles: ['superadmin', 'regionadmin', 'sektoradmin']
           },
           {
             id: 'survey-results',

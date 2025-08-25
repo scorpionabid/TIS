@@ -1,14 +1,21 @@
-FROM php:8.2-cli-alpine
+FROM php:8.3-cli-alpine
 
-# Install minimal system dependencies including SQLite
+# Install system dependencies including SQLite, GD and ZIP
 RUN apk add --no-cache \
     curl \
     zip \
     unzip \
     sqlite-dev \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    libzip-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
         pdo \
-        pdo_sqlite
+        pdo_sqlite \
+        gd \
+        zip
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -16,14 +23,13 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy composer files first for better caching
-COPY backend/composer*.json ./
-
-# Install PHP dependencies first (this layer will be cached)
-RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts || echo "Composer install failed, continuing..."
-
-# Copy rest of backend files
+# Copy all backend files including vendor directory
 COPY backend/ /var/www/html/
+
+# Ensure composer dependencies are available
+RUN if [ ! -d "/var/www/html/vendor" ]; then \
+        composer install --no-dev --optimize-autoloader --no-interaction --no-scripts; \
+    fi
 
 # Create necessary directories and set permissions
 RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views \

@@ -4,6 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
+### Port Management & System Startup
+```bash
+# RECOMMENDED: Always use Docker for development
+# The start.sh script now includes automatic port management
+./start.sh
+
+# Stop system
+./stop.sh
+
+# Manual port cleanup (only if needed)
+lsof -ti:8000,8001,8002,3000 | xargs kill -9 2>/dev/null || true
+
+# Troubleshooting: Check container status
+docker-compose -f docker-compose.simple.yml ps
+docker-compose -f docker-compose.simple.yml logs backend
+docker-compose -f docker-compose.simple.yml logs frontend
+```
+
 ### Starting the System
 ```bash
 # Start with Docker (recommended)

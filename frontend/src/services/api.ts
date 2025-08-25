@@ -4,12 +4,37 @@ console.log('🔧 Environment check:', {
   all_env: import.meta.env
 });
 
-// Debug environment variable
-console.log('🔍 Raw env variable:', import.meta.env.VITE_API_BASE_URL);
+// Environment variable validation and setup
+function validateAndSetupApiUrls() {
+  const envApiUrl = import.meta.env.VITE_API_BASE_URL;
+  const fallbackUrl = 'http://localhost:8000/api';
+  
+  console.log('🔍 Environment variable validation:', {
+    VITE_API_BASE_URL: envApiUrl,
+    isDevelopment: import.meta.env.DEV,
+    mode: import.meta.env.MODE,
+    hasEnvFile: !!envApiUrl
+  });
+  
+  // Use environment variable if available, otherwise fallback to Docker default
+  const apiBaseUrl = envApiUrl || fallbackUrl;
+  const sanctumBaseUrl = apiBaseUrl.replace('/api', '');
+  
+  // Validate URLs are properly formed
+  try {
+    new URL(apiBaseUrl);
+    new URL(sanctumBaseUrl);
+  } catch (error) {
+    console.error('❌ Invalid API URL configuration:', { apiBaseUrl, sanctumBaseUrl });
+    throw new Error('Invalid API URL configuration');
+  }
+  
+  console.log('✅ API URLs configured:', { apiBaseUrl, sanctumBaseUrl, source: envApiUrl ? 'env' : 'fallback' });
+  
+  return { apiBaseUrl, sanctumBaseUrl };
+}
 
-// Force correct API URL for now
-const API_BASE_URL = 'http://localhost:8001/api';
-const SANCTUM_BASE_URL = 'http://localhost:8001';
+const { apiBaseUrl: API_BASE_URL, sanctumBaseUrl: SANCTUM_BASE_URL } = validateAndSetupApiUrls();
 
 console.log('🔗 API URLs:', { API_BASE_URL, SANCTUM_BASE_URL });
 
@@ -40,7 +65,7 @@ class ApiClient {
   private token: string | null = null;
 
   constructor(baseURL?: string) {
-    const fallbackURL = 'http://localhost:8001/api';
+    const fallbackURL = 'http://localhost:8000/api';
     console.log('🔧 ApiClient constructor:', { baseURL, API_BASE_URL, fallbackURL });
     
     // Set baseURL with multiple fallbacks
@@ -397,7 +422,7 @@ export const apiClient = (() => {
     return window.__apiClient;
   }
   
-  const client = new ApiClient('http://localhost:8001/api');
+  const client = new ApiClient(API_BASE_URL);
   
   // Restore token from window or localStorage
   const windowToken = window.__authToken;

@@ -138,7 +138,7 @@ const App = () => (
               <Route path="survey-response/:surveyId" element={<SurveyResponse />} />
               <Route path="survey-response/:surveyId/:responseId" element={<SurveyResponse />} />
               <Route path="approvals" element={
-                <RoleProtectedRoute allowedRoles={['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin']}>
+                <RoleProtectedRoute allowedRoles={['superadmin', 'regionadmin', 'sektoradmin']}>
                   <Approvals />
                 </RoleProtectedRoute>
               } />

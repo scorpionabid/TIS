@@ -39,6 +39,30 @@ check_docker() {
     return 1
 }
 
+# Port management function
+manage_ports() {
+    print_status "Port idarəetməsi..."
+    
+    # Kill processes that might conflict with our Docker ports
+    local ports=("3000" "8000" "8001" "8002")
+    
+    for port in "${ports[@]}"; do
+        local pid=$(lsof -ti:$port 2>/dev/null || echo "")
+        if [ ! -z "$pid" ]; then
+            print_warning "Port $port məşğuldur (PID: $pid), dayandırılır..."
+            kill -9 $pid 2>/dev/null || true
+            sleep 1
+        fi
+    done
+    
+    # Kill known conflicting processes
+    pkill -f "php artisan serve" 2>/dev/null || true
+    pkill -f "node.*vite" 2>/dev/null || true
+    pkill -f "esbuild.*service" 2>/dev/null || true
+    
+    print_success "Portlar təmizləndi"
+}
+
 # Fast cleanup function
 quick_cleanup() {
     print_status "Sürətli təmizlik..."
@@ -46,7 +70,14 @@ quick_cleanup() {
     # Clear only specific cache directories
     rm -rf frontend/node_modules/.vite frontend/dist frontend/.vite 2>/dev/null || true
     rm -rf backend/storage/framework/cache/data/* 2>/dev/null || true
-    rm -rf backend/storage/logs/*.log 2>/dev/null || true
+    
+    # Don't delete logs, just rotate them
+    if [ -f "backend/storage/logs/laravel.log" ]; then
+        if [ $(wc -l < "backend/storage/logs/laravel.log") -gt 1000 ]; then
+            tail -n 500 "backend/storage/logs/laravel.log" > "backend/storage/logs/laravel.log.tmp" 2>/dev/null || true
+            mv "backend/storage/logs/laravel.log.tmp" "backend/storage/logs/laravel.log" 2>/dev/null || true
+        fi
+    fi
     
 # Only remove dangling images and stopped containers
     docker container prune -f --filter "until=2h" 2>/dev/null || true
@@ -193,7 +224,8 @@ main() {
         exit 1
     fi
     
-    # Quick cleanup before starting
+    # Port management and cleanup before starting
+    manage_ports
     quick_cleanup
     
     start_docker
