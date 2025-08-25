@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useQuery } from "@tanstack/react-query";
 import { documentService, Document } from "@/services/documents";
 import { useState } from "react";
-import { DocumentUploadModal } from "@/components/modals/DocumentUploadModal";
+import DocumentUploadModal from "@/components/documents/DocumentUploadModal";
 import { DocumentViewModal } from "@/components/modals/DocumentViewModal";
 import { DocumentShareModal } from "@/components/modals/DocumentShareModal";
 import { useAuth } from "@/contexts/AuthContext";
