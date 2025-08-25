@@ -25,7 +25,7 @@ import {
 import { User as AuthUser } from '@/contexts/AuthContext';
 import { profileService, ProfileResponse } from '@/services/profile';
 import { useToast } from '@/hooks/use-toast';
-import { ProfileEditModal } from '@/components/modals/ProfileEditModal';
+import ProfileEditModal from '@/components/profile/ProfileEditModal';
 import { PasswordChangeModal } from '@/components/modals/PasswordChangeModal';
 
 interface UserProfileProps {

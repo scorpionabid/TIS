@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
-import { ProfileEditModal } from '@/components/modals/ProfileEditModal';
+import ProfileEditModal from '@/components/profile/ProfileEditModal';
 import { PasswordChangeModal } from '@/components/modals/PasswordChangeModal';
 import { profileService } from '@/services/profile';
 

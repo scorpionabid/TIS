@@ -2,7 +2,7 @@ import { LogOutIcon, SettingsIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { profileService, ProfileResponse } from "@/services/profile";
-import { ProfileEditModal } from "@/components/modals/ProfileEditModal";
+import ProfileEditModal from "@/components/profile/ProfileEditModal";
 import { PasswordChangeModal } from "@/components/modals/PasswordChangeModal";
 
 interface SidebarFooterProps {
