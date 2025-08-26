@@ -12,10 +12,7 @@ import {
   Upload, 
   Download, 
   FileSpreadsheet, 
-  BarChart3, 
-  Users, 
-  Building, 
-  Hash,
+  BarChart3,
   CheckCircle,
   XCircle,
   AlertTriangle,
@@ -90,14 +87,6 @@ export const InstitutionImportExport: React.FC = () => {
     },
   });
 
-  // UTIS code generation mutation
-  const utisMutation = useMutation({
-    mutationFn: (type: 'users' | 'institutions' | 'both') => 
-      importService.generateMissingUtisCode(type),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['export-stats'] });
-    },
-  });
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -366,57 +355,6 @@ export const InstitutionImportExport: React.FC = () => {
         </Card>
       </div>
 
-      {/* UTIS Code Generation */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Hash className="h-5 w-5" />
-            UTIS Kod İdarəetməsi
-          </CardTitle>
-          <CardDescription>
-            Mövcud qeydlər üçün unikal 8 rəqəmli UTIS kodları yaradın
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-3">
-            <Button 
-              variant="outline"
-              onClick={() => utisMutation.mutate('institutions')}
-              disabled={utisMutation.isPending}
-            >
-              {utisMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Building className="h-4 w-4 mr-2" />
-              )}
-              Müəssisələr üçün kod yarat
-            </Button>
-            <Button 
-              variant="outline"
-              onClick={() => utisMutation.mutate('users')}
-              disabled={utisMutation.isPending}
-            >
-              {utisMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Users className="h-4 w-4 mr-2" />
-              )}
-              İstifadəçilər üçün kod yarat
-            </Button>
-            <Button 
-              onClick={() => utisMutation.mutate('both')}
-              disabled={utisMutation.isPending}
-            >
-              {utisMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Hash className="h-4 w-4 mr-2" />
-              )}
-              Hamısı üçün kod yarat
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

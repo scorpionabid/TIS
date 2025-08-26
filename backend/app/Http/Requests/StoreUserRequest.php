@@ -25,6 +25,7 @@ class StoreUserRequest extends FormRequest
         return [
             'username' => 'required|string|min:3|max:50|unique:users',
             'email' => 'required|string|email|max:100|unique:users',
+            'utis_code' => 'nullable|string|regex:/^\d{1,12}$/|unique:users,utis_code',
             'password' => 'required|string|min:8',
             'role_id' => [
             'required',

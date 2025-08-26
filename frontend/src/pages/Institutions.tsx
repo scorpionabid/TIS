@@ -10,7 +10,7 @@ import { User, userService, UserFilters } from "@/services/users";
 import { InstitutionModal } from "@/components/modals/InstitutionModal";
 import { DeleteInstitutionModal } from "@/components/modals/DeleteInstitutionModal";
 import { InstitutionDetailsModal } from "@/components/modals/InstitutionDetailsModal";
-import InstitutionImportExport from "@/components/superadmin/InstitutionImportExport";
+import { InstitutionImportExportModal } from "@/components/modals/InstitutionImportExportModal";
 import { useState } from "react";
 import React, { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -30,7 +30,7 @@ const Institutions = () => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [institutionToDelete, setInstitutionToDelete] = useState<Institution | null>(null);
   const [institutionAdmins, setInstitutionAdmins] = useState<Record<number, User | null>>({});
-  const [showImportExport, setShowImportExport] = useState(false);
+  const [isImportExportModalOpen, setIsImportExportModalOpen] = useState(false);
   
   // Filter states
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -467,23 +467,11 @@ const Institutions = () => {
               <Button 
                 variant="outline" 
                 className="flex items-center gap-2" 
-                onClick={() => {
-                  console.log('🔄 Toggle import/export:', !showImportExport, 'Current user role:', currentUser?.role);
-                  setShowImportExport(!showImportExport);
-                }}
+                onClick={() => setIsImportExportModalOpen(true)}
                 title="Müəssisələri idxal və ixrac et"
               >
-                {showImportExport ? (
-                  <>
-                    <X className="h-4 w-4" />
-                    Bağla
-                  </>
-                ) : (
-                  <>
-                    <Upload className="h-4 w-4" />
-                    İdxal/İxrac
-                  </>
-                )}
+                <Upload className="h-4 w-4" />
+                İdxal/İxrac
               </Button>
               <Button 
                 variant="outline" 
@@ -1050,13 +1038,6 @@ const Institutions = () => {
         />
       )}
 
-      {/* Import/Export Section */}
-      {showImportExport && currentUser?.role === 'superadmin' && (
-        <div className="mt-6">
-          <InstitutionImportExport />
-        </div>
-      )}
-
       <InstitutionModal
         open={isModalOpen}
         onClose={() => {
@@ -1078,6 +1059,15 @@ const Institutions = () => {
         onClose={handleCloseDeleteModal}
         institution={institutionToDelete}
         onDelete={handleDelete}
+      />
+
+      <InstitutionImportExportModal
+        open={isImportExportModalOpen}
+        onClose={() => setIsImportExportModalOpen(false)}
+        onImportComplete={() => {
+          queryClient.invalidateQueries({ queryKey: ['institutions'] });
+          setIsImportExportModalOpen(false);
+        }}
       />
     </div>
   );

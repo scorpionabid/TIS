@@ -29,6 +29,7 @@ class User extends Authenticatable
     protected $fillable = [
         'username',
         'email',
+        'utis_code',
         'password',
         'role_id',
         'institution_id',
@@ -144,6 +145,14 @@ class User extends Authenticatable
     public function devices(): HasMany
     {
         return $this->hasMany(UserDevice::class);
+    }
+
+    /**
+     * Get the student enrollments for this user.
+     */
+    public function studentEnrollments(): HasMany
+    {
+        return $this->hasMany(StudentEnrollment::class, 'student_id');
     }
 
     /**

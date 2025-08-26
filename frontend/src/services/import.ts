@@ -13,7 +13,7 @@ class ImportService {
   }
 
   async downloadTemplate(type: 'students' | 'teachers' | 'institutions'): Promise<Blob> {
-    const response = await apiClient.get(`${this.baseEndpoint}/template/download/${type}`, {
+    const response = await apiClient.get(`${this.baseEndpoint}/template/download/${type}`, undefined, {
       responseType: 'blob'
     });
     return response.data;
@@ -53,8 +53,7 @@ class ImportService {
     search?: string;
     format?: 'xlsx' | 'csv';
   } = {}): Promise<Blob> {
-    const response = await apiClient.get(`${this.baseEndpoint}/export/institutions`, {
-      params: filters,
+    const response = await apiClient.get(`${this.baseEndpoint}/export/institutions`, filters, {
       responseType: 'blob'
     });
     return response.data;

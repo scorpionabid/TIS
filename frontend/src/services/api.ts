@@ -272,8 +272,8 @@ class ApiClient {
     }
   }
 
-  async get<T>(endpoint: string, params?: Record<string, any>): Promise<ApiResponse<T>> {
-    console.log(`🌐 API GET request: baseURL=${this.baseURL}, endpoint=${endpoint}`, { params });
+  async get<T>(endpoint: string, params?: Record<string, any>, options?: { responseType?: 'json' | 'blob' }): Promise<ApiResponse<T>> {
+    console.log(`🌐 API GET request: baseURL=${this.baseURL}, endpoint=${endpoint}`, { params, options });
     console.log('🔍 baseURL type:', typeof this.baseURL, 'value:', this.baseURL);
     console.log('🔍 endpoint type:', typeof endpoint, 'value:', endpoint);
     
@@ -313,6 +313,30 @@ class ApiClient {
       headers: this.getHeaders(),
       credentials: 'include',
     });
+
+    // Handle blob responses
+    if (options?.responseType === 'blob') {
+      console.log(`📥 Blob Response: ${response.status} ${response.statusText}`, { 
+        url: response.url, 
+        contentType: response.headers.get('content-type'),
+        contentLength: response.headers.get('content-length')
+      });
+      
+      if (!response.ok) {
+        // For blob responses, still try to get error message if it's JSON
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        } else {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+      }
+      
+      const blob = await response.blob();
+      console.log('📦 Blob downloaded successfully:', blob.size, 'bytes');
+      return { data: blob } as ApiResponse<T>;
+    }
 
     return this.handleResponse<T>(response);
   }

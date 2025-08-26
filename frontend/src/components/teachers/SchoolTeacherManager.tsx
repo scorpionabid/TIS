@@ -12,6 +12,7 @@ import { TeacherStatsCards } from './TeacherStatsCards';
 import { TeacherFilters } from './TeacherFilters';
 import { UserModal } from '@/components/modals/UserModal';
 import { ImportModal } from '@/components/import/ImportModal';
+import { TeacherImportExportModal } from '@/components/modals/TeacherImportExportModal';
 import { DeleteModal } from '@/components/modals/DeleteModal';
 import { usePagination } from '@/hooks/usePagination';
 import { TablePagination } from '@/components/common/TablePagination';
@@ -26,6 +27,7 @@ interface SchoolTeacherManagerProps {
 export const SchoolTeacherManager: React.FC<SchoolTeacherManagerProps> = ({ className }) => {
   // Local state for import modal (not in generic hook)
   const [importModalOpen, setImportModalOpen] = React.useState(false);
+  const [teacherImportExportModalOpen, setTeacherImportExportModalOpen] = React.useState(false);
   const [institutionFilter, setInstitutionFilter] = React.useState<string>('all');
   const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
   const [teacherToDelete, setTeacherToDelete] = React.useState<any>(null);
@@ -276,13 +278,9 @@ export const SchoolTeacherManager: React.FC<SchoolTeacherManagerProps> = ({ clas
             <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
             Yenilə
           </Button>
-          <Button variant="outline" onClick={() => setImportModalOpen(true)}>
+          <Button variant="outline" onClick={() => setTeacherImportExportModalOpen(true)}>
             <Upload className="h-4 w-4 mr-2" />
-            İdxal et
-          </Button>
-          <Button variant="outline" onClick={handleExportTeachers}>
-            <Download className="h-4 w-4 mr-2" />
-            İxrac et
+            İdxal/İxrac
           </Button>
           <Button 
             onClick={() => {
@@ -534,6 +532,11 @@ export const SchoolTeacherManager: React.FC<SchoolTeacherManagerProps> = ({ clas
         itemName={teacherToDelete?.name || `${teacherToDelete?.first_name} ${teacherToDelete?.last_name}`.trim() || teacherToDelete?.email || 'Müəllim'}
         itemType="Müəllim"
         isLoading={isUpdating}
+      />
+
+      <TeacherImportExportModal
+        isOpen={teacherImportExportModalOpen}
+        onClose={() => setTeacherImportExportModalOpen(false)}
       />
     </div>
   );

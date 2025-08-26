@@ -110,6 +110,12 @@ Route::prefix('students')->middleware('auth:sanctum')->group(function () {
     Route::get('/reports/demographics', [App\Http\Controllers\StudentController::class, 'getDemographicsReport'])->middleware('permission:students.reports');
     Route::post('/import', [App\Http\Controllers\StudentController::class, 'import'])->middleware('permission:students.import');
     Route::get('/export', [App\Http\Controllers\StudentController::class, 'export'])->middleware('permission:students.export');
+    
+    // New bulk import/export endpoints
+    Route::get('/bulk/download-template', [App\Http\Controllers\StudentController::class, 'downloadTemplate'])->middleware('permission:students.import');
+    Route::post('/bulk/import', [App\Http\Controllers\StudentController::class, 'importStudents'])->middleware('permission:students.import');
+    Route::post('/bulk/export', [App\Http\Controllers\StudentController::class, 'exportStudents'])->middleware('permission:students.export');
+    Route::get('/bulk/statistics', [App\Http\Controllers\StudentController::class, 'getExportStats'])->middleware('permission:students.read');
 });
 
 // Class Management Routes

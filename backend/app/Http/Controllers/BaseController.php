@@ -6,6 +6,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Exception;
 
 abstract class BaseController extends Controller
@@ -99,11 +100,18 @@ abstract class BaseController extends Controller
     /**
      * Execute action with error handling and logging
      */
-    protected function executeWithErrorHandling(callable $action, string $operation, array $context = []): JsonResponse
+    protected function executeWithErrorHandling(callable $action, string $operation, array $context = [])
     {
         try {
             $result = $action();
-            return $result instanceof JsonResponse ? $result : $this->successResponse($result);
+            // Handle different response types
+            if ($result instanceof JsonResponse) {
+                return $result;
+            } elseif ($result instanceof BinaryFileResponse) {
+                return $result;
+            } else {
+                return $this->successResponse($result);
+            }
         } catch (ValidationException $e) {
             Log::warning("Validation failed for {$operation}", array_merge($context, [
                 'errors' => $e->errors()

@@ -37,7 +37,7 @@ import { StudentCard } from "@/components/students/StudentCard";
 import { StudentDetailsDialog } from "@/components/students/StudentDetailsDialog";
 import { EnrollmentModal } from "@/components/students/EnrollmentModal";
 import { UserModal } from "@/components/modals/UserModal";
-import { ImportModal } from "@/components/import/ImportModal";
+import { StudentImportExportModal } from "@/components/modals/StudentImportExportModal";
 
 interface Institution {
   id: number;
@@ -85,7 +85,7 @@ export default function Students() {
   // Modal state
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isImportExportModalOpen, setIsImportExportModalOpen] = useState(false);
   const [isEnrollmentModalOpen, setIsEnrollmentModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   
@@ -477,13 +477,9 @@ export default function Students() {
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Yenilə
           </Button>
-          <Button variant="outline" onClick={() => setIsImportModalOpen(true)}>
+          <Button variant="outline" onClick={() => setIsImportExportModalOpen(true)}>
             <Upload className="h-4 w-4 mr-2" />
-            İdxal et
-          </Button>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            İxrac et
+            İdxal/İxrac
           </Button>
           {['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(user?.role || '') && (
             <Button 
@@ -829,14 +825,9 @@ export default function Students() {
         userType="student"
       />
 
-      <ImportModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        importType="students"
-        onImportComplete={() => {
-          queryClient.invalidateQueries({ queryKey: ['students'] });
-          setIsImportModalOpen(false);
-        }}
+      <StudentImportExportModal
+        isOpen={isImportExportModalOpen}
+        onClose={() => setIsImportExportModalOpen(false)}
       />
 
       <EnrollmentModal

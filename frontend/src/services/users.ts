@@ -7,6 +7,7 @@ export interface User {
   name?: string; // computed field (first_name + last_name)
   email: string;
   username: string;
+  utis_code?: string;
   role_id: string;
   role?: string;
   permissions: string[];
@@ -37,6 +38,7 @@ export interface CreateUserData {
   last_name: string;
   email: string;
   username: string;
+  utis_code?: string;
   password: string;
   role_id: string;
   contact_phone?: string;
@@ -50,6 +52,7 @@ export interface UpdateUserData {
   last_name?: string;
   email?: string;
   username?: string;
+  utis_code?: string;
   role_id?: string;
   contact_phone?: string;
   is_active?: boolean;
@@ -224,6 +227,168 @@ class UserService {
     }
     
     return [];
+  }
+
+  // Role-based import/export methods for Users page
+  async downloadRoleTemplate(roleId: string): Promise<Blob> {
+    const response = await fetch(`${apiClient['baseURL']}/users/bulk/download-template?role_id=${roleId}`, {
+      method: 'GET',
+      headers: apiClient['getHeaders'](),
+    });
+
+    if (!response.ok) {
+      throw new Error('Template download failed');
+    }
+
+    return response.blob();
+  }
+
+  async importUsersByRole(file: File, roleId: string): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('role_id', roleId);
+
+    const response = await fetch(`${apiClient['baseURL']}/users/bulk/import`, {
+      method: 'POST',
+      headers: {
+        ...apiClient['getHeaders'](),
+        'Content-Type': undefined, // Let the browser set the content type for FormData
+      },
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || result.error || 'Import failed');
+    }
+
+    return result;
+  }
+
+  async exportUsersByRole(roleId: string, filters?: any): Promise<Blob> {
+    const response = await fetch(`${apiClient['baseURL']}/users/bulk/export`, {
+      method: 'POST',
+      headers: apiClient['getHeaders'](),
+      body: JSON.stringify({
+        role_id: roleId,
+        filters: filters || {}
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Export failed');
+    }
+
+    return response.blob();
+  }
+
+  // Legacy methods for backward compatibility with other pages
+  async downloadTemplate(userType: 'teachers' | 'students' | 'staff'): Promise<Blob> {
+    const response = await fetch(`${apiClient['baseURL']}/users/bulk/download-template?user_type=${userType}`, {
+      method: 'GET',
+      headers: apiClient['getHeaders'](),
+    });
+
+    if (!response.ok) {
+      throw new Error('Template download failed');
+    }
+
+    return response.blob();
+  }
+
+  async importUsers(file: File, userType: 'teachers' | 'students' | 'staff'): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('user_type', userType);
+
+    const response = await fetch(`${apiClient['baseURL']}/users/bulk/import`, {
+      method: 'POST',
+      headers: {
+        ...apiClient['getHeaders'](),
+        'Content-Type': undefined, // Let the browser set the content type for FormData
+      },
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || result.error || 'Import failed');
+    }
+
+    return result;
+  }
+
+  async exportUsersByType(userType: 'teachers' | 'students' | 'staff', filters?: any): Promise<Blob> {
+    const response = await fetch(`${apiClient['baseURL']}/users/bulk/export`, {
+      method: 'POST',
+      headers: apiClient['getHeaders'](),
+      body: JSON.stringify({
+        user_type: userType,
+        filters: filters || {}
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Export failed');
+    }
+
+    return response.blob();
+  }
+
+  async getExportStats(filters?: any): Promise<any> {
+    const response = await apiClient.get('/users/bulk/statistics', filters);
+    
+    if (response.data) {
+      return response.data;
+    }
+    
+    return {
+      total_users: 0,
+      active_users: 0,
+      inactive_users: 0,
+      teachers: 0,
+      students: 0,
+      staff: 0
+    };
+  }
+
+  validateFile(file: File): {valid: boolean, error?: string} {
+    // Check file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      return {
+        valid: false,
+        error: 'Fayl ölçüsü çox böyükdür (maksimum 10MB)'
+      };
+    }
+
+    // Check file type
+    const validTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-excel', // .xls
+      'text/csv' // .csv
+    ];
+
+    if (!validTypes.includes(file.type)) {
+      return {
+        valid: false,
+        error: 'Yalnız Excel (.xlsx, .xls) və CSV faylları dəstəklənir'
+      };
+    }
+
+    return { valid: true };
+  }
+
+  downloadFileBlob(blob: Blob, filename: string): void {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
 }

@@ -141,9 +141,15 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
       placeholder: 'AZE1234567',
     }),
     createField('utis_code', 'UTIS Kodu', 'text', {
-      placeholder: 'Avtomatik yaradılacaq',
-      disabled: true,
-      description: '7 rəqəmli unikal kod avtomatik təyin ediləcək',
+      placeholder: '12 rəqəmə qədər',
+      description: 'Yalnız rəqəmlər daxil edin (maksimum 12 rəqəm, məcburi deyil)',
+      validation: (value: string) => {
+        if (!value) return true; // Optional field
+        if (!/^\d{1,12}$/.test(value)) {
+          return '1-12 arası yalnız rəqəmlər daxil edin';
+        }
+        return true;
+      },
     }),
     createField('role_id', 'Rol', 'select', {
       required: true,

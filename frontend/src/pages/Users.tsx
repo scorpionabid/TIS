@@ -3,12 +3,13 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, UserIcon, Mail, Phone, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter, FileDown } from "lucide-react";
+import { Plus, Edit, Trash2, UserIcon, Mail, Phone, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter, FileDown, Upload } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { User, CreateUserData, UpdateUserData, userService } from "@/services/users";
 import { UserModal } from "@/components/modals/UserModal";
 import { DeleteConfirmationModal } from "@/components/modals/DeleteConfirmationModal";
+import { UserImportExportModal } from "@/components/modals/UserImportExportModal";
 import { useToast } from "@/hooks/use-toast";
 import { usePagination } from "@/hooks/usePagination";
 import { TablePagination } from "@/components/common/TablePagination";
@@ -61,6 +62,7 @@ export default function Users() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [isImportExportModalOpen, setIsImportExportModalOpen] = useState(false);
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [searchTerm, setSearchTerm] = useState('');
@@ -386,6 +388,13 @@ export default function Users() {
             <FileDown className="h-4 w-4" />
             Export
           </Button>
+          {/* Import/Export Modal - accessible to administrative roles */}
+          {currentUser?.role && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role) && (
+            <Button variant="outline" onClick={() => setIsImportExportModalOpen(true)} className="flex items-center gap-2">
+              <Upload className="h-4 w-4" />
+              İdxal/İxrac
+            </Button>
+          )}
           {/* Only administrative roles can create new users */}
           {currentUser?.role && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role) && (
             <Button className="flex items-center gap-2" onClick={() => handleOpenModal()}>
@@ -635,6 +644,12 @@ export default function Users() {
         item={userToDelete}
         onConfirm={handleDeleteConfirm}
         itemType="istifadəçi"
+      />
+
+      {/* User Import/Export Modal */}
+      <UserImportExportModal
+        isOpen={isImportExportModalOpen}
+        onClose={() => setIsImportExportModalOpen(false)}
       />
     </div>
   );

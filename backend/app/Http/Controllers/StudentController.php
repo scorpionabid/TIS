@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class StudentController extends Controller
 {
@@ -662,5 +665,379 @@ class StudentController extends Controller
         }
 
         return false;
+    }
+
+    /**
+     * Download student import template
+     */
+    public function downloadTemplate(Request $request)
+    {
+        $fileName = 'student_import_template_' . date('Y-m-d_H-i-s') . '.xlsx';
+        
+        // Create a simple student template
+        $headers = [
+            'first_name',
+            'last_name', 
+            'email',
+            'student_number',
+            'date_of_birth',
+            'gender',
+            'phone',
+            'address',
+            'guardian_name',
+            'guardian_phone',
+            'guardian_email',
+            'class_name',
+            'enrollment_date'
+        ];
+        
+        $filePath = storage_path('app/temp/' . $fileName);
+        
+        // Ensure temp directory exists
+        if (!file_exists(dirname($filePath))) {
+            mkdir(dirname($filePath), 0755, true);
+        }
+        
+        // Create Excel file with headers
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        
+        // Set headers
+        foreach ($headers as $index => $header) {
+            $sheet->setCellValue(chr(65 + $index) . '1', $header);
+        }
+        
+        // Add some example data
+        $exampleData = [
+            'Əli', 'Məmmədov', 'ali.mammadov@example.com', 'ST2024001', '2010-05-15', 'Kişi', 
+            '+994501234567', 'Bakı şəhəri', 'Rəşid Məmmədov', '+994501234568', 'rashid@example.com', 
+            '5A', '2024-09-01'
+        ];
+        
+        foreach ($exampleData as $index => $data) {
+            $sheet->setCellValue(chr(65 + $index) . '2', $data);
+        }
+        
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer->save($filePath);
+        
+        return response()->download($filePath)->deleteFileAfterSend();
+    }
+
+    /**
+     * Import students from Excel file
+     */
+    public function importStudents(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'file' => 'required|file|mimes:xlsx,xls|max:10240'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $user = $request->user();
+        $institution = $user->institution;
+
+        if (!$institution && !$user->hasRole('superadmin')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User must be associated with an institution'
+            ], 403);
+        }
+
+        $file = $request->file('file');
+        $created = 0;
+        $errors = [];
+
+        try {
+            $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader('Xlsx');
+            $spreadsheet = $reader->load($file->getPathname());
+            $worksheet = $spreadsheet->getActiveSheet();
+            $rows = $worksheet->toArray();
+
+            // Skip header row
+            array_shift($rows);
+
+            foreach ($rows as $rowIndex => $row) {
+                if (empty(array_filter($row))) continue; // Skip empty rows
+
+                try {
+                    DB::beginTransaction();
+
+                    // Validate required fields
+                    if (empty($row[0]) || empty($row[1])) {
+                        throw new \Exception('First name and last name are required');
+                    }
+
+                    // Check if student already exists
+                    $existingUser = User::where('email', $row[2])->first();
+                    if ($existingUser) {
+                        throw new \Exception('Email already exists: ' . $row[2]);
+                    }
+
+                    // Create user
+                    $user = User::create([
+                        'first_name' => $row[0],
+                        'last_name' => $row[1],
+                        'email' => $row[2] ?? $this->generateStudentEmail($row[0], $row[1]),
+                        'username' => $this->generateStudentUsername($row[0], $row[1]),
+                        'password' => Hash::make('student123'), // Default password
+                        'institution_id' => $institution->id ?? null,
+                        'is_active' => true
+                    ]);
+
+                    // Assign student role
+                    $user->assignRole('şagird');
+
+                    // Create profile
+                    $user->profile()->create([
+                        'first_name' => $row[0],
+                        'last_name' => $row[1],
+                        'date_of_birth' => !empty($row[4]) ? Carbon::parse($row[4])->format('Y-m-d') : null,
+                        'gender' => $row[5] ?? null,
+                        'contact_phone' => $row[6] ?? null,
+                        'address' => $row[7] ?? null,
+                        'guardian_name' => $row[8] ?? null,
+                        'guardian_phone' => $row[9] ?? null,
+                        'guardian_email' => $row[10] ?? null,
+                    ]);
+
+                    // Create student enrollment if class is specified
+                    if (!empty($row[11])) {
+                        $grade = Grade::where('name', $row[11])->first();
+                        if ($grade) {
+                            StudentEnrollment::create([
+                                'user_id' => $user->id,
+                                'grade_id' => $grade->id,
+                                'academic_year_id' => AcademicYear::current()->id ?? null,
+                                'enrollment_date' => !empty($row[12]) ? Carbon::parse($row[12])->format('Y-m-d') : now(),
+                                'status' => 'active'
+                            ]);
+                        }
+                    }
+
+                    DB::commit();
+                    $created++;
+
+                } catch (\Exception $e) {
+                    DB::rollBack();
+                    $errors[] = "Row " . ($rowIndex + 2) . ": " . $e->getMessage();
+                }
+            }
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Import failed: ' . $e->getMessage()
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Import completed',
+            'created' => $created,
+            'errors' => $errors
+        ]);
+    }
+
+    /**
+     * Export students
+     */
+    public function exportStudents(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'filters' => 'sometimes|array',
+            'format' => 'sometimes|in:xlsx,csv'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $user = $request->user();
+        $filters = $request->input('filters', []);
+        $format = $request->input('format', 'xlsx');
+
+        $query = User::whereHas('roles', function ($q) {
+            $q->where('name', 'şagird');
+        })->with(['profile', 'studentEnrollment.grade', 'institution']);
+
+        // Apply filters
+        if (!empty($filters['is_active'])) {
+            $query->where('is_active', $filters['is_active'] === 'true');
+        }
+
+        if (!empty($filters['class_id'])) {
+            $query->whereHas('studentEnrollment', function ($q) use ($filters) {
+                $q->where('grade_id', $filters['class_id']);
+            });
+        }
+
+        // Apply institution filtering based on user role
+        if (!$user->hasRole('superadmin')) {
+            if ($user->hasRole('regionadmin')) {
+                $query->whereHas('institution', function ($q) use ($user) {
+                    $q->where('parent_id', $user->institution_id)
+                      ->orWhere('id', $user->institution_id);
+                });
+            } else {
+                $query->where('institution_id', $user->institution_id);
+            }
+        }
+
+        $students = $query->get();
+
+        // Create Excel/CSV file
+        $fileName = 'students_export_' . date('Y-m-d_H-i-s') . '.' . $format;
+        $filePath = storage_path('app/temp/' . $fileName);
+
+        if (!file_exists(dirname($filePath))) {
+            mkdir(dirname($filePath), 0755, true);
+        }
+
+        if ($format === 'xlsx') {
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+
+            // Set headers
+            $headers = ['First Name', 'Last Name', 'Email', 'Student Number', 'Date of Birth', 
+                       'Gender', 'Phone', 'Address', 'Class', 'Institution', 'Status'];
+            
+            foreach ($headers as $index => $header) {
+                $sheet->setCellValue(chr(65 + $index) . '1', $header);
+            }
+
+            // Add data
+            $row = 2;
+            foreach ($students as $student) {
+                $sheet->setCellValue('A' . $row, $student->first_name);
+                $sheet->setCellValue('B' . $row, $student->last_name);
+                $sheet->setCellValue('C' . $row, $student->email);
+                $sheet->setCellValue('D' . $row, $student->student_number ?? '');
+                $sheet->setCellValue('E' . $row, $student->profile->date_of_birth ?? '');
+                $sheet->setCellValue('F' . $row, $student->profile->gender ?? '');
+                $sheet->setCellValue('G' . $row, $student->profile->contact_phone ?? '');
+                $sheet->setCellValue('H' . $row, $student->profile->address ?? '');
+                $sheet->setCellValue('I' . $row, $student->studentEnrollment->grade->name ?? '');
+                $sheet->setCellValue('J' . $row, $student->institution->name ?? '');
+                $sheet->setCellValue('K' . $row, $student->is_active ? 'Active' : 'Inactive');
+                $row++;
+            }
+
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer->save($filePath);
+        }
+
+        return response()->download($filePath)->deleteFileAfterSend();
+    }
+
+    /**
+     * Get export statistics
+     */
+    public function getExportStats(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $filters = $request->all();
+
+        $query = User::whereHas('roles', function ($q) {
+            $q->where('name', 'şagird');
+        });
+
+        // Apply institution filtering based on user role
+        if (!$user->hasRole('superadmin')) {
+            if ($user->hasRole('regionadmin')) {
+                $query->whereHas('institution', function ($q) use ($user) {
+                    $q->where('parent_id', $user->institution_id)
+                      ->orWhere('id', $user->institution_id);
+                });
+            } else {
+                $query->where('institution_id', $user->institution_id);
+            }
+        }
+
+        $totalStudents = $query->count();
+        $activeStudents = $query->where('is_active', true)->count();
+        $inactiveStudents = $totalStudents - $activeStudents;
+
+        // Get by class stats
+        $byClass = $query->with('studentEnrollment.grade')
+                         ->get()
+                         ->groupBy(function($student) {
+                             return $student->studentEnrollment->grade->name ?? 'No Class';
+                         })
+                         ->map(function($group) {
+                             return $group->count();
+                         })
+                         ->toArray();
+
+        // Get by institution stats
+        $byInstitution = $query->with('institution')
+                              ->get()
+                              ->groupBy(function($student) {
+                                  return $student->institution->name ?? 'No Institution';
+                              })
+                              ->map(function($group) {
+                                  return $group->count();
+                              })
+                              ->toArray();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'total_students' => $totalStudents,
+                'active_students' => $activeStudents,
+                'inactive_students' => $inactiveStudents,
+                'by_class' => $byClass,
+                'by_institution' => $byInstitution
+            ]
+        ]);
+    }
+
+    /**
+     * Generate student email
+     */
+    private function generateStudentEmail($firstName, $lastName): string
+    {
+        $base = strtolower(str_replace(' ', '.', $firstName . '.' . $lastName));
+        $base = preg_replace('/[^a-z0-9.]/', '', $base);
+        
+        $counter = 1;
+        $email = $base . '@student.atis.az';
+        
+        while (User::where('email', $email)->exists()) {
+            $email = $base . $counter . '@student.atis.az';
+            $counter++;
+        }
+        
+        return $email;
+    }
+
+    /**
+     * Generate student username
+     */
+    private function generateStudentUsername($firstName, $lastName): string
+    {
+        $base = strtolower(str_replace(' ', '', $firstName . $lastName));
+        $base = preg_replace('/[^a-z0-9]/', '', $base);
+        
+        $counter = 1;
+        $username = $base;
+        
+        while (User::where('username', $username)->exists()) {
+            $username = $base . $counter;
+            $counter++;
+        }
+        
+        return $username;
     }
 }

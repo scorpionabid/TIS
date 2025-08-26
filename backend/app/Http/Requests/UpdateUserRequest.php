@@ -24,6 +24,7 @@ class UpdateUserRequest extends FormRequest
         return [
             'username' => 'sometimes|string|min:3|max:50|unique:users,username,' . $this->route('user')->id,
             'email' => 'sometimes|string|email|max:100|unique:users,email,' . $this->route('user')->id,
+            'utis_code' => 'nullable|string|regex:/^\d{1,12}$/|unique:users,utis_code,' . $this->route('user')->id,
             'role_id' => 'sometimes|exists:roles,id',
             'institution_id' => 'nullable|exists:institutions,id',
             'department_id' => 'nullable|exists:departments,id',

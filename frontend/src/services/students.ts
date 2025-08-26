@@ -197,6 +197,98 @@ class StudentService {
       throw new Error(error.response?.data?.message || 'Şagird sayı yüklənərkən xəta baş verdi');
     }
   }
+
+  /**
+   * Download student import template
+   */
+  async downloadTemplate(): Promise<Blob> {
+    const response = await fetch(`${apiClient['baseURL']}/students/bulk/download-template`, {
+      method: 'GET',
+      headers: apiClient['getHeaders'](),
+    });
+
+    if (!response.ok) {
+      throw new Error('Template download failed');
+    }
+
+    return response.blob();
+  }
+
+  /**
+   * Import students from file
+   */
+  async importStudents(file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${apiClient['baseURL']}/students/bulk/import`, {
+      method: 'POST',
+      headers: {
+        Authorization: apiClient['getHeaders']().Authorization,
+        // Don't set Content-Type for FormData
+      },
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || result.error || 'Import failed');
+    }
+
+    return result;
+  }
+
+  /**
+   * Export students with filters
+   */
+  async exportStudents(filters?: any): Promise<Blob> {
+    const response = await fetch(`${apiClient['baseURL']}/students/bulk/export`, {
+      method: 'POST',
+      headers: apiClient['getHeaders'](),
+      body: JSON.stringify({
+        filters: filters || {}
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Export failed');
+    }
+
+    return response.blob();
+  }
+
+  /**
+   * Get export statistics
+   */
+  async getExportStats(filters?: any): Promise<any> {
+    try {
+      const response = await apiClient.get('/students/bulk/statistics', filters);
+      
+      if (response.data && response.data.data) {
+        return response.data.data;
+      } else if (response.data) {
+        return response.data;
+      }
+      
+      return {
+        total_students: 0,
+        active_students: 0,
+        inactive_students: 0,
+        by_class: {},
+        by_institution: {}
+      };
+    } catch (error) {
+      console.error('Error fetching export stats:', error);
+      return {
+        total_students: 0,
+        active_students: 0,
+        inactive_students: 0,
+        by_class: {},
+        by_institution: {}
+      };
+    }
+  }
 }
 
 export const studentService = new StudentService();

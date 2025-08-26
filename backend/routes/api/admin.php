@@ -3,6 +3,7 @@
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserUtilityController;
 use App\Http\Controllers\InstitutionController;
+use App\Http\Controllers\Institution\InstitutionCRUDController;
 use App\Http\Controllers\InstitutionTypeController;
 use App\Http\Controllers\InstitutionHierarchyController;
 use App\Http\Controllers\InstitutionDepartmentController;
@@ -57,6 +58,26 @@ Route::middleware('permission:users.write')->group(function () {
     Route::post('users/bulk-delete', [UserController::class, 'bulkDelete']);
 });
 
+// User bulk import/export operations
+Route::prefix('users/bulk')->middleware('permission:users.write')->group(function () {
+    Route::post('activate', [App\Http\Controllers\UserBulkController::class, 'activate']);
+    Route::post('deactivate', [App\Http\Controllers\UserBulkController::class, 'deactivate']);
+    Route::post('assign-role', [App\Http\Controllers\UserBulkController::class, 'assignRole']);
+    Route::post('assign-institution', [App\Http\Controllers\UserBulkController::class, 'assignInstitution']);
+    Route::post('delete', [App\Http\Controllers\UserBulkController::class, 'delete']);
+    Route::post('preview', [App\Http\Controllers\UserBulkController::class, 'preview']);
+    
+    // Import/Export routes
+    Route::post('import', [App\Http\Controllers\UserBulkController::class, 'importUsers']);
+    Route::post('export', [App\Http\Controllers\UserBulkController::class, 'exportUsers']);
+});
+
+// User bulk read operations (templates and statistics)
+Route::middleware('permission:users.read')->group(function () {
+    Route::get('users/bulk/download-template', [App\Http\Controllers\UserBulkController::class, 'downloadTemplate']);
+    Route::get('users/bulk/statistics', [App\Http\Controllers\UserBulkController::class, 'statistics']);
+});
+
 // Users helper endpoints
 Route::middleware('permission:users.read')->group(function () {
     Route::get('users/search/{query}', [UserController::class, 'search']);
@@ -88,6 +109,16 @@ Route::middleware('permission:institutions.write')->group(function () {
     Route::post('institutions', [InstitutionController::class, 'store']);
     Route::put('institutions/{institution}', [InstitutionController::class, 'update']);
     Route::delete('institutions/{institution}', [InstitutionController::class, 'destroy']);
+    
+    // Import/Export routes
+    Route::post('institutions/import/template', [InstitutionController::class, 'downloadImportTemplate']);
+    Route::post('institutions/import', [InstitutionController::class, 'importFromTemplate']);
+    Route::post('institutions/export', [InstitutionController::class, 'exportInstitutions']);
+    
+    // Type-based Import/Export routes
+    Route::post('institutions/import/template-by-type', [InstitutionCRUDController::class, 'downloadImportTemplateByType']);
+    Route::post('institutions/import-by-type', [InstitutionCRUDController::class, 'importFromTemplateByType']);
+    Route::post('institutions/export-by-type', [InstitutionCRUDController::class, 'exportInstitutionsByType']);
 });
 
 // Institution Types Management (SuperAdmin only)

@@ -38,6 +38,7 @@ export const InstitutionModal: React.FC<InstitutionModalProps> = ({
     manager_name: '',
     manager_phone: '',
     parent_id: undefined,
+    utis_code: '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -224,6 +225,7 @@ export const InstitutionModal: React.FC<InstitutionModalProps> = ({
         manager_name: contactInfo.manager_name || institution.manager_name || '',
         manager_phone: contactInfo.manager_phone || institution.manager_phone || '',
         parent_id: institution.parent_id,
+        utis_code: institution.utis_code || '',
       };
       
       console.log('📋 EDIT MODE: Setting form data:', newFormData);
@@ -242,6 +244,7 @@ export const InstitutionModal: React.FC<InstitutionModalProps> = ({
         manager_name: '',
         manager_phone: '',
         parent_id: undefined,
+        utis_code: '',
       };
       
       console.log('📋 CREATE MODE: Setting form data:', emptyFormData);
@@ -556,6 +559,21 @@ export const InstitutionModal: React.FC<InstitutionModalProps> = ({
                 placeholder="+994 XX XXX XX XX"
               />
             </div>
+          </div>
+
+          {/* UTIS Code */}
+          <div className="space-y-2">
+            <Label htmlFor="utis_code">UTIS Kodu (Könüllü)</Label>
+            <Input
+              id="utis_code"
+              value={formData.utis_code}
+              onChange={(e) => handleInputChange('utis_code', e.target.value.replace(/\D/g, '').slice(0, 8))}
+              placeholder="8 rəqəmli UTIS kodu"
+              maxLength={8}
+            />
+            <p className="text-xs text-muted-foreground">
+              UTIS kodu 8 rəqəmdən ibarət olmalıdır (məs: 12345678). Könüllüdür.
+            </p>
           </div>
 
           <DialogFooter>

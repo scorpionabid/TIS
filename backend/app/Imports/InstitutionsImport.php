@@ -55,14 +55,24 @@ class InstitutionsImport implements ToModel, WithHeadingRow, WithValidation, Wit
                 }
             }
 
-            // Generate UTIS code
-            $utisCode = !empty($row['utis_code']) && strlen($row['utis_code']) === 8 
-                ? $row['utis_code'] 
-                : UtisCodeService::generateInstitutionUtisCode();
-
-            // Validate UTIS code uniqueness
-            if (Institution::where('utis_code', $utisCode)->exists()) {
-                $utisCode = UtisCodeService::generateInstitutionUtisCode();
+            // Handle UTIS code (optional)
+            $utisCode = null;
+            if (!empty($row['utis_code'])) {
+                $utisCode = trim($row['utis_code']);
+                
+                // Validate UTIS code format (must be 8 digits)
+                if (!preg_match('/^\d{8}$/', $utisCode)) {
+                    Log::warning('Invalid UTIS code format (must be 8 digits):', ['utis_code' => $utisCode, 'row' => $row]);
+                    $this->errors[] = "Row {$row['name']}: UTIS kod 8 rəqəmli olmalıdır ({$utisCode})";
+                    return null;
+                }
+                
+                // Check if UTIS code already exists
+                if (Institution::where('utis_code', $utisCode)->exists()) {
+                    Log::warning('UTIS code already exists:', ['utis_code' => $utisCode, 'row' => $row]);
+                    $this->errors[] = "Row {$row['name']}: UTIS kod artıq mövcuddur ({$utisCode})";
+                    return null;
+                }
             }
 
             // Generate institution code if not provided
@@ -135,7 +145,7 @@ class InstitutionsImport implements ToModel, WithHeadingRow, WithValidation, Wit
             'staff_count' => 'nullable|integer|min:1',
             'founded_year' => 'nullable|integer|min:1900|max:' . date('Y'),
             'established_date' => 'nullable|date',
-            'utis_code' => 'nullable|string|size:8|unique:institutions,utis_code',
+            'utis_code' => 'nullable|string|regex:/^\d{8}$/|unique:institutions,utis_code',
         ];
     }
 
