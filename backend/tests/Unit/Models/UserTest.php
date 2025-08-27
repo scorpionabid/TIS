@@ -37,6 +37,7 @@ class UserTest extends ModelTestCase
     protected $fillableAttributes = [
         'username',
         'email',
+        'utis_code',
         'password',
         'role_id',
         'institution_id',
@@ -49,6 +50,7 @@ class UserTest extends ModelTestCase
         'locked_until',
         'email_verified_at',
         'remember_token',
+        'preferences',
     ];
 
     /**
@@ -76,6 +78,7 @@ class UserTest extends ModelTestCase
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
         'failed_login_attempts' => 'integer',
+        'preferences' => 'array',
     ];
 
     /**

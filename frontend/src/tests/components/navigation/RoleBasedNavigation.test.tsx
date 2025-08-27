@@ -1,10 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import { AuthContext } from '@/contexts/AuthContext';
+import React, { createContext } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { getMenuForRole } from '@/config/navigation';
 import { getPermissionBasedMenuStructure, hasPermission } from '@/components/layout/sidebar/menuStructure';
+
+// Mock AuthContext for testing
+const MockAuthContext = createContext<any>(undefined);
 
 // Mock user data for different roles
 const mockUsers = {
@@ -61,20 +65,29 @@ const mockAuthContextValue = (user: any) => ({
 const renderSidebarWithUser = (user: any) => {
   const mockOnNavigate = vi.fn();
   const mockOnLogout = vi.fn();
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
   
   return render(
-    <BrowserRouter>
-      <AuthContext.Provider value={mockAuthContextValue(user)}>
-        <Sidebar
-          userRole={user.role}
-          currentUser={user.name}
-          onNavigate={mockOnNavigate}
-          onLogout={mockOnLogout}
-          currentPath="/"
-          userPermissions={user.permissions}
-        />
-      </AuthContext.Provider>
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <MockAuthContext.Provider value={mockAuthContextValue(user)}>
+          <Sidebar
+            userRole={user.role}
+            currentUser={user.name}
+            onNavigate={mockOnNavigate}
+            onLogout={mockOnLogout}
+            currentPath="/"
+            userPermissions={user.permissions}
+          />
+        </MockAuthContext.Provider>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 };
 

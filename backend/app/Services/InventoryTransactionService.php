@@ -26,17 +26,15 @@ class InventoryTransactionService
             
             // Create assignment transaction
             $transaction = InventoryTransaction::create([
-                'inventory_item_id' => $item->id,
-                'type' => 'assignment',
+                'item_id' => $item->id,
+                'transaction_type' => 'assignment',
                 'status' => 'completed',
                 'user_id' => Auth::id(),
                 'assigned_to' => $newAssignedTo,
-                'from_user_id' => $oldAssignedTo,
-                'to_user_id' => $newAssignedTo,
+                'assigned_from' => $oldAssignedTo,
                 'description' => $data['notes'] ?? 'Item assigned to user',
                 'quantity' => $data['quantity'] ?? 1,
                 'transaction_date' => now(),
-                'expected_return_date' => $data['expected_return_date'] ?? null,
                 'notes' => $data['notes'] ?? null,
                 'location_from' => $item->location,
                 'location_to' => $data['location'] ?? $item->location
@@ -66,7 +64,7 @@ class InventoryTransactionService
                 'quantity' => $data['quantity'] ?? 1
             ]);
             
-            return $transaction->load(['item', 'user', 'assignedUser']);
+            return $transaction->load(['item', 'user', 'assignedToUser']);
         });
     }
     
@@ -83,19 +81,17 @@ class InventoryTransactionService
             
             // Create return transaction
             $transaction = InventoryTransaction::create([
-                'inventory_item_id' => $item->id,
-                'type' => 'return',
+                'item_id' => $item->id,
+                'transaction_type' => 'return',
                 'status' => 'completed',
                 'user_id' => Auth::id(),
-                'from_user_id' => $returnedBy,
+                'assigned_from' => $returnedBy,
                 'description' => $data['notes'] ?? 'Item returned',
                 'quantity' => $data['quantity'] ?? 1,
                 'transaction_date' => now(),
-                'condition_on_return' => $data['condition'] ?? $item->condition,
                 'notes' => $data['notes'] ?? null,
                 'location_from' => $item->location,
-                'location_to' => $data['return_location'] ?? $item->location,
-                'damage_report' => $data['damage_report'] ?? null
+                'location_to' => $data['return_location'] ?? $item->location
             ]);
             
             // Update item status
@@ -134,7 +130,7 @@ class InventoryTransactionService
                 'condition' => $data['condition'] ?? $item->condition
             ]);
             
-            return $transaction->load(['item', 'user', 'fromUser']);
+            return $transaction->load(['item', 'user', 'assignedFromUser']);
         });
     }
     
@@ -147,28 +143,31 @@ class InventoryTransactionService
             // Validate stock update
             $this->validateStockUpdate($item, $data);
             
-            $oldQuantity = $item->quantity;
-            $newQuantity = $data['quantity'];
-            $difference = $newQuantity - $oldQuantity;
+            $oldQuantity = $item->stock_quantity;
+            $operation = $data['operation'] ?? 'add';
+            $quantityChange = $data['quantity'];
+            $newQuantity = $operation === 'add' 
+                ? $oldQuantity + $quantityChange 
+                : $oldQuantity - $quantityChange;
             
             // Create stock transaction
             $transaction = InventoryTransaction::create([
-                'inventory_item_id' => $item->id,
-                'type' => $difference > 0 ? 'stock_in' : 'stock_out',
+                'item_id' => $item->id,
+                'transaction_type' => $operation === 'add' ? 'adjustment_increase' : 'adjustment_decrease',
                 'status' => 'completed',
                 'user_id' => Auth::id(),
                 'description' => $data['reason'] ?? 'Stock quantity updated',
-                'quantity' => abs($difference),
+                'quantity' => $quantityChange,
                 'transaction_date' => now(),
                 'notes' => $data['notes'] ?? null,
                 'supplier' => $data['supplier'] ?? null,
-                'purchase_price' => $data['purchase_price'] ?? null,
+                'unit_price' => $data['purchase_price'] ?? null,
                 'reference_number' => $data['reference_number'] ?? null
             ]);
             
             // Update item quantity
             $item->update([
-                'quantity' => $newQuantity,
+                'stock_quantity' => $newQuantity,
                 'last_stock_update' => now()
             ]);
             
@@ -188,7 +187,8 @@ class InventoryTransactionService
                 'transaction_id' => $transaction->id,
                 'old_quantity' => $oldQuantity,
                 'new_quantity' => $newQuantity,
-                'difference' => $difference
+                'quantity_change' => $quantityChange,
+                'operation' => $operation
             ]);
             
             return $transaction->load(['item', 'user']);
@@ -209,8 +209,8 @@ class InventoryTransactionService
             
             // Create transfer transaction
             $transaction = InventoryTransaction::create([
-                'inventory_item_id' => $item->id,
-                'type' => 'transfer',
+                'item_id' => $item->id,
+                'transaction_type' => 'transfer',
                 'status' => 'completed',
                 'user_id' => Auth::id(),
                 'description' => $data['reason'] ?? 'Item transferred',
@@ -218,7 +218,7 @@ class InventoryTransactionService
                 'location_from' => $oldLocation,
                 'location_to' => $newLocation,
                 'notes' => $data['notes'] ?? null,
-                'authorized_by' => $data['authorized_by'] ?? Auth::id()
+                'approved_by' => $data['authorized_by'] ?? Auth::id()
             ]);
             
             // Update item location
@@ -246,11 +246,11 @@ class InventoryTransactionService
      */
     public function getTransactionHistory(InventoryItem $item, array $params = []): array
     {
-        $query = $item->transactions()->with(['user', 'assignedUser', 'fromUser', 'toUser']);
+        $query = $item->transactions()->with(['user', 'assignedToUser', 'assignedFromUser', 'approver']);
         
         // Apply filters
         if (!empty($params['type'])) {
-            $query->where('type', $params['type']);
+            $query->where('transaction_type', $params['type']);
         }
         
         if (!empty($params['date_from'])) {
@@ -265,8 +265,7 @@ class InventoryTransactionService
             $query->where(function ($q) use ($params) {
                 $q->where('user_id', $params['user_id'])
                   ->orWhere('assigned_to', $params['user_id'])
-                  ->orWhere('from_user_id', $params['user_id'])
-                  ->orWhere('to_user_id', $params['user_id']);
+                  ->orWhere('assigned_from', $params['user_id']);
             });
         }
         
@@ -296,15 +295,17 @@ class InventoryTransactionService
         
         return [
             'total_transactions' => $transactions->count(),
-            'assignments' => $transactions->where('type', 'assignment')->count(),
-            'returns' => $transactions->where('type', 'return')->count(),
-            'transfers' => $transactions->where('type', 'transfer')->count(),
-            'stock_updates' => $transactions->whereIn('type', ['stock_in', 'stock_out'])->count(),
+            'by_type' => [
+                'assignment' => $transactions->where('transaction_type', 'assignment')->count(),
+                'return' => $transactions->where('transaction_type', 'return')->count(),
+                'transfer' => $transactions->where('transaction_type', 'transfer')->count(),
+                'stock_updates' => $transactions->whereIn('transaction_type', ['adjustment_increase', 'adjustment_decrease'])->count(),
+            ],
             'first_transaction' => $transactions->min('transaction_date'),
             'last_transaction' => $transactions->max('transaction_date'),
             'current_assignment' => $item->assignedUser ? [
                 'user' => $item->assignedUser->username,
-                'assigned_at' => $transactions->where('type', 'assignment')
+                'assigned_at' => $transactions->where('transaction_type', 'assignment')
                                               ->where('assigned_to', $item->assigned_to)
                                               ->max('transaction_date')
             ] : null
@@ -433,7 +434,7 @@ class InventoryTransactionService
     {
         return [
             'id' => $transaction->id,
-            'type' => $transaction->type,
+            'type' => $transaction->transaction_type,
             'status' => $transaction->status,
             'description' => $transaction->description,
             'quantity' => $transaction->quantity,
@@ -443,14 +444,14 @@ class InventoryTransactionService
                 'username' => $transaction->user?->username,
                 'full_name' => $transaction->user?->profile?->full_name
             ],
-            'assigned_user' => $transaction->assignedUser ? [
-                'id' => $transaction->assignedUser->id,
-                'username' => $transaction->assignedUser->username,
-                'full_name' => $transaction->assignedUser->profile?->full_name
+            'assigned_user' => $transaction->assignedToUser ? [
+                'id' => $transaction->assignedToUser->id,
+                'username' => $transaction->assignedToUser->username,
+                'full_name' => $transaction->assignedToUser->profile?->full_name
             ] : null,
             'location_from' => $transaction->location_from,
             'location_to' => $transaction->location_to,
-            'condition_on_return' => $transaction->condition_on_return,
+            'notes' => $transaction->notes,
             'notes' => $transaction->notes,
             'created_at' => $transaction->created_at
         ];

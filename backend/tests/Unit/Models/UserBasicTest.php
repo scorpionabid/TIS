@@ -38,6 +38,7 @@ class UserBasicTest extends TestCase
         $expectedFillable = [
             'username',
             'email',
+            'utis_code',
             'password',
             'role_id',
             'institution_id',
@@ -50,6 +51,7 @@ class UserBasicTest extends TestCase
             'locked_until',
             'email_verified_at',
             'remember_token',
+            'preferences',
         ];
 
         $this->assertEquals($expectedFillable, $user->getFillable());
