@@ -11,10 +11,20 @@ class UserTest extends TestCase
 {
     use RefreshDatabase;
 
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed();
+        
+        // Create a role that will be used for testing
+        \DB::table('roles')->insert([
+            'id' => 1,
+            'name' => 'test_role',
+            'guard_name' => 'web',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     public function test_user_registration()

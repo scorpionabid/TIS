@@ -129,6 +129,7 @@ class SchoolStudentService
         return DB::transaction(function () use ($school, $data) {
             // Create user first
             $user = User::create([
+                'username' => $data['username'] ?? strtolower(str_replace(' ', '.', $data['name'])),
                 'name' => $data['name'],
                 'email' => $data['email'],
                 'password' => Hash::make($data['password'] ?? 'student123'),
@@ -142,8 +143,8 @@ class SchoolStudentService
             $user->profile()->create([
                 'first_name' => $data['first_name'] ?? '',
                 'last_name' => $data['last_name'] ?? '',
-                'phone' => $data['phone'] ?? null,
-                'date_of_birth' => $data['date_of_birth'] ?? null,
+                'contact_phone' => $data['phone'] ?? null,
+                'birth_date' => $data['date_of_birth'] ?? null,
                 'gender' => $data['gender'] ?? null,
                 'address' => $data['address'] ?? null,
                 'emergency_contact' => $data['emergency_contact'] ?? null,
@@ -160,6 +161,15 @@ class SchoolStudentService
                 'student_number' => $data['student_number'] ?? $this->generateStudentNumber($school),
                 'enrollment_date' => $data['enrollment_date'] ?? now(),
                 'is_active' => true,
+                'first_name' => $data['first_name'] ?? '',
+                'last_name' => $data['last_name'] ?? '',
+                'class_name' => $data['class_name'] ?? '',
+                'grade_level' => $data['grade_level'] ?? '',
+                'birth_date' => $data['date_of_birth'] ?? null,
+                'parent_name' => $data['parent_name'] ?? null,
+                'parent_phone' => $data['parent_phone'] ?? null,
+                'parent_email' => $data['parent_email'] ?? null,
+                'address' => $data['address'] ?? null,
                 'special_needs' => $data['special_needs'] ?? null,
                 'medical_conditions' => $data['medical_conditions'] ?? null,
             ]);
@@ -167,10 +177,11 @@ class SchoolStudentService
             // Create enrollment record
             StudentEnrollment::create([
                 'student_id' => $student->id,
+                'student_number' => $student->student_number,
                 'grade_id' => $data['grade_id'],
                 'academic_year_id' => $this->getCurrentAcademicYear(),
                 'enrollment_date' => $data['enrollment_date'] ?? now(),
-                'status' => 'active',
+                'enrollment_status' => 'active',
             ]);
 
             return $student->load(['user.profile', 'grade']);
@@ -277,9 +288,21 @@ class SchoolStudentService
         return $year . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
     }
 
-    private function getCurrentAcademicYear(): ?int
+    private function getCurrentAcademicYear(): int
     {
         $academicYear = \App\Models\AcademicYear::where('is_current', true)->first();
-        return $academicYear ? $academicYear->id : null;
+        
+        if (!$academicYear) {
+            // If no current academic year is set, create one
+            $currentYear = date('Y');
+            $academicYear = \App\Models\AcademicYear::create([
+                'name' => $currentYear . '-' . ($currentYear + 1),
+                'start_date' => $currentYear . '-09-01',
+                'end_date' => ($currentYear + 1) . '-06-30',
+                'is_current' => true,
+            ]);
+        }
+        
+        return $academicYear->id;
     }
 }

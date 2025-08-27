@@ -23,7 +23,7 @@ class SimpleSchoolAdminAccessTest extends TestCase
     {
         // Test basic user creation without complex seeders
         $user = User::factory()->create([
-            'name' => 'Test User',
+            'username' => 'testuser',
             'email' => 'test@example.com'
         ]);
         

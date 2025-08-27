@@ -27,7 +27,16 @@ class Student extends Model
         'address',
         'is_active',
         'additional_info',
+        'user_id',
     ];
+
+    /**
+     * Get the user that owns the student.
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 
     protected $casts = [
         'birth_date' => 'date',
@@ -66,6 +75,14 @@ class Student extends Model
     public function institution(): BelongsTo
     {
         return $this->belongsTo(Institution::class);
+    }
+
+    /**
+     * Relationship: Student belongs to a grade
+     */
+    public function grade(): BelongsTo
+    {
+        return $this->belongsTo(Grade::class);
     }
 
     /**
