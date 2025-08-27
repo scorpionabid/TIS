@@ -1,11 +1,13 @@
 <?php
 
 use App\Http\Controllers\ClassAttendanceController;
-use App\Http\Controllers\ScheduleController;
+use App\Http\Controllers\ScheduleControllerRefactored as ScheduleController;
 use App\Http\Controllers\API\ClassAttendanceApiController;
 use App\Http\Controllers\API\TeachingLoadApiController;
 use App\Http\Controllers\API\ScheduleApiController;
-use App\Http\Controllers\RoomController;
+use App\Http\Controllers\RoomControllerRefactored as RoomController;
+use App\Http\Controllers\ClassesControllerRefactored as ClassesController;
+use App\Http\Controllers\StudentControllerRefactored as StudentController;
 use App\Http\Controllers\GradeController;
 use App\Http\Controllers\SchoolEventController;
 use App\Http\Controllers\TeacherPerformanceController;
@@ -95,47 +97,47 @@ Route::prefix('students')->middleware('auth:sanctum')->group(function () {
     Route::get('/{student}', [App\Http\Controllers\School\SchoolStudentController::class, 'show']);
     Route::put('/{student}', [App\Http\Controllers\School\SchoolStudentController::class, 'update']);
     Route::delete('/{student}', [App\Http\Controllers\School\SchoolStudentController::class, 'destroy']);
-    Route::get('/{student}/grades', [App\Http\Controllers\StudentController::class, 'getGrades'])->middleware('permission:students.grades');
-    Route::get('/{student}/attendance', [App\Http\Controllers\StudentController::class, 'getAttendance'])->middleware('permission:students.attendance');
-    Route::get('/{student}/schedule', [App\Http\Controllers\StudentController::class, 'getSchedule'])->middleware('permission:students.schedule');
-    Route::post('/{student}/enroll', [App\Http\Controllers\StudentController::class, 'enroll'])->middleware('permission:students.enroll');
-    Route::post('/{student}/transfer', [App\Http\Controllers\StudentController::class, 'transfer'])->middleware('permission:students.transfer');
-    Route::post('/{student}/graduate', [App\Http\Controllers\StudentController::class, 'graduate'])->middleware('permission:students.graduate');
-    Route::get('/search/{query}', [App\Http\Controllers\StudentController::class, 'search'])->middleware('permission:students.read');
-    Route::post('/bulk-create', [App\Http\Controllers\StudentController::class, 'bulkCreate'])->middleware('permission:students.bulk');
-    Route::post('/bulk-update', [App\Http\Controllers\StudentController::class, 'bulkUpdate'])->middleware('permission:students.bulk');
-    Route::post('/bulk-delete', [App\Http\Controllers\StudentController::class, 'bulkDelete'])->middleware('permission:students.bulk');
-    Route::get('/analytics/overview', [App\Http\Controllers\StudentController::class, 'getAnalytics'])->middleware('permission:students.analytics');
-    Route::get('/reports/performance', [App\Http\Controllers\StudentController::class, 'getPerformanceReport'])->middleware('permission:students.reports');
-    Route::get('/reports/demographics', [App\Http\Controllers\StudentController::class, 'getDemographicsReport'])->middleware('permission:students.reports');
-    Route::post('/import', [App\Http\Controllers\StudentController::class, 'import'])->middleware('permission:students.import');
-    Route::get('/export', [App\Http\Controllers\StudentController::class, 'export'])->middleware('permission:students.export');
+    Route::get('/{student}/grades', [StudentController::class, 'getGrades'])->middleware('permission:students.grades');
+    Route::get('/{student}/attendance', [StudentController::class, 'getAttendance'])->middleware('permission:students.attendance');
+    Route::get('/{student}/schedule', [StudentController::class, 'getSchedule'])->middleware('permission:students.schedule');
+    Route::post('/{student}/enroll', [StudentController::class, 'enroll'])->middleware('permission:students.enroll');
+    Route::post('/{student}/transfer', [StudentController::class, 'transfer'])->middleware('permission:students.transfer');
+    Route::post('/{student}/graduate', [StudentController::class, 'graduate'])->middleware('permission:students.graduate');
+    Route::get('/search/{query}', [StudentController::class, 'search'])->middleware('permission:students.read');
+    Route::post('/bulk-create', [StudentController::class, 'bulkCreate'])->middleware('permission:students.bulk');
+    Route::post('/bulk-update', [StudentController::class, 'bulkUpdate'])->middleware('permission:students.bulk');
+    Route::post('/bulk-delete', [StudentController::class, 'bulkDelete'])->middleware('permission:students.bulk');
+    Route::get('/analytics/overview', [StudentController::class, 'getAnalytics'])->middleware('permission:students.analytics');
+    Route::get('/reports/performance', [StudentController::class, 'getPerformanceReport'])->middleware('permission:students.reports');
+    Route::get('/reports/demographics', [StudentController::class, 'getDemographicsReport'])->middleware('permission:students.reports');
+    Route::post('/import', [StudentController::class, 'import'])->middleware('permission:students.import');
+    Route::get('/export', [StudentController::class, 'export'])->middleware('permission:students.export');
     
     // New bulk import/export endpoints
-    Route::get('/bulk/download-template', [App\Http\Controllers\StudentController::class, 'downloadTemplate'])->middleware('permission:students.import');
-    Route::post('/bulk/import', [App\Http\Controllers\StudentController::class, 'importStudents'])->middleware('permission:students.import');
-    Route::post('/bulk/export', [App\Http\Controllers\StudentController::class, 'exportStudents'])->middleware('permission:students.export');
-    Route::get('/bulk/statistics', [App\Http\Controllers\StudentController::class, 'getExportStats'])->middleware('permission:students.read');
+    Route::get('/bulk/download-template', [StudentController::class, 'downloadTemplate'])->middleware('permission:students.import');
+    Route::post('/bulk/import', [StudentController::class, 'importStudents'])->middleware('permission:students.import');
+    Route::post('/bulk/export', [StudentController::class, 'exportStudents'])->middleware('permission:students.export');
+    Route::get('/bulk/statistics', [StudentController::class, 'getExportStats'])->middleware('permission:students.read');
 });
 
 // Class Management Routes
 Route::prefix('classes')->group(function () {
-    Route::get('/', [App\Http\Controllers\ClassesController::class, 'index'])->middleware('permission:classes.read');
-    Route::post('/', [App\Http\Controllers\ClassesController::class, 'store'])->middleware('permission:classes.write');
-    Route::get('/{class}', [App\Http\Controllers\ClassesController::class, 'show'])->middleware('permission:classes.read');
-    Route::put('/{class}', [App\Http\Controllers\ClassesController::class, 'update'])->middleware('permission:classes.write');
-    Route::delete('/{class}', [App\Http\Controllers\ClassesController::class, 'destroy'])->middleware('permission:classes.write');
-    Route::get('/{class}/students', [App\Http\Controllers\ClassesController::class, 'getStudents'])->middleware('permission:classes.students');
-    Route::post('/{class}/students', [App\Http\Controllers\ClassesController::class, 'addStudents'])->middleware('permission:classes.manage_students');
-    Route::delete('/{class}/students/{student}', [App\Http\Controllers\ClassesController::class, 'removeStudent'])->middleware('permission:classes.manage_students');
-    Route::get('/{class}/teachers', [App\Http\Controllers\ClassesController::class, 'getTeachers'])->middleware('permission:classes.teachers');
-    Route::post('/{class}/teachers', [App\Http\Controllers\ClassesController::class, 'assignTeacher'])->middleware('permission:classes.manage_teachers');
-    Route::delete('/{class}/teachers/{teacher}', [App\Http\Controllers\ClassesController::class, 'unassignTeacher'])->middleware('permission:classes.manage_teachers');
-    Route::get('/{class}/schedule', [App\Http\Controllers\ClassesController::class, 'getSchedule'])->middleware('permission:classes.schedule');
-    Route::get('/{class}/attendance', [App\Http\Controllers\ClassesController::class, 'getAttendance'])->middleware('permission:classes.attendance');
-    Route::get('/{class}/grades', [App\Http\Controllers\ClassesController::class, 'getGrades'])->middleware('permission:classes.grades');
-    Route::post('/bulk-create', [App\Http\Controllers\ClassesController::class, 'bulkCreate'])->middleware('permission:classes.bulk');
-    Route::get('/analytics/overview', [App\Http\Controllers\ClassesController::class, 'getAnalytics'])->middleware('permission:classes.analytics');
+    Route::get('/', [App\Http\Controllers\ClassesControllerRefactored::class, 'index'])->middleware('permission:classes.read');
+    Route::post('/', [App\Http\Controllers\ClassesControllerRefactored::class, 'store'])->middleware('permission:classes.write');
+    Route::get('/{class}', [App\Http\Controllers\ClassesControllerRefactored::class, 'show'])->middleware('permission:classes.read');
+    Route::put('/{class}', [App\Http\Controllers\ClassesControllerRefactored::class, 'update'])->middleware('permission:classes.write');
+    Route::delete('/{class}', [App\Http\Controllers\ClassesControllerRefactored::class, 'destroy'])->middleware('permission:classes.write');
+    Route::get('/{class}/students', [App\Http\Controllers\ClassesControllerRefactored::class, 'getStudents'])->middleware('permission:classes.students');
+    Route::post('/{class}/students', [App\Http\Controllers\ClassesControllerRefactored::class, 'addStudents'])->middleware('permission:classes.manage_students');
+    Route::delete('/{class}/students/{student}', [App\Http\Controllers\ClassesControllerRefactored::class, 'removeStudent'])->middleware('permission:classes.manage_students');
+    Route::get('/{class}/teachers', [App\Http\Controllers\ClassesControllerRefactored::class, 'getTeachers'])->middleware('permission:classes.teachers');
+    Route::post('/{class}/teachers', [App\Http\Controllers\ClassesControllerRefactored::class, 'assignTeacher'])->middleware('permission:classes.manage_teachers');
+    Route::delete('/{class}/teachers/{teacher}', [App\Http\Controllers\ClassesControllerRefactored::class, 'unassignTeacher'])->middleware('permission:classes.manage_teachers');
+    Route::get('/{class}/schedule', [App\Http\Controllers\ClassesControllerRefactored::class, 'getSchedule'])->middleware('permission:classes.schedule');
+    Route::get('/{class}/attendance', [App\Http\Controllers\ClassesControllerRefactored::class, 'getAttendance'])->middleware('permission:classes.attendance');
+    Route::get('/{class}/grades', [App\Http\Controllers\ClassesControllerRefactored::class, 'getGrades'])->middleware('permission:classes.grades');
+    Route::post('/bulk-create', [App\Http\Controllers\ClassesControllerRefactored::class, 'bulkCreate'])->middleware('permission:classes.bulk');
+    Route::get('/analytics/overview', [App\Http\Controllers\ClassesControllerRefactored::class, 'getAnalytics'])->middleware('permission:classes.analytics');
 });
 
 // Room Management Routes

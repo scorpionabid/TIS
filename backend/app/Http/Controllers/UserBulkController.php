@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\UserBulkService;
+use App\Services\InstitutionAssignmentService;
 use App\Http\Traits\ValidationRules;
 use App\Http\Traits\ResponseHelpers;
 use App\Imports\TeachersImport;
@@ -22,7 +23,8 @@ class UserBulkController extends BaseController
     use ValidationRules, ResponseHelpers;
 
     public function __construct(
-        protected UserBulkService $bulkService
+        protected UserBulkService $bulkService,
+        protected InstitutionAssignmentService $institutionService
     ) {}
 
     /**

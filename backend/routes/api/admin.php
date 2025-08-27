@@ -1,9 +1,9 @@
 <?php
 
-use App\Http\Controllers\UserController;
+use App\Http\Controllers\UserControllerRefactored as UserController;
 use App\Http\Controllers\UserUtilityController;
 use App\Http\Controllers\InstitutionController;
-use App\Http\Controllers\Institution\InstitutionCRUDController;
+use App\Http\Controllers\Institution\InstitutionCRUDControllerRefactored as InstitutionCRUDController;
 use App\Http\Controllers\InstitutionTypeController;
 use App\Http\Controllers\InstitutionHierarchyController;
 use App\Http\Controllers\InstitutionDepartmentController;
@@ -12,9 +12,9 @@ use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\API\AssessmentExcelController;
 use App\Http\Controllers\API\BulkAssessmentController;
 use App\Http\Controllers\SubjectController;
-use App\Http\Controllers\SectorController;
+use App\Http\Controllers\SectorControllerRefactored as SectorController;
 use App\Http\Controllers\PreschoolController;
-use App\Http\Controllers\API\ApprovalApiController;
+use App\Http\Controllers\API\ApprovalApiControllerRefactored;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -188,27 +188,39 @@ Route::middleware('permission:roles.write')->group(function () {
 
 // System configuration (admin only)
 Route::prefix('system')->middleware('permission:system.config')->group(function () {
-    Route::get('info', function () {
-        return response()->json([
-            'app' => [
-                'name' => config('app.name'),
-                'version' => '1.0.0',
-                'environment' => config('app.env'),
-            ],
-            'system' => [
-                'php_version' => phpversion(),
-                'laravel_version' => app()->version(),
-            ],
-        ]);
-    });
+    Route::get('config', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'getSystemConfig']);
+    Route::put('config', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'updateSystemConfig']);
+    
+    // System information
+    Route::get('info', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'getSystemInfo']);
+    
+    // System health check
+    Route::get('health', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'checkSystemHealth']);
+    
+    // Cache management
+    Route::post('cache/clear', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'clearCache']);
+    Route::post('cache/optimize', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'optimizeCache']);
+    
+    // System maintenance
+    Route::post('maintenance/up', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'bringUpMaintenance']);
+    Route::post('maintenance/down', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'bringDownMaintenance']);
+    
+    // Permissions
     Route::get('permissions', [RoleController::class, 'getAllPermissions']);
-    // Settings routes commented out until SettingsController is implemented
-    // Route::get('settings', [App\Http\Controllers\SettingsController::class, 'index']);
-    // Route::post('settings', [App\Http\Controllers\SettingsController::class, 'update']);
-    Route::get('cache/clear', function () {
-        \Artisan::call('cache:clear');
-        return response()->json(['message' => 'Cache cleared successfully']);
-    });
+    
+    // Backup and restore
+    Route::post('backup/create', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'createBackup']);
+    Route::get('backup/list', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'listBackups']);
+    Route::post('backup/restore/{filename}', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'restoreBackup']);
+    
+    // Logs
+    Route::get('logs', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'getLogs']);
+    Route::get('logs/{log}', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'getLogFile']);
+    
+    // Scheduled reports
+    Route::get('reports/scheduled', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'getScheduledReports']);
+    Route::post('reports/schedule', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'scheduleReport']);
+    Route::delete('reports/schedule/{id}', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'deleteScheduledReport']);
 });
 
 // Academic years management
@@ -317,43 +329,43 @@ Route::prefix('preschools')->middleware('permission:institutions.read')->group(f
 // Approval System Routes
 Route::prefix('approvals')->group(function () {
     // Get approval requests (role-based filtering in controller)
-    Route::get('/', [ApprovalApiController::class, 'index'])->middleware('permission:approvals.read');
-    Route::get('/pending', [ApprovalApiController::class, 'getPending'])->middleware('permission:approvals.read');
-    Route::get('/my-approvals', [ApprovalApiController::class, 'getMyApprovals'])->middleware('permission:approvals.read');
+    Route::get('/', [ApprovalApiControllerRefactored::class, 'index'])->middleware('permission:approvals.read');
+    Route::get('/pending', [ApprovalApiControllerRefactored::class, 'getPending'])->middleware('permission:approvals.read');
+    Route::get('/my-approvals', [ApprovalApiControllerRefactored::class, 'getMyApprovals'])->middleware('permission:approvals.read');
     
     // Workflow templates (SuperAdmin and RegionAdmin) - BEFORE {approval} route
-    Route::get('/templates', [ApprovalApiController::class, 'getTemplates'])->middleware('role:superadmin|regionadmin');
+    Route::get('/templates', [ApprovalApiControllerRefactored::class, 'getTemplates'])->middleware('role:superadmin|regionadmin');
     
     // Analytics and reports - BEFORE {approval} route
-    Route::get('/analytics', [ApprovalApiController::class, 'getAnalytics'])->middleware('permission:approvals.read');
+    Route::get('/analytics', [ApprovalApiControllerRefactored::class, 'getAnalytics'])->middleware('permission:approvals.read');
     
     // Survey Response Approval - BEFORE {approval} route
-    Route::get('/surveys', [ApprovalApiController::class, 'getSurveysForApproval'])->middleware('permission:approvals.read');
-    Route::get('/survey-responses', [ApprovalApiController::class, 'getSurveyResponses'])->middleware('permission:approvals.read');
-    Route::post('/survey-responses/{response}/approve', [ApprovalApiController::class, 'approveSurveyResponse'])->middleware('permission:approvals.approve');
-    Route::post('/survey-responses/{response}/reject', [ApprovalApiController::class, 'rejectSurveyResponse'])->middleware('permission:approvals.approve');
-    Route::post('/survey-responses/bulk-approve', [ApprovalApiController::class, 'bulkApproveSurveyResponses'])->middleware('permission:approvals.approve');
+    Route::get('/surveys', [ApprovalApiControllerRefactored::class, 'getSurveysForApproval'])->middleware('permission:approvals.read');
+    Route::get('/survey-responses', [ApprovalApiControllerRefactored::class, 'getSurveyResponses'])->middleware('permission:approvals.read');
+    Route::post('/survey-responses/{response}/approve', [ApprovalApiControllerRefactored::class, 'approveSurveyResponse'])->middleware('permission:approvals.approve');
+    Route::post('/survey-responses/{response}/reject', [ApprovalApiControllerRefactored::class, 'rejectSurveyResponse'])->middleware('permission:approvals.approve');
+    Route::post('/survey-responses/bulk-approve', [ApprovalApiControllerRefactored::class, 'bulkApproveSurveyResponses'])->middleware('permission:approvals.approve');
     
     // Delegation management - BEFORE {approval} route
-    Route::get('/delegations', [ApprovalApiController::class, 'getDelegations'])->middleware('permission:approvals.delegate');
-    Route::post('/delegations', [ApprovalApiController::class, 'createDelegation'])->middleware('permission:approvals.delegate');
-    Route::delete('/delegations/{delegation}', [ApprovalApiController::class, 'revokeDelegation'])->middleware('permission:approvals.delegate');
+    Route::get('/delegations', [ApprovalApiControllerRefactored::class, 'getDelegations'])->middleware('permission:approvals.delegate');
+    Route::post('/delegations', [ApprovalApiControllerRefactored::class, 'createDelegation'])->middleware('permission:approvals.delegate');
+    Route::delete('/delegations/{delegation}', [ApprovalApiControllerRefactored::class, 'revokeDelegation'])->middleware('permission:approvals.delegate');
     
     // Notifications - BEFORE {approval} route
-    Route::get('/notifications', [ApprovalApiController::class, 'getNotifications'])->middleware('permission:approvals.read');
-    Route::post('/notifications/{notification}/mark-read', [ApprovalApiController::class, 'markNotificationRead'])->middleware('permission:approvals.read');
+    Route::get('/notifications', [ApprovalApiControllerRefactored::class, 'getNotifications'])->middleware('permission:approvals.read');
+    Route::post('/notifications/{notification}/mark-read', [ApprovalApiControllerRefactored::class, 'markNotificationRead'])->middleware('permission:approvals.read');
     
-    Route::get('/{approval}', [ApprovalApiController::class, 'show'])->middleware('permission:approvals.read');
+    Route::get('/{approval}', [ApprovalApiControllerRefactored::class, 'show'])->middleware('permission:approvals.read');
     
     // Create approval request
-    Route::post('/', [ApprovalApiController::class, 'createRequest'])->middleware('permission:approvals.create');
+    Route::post('/', [ApprovalApiControllerRefactored::class, 'createRequest'])->middleware('permission:approvals.create');
     
     // Approval actions (role-based authorization in controller)
-    Route::post('/{approval}/approve', [ApprovalApiController::class, 'approve'])->middleware('permission:approvals.approve');
-    Route::post('/{approval}/reject', [ApprovalApiController::class, 'reject'])->middleware('permission:approvals.approve');
-    Route::post('/{approval}/return', [ApprovalApiController::class, 'returnForRevision'])->middleware('permission:approvals.approve');
+    Route::post('/{approval}/approve', [ApprovalApiControllerRefactored::class, 'approve'])->middleware('permission:approvals.approve');
+    Route::post('/{approval}/reject', [ApprovalApiControllerRefactored::class, 'reject'])->middleware('permission:approvals.approve');
+    Route::post('/{approval}/return', [ApprovalApiControllerRefactored::class, 'returnForRevision'])->middleware('permission:approvals.approve');
     
     // Bulk operations (SektorAdmin and above)
-    Route::post('/bulk-approve', [ApprovalApiController::class, 'bulkApprove'])->middleware('role:sektoradmin|regionadmin|superadmin');
-    Route::post('/bulk-reject', [ApprovalApiController::class, 'bulkReject'])->middleware('role:sektoradmin|regionadmin|superadmin');
+    Route::post('/bulk-approve', [ApprovalApiControllerRefactored::class, 'bulkApprove'])->middleware('role:sektoradmin|regionadmin|superadmin');
+    Route::post('/bulk-reject', [ApprovalApiControllerRefactored::class, 'bulkReject'])->middleware('role:sektoradmin|regionadmin|superadmin');
 });

@@ -1,8 +1,8 @@
 <?php
 
-use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\DocumentControllerRefactored as DocumentController;
 use App\Http\Controllers\DocumentShareController;
-use App\Http\Controllers\TaskController;
+use App\Http\Controllers\TaskControllerRefactored as TaskController;
 use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
 

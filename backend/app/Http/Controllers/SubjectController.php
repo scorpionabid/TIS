@@ -3,33 +3,94 @@
 namespace App\Http\Controllers;
 
 use App\Models\Subject;
+use App\Models\User;
+use App\Models\Grade;
+use App\Models\TeacherSubject;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class SubjectController extends BaseController
 {
     /**
-     * Get all active subjects
+     * Get all active subjects with filtering and pagination
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Subject::active()->orderBy('category')->orderBy('name');
-        
-        // Filter by category if provided
+        $validator = Validator::make($request->all(), [
+            'category' => 'sometimes|in:core,elective,extra,vocational',
+            'class_level' => 'sometimes|integer|min:1|max:12',
+            'class_level_start' => 'sometimes|integer|min:1|max:12',
+            'class_level_end' => 'sometimes|integer|min:1|max:12',
+            'is_active' => 'sometimes|boolean',
+            'search' => 'sometimes|string|max:255',
+            'page' => 'sometimes|integer|min:1',
+            'per_page' => 'sometimes|integer|min:1|max:100',
+            'include' => 'sometimes|string',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->errorResponse($validator->errors(), 422);
+        }
+
+        $query = Subject::query();
+
+        // Apply filters
         if ($request->has('category')) {
             $query->where('category', $request->category);
         }
-        
-        // Filter by grade level if provided
-        if ($request->has('grade')) {
-            $query->whereJsonContains('grade_levels', (int) $request->grade);
+
+        if ($request->has('class_level')) {
+            $query->whereJsonContains('grade_levels', (int) $request->class_level);
         }
-        
-        $subjects = $query->get();
-        
+
+        if ($request->has('class_level_start')) {
+            $query->where('class_level_start', '>=', $request->class_level_start);
+        }
+
+        if ($request->has('class_level_end')) {
+            $query->where('class_level_end', '<=', $request->class_level_end);
+        }
+
+        if ($request->has('is_active')) {
+            $query->where('is_active', $request->is_active);
+        } else {
+            $query->active();
+        }
+
+        if ($request->has('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('code', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        // Eager load relationships if requested
+        if ($request->has('include')) {
+            $includes = explode(',', $request->include);
+            $query->with($includes);
+        }
+
+        // Apply sorting
+        $sortField = $request->input('sort_by', 'name');
+        $sortDirection = $request->input('sort_dir', 'asc');
+        $query->orderBy($sortField, $sortDirection);
+
+        // Get paginated results or all results
+        if ($request->has('per_page')) {
+            $perPage = $request->input('per_page', 15);
+            $subjects = $query->paginate($perPage);
+        } else {
+            $subjects = $query->get();
+        }
+
         return $this->successResponse($subjects, 'Fənlər siyahısı');
     }
-    
+
     /**
      * Get subjects grouped by category
      */
@@ -43,88 +104,156 @@ class SubjectController extends BaseController
             
         return $this->successResponse($subjects, 'Kateqoriyaya görə fənlər');
     }
-    
+
     /**
      * Get subjects for a specific grade
      */
     public function getForGrade(int $grade): JsonResponse
     {
-        $subjects = Subject::active()
-            ->whereJsonContains('grade_levels', $grade)
-            ->orderBy('category')
+        $subjects = Subject::whereJsonContains('grade_levels', $grade)
+            ->active()
             ->orderBy('name')
             ->get();
             
-        return $this->successResponse($subjects, "Sinif {$grade} üçün fənlər");
+        return $this->successResponse($subjects, "$grade-cı sinif üçün fənlər");
     }
-    
+
     /**
-     * Show a specific subject
-     */
-    public function show(Subject $subject): JsonResponse
-    {
-        return $this->successResponse($subject, 'Fənn məlumatları');
-    }
-    
-    /**
-     * Store a new subject (SuperAdmin/RegionAdmin)
+     * Store a newly created subject
      */
     public function store(Request $request): JsonResponse
     {
-        // Authorization handled by middleware
-        
-        $validated = $request->validate([
+        $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'code' => 'required|string|max:10|unique:subjects',
+            'code' => 'required|string|max:50|unique:subjects,code',
+            'category' => 'required|in:core,elective,extra,vocational',
             'description' => 'nullable|string',
             'grade_levels' => 'required|array',
-            'grade_levels.*' => 'integer|min:1|max:11',
-            'weekly_hours' => 'required|integer|min:1|max:10',
-            'category' => 'required|string|in:core,science,humanities,language,arts,physical,technical,elective',
-            'metadata' => 'nullable|array',
+            'grade_levels.*' => 'integer|min:1|max:12',
+            'is_active' => 'boolean',
+            'class_level_start' => 'required|integer|min:1|max:12',
+            'class_level_end' => 'required|integer|min:1|max:12|gte:class_level_start',
         ]);
-        
-        $subject = Subject::create($validated);
-        
-        return $this->successResponse($subject, 'Fənn yaradıldı', 201);
+
+        if ($validator->fails()) {
+            return $this->errorResponse($validator->errors(), 422);
+        }
+
+        $subject = Subject::create([
+            'name' => $request->name,
+            'code' => $request->code,
+            'category' => $request->category,
+            'description' => $request->description,
+            'grade_levels' => $request->grade_levels,
+            'is_active' => $request->boolean('is_active', true),
+            'class_level_start' => $request->class_level_start,
+            'class_level_end' => $request->class_level_end,
+        ]);
+
+        return $this->successResponse($subject, 'Fən uğurla yaradıldı', 201);
     }
-    
+
     /**
-     * Update a subject (SuperAdmin/RegionAdmin)
+     * Display the specified subject
      */
-    public function update(Request $request, Subject $subject): JsonResponse
+    public function show($id): JsonResponse
     {
-        // Authorization handled by middleware
-        
-        $validated = $request->validate([
-            'name' => 'sometimes|string|max:255',
-            'code' => 'sometimes|string|max:10|unique:subjects,code,' . $subject->id,
+        $subject = Subject::findOrFail($id);
+        return $this->successResponse($subject, 'Fən məlumatları');
+    }
+
+    /**
+     * Update the specified subject
+     */
+    public function update(Request $request, $id): JsonResponse
+    {
+        $subject = Subject::findOrFail($id);
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'sometimes|required|string|max:255',
+            'code' => ['sometimes', 'required', 'string', 'max:50', Rule::unique('subjects')->ignore($subject->id)],
+            'category' => 'sometimes|required|in:core,elective,extra,vocational',
             'description' => 'nullable|string',
-            'grade_levels' => 'sometimes|array',
-            'grade_levels.*' => 'integer|min:1|max:11',
-            'weekly_hours' => 'sometimes|integer|min:1|max:10',
-            'category' => 'sometimes|string|in:core,science,humanities,language,arts,physical,technical,elective',
+            'grade_levels' => 'sometimes|required|array',
+            'grade_levels.*' => 'integer|min:1|max:12',
             'is_active' => 'sometimes|boolean',
-            'metadata' => 'nullable|array',
+            'class_level_start' => 'sometimes|required|integer|min:1|max:12',
+            'class_level_end' => 'sometimes|required|integer|min:1|max:12|gte:class_level_start',
         ]);
-        
-        $subject->update($validated);
-        
-        return $this->successResponse($subject, 'Fənn yeniləndi');
+
+        if ($validator->fails()) {
+            return $this->errorResponse($validator->errors(), 422);
+        }
+
+        $subject->update($request->all());
+
+        return $this->successResponse($subject, 'Fən məlumatları uğurla yeniləndi');
     }
-    
+
     /**
-     * Delete a subject (SuperAdmin/RegionAdmin only)
+     * Remove the specified subject
      */
-    public function destroy(Subject $subject): JsonResponse
+    public function destroy($id): JsonResponse
     {
-        // Authorization handled by middleware
+        $subject = Subject::findOrFail($id);
+        
+        // Check if subject is in use
+        if ($subject->teacherSubjects()->exists()) {
+            return $this->errorResponse('Bu fən hazırda istifadə edildiyi üçün silinə bilməz', 422);
+        }
         
         $subject->delete();
         
-        return $this->successResponse(null, 'Fənn silindi');
+        return $this->successResponse(null, 'Fən uğurla silindi');
     }
-    
+
+    /**
+     * Get teachers who teach this subject
+     */
+    public function getTeachers($subjectId): JsonResponse
+    {
+        $subject = Subject::findOrFail($subjectId);
+        $teachers = $subject->teachers()->get();
+        
+        return $this->successResponse($teachers, 'Fən üzrə müəllimlər');
+    }
+
+    /**
+     * Get grades for this subject
+     */
+    public function getGrades($subjectId): JsonResponse
+    {
+        $subject = Subject::findOrFail($subjectId);
+        $grades = Grade::whereIn('id', $subject->grade_levels)->get();
+        
+        return $this->successResponse($grades, 'Fənin tədris olunduğu siniflər');
+    }
+
+    /**
+     * Toggle subject active status
+     */
+    public function toggleStatus($id): JsonResponse
+    {
+        $subject = Subject::findOrFail($id);
+        $subject->update(['is_active' => !$subject->is_active]);
+        
+        $status = $subject->is_active ? 'aktivləşdirildi' : 'deaktiv edildi';
+        return $this->successResponse($subject, "Fən {$status}");
+    }
+
+    /**
+     * Get all active subjects with minimal data
+     */
+    public function getActiveList(): JsonResponse
+    {
+        $subjects = Subject::active()
+            ->select('id', 'name', 'code', 'category')
+            ->orderBy('name')
+            ->get();
+            
+        return $this->successResponse($subjects, 'Aktiv fənlər siyahısı');
+    }
+
     /**
      * Bulk create subjects
      */
@@ -135,12 +264,12 @@ class SubjectController extends BaseController
         $validated = $request->validate([
             'subjects' => 'required|array|min:1',
             'subjects.*.name' => 'required|string|max:255',
-            'subjects.*.code' => 'required|string|max:10',
+            'subjects.*.code' => 'required|string|max:50|unique:subjects,code',
             'subjects.*.description' => 'nullable|string',
             'subjects.*.grade_levels' => 'required|array',
-            'subjects.*.grade_levels.*' => 'integer|min:1|max:11',
+            'subjects.*.grade_levels.*' => 'integer|min:1|max:12',
             'subjects.*.weekly_hours' => 'required|integer|min:1|max:10',
-            'subjects.*.category' => 'required|string|in:core,science,humanities,language,arts,physical,technical,elective',
+            'subjects.*.category' => 'required|string|in:core,elective,extra,vocational',
             'subjects.*.metadata' => 'nullable|array',
         ]);
         
@@ -150,7 +279,7 @@ class SubjectController extends BaseController
         
         return $this->successResponse($subjects, 'Fənlər yaradıldı', 201);
     }
-    
+
     /**
      * Bulk update subjects
      */

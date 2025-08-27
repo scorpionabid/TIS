@@ -17,11 +17,25 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
         
-        // Configure SQLite for testing
-        if (config('database.default') === 'sqlite') {
-            config(['database.connections.sqlite.database' => ':memory:']);
-            \DB::statement('PRAGMA foreign_keys = ON');
+        // Configure SQLite for testing with a unique database file
+        $testDbPath = storage_path('testing.sqlite');
+        
+        // Delete the test database file if it exists
+        if (file_exists($testDbPath)) {
+            unlink($testDbPath);
         }
+        
+        // Create a new test database file
+        touch($testDbPath);
+        
+        // Configure the database connection
+        config([
+            'database.connections.sqlite.database' => $testDbPath,
+            'database.connections.sqlite.foreign_key_constraints' => true,
+        ]);
+        
+        // Run migrations
+        $this->artisan('migrate:fresh', ['--force' => true]);
     }
     
     /**
@@ -30,7 +44,27 @@ abstract class TestCase extends BaseTestCase
     protected function refreshTestDatabase()
     {
         if (! RefreshDatabaseState::$migrated) {
+            // First drop all tables to ensure clean state
+            $tables = \DB::select('SELECT name FROM sqlite_master WHERE type="table" AND name!="sqlite_sequence"');
+            \DB::statement('PRAGMA foreign_keys=off');
+            
+            foreach ($tables as $table) {
+                \DB::statement('DROP TABLE IF EXISTS ' . $table->name);
+            }
+            
+            \DB::statement('PRAGMA foreign_keys=on');
+            
+            // Now run migrations fresh
             $this->artisan('migrate:fresh', ['--force' => true]);
+            
+            // Clear any cached schema
+            if (file_exists($path = base_path('bootstrap/cache/packages.php'))) {
+                unlink($path);
+            }
+            if (file_exists($path = base_path('bootstrap/cache/services.php'))) {
+                unlink($path);
+            }
+            
             RefreshDatabaseState::$migrated = true;
         }
     }

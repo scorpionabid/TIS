@@ -25,7 +25,7 @@ class TeacherTemplateExport implements FromArray, WithHeadings, WithStyles, With
                 'female',
                 'AZE1234567',
                 'müəllim',
-                '32',
+                '32 (6 nömrəli tam orta məktəb)',
                 'Riyaziyyat müəllimi',
                 '1,3,5', // Subject IDs (Riyaziyyat, Fizika, Kimya)
                 15,
@@ -56,7 +56,7 @@ class TeacherTemplateExport implements FromArray, WithHeadings, WithStyles, With
                 'male',
                 'AZE7654321',
                 'müəllim',
-                '32',
+                '34 (7 nömrəli tam orta məktəb)',
                 'Tarix müəllimi',
                 '7,8', // Subject IDs (Tarix, Coğrafiya)
                 20,
@@ -92,7 +92,7 @@ class TeacherTemplateExport implements FromArray, WithHeadings, WithStyles, With
             'gender',
             'national_id',
             'role_id',
-            'institution_id',
+            'institution_id (ID və ya "ID (Ad)" formatında)',
             'specialty',
             'subjects', // Comma separated subject IDs
             'experience_years',

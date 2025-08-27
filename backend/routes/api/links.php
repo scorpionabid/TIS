@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\LinkShareController;
+use App\Http\Controllers\LinkShareControllerRefactored as LinkShareController;
 use Illuminate\Support\Facades\Route;
 
 /*

@@ -1,25 +1,40 @@
 # 🚀 ATİS Backend API Documentation
 
-**Version**: v1.0  
+**Version**: v1.1  
 **Base URL**: `/api`  
 **Authentication**: Bearer Token (Laravel Sanctum)  
 **Total Endpoints**: 435+ routes
 
+## 🔄 Refactored Controllers
+
+As part of our ongoing efforts to improve code quality and maintainability, several controllers have been refactored to use a service-oriented architecture. These changes are backward compatible and do not affect the API contract.
+
+### Refactored Controllers:
+- `UserController` → Now uses `UserCrudService` and `UserPermissionService`
+- `ApprovalApiController` → Refactored with improved error handling
+- `InstitutionCRUDController` → Enhanced with better separation of concerns
+- `SectorController` → Improved data access patterns
+- `TaskController` → Better service layer integration
+- And more...
+
+These changes provide better testability, maintainability, and performance while maintaining the same API contract.
+
 ## 📋 Table of Contents
 
-1. [Authentication & Session Management](#authentication--session-management)
-2. [User Management](#user-management)
-3. [Institution & Hierarchy Management](#institution--hierarchy-management)
-4. [Survey & Response Management](#survey--response-management)
-5. [Task Management](#task-management)
-6. [Document Management](#document-management)
-7. [Notification Management](#notification-management)
-8. [Academic Management](#academic-management)
-9. [Psychology Support](#psychology-support)
-10. [Teacher Performance](#teacher-performance)
-11. [Inventory Management](#inventory-management)
-12. [Regional Administration](#regional-administration)
-13. [Analytics & Reporting](#analytics--reporting)
+1. [Refactored Controllers](#-refactored-controllers)
+2. [Authentication & Session Management](#authentication--session-management)
+3. [User Management](#user-management)
+4. [Institution & Hierarchy Management](#institution--hierarchy-management)
+5. [Survey & Response Management](#survey--response-management)
+6. [Task Management](#task-management)
+7. [Document Management](#document-management)
+8. [Notification Management](#notification-management)
+9. [Academic Management](#academic-management)
+10. [Psychology Support](#psychology-support)
+11. [Teacher Performance](#teacher-performance)
+12. [Inventory Management](#inventory-management)
+13. [Regional Administration](#regional-administration)
+14. [Analytics & Reporting](#analytics--reporting)
 
 ---
 
@@ -103,7 +118,231 @@ Change current password
 
 ## 👥 User Management
 
+> **Note**: This section documents the refactored UserController which now uses `UserCrudService` and `UserPermissionService` for better maintainability and performance.
+
 ### Core User Operations
+
+#### **GET** `/api/users`
+List users with advanced filtering, sorting, and pagination. This endpoint now includes improved performance for large datasets.
+
+**Query Parameters:**
+- `role` - Filter by role name (supports multiple roles with comma separation)
+- `institution_id` - Filter by institution ID (supports multiple IDs with comma separation)
+- `status` - Filter by status: active/inactive
+- `search` - Search by name, email, or username
+- `page` - Page number (default: 1)
+- `per_page` - Items per page (default: 15, max: 100)
+- `sort_by` - Field to sort by (e.g., 'name', 'email', 'created_at')
+- `sort_order` - Sort order: 'asc' or 'desc' (default: 'asc')
+- `include` - Related models to include (e.g., 'roles,permissions,institution')
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "username": "john.teacher",
+      "email": "john@school.edu.az",
+      "first_name": "John",
+      "last_name": "Doe",
+      "full_name": "John Doe",
+      "phone": "+994501234567",
+      "is_active": true,
+      "last_login_at": "2024-08-05T10:30:00Z",
+      "created_at": "2024-01-15T08:00:00Z",
+      "updated_at": "2024-08-05T10:30:00Z",
+      "roles": [
+        {
+          "id": 5,
+          "name": "Müəllim",
+          "display_name": "Müəllim"
+        }
+      ],
+      "institution": {
+        "id": 3,
+        "name": "1 nömrəli məktəb",
+        "type": "school"
+      },
+      "department": {
+        "id": 10,
+        "name": "Riyaziyyat departamenti"
+      },
+      "permissions": [
+        "users.view",
+        "students.view"
+      ]
+    }
+  ],
+  "meta": {
+    "current_page": 1,
+    "per_page": 15,
+    "total": 1247,
+    "last_page": 84,
+    "from": 1,
+    "to": 15,
+    "filters": {
+      "role": ["teacher", "admin"],
+      "status": "active"
+    },
+    "sort": {
+      "field": "created_at",
+      "order": "desc"
+    }
+  }
+}
+```
+
+#### **POST** `/api/users`
+Create a new user with the specified details and roles.
+
+**Request Body:**
+```json
+{
+  "username": "jane.teacher",
+  "email": "jane@school.edu.az",
+  "first_name": "Jane",
+  "last_name": "Smith",
+  "phone": "+994507654321",
+  "password": "securePassword123!",
+  "password_confirmation": "securePassword123!",
+  "institution_id": 3,
+  "department_id": 10,
+  "roles": [5],
+  "is_active": true
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "message": "İstifadəçi uğurla yaradıldı",
+  "data": {
+    "id": 2,
+    "username": "jane.teacher",
+    "email": "jane@school.edu.az",
+    "first_name": "Jane",
+    "last_name": "Smith",
+    "is_active": true,
+    "created_at": "2024-08-27T13:15:00Z"
+  }
+}
+```
+
+#### **GET** `/api/users/{user}`
+Get detailed information about a specific user.
+
+**URL Parameters:**
+- `user` - The ID or username of the user to retrieve
+
+**Response:**
+```json
+{
+  "data": {
+    "id": 2,
+    "username": "jane.teacher",
+    "email": "jane@school.edu.az",
+    "first_name": "Jane",
+    "last_name": "Smith",
+    "full_name": "Jane Smith",
+    "phone": "+994507654321",
+    "is_active": true,
+    "email_verified_at": null,
+    "last_login_at": null,
+    "created_at": "2024-08-27T13:15:00Z",
+    "updated_at": "2024-08-27T13:15:00Z",
+    "roles": [
+      {
+        "id": 5,
+        "name": "Müəllim",
+        "display_name": "Müəllim",
+        "pivot": {
+          "user_id": 2,
+          "role_id": 5
+        }
+      }
+    ],
+    "institution": {
+      "id": 3,
+      "name": "1 nömrəli məktəb",
+      "type": "school"
+    },
+    "department": {
+      "id": 10,
+      "name": "Riyaziyyat departamenti"
+    },
+    "permissions": [
+      "users.view",
+      "students.view"
+    ]
+  }
+}
+```
+
+#### **PUT** `/api/users/{user}`
+Update an existing user's information.
+
+**URL Parameters:**
+- `user` - The ID or username of the user to update
+
+**Request Body:**
+```json
+{
+  "first_name": "Jane",
+  "last_name": "Smith-Doe",
+  "email": "jane.smith@school.edu.az",
+  "phone": "+994507654322",
+  "roles": [5, 7],
+  "is_active": true
+}
+```
+
+**Response:**
+```json
+{
+  "message": "İstifadəçi məlumatları uğurla yeniləndi",
+  "data": {
+    "id": 2,
+    "username": "jane.teacher",
+    "email": "jane.smith@school.edu.az",
+    "first_name": "Jane",
+    "last_name": "Smith-Doe",
+    "is_active": true
+  }
+}
+```
+
+#### **DELETE** `/api/users/{user}`
+Deactivate a user account (soft delete).
+
+**URL Parameters:**
+- `user` - The ID or username of the user to deactivate
+
+**Response (200 OK):**
+```json
+{
+  "message": "İstifadəçi uğurla deaktiv edildi",
+  "data": {
+    "id": 2,
+    "username": "jane.teacher",
+    "is_active": false
+  }
+}
+```
+
+### User Profile & Preferences
+
+#### **GET** `/api/profile`
+Get current authenticated user's profile information.
+
+#### **PUT** `/api/profile`
+Update current user's profile information.
+
+#### **GET** `/api/preferences`
+Get current user's preferences.
+
+#### **PUT** `/api/preferences`
+Update user preferences.
 
 #### **GET** `/api/users`
 List users with filtering and pagination
