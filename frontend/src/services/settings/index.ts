@@ -11,28 +11,28 @@ export type {
   SettingsUpdateData 
 } from './types';
 
-// Export all services
-export { systemSettingsService, SystemSettingsService } from './SystemSettingsService';
-export { databaseSettingsService, DatabaseSettingsService } from './DatabaseSettingsService';
-export { mailSettingsService, MailSettingsService } from './MailSettingsService';
-export { securitySettingsService, SecuritySettingsService } from './SecuritySettingsService';
-export { notificationSettingsService, NotificationSettingsService } from './NotificationSettingsService';
+// Export all services (direct from Generic implementations)
+export { systemSettingsService, SystemSettingsService } from './SystemSettingsServiceGeneric';
+export { databaseSettingsService, DatabaseSettingsService } from './DatabaseSettingsServiceGeneric';
+export { mailSettingsService, MailSettingsService } from './MailSettingsServiceGeneric';
+export { securitySettingsService, SecuritySettingsService } from './SecuritySettingsServiceGeneric';
+export { notificationSettingsService, NotificationSettingsService } from './NotificationSettingsServiceGeneric';
 export { systemHealthService, SystemHealthService } from './SystemHealthService';
 export { backupService, BackupService } from './BackupService';
 export { settingsImportExportService, SettingsImportExportService } from './SettingsImportExportService';
 
-// Export additional types
-export type { DatabaseConnectionTestResult } from './DatabaseSettingsService';
-export type { EmailTestResult } from './MailSettingsService';
+// Export additional types (direct from Generic implementations)
+export type { DatabaseConnectionTestResult } from './DatabaseSettingsServiceGeneric';
+export type { EmailTestResult } from './MailSettingsServiceGeneric';
 export type { BackupCreateResult } from './BackupService';
 export type { ExportResult, ImportResult } from './SettingsImportExportService';
 
 // Composite service that provides a unified interface
-import { systemSettingsService } from './SystemSettingsService';
-import { databaseSettingsService } from './DatabaseSettingsService';
-import { mailSettingsService } from './MailSettingsService';
-import { securitySettingsService } from './SecuritySettingsService';
-import { notificationSettingsService } from './NotificationSettingsService';
+import { systemSettingsService } from './SystemSettingsServiceGeneric';
+import { databaseSettingsService } from './DatabaseSettingsServiceGeneric';
+import { mailSettingsService } from './MailSettingsServiceGeneric';
+import { securitySettingsService } from './SecuritySettingsServiceGeneric';
+import { notificationSettingsService } from './NotificationSettingsServiceGeneric';
 import { systemHealthService } from './SystemHealthService';
 import { backupService } from './BackupService';
 import { settingsImportExportService } from './SettingsImportExportService';

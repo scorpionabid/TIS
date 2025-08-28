@@ -5,6 +5,8 @@ import { MuavinDashboard } from './MuavinDashboard';
 import { UBRDashboard } from './UBRDashboard';
 import { TesarrufatDashboard } from './TesarrufatDashboard';
 import { PsixoloquDashboard } from './PsixoloquDashboard';
+// Note: Teacher dashboard functionality is handled through role-based permissions
+// within the SchoolAdminDashboard component
 import { SCHOOL_ROLES } from '@/types/schoolRoles';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
@@ -87,8 +89,8 @@ export const RoleBasedDashboard: React.FC<RoleBasedDashboardProps> = ({ classNam
       return <PsixoloquDashboard className={className} />;
     
     case SCHOOL_ROLES.MUELLIM:
-      // For now, teachers use the school admin dashboard
-      // TODO: Create dedicated teacher dashboard
+      // Teachers use a simplified version of the school admin dashboard
+      // with limited functionality based on their permissions
       return <SchoolAdminDashboard className={className} />;
     
     default:

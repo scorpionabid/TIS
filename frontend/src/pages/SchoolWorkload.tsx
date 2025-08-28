@@ -119,27 +119,29 @@ export default function SchoolWorkload() {
   };
 
   const handleView = (teacherName: string) => {
+    setIsViewModalOpen(true);
     toast({
       title: "Müəllim məlumatları",
       description: `${teacherName} müəlliminin dərs yükü detalları göstərilir`
     });
-    // TODO: Implement view modal
   };
 
   const handleEdit = (workloadId?: number, teacherName?: string) => {
     if (workloadId) {
       setSelectedWorkloadId(workloadId);
+      // Pre-populate form with existing data for editing
+      setIsCreateModalOpen(true);
       toast({
         title: "Redaktə et",
         description: `ID ${workloadId} dərs yükü redaktə edilir`
       });
     } else if (teacherName) {
+      setIsCreateModalOpen(true);
       toast({
         title: "Redaktə et", 
         description: `${teacherName} müəlliminin dərs yükü redaktə edilir`
       });
     }
-    // TODO: Implement edit modal
   };
 
   // Load teaching loads

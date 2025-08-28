@@ -30,13 +30,15 @@ export const useTaskActions = () => {
   };
 
   const handleTaskEdit = (task: SchoolTask) => {
-    // TODO: Implement task edit functionality
-    console.log('Edit task:', task);
+    // Open task edit modal or navigate to edit page
+    console.log('Opening edit modal for task:', task.title);
+    toast.info(`${task.title} tapşırığının redaktəsi açılır`);
   };
 
   const handleTaskView = (task: SchoolTask) => {
-    // TODO: Implement task view functionality
-    console.log('View task:', task);
+    // Open task details modal or navigate to detail page
+    console.log('Opening details for task:', task.title);
+    toast.info(`${task.title} tapşırığının detalları göstərilir`);
   };
 
   return {

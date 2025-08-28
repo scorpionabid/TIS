@@ -661,7 +661,7 @@ export default function Tasks() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Əməliyyatlar</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => {/* TODO: View details */}}>
+                        <DropdownMenuItem onClick={() => handleOpenModal(task)}>
                           <Eye className="mr-2 h-4 w-4" />
                           Ətraflı bax
                         </DropdownMenuItem>
