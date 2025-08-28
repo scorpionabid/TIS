@@ -120,6 +120,19 @@ Route::prefix('students')->middleware('auth:sanctum')->group(function () {
     Route::get('/bulk/statistics', [StudentController::class, 'getExportStats'])->middleware('permission:students.read');
 });
 
+// Teacher Management Routes (SuperAdmin direct access)
+Route::prefix('teachers')->middleware('permission:teachers.read')->group(function () {
+    Route::get('/', [App\Http\Controllers\School\SchoolTeacherController::class, 'index']);
+    Route::post('/', [App\Http\Controllers\School\SchoolTeacherController::class, 'store'])->middleware('permission:teachers.write');
+    Route::get('/{teacher}', [App\Http\Controllers\School\SchoolTeacherController::class, 'show']);
+    Route::put('/{teacher}', [App\Http\Controllers\School\SchoolTeacherController::class, 'update'])->middleware('permission:teachers.write');
+    Route::delete('/{teacher}', [App\Http\Controllers\School\SchoolTeacherController::class, 'destroy'])->middleware('permission:teachers.write');
+    Route::post('/{teacher}/assign-classes', [App\Http\Controllers\School\SchoolTeacherController::class, 'assignClasses'])->middleware('permission:teachers.assign');
+    Route::get('/{teacher}/performance', [App\Http\Controllers\School\SchoolTeacherController::class, 'getPerformance'])->middleware('permission:teachers.performance');
+    Route::post('/bulk-create', [App\Http\Controllers\School\SchoolTeacherController::class, 'bulkCreate'])->middleware('permission:teachers.bulk');
+    Route::get('/analytics/overview', [App\Http\Controllers\School\SchoolTeacherController::class, 'getAnalytics'])->middleware('permission:teachers.analytics');
+});
+
 // Class Management Routes
 Route::prefix('classes')->group(function () {
     Route::get('/', [App\Http\Controllers\ClassesControllerRefactored::class, 'index'])->middleware('permission:classes.read');

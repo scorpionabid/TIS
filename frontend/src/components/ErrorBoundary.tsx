@@ -1,6 +1,7 @@
 import React, { Component, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ErrorHandler } from '@/utils/errorHandler';
 
 interface Props {
   children: ReactNode;
@@ -26,8 +27,14 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Log the error
-    console.error('React Error Boundary caught an error:', error, errorInfo);
+    // Log the error using ErrorHandler (production-safe)
+    ErrorHandler.handleComponentError(error, errorInfo, {
+      component: 'ErrorBoundary',
+      additionalInfo: {
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent
+      }
+    });
     
     this.setState({
       error,

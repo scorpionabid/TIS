@@ -24,6 +24,11 @@ class RoleMiddleware
         $user = Auth::user();
         $roles = is_string($roles) ? explode('|', $roles) : $roles;
 
+        // SuperAdmin has access to all roles
+        if ($user->hasRole('superadmin')) {
+            return $next($request);
+        }
+
         // Check if user has any of the required roles
         foreach ($roles as $role) {
             if ($user->hasRole($role)) {

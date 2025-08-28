@@ -24,11 +24,17 @@ class PermissionSeeder extends Seeder
             'users.read',
             'users.update',
             'users.delete',
+            'users.write',
+            'users.import',
+            'users.export',
+            'users.bulk',
+            'users.test',
 
             // Institution Management  
             'institutions.create',
             'institutions.read',
             'institutions.update',
+            'institutions.write',
             'institutions.hierarchy',
 
             // Survey Management
@@ -113,16 +119,35 @@ class PermissionSeeder extends Seeder
             'students.read',
             'students.update',
             'students.delete',
+            'students.write',
             'students.manage',
             'students.export',
+            'students.import',
+            'students.bulk',
+            'students.grades',
+            'students.attendance',
+            'students.schedule',
+            'students.enroll',
+            'students.transfer',
+            'students.graduate',
+            'students.analytics',
+            'students.reports',
 
             // Classes Management - Phase 2 API
             'classes.create',
             'classes.read',
             'classes.update',
             'classes.delete',
+            'classes.write',
             'classes.manage',
             'classes.assign',
+            'classes.students',
+            'classes.teachers',
+            'classes.schedule',
+            'classes.attendance',
+            'classes.grades',
+            'classes.bulk',
+            'classes.analytics',
 
             // Subjects Management - Phase 3 API
             'subjects.create',
@@ -218,6 +243,18 @@ class PermissionSeeder extends Seeder
             'links.bulk',
             'links.analytics',
             'links.tracking',
+
+            // Teacher Management
+            'teachers.create',
+            'teachers.read',
+            'teachers.update',
+            'teachers.delete',
+            'teachers.write',
+            'teachers.manage',
+            'teachers.assign',
+            'teachers.bulk',
+            'teachers.analytics',
+            'teachers.performance',
         ];
 
         foreach ($permissions as $permissionName) {
@@ -237,8 +274,8 @@ class PermissionSeeder extends Seeder
         // Assign permissions to roles for both guards
         $rolePermissions = [
             'superadmin' => [
-                'users.create', 'users.read', 'users.update', 'users.delete',
-                'institutions.create', 'institutions.read', 'institutions.update', 'institutions.delete', 'institutions.hierarchy',
+                'users.create', 'users.read', 'users.update', 'users.delete', 'users.write', 'users.import', 'users.export', 'users.bulk', 'users.test',
+                'institutions.create', 'institutions.read', 'institutions.update', 'institutions.delete', 'institutions.write', 'institutions.hierarchy',
                 'surveys.create', 'surveys.read', 'surveys.update', 'surveys.delete', 'surveys.publish', 'surveys.manage',
                 'roles.read', 'roles.create', 'roles.update', 'roles.delete',
                 'schedules.create', 'schedules.read', 'schedules.update', 'schedules.delete', 'schedules.approve',
@@ -249,6 +286,8 @@ class PermissionSeeder extends Seeder
                 'assessments.create', 'assessments.read', 'assessments.update', 'assessments.delete', 'assessments.approve', 'assessments.manage', 'assessments.export',
                 'assessment-types.create', 'assessment-types.read', 'assessment-types.update', 'assessment-types.delete', 'assessment-types.manage',
                 'subjects.create', 'subjects.read', 'subjects.update', 'subjects.delete', 'subjects.manage', 'subjects.assign',
+                'students.create', 'students.read', 'students.update', 'students.delete', 'students.write', 'students.manage', 'students.export', 'students.import', 'students.bulk', 'students.grades', 'students.attendance', 'students.schedule', 'students.enroll', 'students.transfer', 'students.graduate', 'students.analytics', 'students.reports',
+                'classes.create', 'classes.read', 'classes.update', 'classes.delete', 'classes.write', 'classes.manage', 'classes.assign', 'classes.students', 'classes.teachers', 'classes.schedule', 'classes.attendance', 'classes.grades', 'classes.bulk', 'classes.analytics',
                 'approvals.create', 'approvals.read', 'approvals.update', 'approvals.delete', 'approvals.approve', 'approvals.reject', 'approvals.analytics', 'approvals.reports', 'approvals.delegate',
                 'rooms.create', 'rooms.read', 'rooms.update', 'rooms.delete', 'rooms.manage', 'rooms.assign',
                 'grades.create', 'grades.read', 'grades.update', 'grades.delete', 'grades.manage', 'grades.assign',
@@ -258,6 +297,7 @@ class PermissionSeeder extends Seeder
                 'view teacher_performance', 'create teacher_performance', 'edit teacher_performance', 'delete teacher_performance', 'manage teacher_performance', 'approve teacher_performance',
                 'departments.create', 'departments.read', 'departments.update', 'departments.delete', 'departments.manage',
                 'teaching_loads.create', 'teaching_loads.read', 'teaching_loads.update', 'teaching_loads.delete', 'teaching_loads.write', 'teaching_loads.bulk', 'teaching_loads.analytics',
+                'teachers.create', 'teachers.read', 'teachers.update', 'teachers.delete', 'teachers.write', 'teachers.manage', 'teachers.assign', 'teachers.bulk', 'teachers.analytics', 'teachers.performance',
                 'links.create', 'links.read', 'links.update', 'links.delete', 'links.share', 'links.bulk', 'links.analytics', 'links.tracking',
                 'system.config', 'analytics.view'
             ],

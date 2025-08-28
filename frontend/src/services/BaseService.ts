@@ -1,4 +1,6 @@
 import { apiClient, ApiResponse, PaginatedResponse } from './api';
+import { handleApiResponse, handleArrayResponse, handleApiResponseWithError } from '@/utils/apiResponseHandler';
+import { logger } from '@/utils/logger';
 
 export interface BaseEntity {
   id: number;
@@ -22,48 +24,127 @@ export abstract class BaseService<T extends BaseEntity> {
   }
 
   async getAll(params?: PaginationParams): Promise<PaginatedResponse<T>> {
-    const response = await apiClient.get<T[]>(this.baseEndpoint, params);
-    return response as PaginatedResponse<T>;
+    try {
+      logger.debug(`Fetching all ${this.baseEndpoint}`, {
+        component: 'BaseService',
+        action: 'getAll',
+        data: { endpoint: this.baseEndpoint, params }
+      });
+      
+      const response = await apiClient.get<T[]>(this.baseEndpoint, params);
+      const data = handleArrayResponse<T>(response, `BaseService.getAll(${this.baseEndpoint})`);
+      
+      // Handle paginated response structure
+      if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+        return response.data as PaginatedResponse<T>;
+      }
+      
+      // Fallback to simple array structure
+      return {
+        data,
+        pagination: {
+          current_page: 1,
+          per_page: data.length,
+          total: data.length,
+          total_pages: 1
+        }
+      } as PaginatedResponse<T>;
+      
+    } catch (error) {
+      logger.error(`Failed to fetch all ${this.baseEndpoint}`, error);
+      throw error;
+    }
   }
 
   async getById(id: number): Promise<T> {
-    const response = await apiClient.get<T>(`${this.baseEndpoint}/${id}`);
-    if (!response.data) {
-      throw new Error('Məlumat tapılmadı');
+    try {
+      logger.debug(`Fetching ${this.baseEndpoint} by ID`, {
+        component: 'BaseService',
+        action: 'getById',
+        data: { endpoint: this.baseEndpoint, id }
+      });
+      
+      const response = await apiClient.get<T>(`${this.baseEndpoint}/${id}`);
+      return handleApiResponseWithError<T>(response, `BaseService.getById(${this.baseEndpoint}/${id})`, 'BaseService');
+      
+    } catch (error) {
+      logger.error(`Failed to fetch ${this.baseEndpoint}/${id}`, error);
+      throw error;
     }
-    return response.data;
   }
 
   async create(data: Partial<T>): Promise<T> {
-    console.log(`🔥 BaseService.create called for ${this.baseEndpoint}`, data);
-    
     try {
+      logger.debug(`Creating new ${this.baseEndpoint}`, {
+        component: 'BaseService',
+        action: 'create',
+        data: { endpoint: this.baseEndpoint, payload: data }
+      });
+      
       const response = await apiClient.post<T>(this.baseEndpoint, data);
-      console.log(`📤 API response for ${this.baseEndpoint}:`, response);
+      const result = handleApiResponseWithError<T>(response, `BaseService.create(${this.baseEndpoint})`, 'BaseService');
       
-      if (!response.data) {
-        console.error(`❌ No data in response for ${this.baseEndpoint}:`, response);
-        throw new Error('Yaratma əməliyyatı uğursuz oldu - server cavabında data yoxdur');
-      }
+      logger.info(`Successfully created ${this.baseEndpoint}`, {
+        component: 'BaseService',
+        action: 'create',
+        data: { endpoint: this.baseEndpoint, id: (result as any)?.id }
+      });
       
-      console.log(`✅ Create successful for ${this.baseEndpoint}:`, response.data);
-      return response.data;
+      return result;
+      
     } catch (error) {
-      console.error(`❌ Create failed for ${this.baseEndpoint}:`, error);
+      logger.error(`Failed to create ${this.baseEndpoint}`, error, {
+        component: 'BaseService',
+        action: 'create',
+        data: { endpoint: this.baseEndpoint, payload: data }
+      });
       throw error;
     }
   }
 
   async update(id: number, data: Partial<T>): Promise<T> {
-    const response = await apiClient.put<T>(`${this.baseEndpoint}/${id}`, data);
-    if (!response.data) {
-      throw new Error('Yeniləmə əməliyyatı uğursuz oldu');
+    try {
+      logger.debug(`Updating ${this.baseEndpoint}/${id}`, {
+        component: 'BaseService',
+        action: 'update',
+        data: { endpoint: this.baseEndpoint, id, payload: data }
+      });
+      
+      const response = await apiClient.put<T>(`${this.baseEndpoint}/${id}`, data);
+      const result = handleApiResponseWithError<T>(response, `BaseService.update(${this.baseEndpoint}/${id})`, 'BaseService');
+      
+      logger.info(`Successfully updated ${this.baseEndpoint}/${id}`, {
+        component: 'BaseService',
+        action: 'update'
+      });
+      
+      return result;
+      
+    } catch (error) {
+      logger.error(`Failed to update ${this.baseEndpoint}/${id}`, error);
+      throw error;
     }
-    return response.data;
   }
 
   async delete(id: number): Promise<void> {
-    await apiClient.delete(`${this.baseEndpoint}/${id}`);
+    try {
+      logger.debug(`Deleting ${this.baseEndpoint}/${id}`, {
+        component: 'BaseService',
+        action: 'delete',
+        data: { endpoint: this.baseEndpoint, id }
+      });
+      
+      await apiClient.delete(`${this.baseEndpoint}/${id}`);
+      
+      logger.info(`Successfully deleted ${this.baseEndpoint}/${id}`, {
+        component: 'BaseService',
+        action: 'delete'
+      });
+      
+    } catch (error) {
+      logger.error(`Failed to delete ${this.baseEndpoint}/${id}`, error);
+      throw error;
+    }
   }
 
   async search(query: string, params?: Partial<PaginationParams>): Promise<PaginatedResponse<T>> {
