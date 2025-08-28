@@ -21,7 +21,7 @@ import {
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Task, CreateTaskData, TaskFilters, taskService } from "@/services/tasks";
-import { TaskModal } from "@/components/modals/TaskModal";
+import { TaskModalStandardized } from "@/components/modals/TaskModalStandardized";
 import { DeleteConfirmationModal } from "@/components/modals/DeleteConfirmationModal";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -698,7 +698,7 @@ export default function Tasks() {
       </div>
 
       {/* Task Modal */}
-      <TaskModal
+      <TaskModalStandardized
         open={isModalOpen}
         onClose={handleCloseModal}
         task={selectedTask}

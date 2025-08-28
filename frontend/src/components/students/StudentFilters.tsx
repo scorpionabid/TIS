@@ -7,7 +7,7 @@ import {
   createGenderOptions,
   useInstitutionFilter
 } from '@/components/common/GenericFilter';
-import type { StudentFilters } from './hooks/useSchoolStudentManager';
+import type { StudentFilters } from './hooks/useSchoolStudentManagerGeneric';
 import { SchoolClass } from '@/services/schoolAdmin';
 
 interface StudentFiltersProps {

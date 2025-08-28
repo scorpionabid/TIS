@@ -1,8 +1,8 @@
 import React from 'react';
-import { SchoolClassManager } from '@/components/classes/SchoolClassManager';
+import { SchoolClassManagerStandardized } from '@/components/classes/SchoolClassManagerStandardized';
 
 const SchoolClasses: React.FC = () => {
-  return <SchoolClassManager />;
+  return <SchoolClassManagerStandardized />;
 };
 
 export default SchoolClasses;

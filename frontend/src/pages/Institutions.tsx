@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { institutionService, Institution, CreateInstitutionData } from "@/services/institutions";
 import { User, userService, UserFilters } from "@/services/users";
-import { InstitutionModal } from "@/components/modals/InstitutionModal";
+import { InstitutionModalStandardized } from "@/components/modals/InstitutionModalStandardized";
 import { DeleteInstitutionModal } from "@/components/modals/DeleteInstitutionModal";
 import { InstitutionDetailsModal } from "@/components/modals/InstitutionDetailsModal";
 import { InstitutionImportExportModal } from "@/components/modals/InstitutionImportExportModal";
@@ -1038,7 +1038,7 @@ const Institutions = () => {
         />
       )}
 
-      <InstitutionModal
+      <InstitutionModalStandardized
         open={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);

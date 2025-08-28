@@ -6,7 +6,7 @@ import {
   createDepartmentOptions,
   useInstitutionFilter
 } from '@/components/common/GenericFilter';
-import type { TeacherFilters } from './hooks/useSchoolTeacherManager';
+import type { TeacherFilters } from './hooks/useSchoolTeacherManagerGeneric';
 
 interface TeacherFiltersProps {
   searchTerm: string;
