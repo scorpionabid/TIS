@@ -230,13 +230,39 @@ export const InstitutionModalStandardized: React.FC<InstitutionModalStandardized
     },
   ];
 
+  // Set selected type when modal opens or institution changes
+  React.useEffect(() => {
+    if (open) {
+      if (institution) {
+        // Map backend types to frontend types
+        const typeMap = {
+          'ministry': 'ministry',
+          'regional_education_department': 'region',
+          'sector_education_office': 'sektor',
+          'region': 'region',
+          'sektor': 'sektor',
+          'school': 'school',
+          'secondary_school': 'school',
+          'lyceum': 'school',
+          'gymnasium': 'school',
+          'primary_school': 'school',
+          'vocational': 'school',
+          'university': 'school'
+        };
+        const normalizedType = typeMap[institution.type] || 'school';
+        setSelectedType(normalizedType);
+      } else {
+        // Default type for new institutions
+        setSelectedType('school');
+      }
+    }
+  }, [open, institution]);
+
   const prepareDefaultValues = React.useCallback(() => {
     if (!institution) {
-      const defaultType = 'school'; // Default type for new institutions
-      setSelectedType(defaultType);
       return {
         name: '',
-        type: defaultType,
+        type: 'school',
         level: 4,
         code: '',
         address: '',
@@ -266,7 +292,6 @@ export const InstitutionModalStandardized: React.FC<InstitutionModalStandardized
     };
 
     const normalizedType = typeMap[institution.type] || 'school';
-    setSelectedType(normalizedType);
 
     // Parse JSON fields from backend
     let contactInfo = {};
