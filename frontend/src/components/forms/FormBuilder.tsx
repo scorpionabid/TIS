@@ -111,7 +111,13 @@ export function FormBuilder({
       
       // Apply optional modifier if field is not required
       if (!field.required) {
-        fieldSchema = fieldSchema.optional();
+        // Check if the schema has optional method (some custom validations might not have it)
+        if (fieldSchema && typeof fieldSchema.optional === 'function') {
+          fieldSchema = fieldSchema.optional();
+        } else {
+          // For schemas without optional method, wrap in optional
+          fieldSchema = z.optional(fieldSchema);
+        }
       }
       
       acc[field.name] = fieldSchema;
@@ -361,9 +367,15 @@ export const createField = (
 
 // Common validation schemas
 export const commonValidations = {
-  email: z.string().email('Etibarlı email daxil edin'),
+  email: {
+    required: z.string().email('Etibarlı email daxil edin'),
+    optional: () => z.string().email('Etibarlı email daxil edin').optional().or(z.literal('')),
+  },
+  phone: {
+    required: z.string().regex(/^[0-9\+\-\s\(\)]+$/, 'Etibarlı telefon nömrəsi daxil edin'),
+    optional: () => z.string().regex(/^[0-9\+\-\s\(\)]+$/, 'Etibarlı telefon nömrəsi daxil edin').optional().or(z.literal('')),
+  },
   password: z.string().min(6, 'Şifrə ən azı 6 simvol olmalıdır'),
-  phone: z.string().regex(/^[0-9\+\-\s\(\)]+$/, 'Etibarlı telefon nömrəsi daxil edin'),
   required: z.string().min(1, 'Bu sahə tələb olunur'),
   number: z.coerce.number().min(0, 'Müsbət rəqəm daxil edin'),
 };

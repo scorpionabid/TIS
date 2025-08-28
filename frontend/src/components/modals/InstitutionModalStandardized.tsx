@@ -232,9 +232,11 @@ export const InstitutionModalStandardized: React.FC<InstitutionModalStandardized
 
   const prepareDefaultValues = React.useCallback(() => {
     if (!institution) {
+      const defaultType = 'school'; // Default type for new institutions
+      setSelectedType(defaultType);
       return {
         name: '',
-        type: '',
+        type: defaultType,
         level: 4,
         code: '',
         address: '',
