@@ -8,7 +8,29 @@ import { Building, MapPin, Users, School } from 'lucide-react';
 export const getFallbackTypesForRole = (userRole?: string): InstitutionType[] => {
   const fallbackTypes: InstitutionType[] = [];
   
-  if (userRole === 'regionadmin') {
+  // Ministry level types (for superadmin)
+  if (userRole === 'superadmin') {
+    fallbackTypes.push(
+      { 
+        id: 0, 
+        key: 'ministry', 
+        label_az: 'Nazirlik', 
+        label: 'Nazirlik', 
+        label_en: 'Ministry', 
+        default_level: 1, 
+        color: '#1F2937', 
+        icon: 'Building', 
+        allowed_parent_types: [], 
+        is_active: true, 
+        is_system: true, 
+        metadata: {}, 
+        created_at: '', 
+        updated_at: '' 
+      },
+    );
+  }
+  
+  if (userRole === 'regionadmin' || userRole === 'superadmin') {
     fallbackTypes.push(
       { 
         id: 1, 
@@ -75,7 +97,9 @@ export const getFallbackTypesForRole = (userRole?: string): InstitutionType[] =>
         updated_at: '' 
       }
     );
-  } else if (userRole === 'sektoradmin') {
+  }
+  
+  if (userRole === 'sektoradmin' || userRole === 'regionadmin' || userRole === 'superadmin') {
     fallbackTypes.push(
       { 
         id: 2, 
@@ -126,7 +150,9 @@ export const getFallbackTypesForRole = (userRole?: string): InstitutionType[] =>
         updated_at: '' 
       }
     );
-  } else if (userRole === 'schooladmin') {
+  }
+  
+  if (userRole === 'schooladmin' || userRole === 'sektoradmin' || userRole === 'regionadmin' || userRole === 'superadmin' || !userRole) {
     fallbackTypes.push(
       { 
         id: 3, 

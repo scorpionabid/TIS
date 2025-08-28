@@ -36,15 +36,30 @@ export const InstitutionModalStandardized: React.FC<InstitutionModalStandardized
 
   // Transform institution types for UI
   const institutionTypes = React.useMemo(() => {
-    if (!institutionTypesResponse?.institution_types) {
+    console.log('🔍 institutionTypesResponse:', institutionTypesResponse);
+    
+    // Check if we have data in the response
+    let types = [];
+    if (institutionTypesResponse?.institution_types) {
+      types = institutionTypesResponse.institution_types;
+    } else if (institutionTypesResponse?.data?.institution_types) {
+      types = institutionTypesResponse.data.institution_types;
+    } else if (Array.isArray(institutionTypesResponse?.data)) {
+      types = institutionTypesResponse.data;
+    } else if (Array.isArray(institutionTypesResponse)) {
+      types = institutionTypesResponse;
+    } else {
+      console.warn('⚠️ No institution types found in response:', institutionTypesResponse);
       return [];
     }
     
-    return institutionTypesResponse.institution_types.map((type: any) => ({
+    console.log('✅ Found institution types:', types);
+    
+    return types.map((type: any) => ({
       label: `${type.label_az || type.label} (Səviyyə ${type.default_level})`,
       value: type.key,
       level: type.default_level,
-      allowedParents: type.allowed_parent_types,
+      allowedParents: type.allowed_parent_types || [],
       icon: type.icon,
       color: type.color,
       originalType: type
@@ -232,6 +247,8 @@ export const InstitutionModalStandardized: React.FC<InstitutionModalStandardized
 
   // Set selected type when modal opens or institution changes
   React.useEffect(() => {
+    console.log('🔄 Modal useEffect triggered:', { open, institution, institutionTypes: institutionTypes.length });
+    
     if (open) {
       if (institution) {
         // Map backend types to frontend types
@@ -250,20 +267,36 @@ export const InstitutionModalStandardized: React.FC<InstitutionModalStandardized
           'university': 'school'
         };
         const normalizedType = typeMap[institution.type] || 'school';
+        console.log('📝 Setting selected type for editing:', normalizedType);
         setSelectedType(normalizedType);
       } else {
-        // Default type for new institutions
-        setSelectedType('school');
+        // For new institutions, set default type only if we have types available
+        if (institutionTypes.length > 0) {
+          const defaultType = institutionTypes.find(type => type.value === 'school')?.value || institutionTypes[0].value;
+          console.log('📝 Setting default type for new institution:', defaultType);
+          setSelectedType(defaultType);
+        } else {
+          console.log('⚠️ No institution types available, setting fallback default');
+          setSelectedType('school');
+        }
       }
     }
-  }, [open, institution]);
+  }, [open, institution, institutionTypes]);
 
   const prepareDefaultValues = React.useCallback(() => {
+    console.log('📋 Preparing default values:', { institution, selectedType, institutionTypesLength: institutionTypes.length });
+    
     if (!institution) {
+      const defaultType = selectedType || (institutionTypes.length > 0 ? institutionTypes[0].value : 'school');
+      const typeData = institutionTypes.find(type => type.value === defaultType);
+      const defaultLevel = typeData?.level || 4;
+      
+      console.log('📋 New institution defaults:', { defaultType, defaultLevel, typeData });
+      
       return {
         name: '',
-        type: 'school',
-        level: 4,
+        type: defaultType,
+        level: defaultLevel,
         code: '',
         address: '',
         phone: '',

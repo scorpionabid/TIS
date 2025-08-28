@@ -133,6 +133,12 @@ export const institutionFields = {
       return true;
     },
   }),
+  
+  type: createField('type', 'Növ', 'select', {
+    required: true,
+    placeholder: 'Müəssisə növünü seçin',
+    validation: commonValidations.required,
+  }),
 };
 
 // Task-related fields
