@@ -107,7 +107,8 @@ export const TeacherDashboard = () => {
 
   const getCurrentDaySchedule = () => {
     const today = new Date().toLocaleDateString('az-AZ', { weekday: 'long' });
-    return stats.weeklySchedule.find(day => day.day === today) || stats.weeklySchedule[0];
+    const schedule = stats?.weeklySchedule || [];
+    return schedule.find(day => day.day === today) || schedule[0] || { day: 'Bugün', classes: [] };
   };
 
   const todaySchedule = getCurrentDaySchedule();
@@ -265,7 +266,7 @@ export const TeacherDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {stats.recentActivities.map((activity) => (
+              {(stats?.recentActivities || []).map((activity) => (
                 <div key={activity.id} className="flex items-start space-x-3">
                   <div className="flex-shrink-0">
                     <div className={`w-2 h-2 rounded-full mt-2 ${
@@ -304,7 +305,7 @@ export const TeacherDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {stats.classPerformance.map((classData, index) => (
+              {(stats?.classPerformance || []).map((classData, index) => (
                 <div key={index} className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div>

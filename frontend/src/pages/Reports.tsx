@@ -318,7 +318,7 @@ export default function Reports() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {overviewStats.user_statistics.users_by_role.map((role, index) => (
+                {(overviewStats?.user_statistics?.users_by_role || []).map((role, index) => (
                   <div key={index} className="flex items-center justify-between">
                     <span className="font-medium">{role.role}</span>
                     <div className="flex items-center gap-2">
@@ -343,7 +343,7 @@ export default function Reports() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {overviewStats.institution_statistics.institutions_by_type.map((type, index) => (
+                {(overviewStats?.institution_statistics?.institutions_by_type || []).map((type, index) => (
                   <div key={index} className="flex items-center justify-between">
                     <span className="font-medium">{type.type}</span>
                     <div className="flex items-center gap-2">
@@ -395,7 +395,7 @@ export default function Reports() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {institutionalData.map((institution) => (
+                    {(institutionalData || []).map((institution) => (
                       <TableRow key={institution.institution_id}>
                         <TableCell className="font-medium">{institution.institution_name}</TableCell>
                         <TableCell>{institution.type}</TableCell>
@@ -459,7 +459,7 @@ export default function Reports() {
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Ən Aktiv İstifadəçilər</h3>
                   <div className="space-y-2">
-                    {userActivityData.activity_summary.most_active_users.slice(0, 5).map((user, index) => (
+                    {(userActivityData?.activity_summary?.most_active_users || []).slice(0, 5).map((user, index) => (
                       <div key={user.user_id} className="flex items-center justify-between p-3 border rounded">
                         <div className="flex items-center gap-3">
                           <Badge variant="outline">#{index + 1}</Badge>

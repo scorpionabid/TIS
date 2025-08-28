@@ -119,7 +119,7 @@ export default function Sectors() {
               </div>
             </Card>
           ))
-        ) : sectors.length === 0 ? (
+        ) : !sectors || sectors.length === 0 ? (
           <div className="col-span-full text-center py-12">
             <Building className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium text-muted-foreground mb-2">Sektor tapılmadı</h3>
@@ -131,7 +131,7 @@ export default function Sectors() {
             </Button>
           </div>
         ) : (
-          sectors.map((sector: any) => (
+          (sectors || []).map((sector: any) => (
             <SectorCard
               key={sector.id}
               sector={sector}

@@ -52,10 +52,10 @@ export const useSectors = () => {
     staleTime: 1000 * 60 * 15, // Cache for 15 minutes
   });
 
-  // Use real data or fallback to mock data
-  const sectors = sectorsResponse?.data || sectorsService.getMockSectors();
+  // Use real data or fallback to mock data - ensure arrays are always returned
+  const sectors = sectorsResponse?.data || sectorsService.getMockSectors() || [];
   const stats = statsResponse?.data || sectorsService.getMockStatistics();
-  const availableManagers = managersResponse?.data || sectorsService.getMockManagers();
+  const availableManagers = managersResponse?.data || sectorsService.getMockManagers() || [];
 
   // Mutations
   const createMutation = useMutation({
