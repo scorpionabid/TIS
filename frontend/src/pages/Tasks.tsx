@@ -98,7 +98,7 @@ export default function Tasks() {
     queryFn: () => taskService.getAll(),
   });
 
-  const rawTasks = tasksResponse?.data || [];
+  const rawTasks = Array.isArray(tasksResponse?.data) ? tasksResponse.data : [];
 
   // Load task statistics
   const { data: taskStats } = useQuery({

@@ -82,8 +82,34 @@ export function FormBuilder({
   // Create dynamic schema from fields
   const schema = z.object(
     fields.reduce((acc, field) => {
-      let fieldSchema = field.validation || z.string();
+      // Ensure we have a proper Zod schema
+      let fieldSchema = field.validation;
       
+      // If no validation provided, create appropriate default schema based on field type
+      if (!fieldSchema) {
+        switch (field.type) {
+          case 'email':
+            fieldSchema = z.string().email('Düzgün email daxil edin');
+            break;
+          case 'number':
+            fieldSchema = z.number().or(z.string().regex(/^\d+$/, 'Düzgün nömrə daxil edin').transform(Number));
+            break;
+          case 'password':
+            fieldSchema = z.string().min(6, 'Parol ən azı 6 simvol olmalıdır');
+            break;
+          case 'checkbox':
+          case 'switch':
+            fieldSchema = z.boolean();
+            break;
+          case 'date':
+            fieldSchema = z.string().refine((date) => !isNaN(Date.parse(date)), 'Düzgün tarix formatı daxil edin');
+            break;
+          default:
+            fieldSchema = z.string();
+        }
+      }
+      
+      // Apply optional modifier if field is not required
       if (!field.required) {
         fieldSchema = fieldSchema.optional();
       }

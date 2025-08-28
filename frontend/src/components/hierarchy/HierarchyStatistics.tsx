@@ -273,18 +273,22 @@ export const HierarchyBreakdown: React.FC<HierarchyStatisticsProps> = ({
               <span className="text-sm text-muted-foreground">Ən çox müəssisə növü</span>
               <div className="flex items-center gap-1">
                 <span className="text-sm">
-                  {hierarchyService.getTypeIcon(
-                    Object.entries(statistics.by_type).reduce((a, b) => 
-                      Number(a[1]) > Number(b[1]) ? a : b
-                    )[0]
-                  )}
+                  {(() => {
+                    const entries = Object.entries(statistics?.by_type || {});
+                    const mostCommonType = entries.length > 0 
+                      ? entries.reduce((a, b) => Number(a[1]) > Number(b[1]) ? a : b)[0]
+                      : 'school';
+                    return hierarchyService.getTypeIcon(mostCommonType);
+                  })()}
                 </span>
                 <span className="text-sm font-medium">
-                  {hierarchyService.getTypeDisplayName(
-                    Object.entries(statistics.by_type).reduce((a, b) => 
-                      Number(a[1]) > Number(b[1]) ? a : b
-                    )[0]
-                  )}
+                  {(() => {
+                    const entries = Object.entries(statistics?.by_type || {});
+                    const mostCommonType = entries.length > 0 
+                      ? entries.reduce((a, b) => Number(a[1]) > Number(b[1]) ? a : b)[0]
+                      : 'school';
+                    return hierarchyService.getTypeDisplayName(mostCommonType);
+                  })()}
                 </span>
               </div>
             </div>

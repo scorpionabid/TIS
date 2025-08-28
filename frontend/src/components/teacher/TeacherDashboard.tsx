@@ -224,7 +224,7 @@ export const TeacherDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {todaySchedule.classes.length > 0 ? (
+              {Array.isArray(todaySchedule.classes) && todaySchedule.classes.length > 0 ? (
                 todaySchedule.classes.map((lesson, index) => (
                   <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex-1">

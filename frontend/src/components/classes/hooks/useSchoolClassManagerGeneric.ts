@@ -1,5 +1,6 @@
 import { useEntityManager, BaseFilters } from '@/hooks/useEntityManager';
 import { schoolAdminService, SchoolClass } from '@/services/schoolAdmin';
+import { useRoleBasedService } from '@/hooks/useRoleBasedService';
 
 export interface ClassFilters extends BaseFilters {
   grade_level?: number;
@@ -41,14 +42,16 @@ const defaultCreateData: NewClassData = {
 };
 
 export const useSchoolClassManager = () => {
+  const { getClasses, getClass, createClass, updateClass, deleteClass } = useRoleBasedService();
+  
   return useEntityManager<SchoolClass, ClassFilters, NewClassData>({
     entityType: 'classes',
     entityName: 'Sinif',
     service: {
-      get: (filters) => schoolAdminService.getClasses(filters),
-      create: (data) => schoolAdminService.createClass(data),
-      update: (id, data) => schoolAdminService.updateClass(id, data),
-      delete: (id) => schoolAdminService.deleteClass(id),
+      get: (filters) => getClasses(filters),
+      create: (data) => createClass(data),
+      update: (id, data) => updateClass(id, data),
+      delete: (id) => deleteClass(id),
     },
     defaultFilters,
     defaultCreateData,

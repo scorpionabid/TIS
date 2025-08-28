@@ -138,8 +138,8 @@ export default function Preschools() {
     refetchOnWindowFocus: false,
   });
 
-  const preschools = preschoolsResponse?.data || [];
-  const sectors = sectorsResponse?.data || [];
+  const preschools = Array.isArray(preschoolsResponse?.data) ? preschoolsResponse.data : [];
+  const sectors = Array.isArray(sectorsResponse?.data) ? sectorsResponse.data : [];
   const statistics = statisticsResponse?.data;
 
   // Log statistics for debugging if needed

@@ -1,7 +1,12 @@
-console.log('🔧 Environment check:', { 
-  VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
-  NODE_ENV: import.meta.env.NODE_ENV,
-  all_env: import.meta.env
+import { logger } from '@/utils/logger';
+
+logger.debug('Environment check', {
+  component: 'API',
+  data: {
+    VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
+    NODE_ENV: import.meta.env.NODE_ENV,
+    all_env: import.meta.env
+  }
 });
 
 // Environment variable validation and setup

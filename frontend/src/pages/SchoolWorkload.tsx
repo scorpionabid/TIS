@@ -184,7 +184,7 @@ export default function SchoolWorkload() {
     { id: 2, name: '2025-2026' }
   ];
 
-  const teachingLoads = teachingLoadsResponse?.data || [];
+  const teachingLoads = Array.isArray(teachingLoadsResponse?.data) ? teachingLoadsResponse.data : [];
   const stats = statsResponse?.data || {
     total_teachers: 0,
     overloaded_teachers: 0,

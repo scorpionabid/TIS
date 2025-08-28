@@ -54,56 +54,11 @@ export const TeacherManagerWrapper: React.FC<TeacherManagerWrapperProps> = (prop
     return false;
   }, [featureFlags, currentUser?.id]);
 
-  // Development debug panel
-  const DebugPanel = () => {
-    if (import.meta.env.MODE !== 'development') return null;
-    
-    return (
-      <Alert className="mb-4 border-blue-200 bg-blue-50">
-        <Info className="h-4 w-4" />
-        <AlertDescription>
-          <div className="space-y-2 text-sm">
-            <div className="font-semibold flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Feature Flag Debug Info
-            </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-              <span>Component Version:</span>
-              <span className="font-mono">{shouldUseV2 ? 'V2 (Generic)' : 'V1 (Legacy)'}</span>
-              
-              <span>User ID:</span>
-              <span className="font-mono">{debugInfo.userId || 'null'}</span>
-              
-              <span>User Role:</span>
-              <span className="font-mono">{debugInfo.userRole || 'null'}</span>
-              
-              <span>Direct Flag:</span>
-              <span className="font-mono">{debugInfo.flagEnabled.toString()}</span>
-              
-              <span>Generic V2 Flag:</span>
-              <span className="font-mono">{debugInfo.genericV2Enabled.toString()}</span>
-              
-              <span>Test Group:</span>
-              <span className="font-mono">{debugInfo.userInTestGroup.toString()}</span>
-              
-              <span>Environment:</span>
-              <span className="font-mono">{debugInfo.environment}</span>
-            </div>
-            <div className="pt-2 border-t border-blue-200">
-              <div className="text-xs text-blue-600">
-                Toggle flags via console: <code>featureFlags.toggle('useNewTeacherManager')</code>
-              </div>
-            </div>
-          </div>
-        </AlertDescription>
-      </Alert>
-    );
-  };
+
 
   // Render the appropriate component
   return (
     <div className="space-y-4">
-      <DebugPanel />
       
       {shouldUseV2 ? (
         <SchoolTeacherManagerV2 {...props} />

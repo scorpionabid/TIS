@@ -278,7 +278,7 @@ export const TeacherImportExportModal: React.FC<TeacherImportExportModalProps> =
                               <span>Xəta: {importResult.errors?.length || 0}</span>
                             </div>
                           </div>
-                          {importResult.errors && importResult.errors.length > 0 && (
+                          {Array.isArray(importResult.errors) && importResult.errors.length > 0 && (
                             <details className="mt-2">
                               <summary className="cursor-pointer text-sm font-medium">Xəta təfərrüatları</summary>
                               <ul className="mt-1 text-xs space-y-1 max-h-32 overflow-y-auto">
