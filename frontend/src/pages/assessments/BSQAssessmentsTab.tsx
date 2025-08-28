@@ -50,7 +50,7 @@ export const BSQAssessmentsTab: React.FC<BSQAssessmentsTabProps> = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {assessmentData.data.bsq_results.data.map((assessment: any) => (
+              {assessmentData?.data?.bsq_results?.data?.map((assessment: any) => (
                 <TableRow key={assessment.id}>
                   <TableCell>
                     {new Date(assessment.assessment_date).toLocaleDateString('az-AZ')}

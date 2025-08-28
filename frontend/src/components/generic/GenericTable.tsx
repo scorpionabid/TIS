@@ -118,7 +118,7 @@ export function GenericTable<T extends BaseEntity>({
         </TableHeader>
         
         <TableBody>
-          {data.map((item) => {
+          {(data || []).map((item) => {
             const defaultRow = (
               <TableRow key={item.id}>
                 {/* Selection checkbox */}

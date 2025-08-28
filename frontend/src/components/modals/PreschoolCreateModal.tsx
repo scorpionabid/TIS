@@ -59,8 +59,9 @@ export const PreschoolCreateModal: React.FC<PreschoolCreateModalProps> = ({
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
 
-  const sectors = sectorsResponse?.data || [];
-  const managers = managersResponse?.data || managersResponse?.users || [];
+  const sectors = Array.isArray(sectorsResponse?.data) ? sectorsResponse.data : [];
+  const managers = Array.isArray(managersResponse?.data) ? managersResponse.data : 
+                   Array.isArray(managersResponse?.users) ? managersResponse.users : [];
 
   // Reset form when modal opens/closes
   useEffect(() => {

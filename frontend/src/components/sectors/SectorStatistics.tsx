@@ -18,7 +18,7 @@ export const SectorStatistics = ({ stats, statsLoading }: SectorStatisticsProps)
                 {statsLoading ? (
                   <Loader2 className="h-6 w-6 animate-spin" />
                 ) : (
-                  stats.total_sectors
+                  stats?.total_sectors || 0
                 )}
               </p>
             </div>
@@ -36,11 +36,12 @@ export const SectorStatistics = ({ stats, statsLoading }: SectorStatisticsProps)
                 {statsLoading ? (
                   <Loader2 className="h-6 w-6 animate-spin" />
                 ) : (
-                  stats.active_sectors
+                  stats?.active_sectors || 0
                 )}
               </p>
               <p className="text-xs text-green-500">
-                {Math.round((stats.active_sectors / stats.total_sectors) * 100)}% aktiv
+                {stats?.active_sectors && stats?.total_sectors ? 
+                  Math.round((stats.active_sectors / stats.total_sectors) * 100) : 0}% aktiv
               </p>
             </div>
             <Activity className="h-8 w-8 text-green-500" />
@@ -57,7 +58,7 @@ export const SectorStatistics = ({ stats, statsLoading }: SectorStatisticsProps)
                 {statsLoading ? (
                   <Loader2 className="h-6 w-6 animate-spin" />
                 ) : (
-                  stats.by_region.reduce((sum: number, region: any) => sum + region.total_institutions, 0).toLocaleString()
+                  (stats?.by_region || []).reduce((sum: number, region: any) => sum + (region?.total_institutions || 0), 0).toLocaleString()
                 )}
               </p>
             </div>
@@ -75,7 +76,7 @@ export const SectorStatistics = ({ stats, statsLoading }: SectorStatisticsProps)
                 {statsLoading ? (
                   <Loader2 className="h-6 w-6 animate-spin" />
                 ) : (
-                  stats.by_region.reduce((sum: number, region: any) => sum + region.total_students, 0).toLocaleString()
+                  (stats?.by_region || []).reduce((sum: number, region: any) => sum + (region?.total_students || 0), 0).toLocaleString()
                 )}
               </p>
             </div>

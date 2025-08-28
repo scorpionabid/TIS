@@ -48,12 +48,12 @@ export const AssessmentOverviewTab: React.FC<AssessmentOverviewTabProps> = ({
               <div className="space-y-4">
                 <div className="text-center">
                   <p className="text-3xl font-bold text-primary">
-                    {assessmentData.data.ksq_results.data.length}
+                    {assessmentData?.data?.ksq_results?.data?.length || 0}
                   </p>
                   <p className="text-sm text-muted-foreground">Ümumi qiymətləndirmə</p>
                 </div>
                 <div className="space-y-2">
-                  {assessmentData.data.ksq_results.data.slice(0, 3).map((assessment: any, index: number) => (
+                  {assessmentData?.data?.ksq_results?.data?.slice(0, 3).map((assessment: any, index: number) => (
                     <div key={assessment.id} className="flex items-center justify-between p-2 bg-muted rounded">
                       <div className="flex-1">
                         <p className="text-sm font-medium">{assessment.assessment_type}</p>
@@ -94,12 +94,12 @@ export const AssessmentOverviewTab: React.FC<AssessmentOverviewTabProps> = ({
               <div className="space-y-4">
                 <div className="text-center">
                   <p className="text-3xl font-bold text-primary">
-                    {assessmentData.data.bsq_results.data.length}
+                    {assessmentData?.data?.bsq_results?.data?.length || 0}
                   </p>
                   <p className="text-sm text-muted-foreground">Ümumi qiymətləndirmə</p>
                 </div>
                 <div className="space-y-2">
-                  {assessmentData.data.bsq_results.data.slice(0, 3).map((assessment: any, index: number) => (
+                  {assessmentData?.data?.bsq_results?.data?.slice(0, 3).map((assessment: any, index: number) => (
                     <div key={assessment.id} className="flex items-center justify-between p-2 bg-muted rounded">
                       <div className="flex-1">
                         <p className="text-sm font-medium">{assessment.international_standard}</p>

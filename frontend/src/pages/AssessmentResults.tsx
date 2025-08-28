@@ -456,7 +456,7 @@ export default function AssessmentResults() {
                       <p className="text-sm text-muted-foreground">Ümumi nəticə</p>
                     </div>
                     <div className="space-y-2">
-                      {assessmentData.data.ksq_results.data.slice(0, 3).map((assessment: any) => (
+                      {assessmentData?.data?.ksq_results?.data?.slice(0, 3).map((assessment: any) => (
                         <div key={assessment.id} className="flex items-center justify-between p-2 bg-muted rounded">
                           <div className="flex-1">
                             <p className="text-sm font-medium">{assessment.assessment_type}</p>
@@ -502,7 +502,7 @@ export default function AssessmentResults() {
                       <p className="text-sm text-muted-foreground">Ümumi nəticə</p>
                     </div>
                     <div className="space-y-2">
-                      {assessmentData.data.bsq_results.data.slice(0, 3).map((assessment: any) => (
+                      {assessmentData?.data?.bsq_results?.data?.slice(0, 3).map((assessment: any) => (
                         <div key={assessment.id} className="flex items-center justify-between p-2 bg-muted rounded">
                           <div className="flex-1">
                             <p className="text-sm font-medium">{assessment.international_standard}</p>
@@ -550,7 +550,7 @@ export default function AssessmentResults() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {assessmentData.data.ksq_results.data.map((assessment: any) => (
+                    {assessmentData?.data?.ksq_results?.data?.map((assessment: any) => (
                       <TableRow key={assessment.id}>
                         <TableCell>
                           {new Date(assessment.assessment_date).toLocaleDateString('az-AZ')}
@@ -606,7 +606,7 @@ export default function AssessmentResults() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {assessmentData.data.bsq_results.data.map((assessment: any) => (
+                    {assessmentData?.data?.bsq_results?.data?.map((assessment: any) => (
                       <TableRow key={assessment.id}>
                         <TableCell>
                           {new Date(assessment.assessment_date).toLocaleDateString('az-AZ')}

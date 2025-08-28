@@ -53,9 +53,20 @@ export const useSectors = () => {
   });
 
   // Use real data or fallback to mock data - ensure arrays are always returned
-  const sectors = sectorsResponse?.data || sectorsService.getMockSectors() || [];
+  const rawSectors = sectorsResponse?.data || sectorsService.getMockSectors() || [];
+  const sectors = Array.isArray(rawSectors) ? rawSectors : [];
+  
   const stats = statsResponse?.data || sectorsService.getMockStatistics();
   const availableManagers = managersResponse?.data || sectorsService.getMockManagers() || [];
+  
+  // Debug logging
+  console.log('🔍 useSectors Debug:', {
+    sectorsResponse: sectorsResponse,
+    rawSectors: rawSectors,
+    sectors: sectors,
+    isArray: Array.isArray(sectors),
+    type: typeof sectors
+  });
 
   // Mutations
   const createMutation = useMutation({

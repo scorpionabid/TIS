@@ -119,7 +119,7 @@ export default function Sectors() {
               </div>
             </Card>
           ))
-        ) : !sectors || sectors.length === 0 ? (
+        ) : !sectors || !Array.isArray(sectors) || sectors.length === 0 ? (
           <div className="col-span-full text-center py-12">
             <Building className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium text-muted-foreground mb-2">Sektor tapılmadı</h3>
@@ -130,8 +130,8 @@ export default function Sectors() {
               Filterləri sıfırla
             </Button>
           </div>
-        ) : (
-          (sectors || []).map((sector: any) => (
+        ) : Array.isArray(sectors) ? (
+          sectors.map((sector: any) => (
             <SectorCard
               key={sector.id}
               sector={sector}
@@ -140,6 +140,14 @@ export default function Sectors() {
               isToggling={toggleStatusMutation.isPending}
             />
           ))
+        ) : (
+          <div className="col-span-full text-center py-12">
+            <Building className="h-16 w-16 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-red-600 mb-2">Məlumat formatı səhvdir</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Sectors data is not an array. Type: {typeof sectors}
+            </p>
+          </div>
         )}
 
         {/* Add New Sector Card - Only for SuperAdmin and RegionAdmin */}

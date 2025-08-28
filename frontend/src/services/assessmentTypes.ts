@@ -245,7 +245,7 @@ class AssessmentTypeService {
       const response = await this.getAssessmentTypes(filters);
 
       // Convert to dropdown format
-      return response.data.map(assessmentType => ({
+      return (response.data || []).map(assessmentType => ({
         id: assessmentType.id,
         name: assessmentType.name,
         category: assessmentType.category,

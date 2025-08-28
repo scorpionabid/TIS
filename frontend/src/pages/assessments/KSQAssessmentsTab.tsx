@@ -49,7 +49,7 @@ export const KSQAssessmentsTab: React.FC<KSQAssessmentsTabProps> = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {assessmentData.data.ksq_results.data.map((assessment: any) => (
+              {assessmentData?.data?.ksq_results?.data?.map((assessment: any) => (
                 <TableRow key={assessment.id}>
                   <TableCell>
                     {new Date(assessment.assessment_date).toLocaleDateString('az-AZ')}
