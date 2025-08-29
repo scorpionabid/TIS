@@ -41,10 +41,11 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Load institutions
-  const { data: institutionsResponse } = useQuery({
-    queryKey: ['institutions'],
+  const { data: institutionsResponse, isLoading: institutionsLoading, error: institutionsError } = useQuery({
+    queryKey: ['institutions-for-departments'],
     queryFn: () => institutionService.getAll(),
     staleTime: 1000 * 60 * 5,
+    enabled: open, // Only load when modal is open
   });
 
   // Load department types
@@ -61,11 +62,17 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
     enabled: open && formData.institution_id > 0,
   });
 
-  const institutions = institutionsResponse?.institutions || [];
+  const institutions = institutionsResponse?.data || institutionsResponse?.institutions || [];
   const departmentTypes = typesResponse?.data || [];
   const parentDepartments = parentDepartmentsResponse?.departments || [];
   
-  // Debug log to check types response
+  // Minimal debug logging (can be removed in production)
+  React.useEffect(() => {
+    if (open && institutions.length > 0) {
+      console.log('🏢 Loaded institutions:', institutions.length, institutions.map(i => i.name));
+    }
+  }, [open, institutions]);
+
   React.useEffect(() => {
     if (typesResponse) {
       console.log('Department types response:', typesResponse);
@@ -215,14 +222,24 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
                 <SelectValue placeholder="Müəssisəni seçin" />
               </SelectTrigger>
               <SelectContent>
-                {institutions.map((institution) => (
-                  <SelectItem key={institution.id} value={institution.id.toString()}>
-                    <div className="flex flex-col">
-                      <div className="font-medium">{institution.name}</div>
-                      <div className="text-xs text-muted-foreground">{institution.type}</div>
-                    </div>
+                {institutionsLoading ? (
+                  <SelectItem value="loading" disabled>
+                    Müəssisələr yüklənir...
                   </SelectItem>
-                ))}
+                ) : institutions.length > 0 ? (
+                  institutions.map((institution) => {
+                    const displayText = `${institution.name} (${institution.type})`;
+                    return (
+                      <SelectItem key={institution.id} value={institution.id.toString()}>
+                        {displayText}
+                      </SelectItem>
+                    );
+                  })
+                ) : (
+                  <SelectItem value="no-institutions" disabled>
+                    {institutionsError ? 'Müəssisələr yüklənə bilmədi' : 'Müəssisə tapılmadı'}
+                  </SelectItem>
+                )}
               </SelectContent>
             </Select>
             {errors.institution_id && (

@@ -21,13 +21,23 @@ class SectorAnalyticsService extends BaseService
         $dateFrom = $request->get('date_from', Carbon::now()->subMonth()->format('Y-m-d'));
         $dateTo = $request->get('date_to', Carbon::now()->format('Y-m-d'));
 
-        $baseQuery = Institution::where('type', 'sector_education_office')->where('level', 3);
+        $baseQuery = Institution::where('type', 'sector')->where('level', 3);
         $this->applySectorAccessControl($baseQuery, $user);
 
+        $overview = $this->getOverviewStatistics($baseQuery);
+        $regionalBreakdown = $this->getRegionalBreakdown($baseQuery, $user);
+        
         return [
-            'overview' => $this->getOverviewStatistics($baseQuery),
+            // Frontend expects these at top level
+            'total_sectors' => $overview['total_sectors'],
+            'active_sectors' => $overview['active_sectors'],
+            'inactive_sectors' => $overview['inactive_sectors'],
+            'by_region' => $regionalBreakdown,
+            
+            // Keep detailed data for additional use
+            'overview' => $overview,
             'performance_metrics' => $this->getPerformanceMetrics($baseQuery),
-            'regional_breakdown' => $this->getRegionalBreakdown($baseQuery, $user),
+            'regional_breakdown' => $regionalBreakdown,
             'institution_analysis' => $this->getInstitutionAnalysis($baseQuery),
             'management_coverage' => $this->getManagementCoverage($baseQuery),
             'activity_trends' => $this->getActivityTrends($baseQuery, $dateFrom, $dateTo),
@@ -45,7 +55,7 @@ class SectorAnalyticsService extends BaseService
      */
     public function getSectorPerformanceMetrics(int $sectorId, $user): array
     {
-        $sectorQuery = Institution::where('type', 'sector_education_office')->where('level', 3);
+        $sectorQuery = Institution::where('type', 'sector')->where('level', 3);
         $this->applySectorAccessControl($sectorQuery, $user);
         
         $sector = $sectorQuery->findOrFail($sectorId);
@@ -69,7 +79,7 @@ class SectorAnalyticsService extends BaseService
      */
     public function getSectorComparison(array $sectorIds, $user): array
     {
-        $sectorQuery = Institution::where('type', 'sector_education_office')
+        $sectorQuery = Institution::where('type', 'sector')
             ->where('level', 3)
             ->whereIn('id', $sectorIds);
         
@@ -201,18 +211,34 @@ class SectorAnalyticsService extends BaseService
     private function getRegionalBreakdown($baseQuery, $user): array
     {
         // Group sectors by their parent region
-        return $baseQuery->with(['parent'])
+        return $baseQuery->with(['parent', 'children'])
             ->get()
             ->groupBy('parent_id')
             ->map(function ($sectors, $regionId) {
                 $region = $sectors->first()->parent;
+                
+                // Calculate total institutions and students for this region's sectors
+                $totalInstitutions = 0;
+                $totalStudents = 0;
+                
+                foreach ($sectors as $sector) {
+                    $totalInstitutions += $sector->children->count();
+                    foreach ($sector->children as $institution) {
+                        $totalStudents += $institution->students()->count();
+                    }
+                }
+                
                 return [
+                    'region_id' => $region?->id,
+                    'region_name' => $region?->name,
                     'region' => [
                         'id' => $region?->id,
                         'name' => $region?->name
                     ],
                     'sector_count' => $sectors->count(),
                     'active_sectors' => $sectors->where('is_active', true)->count(),
+                    'total_institutions' => $totalInstitutions,
+                    'total_students' => $totalStudents,
                     'managed_sectors' => $sectors->filter(function($sector) {
                         return $sector->users()->whereHas('roles', function($q) {
                             $q->where('name', 'sektoradmin');
@@ -476,7 +502,7 @@ class SectorAnalyticsService extends BaseService
             }
         } elseif ($user->hasRole('sektoradmin')) {
             $userInstitution = $user->institution;
-            if ($userInstitution && $userInstitution->level === 3 && $userInstitution->type === 'sector_education_office') {
+            if ($userInstitution && $userInstitution->level === 3 && $userInstitution->type === 'sector') {
                 $query->where('id', $userInstitution->id);
             }
         }
@@ -577,7 +603,7 @@ class SectorAnalyticsService extends BaseService
     private function getBenchmarkingData(Institution $sector, $user): array
     {
         // Get all accessible sectors for comparison
-        $allSectorsQuery = Institution::where('type', 'sector_education_office')
+        $allSectorsQuery = Institution::where('type', 'sector')
             ->where('level', 3)
             ->where('id', '!=', $sector->id);
         

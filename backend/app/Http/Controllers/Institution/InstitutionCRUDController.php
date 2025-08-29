@@ -7,6 +7,7 @@ use App\Models\Institution;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
 class InstitutionCRUDController extends Controller
@@ -16,7 +17,11 @@ class InstitutionCRUDController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $user = Auth::user();
         $query = Institution::query();
+
+        // Apply role-based access control
+        $this->applyAccessControl($query, $user);
 
         // Apply filters if provided
         if ($request->has('type')) {
@@ -129,5 +134,46 @@ class InstitutionCRUDController extends Controller
         $institution->delete();
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * Apply role-based access control to institution queries
+     */
+    private function applyAccessControl($query, $user): void
+    {
+        if ($user->hasRole('regionadmin')) {
+            // RegionAdmin can see their own region and child institutions
+            $userInstitution = $user->institution;
+            if ($userInstitution && $userInstitution->level === 2) {
+                $query->where(function ($q) use ($userInstitution) {
+                    // Their own regional institution
+                    $q->where('id', $userInstitution->id)
+                      // Or their child institutions (sectors and schools)
+                      ->orWhere('parent_id', $userInstitution->id)
+                      // Or grandchild institutions (schools under sectors)
+                      ->orWhereIn('parent_id', function ($subQuery) use ($userInstitution) {
+                          $subQuery->select('id')
+                                   ->from('institutions')
+                                   ->where('parent_id', $userInstitution->id);
+                      });
+                });
+            }
+        } elseif ($user->hasRole('sektoradmin')) {
+            // SectorAdmin can see their own sector and child schools
+            $userInstitution = $user->institution;
+            if ($userInstitution && $userInstitution->level === 3) {
+                $query->where(function ($q) use ($userInstitution) {
+                    $q->where('id', $userInstitution->id)
+                      ->orWhere('parent_id', $userInstitution->id);
+                });
+            }
+        } elseif ($user->hasRole('schooladmin')) {
+            // SchoolAdmin can only see their own school
+            $userInstitution = $user->institution;
+            if ($userInstitution) {
+                $query->where('id', $userInstitution->id);
+            }
+        }
+        // SuperAdmin sees all institutions (no additional filtering)
     }
 }

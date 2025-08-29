@@ -53,7 +53,7 @@ export const useSectors = () => {
   });
 
   // Use real data or fallback to mock data - ensure arrays are always returned
-  const rawSectors = sectorsResponse?.data || sectorsService.getMockSectors() || [];
+  const rawSectors = sectorsResponse?.data?.sectors?.data || sectorsResponse?.data?.sectors || sectorsService.getMockSectors() || [];
   const sectors = Array.isArray(rawSectors) ? rawSectors : [];
   
   const stats = statsResponse?.data || sectorsService.getMockStatistics();
