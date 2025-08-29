@@ -170,6 +170,7 @@ class Department extends Model
     public static function getAllowedTypesForInstitution(string $institutionType): array
     {
         $typeMapping = [
+            'regional' => self::TYPE_GROUPS['regional'],
             'region' => self::TYPE_GROUPS['regional'],
             'sektor' => self::TYPE_GROUPS['sector'], 
             'school' => self::TYPE_GROUPS['school'],

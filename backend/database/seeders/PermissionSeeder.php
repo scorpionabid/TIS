@@ -223,6 +223,7 @@ class PermissionSeeder extends Seeder
             'departments.read',
             'departments.update',
             'departments.delete',
+            'departments.write',
             'departments.manage',
 
             // Teaching Load Management - Phase 3 API
@@ -318,7 +319,7 @@ class PermissionSeeder extends Seeder
                 'psychology.read', 'psychology.manage',
                 'inventory.create', 'inventory.read', 'inventory.update', 'inventory.manage', 'inventory.assign', 'inventory.maintenance',
                 'view teacher_performance', 'create teacher_performance', 'edit teacher_performance', 'manage teacher_performance', 'approve teacher_performance',
-                'departments.create', 'departments.read', 'departments.update', 'departments.delete', 'departments.manage',
+                'departments.create', 'departments.read', 'departments.update', 'departments.delete', 'departments.manage', 'departments.write',
                 'approvals.create', 'approvals.read', 'approvals.approve', 'approvals.reject', 'approvals.analytics', 'approvals.delegate',
                 'links.create', 'links.read', 'links.update', 'links.delete', 'links.share', 'links.bulk', 'links.analytics', 'links.tracking',
                 'analytics.view'

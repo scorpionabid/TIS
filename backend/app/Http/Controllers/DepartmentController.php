@@ -398,14 +398,18 @@ class DepartmentController extends Controller
 
         $institution = \App\Models\Institution::find($request->institution_id);
         $allowedTypes = Department::getAllowedTypesForInstitution($institution->type);
-        $typesList = [];
-
-        foreach ($allowedTypes as $type) {
-            $typesList[$type] = Department::TYPES[$type] ?? $type;
-        }
+        
+        $typesList = collect($allowedTypes)->map(function ($type) {
+            return [
+                'key' => $type,
+                'label' => Department::TYPES[$type] ?? $type,
+                'description' => null
+            ];
+        })->values();
 
         return response()->json([
-            'types' => $typesList,
+            'success' => true,
+            'data' => $typesList,
             'institution_type' => $institution->type
         ]);
     }

@@ -48,11 +48,18 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
     enabled: open, // Only load when modal is open
   });
 
-  // Load department types
+  // Load department types for selected institution
   const { data: typesResponse } = useQuery({
-    queryKey: ['department-types'],
-    queryFn: () => departmentService.getTypes(),
+    queryKey: ['department-types', formData.institution_id],
+    queryFn: () => {
+      if (formData.institution_id > 0) {
+        return departmentService.getTypesForInstitution(formData.institution_id);
+      }
+      // Fallback to all types if no institution selected
+      return departmentService.getTypes();
+    },
     staleTime: 1000 * 60 * 10,
+    enabled: open, // Only load when modal is open
   });
 
   // Load parent departments when institution is selected
@@ -75,11 +82,13 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
 
   React.useEffect(() => {
     if (typesResponse) {
-      console.log('Department types response:', typesResponse);
-      console.log('Types data:', typesResponse?.data);
-      console.log('Is array?', Array.isArray(typesResponse?.data));
+      console.log('📝 Department types response:', typesResponse);
+      console.log('📝 Types data:', typesResponse?.data);
+      console.log('📝 Is array?', Array.isArray(typesResponse?.data));
+      console.log('📝 Institution ID:', formData.institution_id);
+      console.log('📝 Final departmentTypes:', departmentTypes);
     }
-  }, [typesResponse]);
+  }, [typesResponse, formData.institution_id, departmentTypes]);
 
   useEffect(() => {
     if (open && department) {
@@ -118,9 +127,9 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
   const handleInputChange = (field: keyof CreateDepartmentData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
-    // Clear parent department when institution changes
+    // Clear parent department and department type when institution changes
     if (field === 'institution_id') {
-      setFormData(prev => ({ ...prev, parent_department_id: undefined }));
+      setFormData(prev => ({ ...prev, parent_department_id: undefined, department_type: '' }));
     }
     
     if (errors[field]) {

@@ -132,9 +132,9 @@ class DepartmentService extends BaseService<Department> {
     }
   }
 
-  async getTypesForInstitution(institutionType: string) {
-    const response = await apiClient.get('/departments/types/institution', { 
-      institution_type: institutionType 
+  async getTypesForInstitution(institutionId: number) {
+    const response = await apiClient.get('/departments/types-for-institution', { 
+      institution_id: institutionId 
     });
     return response;
   }

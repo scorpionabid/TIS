@@ -157,6 +157,7 @@ Route::middleware('permission:departments.write')->group(function () {
 Route::middleware('permission:departments.read')->group(function () {
     Route::get('departments', [DepartmentController::class, 'index']);
     Route::get('departments/types', [DepartmentController::class, 'getTypes']);
+    Route::get('departments/types-for-institution', [DepartmentController::class, 'getTypesForInstitution']);
     Route::get('departments/{department}', [DepartmentController::class, 'show']);
 });
 
