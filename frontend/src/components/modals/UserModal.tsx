@@ -35,6 +35,7 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
   const [selectedRole, setSelectedRole] = useState<string>('');
   const [availableRoles, setAvailableRoles] = useState<Array<{id: number, name: string, display_name: string, level: number}>>([]);
   const [availableInstitutions, setAvailableInstitutions] = useState<Array<{id: number, name: string, type: string, level: number, parent_id: number | null}>>([]);
+  const [availableDepartments, setAvailableDepartments] = useState<Array<{id: number, name: string, department_type: string, institution: {id: number, name: string, type: string}}>>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
 
   // Load subjects for teacher professional fields
@@ -53,14 +54,26 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
     } else {
       // Reset form state when modal closes
       setSelectedRole('');
+      setAvailableInstitutions([]);
+      setAvailableDepartments([]);
       setLoadingOptions(true);
     }
   }, [open]);
 
-  // Load institutions when selected role changes
+  // Load institutions or departments when selected role changes
   useEffect(() => {
     if (selectedRole && availableRoles.length > 0) {
-      loadInstitutionsForRole();
+      const selectedRoleData = availableRoles.find(r => r.id.toString() === selectedRole);
+      
+      // Reset previous state
+      setAvailableInstitutions([]);
+      setAvailableDepartments([]);
+      
+      if (selectedRoleData?.name === 'regionoperator') {
+        loadDepartmentsForRole();
+      } else {
+        loadInstitutionsForRole();
+      }
     }
   }, [selectedRole, availableRoles]);
 
@@ -105,6 +118,25 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
     }
   };
 
+  const loadDepartmentsForRole = async () => {
+    try {
+      const selectedRoleData = availableRoles.find(r => r.id.toString() === selectedRole);
+      if (!selectedRoleData) return;
+
+      console.log('🔄 Loading departments for role:', selectedRoleData.name);
+      const departments = await userService.getAvailableDepartments(selectedRoleData.name);
+      console.log('🏢 Filtered departments:', departments);
+      setAvailableDepartments(departments);
+    } catch (error) {
+      console.error('Failed to load departments for role:', error);
+      toast({
+        title: 'Xəta',
+        description: 'Seçilmiş rol üçün departamentlər yüklənə bilmədi',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Check if selected role is teacher or student
   const isTeacherRole = (roleId: string) => {
     const role = availableRoles.find(r => r.id.toString() === roleId);
@@ -118,6 +150,11 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
     return role && (role.name.toLowerCase().includes('student') || 
                    role.name.toLowerCase().includes('şagird') ||
                    role.display_name.toLowerCase().includes('şagird'));
+  };
+
+  const isRegionalOperatorRole = (roleId: string) => {
+    const role = availableRoles.find(r => r.id.toString() === roleId);
+    return role && role.name === 'regionoperator';
   };
 
   // Basic Information Fields
@@ -195,14 +232,25 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
         }
       },
     }),
-    createField('institution_id', 'Müəssisə', 'select', {
-      options: availableInstitutions.map(institution => ({ 
-        label: `${institution.name} (${institution.type})`, 
-        value: institution.id.toString() 
-      })),
-      placeholder: loadingOptions ? 'Müəssisələr yüklənir...' : 'Müəssisə seçin',
-      disabled: loadingOptions,
-    }),
+    // Conditionally show institution or department field
+    ...(isRegionalOperatorRole(selectedRole) 
+      ? [createField('department_id', 'Departament', 'select', {
+          options: availableDepartments.map(department => ({ 
+            label: `${department.name} (${department.institution.name})`, 
+            value: department.id.toString() 
+          })),
+          placeholder: loadingOptions ? 'Departamentlər yüklənir...' : 'Departament seçin',
+          disabled: loadingOptions,
+        })]
+      : [createField('institution_id', 'Müəssisə', 'select', {
+          options: availableInstitutions.map(institution => ({ 
+            label: `${institution.name} (${institution.type})`, 
+            value: institution.id.toString() 
+          })),
+          placeholder: loadingOptions ? 'Müəssisələr yüklənir...' : 'Müəssisə seçin',
+          disabled: loadingOptions,
+        })]
+    ),
     createField('is_active', 'Status', 'select', {
       required: true,
       options: [
@@ -327,47 +375,42 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
         data.is_active = data.is_active === 'true';
       }
 
-      // Email is now required, no need for null check
+      // Convert role_id to role_name
+      if (data.role_id && availableRoles.length > 0) {
+        const selectedRole = availableRoles.find(role => role.id.toString() === data.role_id.toString());
+        if (selectedRole) {
+          data.role_name = selectedRole.name;
+          delete data.role_id; // Remove role_id as we now have role_name
+        }
+      }
+
+      // Add password_confirmation for validation
+      if (data.password) {
+        data.password_confirmation = data.password;
+      }
 
       // Ensure birth_date is null if empty
       if (!data.birth_date || data.birth_date.trim() === '') {
         data.birth_date = null;
       }
 
-      // Prepare profile data
-      const profileData = {
-        ...data,
-        profile: {
-          first_name: data.first_name,
-          last_name: data.last_name,
-          patronymic: data.patronymic,
-          contact_phone: data.contact_phone,
-          birth_date: data.birth_date,
-          gender: data.gender,
-          national_id: data.national_id,
-          emergency_contact_name: data.emergency_contact_name,
-          emergency_contact_phone: data.emergency_contact_phone,
-          emergency_contact_email: data.emergency_contact_email,
-          notes: data.notes,
-          // Professional teacher fields
-          subjects: data.subjects,
-          specialty: data.specialty,
-          experience_years: data.experience_years,
-          miq_score: data.miq_score,
-          certification_score: data.certification_score,
-          last_certification_date: data.last_certification_date,
-          degree_level: data.degree_level,
-          graduation_university: data.graduation_university,
-          graduation_year: data.graduation_year,
-          university_gpa: data.university_gpa,
-          // Student academic fields
-          student_miq_score: data.student_miq_score,
-          previous_school: data.previous_school,
-          family_income: data.family_income,
-        }
+      // Prepare data for backend - use simple structure
+      const userData = {
+        username: data.username,
+        email: data.email,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        password: data.password,
+        password_confirmation: data.password_confirmation,
+        role_name: data.role_name,
+        institution_id: data.institution_id ? parseInt(data.institution_id) : null,
+        department_id: data.department_id ? parseInt(data.department_id) : null,
+        is_active: data.is_active !== false, // default to true
+        contact_phone: data.contact_phone,
+        utis_code: data.utis_code
       };
 
-      await onSave(profileData);
+      await onSave(userData);
       toast({
         title: 'Uğurlu',
         description: user 
