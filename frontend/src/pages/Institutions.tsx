@@ -346,10 +346,27 @@ const Institutions = () => {
       // Refresh the institutions list
       console.log('🔄 Refreshing institutions list');
       console.log('🗂️ Before invalidation - current cache:', queryClient.getQueryCache().getAll());
-      await queryClient.invalidateQueries({ queryKey: ['institutions'] });
+      
+      // Invalidate all queries that start with 'institutions'
+      await queryClient.invalidateQueries({ 
+        queryKey: ['institutions'],
+        exact: false 
+      });
       console.log('🗂️ After invalidation - cache invalidated');
-      await queryClient.refetchQueries({ queryKey: ['institutions'] });
+      
+      // Also specifically invalidate the main query
+      await queryClient.invalidateQueries({ 
+        queryKey: ['institutions-main', selectedType, currentPage, perPage, searchQuery, statusFilter, levelFilter, parentFilter, sortField, sortDirection],
+        exact: true 
+      });
+      
+      // Refetch the current institutions data
+      await queryClient.refetchQueries({ 
+        queryKey: ['institutions-main'],
+        exact: false
+      });
       console.log('🗂️ After refetch - queries refetched');
+      
       handleCloseModal();
     } catch (error) {
       console.error('❌ Institution save failed:', error);
