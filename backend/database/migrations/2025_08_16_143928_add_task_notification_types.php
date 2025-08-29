@@ -22,6 +22,38 @@ return new class extends Migration
             // The validation will be handled at the application level
             
             DB::statement('PRAGMA foreign_keys=ON');
+        } elseif (DB::getDriverName() === 'pgsql') {
+            // PostgreSQL doesn't support ENUM modification like MySQL
+            // We'll handle this with CHECK constraints instead
+            
+            // Drop existing check constraint if exists and create new one
+            try {
+                DB::statement('ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check');
+            } catch (Exception $e) {
+                // Constraint might not exist
+            }
+            
+            DB::statement("
+                ALTER TABLE notifications 
+                ADD CONSTRAINT notifications_type_check CHECK (type IN (
+                    'task_assigned',
+                    'task_updated', 
+                    'task_deadline',
+                    'task_status_update',
+                    'task_approval_required',
+                    'task_approved',
+                    'task_rejected',
+                    'task_deadline_approaching',
+                    'task_overdue',
+                    'survey_published',
+                    'survey_deadline',
+                    'survey_approved',
+                    'survey_rejected',
+                    'system_alert',
+                    'maintenance',
+                    'security_alert'
+                ))
+            ");
         } else {
             // For MySQL
             DB::statement("

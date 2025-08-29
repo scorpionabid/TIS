@@ -76,6 +76,10 @@ return new class extends Migration
                 DB::table('notifications')->insert((array) $notification);
             }
             
+        } elseif (DB::getDriverName() === 'pgsql') {
+            // For PostgreSQL, we already have CHECK constraints from previous migration
+            // This migration is mostly for SQLite/MySQL compatibility
+            // Nothing to do for PostgreSQL here
         } else {
             // For MySQL, update the ENUM constraint
             DB::statement("

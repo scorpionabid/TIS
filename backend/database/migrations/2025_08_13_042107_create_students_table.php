@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('student_number')->unique();
             $table->string('first_name');
             $table->string('last_name');
-            $table->string('full_name')->virtualAs("CONCAT(first_name, ' ', last_name)");
+            $table->string('full_name')->nullable();
             $table->foreignId('institution_id')->constrained()->onDelete('cascade');
             $table->string('class_name');
             $table->string('grade_level');

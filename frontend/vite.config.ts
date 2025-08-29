@@ -10,7 +10,8 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 3000,
-    open: true,
+    open: false,
+    allowedHosts: ["atis.sim.edu.az", ".sim.edu.az", "localhost", "127.0.0.1", "5.9.43.157"],
     proxy: {},
     fs: {
       allow: ['..']
