@@ -24,6 +24,7 @@ docker-compose -f docker-compose.simple.yml logs frontend
 
 ### Starting the System
 ```bash
+
 # Start with Docker (recommended)
 ./start.sh
 

@@ -1,8 +1,19 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "atis-frontend",
   "private": true,
-  "version": "0.0.0",
+  "version": "2.0.0",
+  "description": "ATİS - Azərbaycan Təhsil İdarəetmə Sistemi Frontend",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scorpionabid/TIS.git"
+  },
+  "homepage": "https://github.com/scorpionabid/TIS#readme",
+  "bugs": {
+    "url": "https://github.com/scorpionabid/TIS/issues"
+  },
+  "author": "ATİS Development Team",
+  "keywords": ["education", "management", "azerbaijan", "react", "typescript", "vite"],
   "scripts": {
     "dev": "vite",
     "build": "vite build",

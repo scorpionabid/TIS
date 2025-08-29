@@ -1,10 +1,21 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/laravel",
+    "name": "atis/backend",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "description": "ATİS - Azərbaycan Təhsil İdarəetmə Sistemi Backend API",
+    "keywords": ["education", "management", "azerbaijan", "laravel", "api", "backend"],
     "license": "MIT",
+    "homepage": "https://github.com/scorpionabid/TIS",
+    "support": {
+        "issues": "https://github.com/scorpionabid/TIS/issues",
+        "source": "https://github.com/scorpionabid/TIS"
+    },
+    "authors": [
+        {
+            "name": "ATİS Development Team",
+            "email": "support@atis.edu.az"
+        }
+    ],
     "require": {
         "php": "^8.2",
         "laravel/framework": "^12.0",
