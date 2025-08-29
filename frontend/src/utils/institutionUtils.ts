@@ -6,190 +6,120 @@ import { Building, MapPin, Users, School } from 'lucide-react';
  * This avoids API calls for non-SuperAdmin users
  */
 export const getFallbackTypesForRole = (userRole?: string): InstitutionType[] => {
-  const fallbackTypes: InstitutionType[] = [];
+  // Define all types once to avoid duplicates
+  const allTypes: Record<string, InstitutionType> = {
+    ministry: { 
+      id: 1, 
+      key: 'ministry', 
+      label_az: 'Nazirlik', 
+      label: 'Nazirlik', 
+      label_en: 'Ministry', 
+      default_level: 1, 
+      color: '#1F2937', 
+      icon: 'Building', 
+      allowed_parent_types: [], 
+      is_active: true, 
+      is_system: true, 
+      metadata: {}, 
+      created_at: '', 
+      updated_at: '' 
+    },
+    regional: { 
+      id: 2, 
+      key: 'regional', 
+      label_az: 'Regional İdarə', 
+      label: 'Regional İdarə', 
+      label_en: 'Regional Office', 
+      default_level: 2, 
+      color: '#3B82F6', 
+      icon: 'MapPin', 
+      allowed_parent_types: [], 
+      is_active: true, 
+      is_system: true, 
+      metadata: {}, 
+      created_at: '', 
+      updated_at: '' 
+    },
+    sector: { 
+      id: 3, 
+      key: 'sector', 
+      label_az: 'Sektor', 
+      label: 'Sektor', 
+      label_en: 'Sector', 
+      default_level: 3, 
+      color: '#10B981', 
+      icon: 'Users', 
+      allowed_parent_types: [], 
+      is_active: true, 
+      is_system: true, 
+      metadata: {}, 
+      created_at: '', 
+      updated_at: '' 
+    },
+    school: { 
+      id: 4, 
+      key: 'school', 
+      label_az: 'Məktəb', 
+      label: 'Məktəb', 
+      label_en: 'School', 
+      default_level: 4, 
+      color: '#F59E0B', 
+      icon: 'School', 
+      allowed_parent_types: [], 
+      is_active: true, 
+      is_system: true, 
+      metadata: {}, 
+      created_at: '', 
+      updated_at: '' 
+    },
+    lyceum: { 
+      id: 5, 
+      key: 'lyceum', 
+      label_az: 'Lisey', 
+      label: 'Lisey', 
+      label_en: 'Lyceum', 
+      default_level: 4, 
+      color: '#8B5CF6', 
+      icon: 'School', 
+      allowed_parent_types: [], 
+      is_active: true, 
+      is_system: true, 
+      metadata: {}, 
+      created_at: '', 
+      updated_at: '' 
+    },
+    gymnasium: { 
+      id: 6, 
+      key: 'gymnasium', 
+      label_az: 'Gimnaziya', 
+      label: 'Gimnaziya', 
+      label_en: 'Gymnasium', 
+      default_level: 4, 
+      color: '#EC4899', 
+      icon: 'School', 
+      allowed_parent_types: [], 
+      is_active: true, 
+      is_system: true, 
+      metadata: {}, 
+      created_at: '', 
+      updated_at: '' 
+    }
+  };
+
+  // Define role-based access with unique keys
+  const roleAccess: Record<string, string[]> = {
+    superadmin: ['ministry', 'regional', 'sector', 'school', 'lyceum', 'gymnasium'],
+    regionadmin: ['regional', 'sector', 'school', 'lyceum', 'gymnasium'],
+    sektoradmin: ['sector', 'school', 'lyceum', 'gymnasium'],
+    schooladmin: ['school', 'lyceum', 'gymnasium'],
+  };
+
+  // Get accessible types for role
+  const effectiveRole = userRole || 'superadmin';
+  const accessibleTypes = roleAccess[effectiveRole] || roleAccess.schooladmin;
   
-  // Ministry level types (for superadmin)
-  if (userRole === 'superadmin') {
-    fallbackTypes.push(
-      { 
-        id: 0, 
-        key: 'ministry', 
-        label_az: 'Nazirlik', 
-        label: 'Nazirlik', 
-        label_en: 'Ministry', 
-        default_level: 1, 
-        color: '#1F2937', 
-        icon: 'Building', 
-        allowed_parent_types: [], 
-        is_active: true, 
-        is_system: true, 
-        metadata: {}, 
-        created_at: '', 
-        updated_at: '' 
-      },
-    );
-  }
-  
-  if (userRole === 'regionadmin' || userRole === 'superadmin') {
-    fallbackTypes.push(
-      { 
-        id: 1, 
-        key: 'regional', 
-        label_az: 'Regional İdarə', 
-        label: 'Regional İdarə', 
-        label_en: 'Regional Office', 
-        default_level: 2, 
-        color: '#3B82F6', 
-        icon: 'MapPin', 
-        allowed_parent_types: [], 
-        is_active: true, 
-        is_system: true, 
-        metadata: {}, 
-        created_at: '', 
-        updated_at: '' 
-      },
-      { 
-        id: 2, 
-        key: 'sector', 
-        label_az: 'Sektor', 
-        label: 'Sektor', 
-        label_en: 'Sector', 
-        default_level: 3, 
-        color: '#10B981', 
-        icon: 'Users', 
-        allowed_parent_types: [], 
-        is_active: true, 
-        is_system: true, 
-        metadata: {}, 
-        created_at: '', 
-        updated_at: '' 
-      },
-      { 
-        id: 3, 
-        key: 'school', 
-        label_az: 'Məktəb', 
-        label: 'Məktəb', 
-        label_en: 'School', 
-        default_level: 4, 
-        color: '#F59E0B', 
-        icon: 'School', 
-        allowed_parent_types: [], 
-        is_active: true, 
-        is_system: true, 
-        metadata: {}, 
-        created_at: '', 
-        updated_at: '' 
-      },
-      { 
-        id: 4, 
-        key: 'lyceum', 
-        label_az: 'Lisey', 
-        label: 'Lisey', 
-        label_en: 'Lyceum', 
-        default_level: 4, 
-        color: '#F59E0B', 
-        icon: 'School', 
-        allowed_parent_types: [], 
-        is_active: true, 
-        is_system: true, 
-        metadata: {}, 
-        created_at: '', 
-        updated_at: '' 
-      }
-    );
-  }
-  
-  if (userRole === 'sektoradmin' || userRole === 'regionadmin' || userRole === 'superadmin') {
-    fallbackTypes.push(
-      { 
-        id: 2, 
-        key: 'sector', 
-        label_az: 'Sektor', 
-        label: 'Sektor', 
-        label_en: 'Sector', 
-        default_level: 3, 
-        color: '#10B981', 
-        icon: 'Users', 
-        allowed_parent_types: [], 
-        is_active: true, 
-        is_system: true, 
-        metadata: {}, 
-        created_at: '', 
-        updated_at: '' 
-      },
-      { 
-        id: 3, 
-        key: 'school', 
-        label_az: 'Məktəb', 
-        label: 'Məktəb', 
-        label_en: 'School', 
-        default_level: 4, 
-        color: '#F59E0B', 
-        icon: 'School', 
-        allowed_parent_types: [], 
-        is_active: true, 
-        is_system: true, 
-        metadata: {}, 
-        created_at: '', 
-        updated_at: '' 
-      },
-      { 
-        id: 4, 
-        key: 'lyceum', 
-        label_az: 'Lisey', 
-        label: 'Lisey', 
-        label_en: 'Lyceum', 
-        default_level: 4, 
-        color: '#F59E0B', 
-        icon: 'School', 
-        allowed_parent_types: [], 
-        is_active: true, 
-        is_system: true, 
-        metadata: {}, 
-        created_at: '', 
-        updated_at: '' 
-      }
-    );
-  }
-  
-  if (userRole === 'schooladmin' || userRole === 'sektoradmin' || userRole === 'regionadmin' || userRole === 'superadmin' || !userRole) {
-    fallbackTypes.push(
-      { 
-        id: 3, 
-        key: 'school', 
-        label_az: 'Məktəb', 
-        label: 'Məktəb', 
-        label_en: 'School', 
-        default_level: 4, 
-        color: '#F59E0B', 
-        icon: 'School', 
-        allowed_parent_types: [], 
-        is_active: true, 
-        is_system: true, 
-        metadata: {}, 
-        created_at: '', 
-        updated_at: '' 
-      },
-      { 
-        id: 4, 
-        key: 'lyceum', 
-        label_az: 'Lisey', 
-        label: 'Lisey', 
-        label_en: 'Lyceum', 
-        default_level: 4, 
-        color: '#F59E0B', 
-        icon: 'School', 
-        allowed_parent_types: [], 
-        is_active: true, 
-        is_system: true, 
-        metadata: {}, 
-        created_at: '', 
-        updated_at: '' 
-      }
-    );
-  }
-  
-  return fallbackTypes;
+  // Return unique types based on role
+  return accessibleTypes.map(key => allTypes[key]).filter(Boolean);
 };
 
 /**

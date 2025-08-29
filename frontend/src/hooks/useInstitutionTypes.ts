@@ -17,24 +17,35 @@ export const useInstitutionTypes = ({ userRole, enabled = true }: UseInstitution
     queryFn: async () => {
       console.log('🚀 useInstitutionTypes hook called:', { userRole, enabled });
       
-      // Try to get fallback types first for all roles
-      const fallbackTypes = getFallbackTypesForRole(userRole);
-      console.log('📋 Fallback types for role:', { userRole, fallbackTypesCount: fallbackTypes.length });
+      // Get fallback types - use 'superadmin' as default if userRole is undefined
+      const effectiveRole = userRole || 'superadmin';
+      const fallbackTypes = getFallbackTypesForRole(effectiveRole);
+      console.log('📋 Fallback types for role:', { userRole, effectiveRole, fallbackTypesCount: fallbackTypes.length });
       
-      // If superadmin, try API first, otherwise use fallback
-      if (userRole === 'superadmin') {
+      // If superadmin or role undefined, try API first, otherwise use fallback
+      if (effectiveRole === 'superadmin') {
         try {
           console.log('🔗 Attempting API call for superadmin...');
           const apiResponse = await institutionService.getInstitutionTypes();
           console.log('✅ API response received:', apiResponse);
           
-          // Ensure proper response format
-          if (apiResponse?.institution_types || apiResponse?.data?.institution_types || Array.isArray(apiResponse?.data) || Array.isArray(apiResponse)) {
-            return apiResponse as { success: boolean; institution_types: InstitutionType[] };
+          // Handle different API response formats
+          let institution_types: InstitutionType[] = [];
+          
+          if (Array.isArray(apiResponse)) {
+            // Direct array response
+            institution_types = apiResponse;
+          } else if (apiResponse?.data && Array.isArray(apiResponse.data)) {
+            // Data property contains array (most common case)
+            institution_types = apiResponse.data;
           } else {
             console.warn('🔄 API response format unexpected, using fallback types');
-            return { success: true, institution_types: fallbackTypes };
+            console.warn('Response structure:', apiResponse);
+            institution_types = fallbackTypes;
           }
+          
+          console.log('📋 Processed institution types:', institution_types.length, 'types');
+          return { success: true, institution_types };
         } catch (error) {
           console.warn('❌ Failed to load institution types from API, using fallback:', error);
           return { success: true, institution_types: fallbackTypes };
@@ -45,7 +56,7 @@ export const useInstitutionTypes = ({ userRole, enabled = true }: UseInstitution
         return { success: true, institution_types: fallbackTypes };
       }
     },
-    enabled: !!userRole && enabled,
+    enabled: enabled, // Always enabled when requested, don't depend on userRole
     staleTime: 1000 * 60 * 10, // Cache for 10 minutes
   });
 };

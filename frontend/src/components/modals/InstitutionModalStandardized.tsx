@@ -9,6 +9,7 @@ import { useInstitutionTypes } from '@/hooks/useInstitutionTypes';
 import { useToast } from '@/hooks/use-toast';
 import { Building, MapPin, User, FileText } from 'lucide-react';
 import { logger } from '@/utils/logger';
+import { z } from 'zod';
 
 interface InstitutionModalStandardizedProps {
   open: boolean;
@@ -31,7 +32,7 @@ export const InstitutionModalStandardized: React.FC<InstitutionModalStandardized
   // Load institution types with role-based fallback
   const { data: institutionTypesResponse, isLoading: typesLoading } = useInstitutionTypes({
     userRole: currentUser?.role,
-    enabled: !!currentUser && open
+    enabled: open // Always enabled when modal is open, don't wait for user
   });
 
   // Transform institution types for UI
@@ -143,12 +144,23 @@ export const InstitutionModalStandardized: React.FC<InstitutionModalStandardized
     });
   }, [parentInstitutions]);
 
+  // Get current selected level based on selected type
+  const getCurrentSelectedLevel = React.useCallback(() => {
+    if (!selectedType || institutionTypes.length === 0) return 1;
+    const selectedTypeData = institutionTypes.find(type => type.value === selectedType);
+    return selectedTypeData?.level || 1;
+  }, [selectedType, institutionTypes]);
+
   // Basic institution information fields
   const basicFields: FormField[] = [
     createField('name', 'Ad', 'text', {
       required: true,
-      placeholder: 'Müəssisənin adı',
+      placeholder: 'Müəssisənin tam adı',
       validation: commonValidations.required,
+    }),
+    createField('short_name', 'Qısa Ad', 'text', {
+      placeholder: 'Müəssisənin qısa adı (ixtiyari)',
+      description: 'Müəssisə üçün qısa ad. Məsələn: TM, REİ, HTŞ',
     }),
     createField('type', 'Növ', 'select', {
       required: true,
@@ -160,33 +172,43 @@ export const InstitutionModalStandardized: React.FC<InstitutionModalStandardized
         setSelectedType(value);
       },
     }),
-    ...(selectedType && selectedType !== 'ministry' ? [
+    // Add info field for level 1 institutions (ministry) - show disabled placeholder
+    ...(selectedType && getCurrentSelectedLevel() === 1 ? [
+      createField('parent_info', 'Ana Təşkilat', 'text', {
+        disabled: true,
+        placeholder: '🏛️ Səviyyə 1 müəssisələr ən üst səviyyədə olduğu üçün ana təşkilatı yoxdur',
+        description: 'Nazirlik səviyyəsindəki müəssisələrin ana təşkilatı olmur',
+        className: 'md:col-span-2'
+      })
+    ] : []),
+    ...(selectedType && selectedType !== 'ministry' && getCurrentSelectedLevel() > 1 ? [
       createField('parent_id', 'Ana Təşkilat', 'select', {
         required: true,
         options: parentInstitutionOptions,
         placeholder: parentsLoading ? 'Yüklənir...' : 
-                   selectedType === 'region' ? 'Nazirliyi seçin' :
-                   selectedType === 'sektor' ? 'Regional idarəni seçin' :
+                   selectedType === 'region' || selectedType === 'regional' ? 'Nazirliyi seçin' :
+                   selectedType === 'sektor' || selectedType === 'sector' ? 'Regional idarəni seçin' :
                    selectedType === 'school' ? 'Sektoru seçin' :
                    'Ana təşkilatı seçin',
         disabled: parentsLoading,
         validation: commonValidations.required,
-        className: 'md:col-span-2'
+        className: 'md:col-span-2',
+        description: `Səviyyə ${getCurrentSelectedLevel()} müəssisələrinin ana təşkilatı seçilməlidir`
       })
     ] : []),
-    createField('code', 'Kod', 'text', {
-      placeholder: 'Müəssisə kodu',
+    createField('code', 'Müəssisə Kodu', 'text', {
+      required: true,
+      placeholder: 'Müəssisə kodu (tələb olunur)',
+      validation: commonValidations.required,
+      description: 'Müəssisə üçün unikal kod. Məsələn: M001, REG01, SEC001, SCH001',
     }),
     createField('utis_code', 'UTIS Kodu', 'text', {
       placeholder: '8 rəqəmli UTIS kodu',
       description: 'UTIS kodu 8 rəqəmdən ibarət olmalıdır (məsələn: 12345678). Könüllü sahədir.',
-      validation: (value: string) => {
-        if (!value) return true; // Optional field
-        if (!/^\d{8}$/.test(value)) {
-          return 'UTIS kodu 8 rəqəmdən ibarət olmalıdır';
-        }
-        return true;
-      },
+      validation: z.string()
+        .regex(/^\d{8}$/, 'UTIS kodu 8 rəqəmdən ibarət olmalıdır')
+        .optional()
+        .or(z.literal('')),
     }),
   ];
 
@@ -295,6 +317,7 @@ export const InstitutionModalStandardized: React.FC<InstitutionModalStandardized
       
       return {
         name: '',
+        short_name: '',
         type: defaultType,
         level: defaultLevel,
         code: '',
@@ -303,7 +326,7 @@ export const InstitutionModalStandardized: React.FC<InstitutionModalStandardized
         email: '',
         manager_name: '',
         manager_phone: '',
-        parent_id: undefined,
+        parent_id: defaultLevel === 1 ? null : undefined, // Level 1 has no parent
         utis_code: '',
       };
     }
@@ -350,6 +373,7 @@ export const InstitutionModalStandardized: React.FC<InstitutionModalStandardized
 
     return {
       name: institution.name || '',
+      short_name: institution.short_name || '',
       type: normalizedType,
       level: institution.level || 4,
       code: institution.institution_code || institution.code || '',
@@ -367,13 +391,40 @@ export const InstitutionModalStandardized: React.FC<InstitutionModalStandardized
     try {
       // Transform data for API
       const selectedTypeData = institutionTypes.find(type => type.value === data.type);
+      
+      // Generate region_code based on type and hierarchy
+      const generateRegionCode = () => {
+        const typePrefix = data.type === 'ministry' ? 'AZ' :
+                          data.type === 'regional' ? 'REG' :
+                          data.type === 'sector' ? 'SEC' :
+                          data.type === 'school' ? 'SCH' : 'GEN';
+        const timestamp = Date.now().toString().slice(-4);
+        return `${typePrefix}${timestamp}`;
+      };
+
       const transformedData = {
-        ...data,
+        name: data.name,
+        short_name: data.short_name || '',
         type: data.type,
-        type_id: selectedTypeData?.originalType?.id,
-        parent_id: data.parent_id ? parseInt(data.parent_id) : undefined,
-        // Auto-set level based on type
+        institution_code: data.code, // Map 'code' to 'institution_code'
+        region_code: generateRegionCode(), // Generate required region_code
+        parent_id: data.parent_id ? parseInt(data.parent_id) : null,
         level: selectedTypeData?.level || 4,
+        utis_code: data.utis_code || '',
+        contact_info: {
+          phone: data.phone || '',
+          email: data.email || '',
+          manager_name: data.manager_name || '',
+          manager_phone: data.manager_phone || '',
+        },
+        location: {
+          address: data.address || '',
+        },
+        metadata: {
+          type_id: selectedTypeData?.originalType?.id,
+        },
+        is_active: true,
+        established_date: data.established_date || null,
       };
 
       logger.info('InstitutionModal submitting data', {

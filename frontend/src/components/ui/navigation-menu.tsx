@@ -15,6 +15,7 @@ const NavigationMenu = React.forwardRef<
       "relative z-10 flex max-w-max flex-1 items-center justify-center",
       className
     )}
+    aria-label="Əsas naviqasiya"
     {...props}
   >
     {children}
@@ -53,11 +54,14 @@ const NavigationMenuTrigger = React.forwardRef<
     className={cn(navigationMenuTriggerStyle(), "group", className)}
     {...props}
   >
-    {children}{" "}
-    <ChevronDown
-      className="relative top-[1px] ml-1 h-3 w-3 transition duration-200 group-data-[state=open]:rotate-180"
-      aria-hidden="true"
-    />
+    <span className="flex items-center gap-1">
+      {children}
+      <ChevronDown
+        className="relative top-[1px] h-3 w-3 transition-all duration-200 group-data-[state=open]:rotate-180"
+        aria-hidden="true"
+      />
+    </span>
+    <span className="sr-only">Açmaq üçün basın</span>
   </NavigationMenuPrimitive.Trigger>
 ))
 NavigationMenuTrigger.displayName = NavigationMenuPrimitive.Trigger.displayName

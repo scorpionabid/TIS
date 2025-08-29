@@ -3,6 +3,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { getFirstFocusableElement } from "@/utils/focusManagement"
 
 const Dialog = DialogPrimitive.Root
 
@@ -40,27 +41,30 @@ const DialogContent = React.forwardRef<
         className
       )}
       onOpenAutoFocus={(e) => {
-        // Prevent default auto focus behavior that causes aria-hidden conflicts
-        e.preventDefault();
-        // Use a micro task to ensure DOM is ready
+        // Enhanced focus management that works with Radix Tabs
+        const dialogContent = e.currentTarget;
+        
+        // Allow a brief moment for all components to initialize
         setTimeout(() => {
-          const dialogContent = e.currentTarget;
-          const firstInput = dialogContent?.querySelector<HTMLInputElement>('input:not([type="hidden"]):not([aria-hidden="true"])');
-          if (firstInput) {
-            firstInput.focus();
+          const firstFocusable = getFirstFocusableElement(dialogContent);
+          
+          if (firstFocusable) {
+            firstFocusable.focus();
           }
-        }, 50);
+        }, 100); // Increased delay for complex modals with tabs
       }}
       onCloseAutoFocus={(e) => {
-        // Allow natural focus return
-        e.preventDefault();
+        // Let Radix handle focus return to prevent focus issues
       }}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+      <DialogPrimitive.Close 
+        className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+        data-dialog-close
+      >
         <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
+        <span className="sr-only">Bağla</span>
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
   </DialogPortal>

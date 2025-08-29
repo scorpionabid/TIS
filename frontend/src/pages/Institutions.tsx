@@ -170,6 +170,9 @@ const Institutions = () => {
         per_page: perPage,
       };
       
+      console.log('🔍 Starting institutions query with params:', params);
+      console.log('🔍 Query filters:', { selectedType, currentPage, perPage, searchQuery, statusFilter, levelFilter, parentFilter, sortField, sortDirection });
+      
       // Add search query
       if (searchQuery.trim()) {
         params.search = searchQuery.trim();
@@ -209,19 +212,48 @@ const Institutions = () => {
         params.direction = sortDirection;
       }
 
+      console.log('📤 Final API params:', params);
+
       let response;
       if (selectedType === 'all') {
+        console.log('📞 Calling institutionService.getAll() with params:', params);
         response = await institutionService.getAll(params);
       } else {
         // Add type filter to params instead of using getByType
         params.type = selectedType;
+        console.log('📞 Calling institutionService.getAll() with type filter:', params);
         response = await institutionService.getAll(params);
+      }
+
+      console.log('📥 RAW API Response received:', response);
+      console.log('📥 Response type:', typeof response);
+      console.log('📥 Response keys:', Object.keys(response || {}));
+      
+      if (response?.success !== undefined) {
+        console.log('📥 Response.success:', response.success);
+      }
+      if (response?.data !== undefined) {
+        console.log('📥 Response.data type:', typeof response.data);
+        console.log('📥 Response.data keys:', Object.keys(response.data || {}));
+        if (response.data?.data !== undefined) {
+          console.log('📥 Response.data.data type:', typeof response.data.data);
+          console.log('📥 Response.data.data length:', Array.isArray(response.data.data) ? response.data.data.length : 'Not an array');
+          console.log('📥 Response.data.data first item:', Array.isArray(response.data.data) ? response.data.data[0] : 'N/A');
+        }
+        if (response.data?.total !== undefined) {
+          console.log('📥 Response.data.total:', response.data.total);
+        }
+        if (response.data?.current_page !== undefined) {
+          console.log('📥 Response.data.current_page:', response.data.current_page);
+        }
       }
 
       // Handle both response formats
       if (response.success && response.data) {
-        return {
-          institutions: Array.isArray(response.data.data) ? response.data.data : [],
+        console.log('🎯 Using response.success && response.data branch');
+        const institutions = Array.isArray(response.data.data) ? response.data.data : [];
+        const result = {
+          institutions: institutions,
           pagination: {
             currentPage: response.data.current_page || 1,
             lastPage: response.data.last_page || 1,
@@ -229,9 +261,14 @@ const Institutions = () => {
             perPage: response.data.per_page || perPage,
           },
         };
+        console.log('🎯 Processed result:', result);
+        console.log('🎯 Institutions array length:', result.institutions.length);
+        console.log('🎯 First institution:', result.institutions[0]);
+        return result;
       } else if (Array.isArray(response)) {
+        console.log('🎯 Using Array.isArray(response) branch');
         // Fallback for direct array response
-        return {
+        const result = {
           institutions: response,
           pagination: {
             currentPage: 1,
@@ -240,9 +277,12 @@ const Institutions = () => {
             lastPage: 1,
           },
         };
+        console.log('🎯 Array fallback result:', result);
+        return result;
       } else if (response.institutions) {
+        console.log('🎯 Using response.institutions branch');
         // Handle case where institutions is directly in the response
-        return {
+        const result = {
           institutions: response.institutions,
           pagination: response.pagination || {
             currentPage: 1,
@@ -251,9 +291,12 @@ const Institutions = () => {
             lastPage: 1,
           },
         };
+        console.log('🎯 Direct institutions result:', result);
+        return result;
       } else {
+        console.log('🎯 Using default empty response branch');
         // Default empty response for any other case
-        return {
+        const result = {
           institutions: [],
           pagination: {
             currentPage: 1,
@@ -262,14 +305,22 @@ const Institutions = () => {
             lastPage: 1,
           },
         };
+        console.log('🎯 Empty result:', result);
+        return result;
       }
     },
     staleTime: 0, // Always refetch
     gcTime: 1000 * 60 * 5, // Cache for 5 minutes (renamed from cacheTime in v5+)
+    refetchOnWindowFocus: true, // Refetch when window gains focus
+    refetchOnMount: true, // Always refetch on component mount
   });
 
   // Fetch admins when institutions data is loaded
   useEffect(() => {
+    console.log('🔄 useEffect triggered - institutionsResponse:', institutionsResponse);
+    console.log('🔄 institutionsResponse?.institutions:', institutionsResponse?.institutions);
+    console.log('🔄 institutions array length:', institutionsResponse?.institutions?.length || 'undefined/null');
+    
     if (institutionsResponse?.institutions) {
       console.log('🏢 Institutions loaded, fetching admins for:', institutionsResponse.institutions.map(i => i.id));
       institutionsResponse.institutions.forEach(institution => {
@@ -281,6 +332,8 @@ const Institutions = () => {
           console.log('✅ Admin already cached for:', institution.id);
         }
       });
+    } else {
+      console.log('❌ No institutions in response or response is null/undefined');
     }
   }, [institutionsResponse?.institutions]);
 
@@ -316,13 +369,29 @@ const Institutions = () => {
         });
       }
       
-      // Refresh the institutions list
+      // Refresh the institutions list with more aggressive cache clearing
       console.log('🔄 Refreshing institutions list');
       console.log('🗂️ Before invalidation - current cache:', queryClient.getQueryCache().getAll());
+      
+      // Clear all institutions-related queries
       await queryClient.invalidateQueries({ queryKey: ['institutions'] });
-      console.log('🗂️ After invalidation - cache invalidated');
+      await queryClient.invalidateQueries({ queryKey: ['parent-institutions'] });
+      
+      // Remove stale data completely
+      queryClient.removeQueries({ queryKey: ['institutions'] });
+      
+      console.log('🗂️ After invalidation - cache cleared');
+      
+      // Force refetch with network call
       await queryClient.refetchQueries({ queryKey: ['institutions'] });
       console.log('🗂️ After refetch - queries refetched');
+      
+      // Reset to first page and scroll to top to show new item
+      if (!selectedInstitution) { // Only for new institutions
+        setCurrentPage(1);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      
       handleCloseModal();
     } catch (error) {
       console.error('❌ Institution save failed:', error);
@@ -870,36 +939,62 @@ const Institutions = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
-                    <div className="flex flex-col items-center justify-center space-y-2">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                      <p className="text-sm text-muted-foreground">Müəssisələr yüklənir...</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : error ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
-                    <div className="flex flex-col items-center justify-center space-y-2">
-                      <p className="text-destructive">
-                        Xəta baş verdi: {error instanceof Error ? error.message : 'Bilinməyən xəta'}
-                      </p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : !institutionsResponse?.institutions?.length ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    {currentUser?.role === 'superadmin' ? 'Heç bir müəssisə tapılmadı' :
-                     currentUser?.role === 'regionadmin' ? 'Bu regiona aid müəssisə tapılmadı' :
-                     currentUser?.role === 'sektoradmin' ? 'Bu sektora aid müəssisə tapılmadı' :
-                     'Müəssisə məlumatları tapılmadı'}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                institutionsResponse.institutions.map((institution, index) => {
+              {(() => {
+                console.log('🖥️ RENDER - Table Body render conditions check:');
+                console.log('🖥️ isLoading:', isLoading);
+                console.log('🖥️ error:', error);
+                console.log('🖥️ institutionsResponse:', institutionsResponse);
+                console.log('🖥️ institutionsResponse?.institutions:', institutionsResponse?.institutions);
+                console.log('🖥️ institutionsResponse?.institutions?.length:', institutionsResponse?.institutions?.length);
+                console.log('🖥️ !institutionsResponse?.institutions?.length:', !institutionsResponse?.institutions?.length);
+                
+                if (isLoading) {
+                  console.log('🖥️ RENDER - Showing loading state');
+                  return (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8">
+                        <div className="flex flex-col items-center justify-center space-y-2">
+                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                          <p className="text-sm text-muted-foreground">Müəssisələr yüklənir...</p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+                
+                if (error) {
+                  console.log('🖥️ RENDER - Showing error state:', error);
+                  return (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8">
+                        <div className="flex flex-col items-center justify-center space-y-2">
+                          <p className="text-destructive">
+                            Xəta baş verdi: {error instanceof Error ? error.message : 'Bilinməyən xəta'}
+                          </p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+                
+                if (!institutionsResponse?.institutions?.length) {
+                  console.log('🖥️ RENDER - Showing empty state');
+                  return (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        {currentUser?.role === 'superadmin' ? 'Heç bir müəssisə tapılmadı' :
+                         currentUser?.role === 'regionadmin' ? 'Bu regiona aid müəssisə tapılmadı' :
+                         currentUser?.role === 'sektoradmin' ? 'Bu sektora aid müəssisə tapılmadı' :
+                         'Müəssisə məlumatları tapılmadı'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+                
+                console.log('🖥️ RENDER - Rendering institutions table with:', institutionsResponse.institutions.length, 'institutions');
+                console.log('🖥️ RENDER - First institution:', institutionsResponse.institutions[0]);
+                
+                return institutionsResponse.institutions.map((institution, index) => {
                 const IconComponent = getInstitutionIcon(institution.type);
                 
                 return (
