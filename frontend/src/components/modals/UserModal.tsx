@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FormBuilder, createField, commonValidations } from '@/components/forms/FormBuilder';
+import { z } from 'zod';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { User, userService } from '@/services/users';
@@ -56,15 +57,22 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
     }
   }, [open]);
 
+  // Load institutions when selected role changes
+  useEffect(() => {
+    if (selectedRole && availableRoles.length > 0) {
+      loadInstitutionsForRole();
+    }
+  }, [selectedRole, availableRoles]);
+
   const loadOptions = async () => {
     try {
       setLoadingOptions(true);
-      const [roles, institutions] = await Promise.all([
-        userService.getAvailableRoles(),
-        userService.getAvailableInstitutions()
-      ]);
-      
+      // Only load roles initially
+      const roles = await userService.getAvailableRoles();
       setAvailableRoles(roles);
+      
+      // Load all institutions initially (will be filtered when role is selected)
+      const institutions = await userService.getAvailableInstitutions();
       setAvailableInstitutions(institutions);
     } catch (error) {
       console.error('Failed to load options:', error);
@@ -75,6 +83,25 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
       });
     } finally {
       setLoadingOptions(false);
+    }
+  };
+
+  const loadInstitutionsForRole = async () => {
+    try {
+      const selectedRoleData = availableRoles.find(r => r.id.toString() === selectedRole);
+      if (!selectedRoleData) return;
+
+      console.log('🔄 Loading institutions for role:', selectedRoleData.name);
+      const institutions = await userService.getAvailableInstitutions(selectedRoleData.name);
+      console.log('🏢 Filtered institutions:', institutions);
+      setAvailableInstitutions(institutions);
+    } catch (error) {
+      console.error('Failed to load institutions for role:', error);
+      toast({
+        title: 'Xəta',
+        description: 'Seçilmiş rol üçün müəssisələr yüklənə bilmədi',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -114,9 +141,9 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
       validation: commonValidations.required,
     }),
     createField('email', 'Email', 'email', {
-      required: false, // Email artıq məcburi deyil
-      placeholder: 'ornek@edu.gov.az (məcburi deyil)',
-      validation: commonValidations.email.optional(),
+      required: true, // Email məcburi sahədir
+      placeholder: 'ornek@edu.gov.az',
+      validation: commonValidations.email.required,
     }),
     createField('password', 'Şifrə', 'password', {
       required: !user,
@@ -128,7 +155,8 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
       validation: commonValidations.phone.optional(),
     }),
     createField('birth_date', 'Doğum tarixi', 'date', {
-      placeholder: 'Tarix seçin',
+      placeholder: 'Tarix seçin (ixtiyari)',
+      required: false,
     }),
     createField('gender', 'Cins', 'select', {
       options: [
@@ -143,13 +171,10 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
     createField('utis_code', 'UTIS Kodu', 'text', {
       placeholder: '12 rəqəmə qədər',
       description: 'Yalnız rəqəmlər daxil edin (maksimum 12 rəqəm, məcburi deyil)',
-      validation: (value: string) => {
-        if (!value) return true; // Optional field
-        if (!/^\d{1,12}$/.test(value)) {
-          return '1-12 arası yalnız rəqəmlər daxil edin';
-        }
-        return true;
-      },
+      validation: z.string()
+        .regex(/^\d{1,12}$/, '1-12 arası yalnız rəqəmlər daxil edin')
+        .optional()
+        .or(z.literal('')),
     }),
     createField('role_id', 'Rol', 'select', {
       required: true,
@@ -181,10 +206,10 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
     createField('is_active', 'Status', 'select', {
       required: true,
       options: [
-        { label: 'Aktiv', value: true },
-        { label: 'Deaktiv', value: false }
+        { label: 'Aktiv', value: 'true' },
+        { label: 'Deaktiv', value: 'false' }
       ],
-      defaultValue: true,
+      defaultValue: 'true',
       validation: commonValidations.required,
     }),
   ];
@@ -295,6 +320,18 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
       // Process subjects field if it exists
       if (data.subjects && Array.isArray(data.subjects)) {
         data.subjects = data.subjects.map((id: string) => parseInt(id));
+      }
+
+      // Convert is_active from string to boolean
+      if (typeof data.is_active === 'string') {
+        data.is_active = data.is_active === 'true';
+      }
+
+      // Email is now required, no need for null check
+
+      // Ensure birth_date is null if empty
+      if (!data.birth_date || data.birth_date.trim() === '') {
+        data.birth_date = null;
       }
 
       // Prepare profile data

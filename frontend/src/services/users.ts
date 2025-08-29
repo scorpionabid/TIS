@@ -209,8 +209,9 @@ class UserService {
     throw new Error('Failed to get user statistics');
   }
 
-  async getAvailableInstitutions(): Promise<Array<{id: number, name: string, type: string, level: number, parent_id: number | null}>> {
-    const response = await apiClient.get<Array<{id: number, name: string, type: string, level: number, parent_id: number | null}>>('/users/institutions/available');
+  async getAvailableInstitutions(roleName?: string): Promise<Array<{id: number, name: string, type: string, level: number, parent_id: number | null}>> {
+    const params = roleName ? { role_name: roleName } : {};
+    const response = await apiClient.get<Array<{id: number, name: string, type: string, level: number, parent_id: number | null}>>('/users/institutions/available', params);
     
     if (response.data) {
       return response.data;

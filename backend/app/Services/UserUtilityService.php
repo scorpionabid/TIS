@@ -190,14 +190,67 @@ class UserUtilityService
     }
     
     /**
-     * Get available institutions for user assignment
+     * Get available institutions for user assignment based on role
      */
-    public function getAvailableInstitutions(): Collection
+    public function getAvailableInstitutions(?string $roleName = null): Collection
     {
-        return Institution::select(['id', 'name', 'type', 'level'])
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get();
+        $query = Institution::select(['id', 'name', 'type', 'level'])
+            ->where('is_active', true);
+        
+        // Filter institutions based on role
+        if ($roleName) {
+            switch ($roleName) {
+                case 'regionadmin':
+                    // Region admin should be assigned to regional institutions
+                    $query->where('type', 'regional');
+                    break;
+                    
+                case 'sektoradmin':
+                    // Sector admin should be assigned to sector institutions  
+                    $query->where('type', 'sector');
+                    break;
+                    
+                case 'schooladmin':
+                case 'müəllim':
+                case 'muavin':
+                case 'ubr':
+                case 'tesarrufat':
+                case 'psixoloq':
+                    // School-level roles should be assigned to schools
+                    $query->whereIn('type', [
+                        'school',
+                        'secondary_school', 
+                        'primary_school',
+                        'lyceum',
+                        'gymnasium',
+                        'vocational',
+                        'special_education',
+                        'preschool',
+                        'kindergarten'
+                    ]);
+                    break;
+                    
+                case 'superadmin':
+                    // SuperAdmin can be assigned anywhere (no filter)
+                    break;
+                    
+                case 'regionoperator':
+                    // Region operator works at regional level but could also work at sector level
+                    $query->whereIn('type', [
+                        'regional',
+                        'sector'
+                    ]);
+                    break;
+                    
+                default:
+                    // For unknown roles, show all institutions
+                    break;
+            }
+        }
+        
+        return $query->orderBy('level')
+                     ->orderBy('name')
+                     ->get();
     }
     
     /**

@@ -219,19 +219,19 @@ class UserPermissionService extends BaseService
                 break;
                 
             case 'regionadmin':
-                // RegionAdmin can assign roles: regionoperator, sektoradmin, məktəbadmin, müəllim
-                $query->whereIn('name', ['regionoperator', 'sektoradmin', 'məktəbadmin', 'schooladmin', 'müəllim', 'teacher']);
+                // RegionAdmin can assign roles: regionoperator, sektoradmin, schooladmin, müəllim
+                $query->whereIn('name', ['regionoperator', 'sektoradmin', 'schooladmin', 'müəllim']);
                 break;
                 
             case 'sektoradmin':
-                // SektorAdmin can assign roles: məktəbadmin, müəllim
-                $query->whereIn('name', ['məktəbadmin', 'schooladmin', 'müəllim', 'teacher']);
+                // SektorAdmin can assign roles: schooladmin, müəllim
+                $query->whereIn('name', ['schooladmin', 'müəllim']);
                 break;
                 
             case 'məktəbadmin':
             case 'schooladmin':
                 // MəktəbAdmin can assign role: müəllim
-                $query->whereIn('name', ['müəllim', 'teacher']);
+                $query->whereIn('name', ['müəllim']);
                 break;
                 
             default:
@@ -242,6 +242,8 @@ class UserPermissionService extends BaseService
         
         return $query->orderBy('level')
                      ->get()
+                     ->unique('name') // Remove duplicates based on 'name' field
+                     ->values() // Reset array keys after filtering
                      ->map(function($role) {
                          return [
                              'id' => $role->id,

@@ -94,7 +94,13 @@ class UserUtilityController extends BaseController
     public function institutions(Request $request): JsonResponse
     {
         return $this->executeWithErrorHandling(function () use ($request) {
-            $institutions = $this->utilityService->getAvailableInstitutions();
+            $validated = $request->validate([
+                'role_name' => 'nullable|string|exists:roles,name'
+            ]);
+            
+            $institutions = $this->utilityService->getAvailableInstitutions(
+                $validated['role_name'] ?? null
+            );
             return $this->success($institutions, 'Available institutions retrieved successfully');
         }, 'user.utility.institutions');
     }
