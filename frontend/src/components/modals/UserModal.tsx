@@ -410,6 +410,7 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
         utis_code: data.utis_code
       };
 
+
       await onSave(userData);
       toast({
         title: 'Uğurlu',
