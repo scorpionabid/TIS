@@ -21,7 +21,10 @@ import { getInstitutionIcon, getTypeLabel, canAccessInstitutionType } from "@/ut
 
 const Institutions = () => {
   const { currentUser } = useAuth();
-  const [selectedType, setSelectedType] = useState<string>('all');
+  const [selectedType, setSelectedType] = useState<string>(() => {
+    console.log('🎯 Initializing selectedType with value: all');
+    return 'all';
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedInstitution, setSelectedInstitution] = useState<Institution | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -52,14 +55,16 @@ const Institutions = () => {
 
   const availableTypes = React.useMemo(() => {
     if (!institutionTypesResponse?.success || !Array.isArray(institutionTypesResponse.institution_types)) return [];
-    return institutionTypesResponse.institution_types.map((type) => ({
+    const types = institutionTypesResponse.institution_types.map((type) => ({
       key: type.key,
       label: type.label_az || type.label,
       level: type.default_level,
       color: type.color,
       icon: type.icon
     }));
-  }, [institutionTypesResponse]);
+    console.log('🎯 Available types for user role:', currentUser?.role, types);
+    return types;
+  }, [institutionTypesResponse, currentUser?.role]);
 
   // Fetch institution admin function
   const fetchInstitutionAdmin = async (institutionId: number) => {
@@ -163,15 +168,12 @@ const Institutions = () => {
   });
 
   const { data: institutionsResponse, isLoading, error } = useQuery<InstitutionsResponse>({
-    queryKey: ['institutions', selectedType, currentPage, perPage, searchQuery, statusFilter, levelFilter, parentFilter, sortField, sortDirection],
+    queryKey: ['institutions-main', selectedType, currentPage, perPage, searchQuery, statusFilter, levelFilter, parentFilter, sortField, sortDirection],
     queryFn: async () => {
       const params: any = {
         page: currentPage,
         per_page: perPage,
       };
-      
-      console.log('🔍 Starting institutions query with params:', params);
-      console.log('🔍 Query filters:', { selectedType, currentPage, perPage, searchQuery, statusFilter, levelFilter, parentFilter, sortField, sortDirection });
       
       // Add search query
       if (searchQuery.trim()) {
@@ -212,48 +214,22 @@ const Institutions = () => {
         params.direction = sortDirection;
       }
 
-      console.log('📤 Final API params:', params);
-
+      
       let response;
       if (selectedType === 'all') {
-        console.log('📞 Calling institutionService.getAll() with params:', params);
         response = await institutionService.getAll(params);
       } else {
         // Add type filter to params instead of using getByType
         params.type = selectedType;
-        console.log('📞 Calling institutionService.getAll() with type filter:', params);
         response = await institutionService.getAll(params);
       }
 
-      console.log('📥 RAW API Response received:', response);
-      console.log('📥 Response type:', typeof response);
-      console.log('📥 Response keys:', Object.keys(response || {}));
-      
-      if (response?.success !== undefined) {
-        console.log('📥 Response.success:', response.success);
-      }
-      if (response?.data !== undefined) {
-        console.log('📥 Response.data type:', typeof response.data);
-        console.log('📥 Response.data keys:', Object.keys(response.data || {}));
-        if (response.data?.data !== undefined) {
-          console.log('📥 Response.data.data type:', typeof response.data.data);
-          console.log('📥 Response.data.data length:', Array.isArray(response.data.data) ? response.data.data.length : 'Not an array');
-          console.log('📥 Response.data.data first item:', Array.isArray(response.data.data) ? response.data.data[0] : 'N/A');
-        }
-        if (response.data?.total !== undefined) {
-          console.log('📥 Response.data.total:', response.data.total);
-        }
-        if (response.data?.current_page !== undefined) {
-          console.log('📥 Response.data.current_page:', response.data.current_page);
-        }
-      }
+      // Add detailed logging for response processing
 
       // Handle both response formats
       if (response.success && response.data) {
-        console.log('🎯 Using response.success && response.data branch');
-        const institutions = Array.isArray(response.data.data) ? response.data.data : [];
-        const result = {
-          institutions: institutions,
+        return {
+          institutions: Array.isArray(response.data.data) ? response.data.data : [],
           pagination: {
             currentPage: response.data.current_page || 1,
             lastPage: response.data.last_page || 1,
@@ -261,14 +237,9 @@ const Institutions = () => {
             perPage: response.data.per_page || perPage,
           },
         };
-        console.log('🎯 Processed result:', result);
-        console.log('🎯 Institutions array length:', result.institutions.length);
-        console.log('🎯 First institution:', result.institutions[0]);
-        return result;
       } else if (Array.isArray(response)) {
-        console.log('🎯 Using Array.isArray(response) branch');
         // Fallback for direct array response
-        const result = {
+        return {
           institutions: response,
           pagination: {
             currentPage: 1,
@@ -277,12 +248,20 @@ const Institutions = () => {
             lastPage: 1,
           },
         };
-        console.log('🎯 Array fallback result:', result);
-        return result;
+      } else if (response.data && Array.isArray(response.data)) {
+        // Handle direct pagination response format (current_page, data array, etc.)
+        return {
+          institutions: response.data,
+          pagination: {
+            currentPage: response.current_page || 1,
+            lastPage: response.last_page || 1,
+            total: response.total || 0,
+            perPage: response.per_page || perPage,
+          },
+        };
       } else if (response.institutions) {
-        console.log('🎯 Using response.institutions branch');
         // Handle case where institutions is directly in the response
-        const result = {
+        return {
           institutions: response.institutions,
           pagination: response.pagination || {
             currentPage: 1,
@@ -291,12 +270,9 @@ const Institutions = () => {
             lastPage: 1,
           },
         };
-        console.log('🎯 Direct institutions result:', result);
-        return result;
       } else {
-        console.log('🎯 Using default empty response branch');
         // Default empty response for any other case
-        const result = {
+        return {
           institutions: [],
           pagination: {
             currentPage: 1,
@@ -305,22 +281,20 @@ const Institutions = () => {
             lastPage: 1,
           },
         };
-        console.log('🎯 Empty result:', result);
-        return result;
       }
     },
     staleTime: 0, // Always refetch
-    gcTime: 1000 * 60 * 5, // Cache for 5 minutes (renamed from cacheTime in v5+)
-    refetchOnWindowFocus: true, // Refetch when window gains focus
-    refetchOnMount: true, // Always refetch on component mount
+    gcTime: 0, // No caching at all - force fresh data
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    networkMode: 'always',
+    retry: false
   });
 
   // Fetch admins when institutions data is loaded
   useEffect(() => {
     console.log('🔄 useEffect triggered - institutionsResponse:', institutionsResponse);
-    console.log('🔄 institutionsResponse?.institutions:', institutionsResponse?.institutions);
-    console.log('🔄 institutions array length:', institutionsResponse?.institutions?.length || 'undefined/null');
-    
+    console.log('🔄 institutionsResponse?.institutions length:', institutionsResponse?.institutions?.length || 'N/A');
     if (institutionsResponse?.institutions) {
       console.log('🏢 Institutions loaded, fetching admins for:', institutionsResponse.institutions.map(i => i.id));
       institutionsResponse.institutions.forEach(institution => {
@@ -333,7 +307,7 @@ const Institutions = () => {
         }
       });
     } else {
-      console.log('❌ No institutions in response or response is null/undefined');
+      console.log('❌ No institutions found in response');
     }
   }, [institutionsResponse?.institutions]);
 
@@ -369,29 +343,13 @@ const Institutions = () => {
         });
       }
       
-      // Refresh the institutions list with more aggressive cache clearing
+      // Refresh the institutions list
       console.log('🔄 Refreshing institutions list');
       console.log('🗂️ Before invalidation - current cache:', queryClient.getQueryCache().getAll());
-      
-      // Clear all institutions-related queries
       await queryClient.invalidateQueries({ queryKey: ['institutions'] });
-      await queryClient.invalidateQueries({ queryKey: ['parent-institutions'] });
-      
-      // Remove stale data completely
-      queryClient.removeQueries({ queryKey: ['institutions'] });
-      
-      console.log('🗂️ After invalidation - cache cleared');
-      
-      // Force refetch with network call
+      console.log('🗂️ After invalidation - cache invalidated');
       await queryClient.refetchQueries({ queryKey: ['institutions'] });
       console.log('🗂️ After refetch - queries refetched');
-      
-      // Reset to first page and scroll to top to show new item
-      if (!selectedInstitution) { // Only for new institutions
-        setCurrentPage(1);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-      
       handleCloseModal();
     } catch (error) {
       console.error('❌ Institution save failed:', error);
@@ -565,20 +523,28 @@ const Institutions = () => {
               variant={selectedType === 'all' ? 'default' : 'outline'}
               size="sm"
               onClick={() => {
+                console.log('🎯 Setting selectedType to: all');
                 setSelectedType('all');
                 setCurrentPage(1);
               }}
             >
               Hamısı
             </Button>
-{availableTypes
-              .filter(type => canAccessInstitutionType(currentUser?.role, type.key))
-              .map((type) => (
+{(() => {
+                const filteredTypes = availableTypes.filter(type => {
+                  const canAccess = canAccessInstitutionType(currentUser?.role, type.key);
+                  console.log('🔍 Type filter check:', type.key, 'role:', currentUser?.role, 'canAccess:', canAccess);
+                  return canAccess;
+                });
+                console.log('🎯 Final filtered types for display:', filteredTypes);
+                return filteredTypes;
+              })().map((type) => (
                 <Button
                   key={type.key}
                   variant={selectedType === type.key ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => {
+                    console.log('🎯 Setting selectedType to:', type.key);
                     setSelectedType(type.key);
                     setCurrentPage(1);
                   }}
@@ -939,46 +905,29 @@ const Institutions = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(() => {
-                console.log('🖥️ RENDER - Table Body render conditions check:');
-                console.log('🖥️ isLoading:', isLoading);
-                console.log('🖥️ error:', error);
-                console.log('🖥️ institutionsResponse:', institutionsResponse);
-                console.log('🖥️ institutionsResponse?.institutions:', institutionsResponse?.institutions);
-                console.log('🖥️ institutionsResponse?.institutions?.length:', institutionsResponse?.institutions?.length);
-                console.log('🖥️ !institutionsResponse?.institutions?.length:', !institutionsResponse?.institutions?.length);
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      <p className="text-sm text-muted-foreground">Müəssisələr yüklənir...</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : error ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      <p className="text-destructive">
+                        Xəta baş verdi: {error instanceof Error ? error.message : 'Bilinməyən xəta'}
+                      </p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (() => {
+                const hasInstitutions = institutionsResponse?.institutions?.length;
                 
-                if (isLoading) {
-                  console.log('🖥️ RENDER - Showing loading state');
-                  return (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">
-                        <div className="flex flex-col items-center justify-center space-y-2">
-                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                          <p className="text-sm text-muted-foreground">Müəssisələr yüklənir...</p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                }
-                
-                if (error) {
-                  console.log('🖥️ RENDER - Showing error state:', error);
-                  return (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">
-                        <div className="flex flex-col items-center justify-center space-y-2">
-                          <p className="text-destructive">
-                            Xəta baş verdi: {error instanceof Error ? error.message : 'Bilinməyən xəta'}
-                          </p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                }
-                
-                if (!institutionsResponse?.institutions?.length) {
-                  console.log('🖥️ RENDER - Showing empty state');
+                if (!hasInstitutions) {
                   return (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
@@ -991,11 +940,8 @@ const Institutions = () => {
                   );
                 }
                 
-                console.log('🖥️ RENDER - Rendering institutions table with:', institutionsResponse.institutions.length, 'institutions');
-                console.log('🖥️ RENDER - First institution:', institutionsResponse.institutions[0]);
-                
                 return institutionsResponse.institutions.map((institution, index) => {
-                const IconComponent = getInstitutionIcon(institution.type);
+                  const IconComponent = getInstitutionIcon(institution.type);
                 
                 return (
                   <TableRow key={institution.id} className="hover:bg-muted/50">
@@ -1098,7 +1044,7 @@ const Institutions = () => {
                   </TableRow>
                 );
                 })
-              )}
+              })()}
             </TableBody>
           </Table>
         </div>
