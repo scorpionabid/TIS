@@ -64,20 +64,20 @@ Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|supera
     Route::delete('departments/{department}', [RegionAdminInstitutionController::class, 'deleteDepartment']);
     
     // User management endpoints - READ operations
-    Route::get('users', [RegionAdminUserController::class, 'getRegionUsers']);
-    Route::get('users/{user}', [RegionAdminUserController::class, 'getUserDetails']);
+    Route::get('users', [RegionAdminUserController::class, 'index']);
+    Route::get('users/{user}', [RegionAdminUserController::class, 'show']);
     Route::get('users/{user}/activity', [RegionAdminUserController::class, 'getUserActivity']);
-    Route::get('institutions/{institution}/users', [RegionAdminUserController::class, 'getInstitutionUsers']);
+    // Route::get('institutions/{institution}/users', [RegionAdminUserController::class, 'getInstitutionUsers']); // TODO: Implement this method
     
     // User management endpoints - WRITE operations
-    Route::post('users', [RegionAdminUserController::class, 'createUser']);
-    Route::put('users/{user}', [RegionAdminUserController::class, 'updateUser']);
-    Route::delete('users/{user}', [RegionAdminUserController::class, 'deleteUser']);
+    Route::post('users', [RegionAdminUserController::class, 'store']);
+    Route::put('users/{user}', [RegionAdminUserController::class, 'update']);
+    Route::delete('users/{user}', [RegionAdminUserController::class, 'destroy']);
     
-    // User management helper endpoints
-    Route::post('users/{user}/assign-role', [RegionAdminUserController::class, 'assignRole']);
-    Route::post('users/{user}/assign-institution', [RegionAdminUserController::class, 'assignInstitution']);
-    Route::post('users/bulk-create', [RegionAdminUserController::class, 'bulkCreateUsers']);
+    // User management helper endpoints (TODO: Implement these methods)
+    // Route::post('users/{user}/assign-role', [RegionAdminUserController::class, 'assignRole']);
+    // Route::post('users/{user}/assign-institution', [RegionAdminUserController::class, 'assignInstitution']);
+    // Route::post('users/bulk-create', [RegionAdminUserController::class, 'bulkCreateUsers']);
     
     // Survey analytics endpoints
     Route::get('surveys/analytics', [RegionAdminSurveyController::class, 'getSurveyAnalytics']);
