@@ -325,4 +325,39 @@ class User extends Authenticatable
     {
         return $query->where('institution_id', $institutionId);
     }
+
+    /**
+     * Get the user's full name or fallback to username.
+     */
+    public function getNameAttribute(): string
+    {
+        $firstName = trim($this->first_name ?? '');
+        $lastName = trim($this->last_name ?? '');
+        
+        // If both first and last name exist, combine them
+        if ($firstName && $lastName) {
+            return "{$firstName} {$lastName}";
+        }
+        
+        // If only first name exists
+        if ($firstName) {
+            return $firstName;
+        }
+        
+        // If only last name exists
+        if ($lastName) {
+            return $lastName;
+        }
+        
+        // Fallback to username or email
+        if ($this->username) {
+            return $this->username;
+        }
+        
+        if ($this->email) {
+            return explode('@', $this->email)[0];
+        }
+        
+        return 'Anonim İstifadəçi';
+    }
 }

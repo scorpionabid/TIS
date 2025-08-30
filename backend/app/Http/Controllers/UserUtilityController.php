@@ -316,4 +316,33 @@ class UserUtilityController extends BaseController
         
         return $recommendations;
     }
+
+    /**
+     * Check if email is unique (for validation during user creation/edit)
+     */
+    public function checkEmailUnique(Request $request): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $validated = $request->validate([
+                'email' => 'required|email',
+                'exclude_user_id' => 'nullable|integer|exists:users,id'
+            ]);
+
+            $query = User::where('email', $validated['email']);
+            
+            // Exclude current user if editing
+            if (!empty($validated['exclude_user_id'])) {
+                $query->where('id', '!=', $validated['exclude_user_id']);
+            }
+
+            $exists = $query->exists();
+
+            return $this->success([
+                'is_unique' => !$exists,
+                'message' => $exists 
+                    ? 'Bu email artıq istifadə olunur'
+                    : 'Email istifadə üçün uyğundur'
+            ], 'Email uniqueness check completed');
+        }, 'user.utility.checkEmailUnique');
+    }
 }

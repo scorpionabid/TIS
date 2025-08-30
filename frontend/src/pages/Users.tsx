@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, UserIcon, Mail, Phone, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter, FileDown, Upload } from "lucide-react";
+import { Plus, Edit, Trash2, UserIcon, Mail, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter, FileDown, Upload } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { User, CreateUserData, UpdateUserData, userService } from "@/services/users";
@@ -27,6 +27,39 @@ const roleLabels: Record<string, string> = {
   schooladmin: 'Məktəb Admin',
   müəllim: 'Müəllim',
   user: 'İstifadəçi',
+};
+
+
+// Utility function to get user's full name or fallback to username
+const getUserDisplayName = (user: any): string => {
+  const firstName = user.first_name?.trim();
+  const lastName = user.last_name?.trim();
+  
+  // If both first and last name exist, combine them
+  if (firstName && lastName) {
+    return `${firstName} ${lastName}`;
+  }
+  
+  // If only first name exists
+  if (firstName) {
+    return firstName;
+  }
+  
+  // If only last name exists
+  if (lastName) {
+    return lastName;
+  }
+  
+  // Fallback to username or email if no names available
+  if (user.username?.trim()) {
+    return user.username.trim();
+  }
+  
+  if (user.email?.trim()) {
+    return user.email.trim().split('@')[0];
+  }
+  
+  return 'Anonim İstifadəçi';
 };
 
 // Utility function to safely convert value to string - FIXED FOR ROLE
@@ -482,7 +515,6 @@ export default function Users() {
                 </Button>
               </TableHead>
               <TableHead>Region/Müəssisə</TableHead>
-              <TableHead>Telefon</TableHead>
               <TableHead>
                 <Button
                   variant="ghost"
@@ -509,7 +541,7 @@ export default function Users() {
           <TableBody>
             {pagination.totalItems === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center">
+                <TableCell colSpan={6} className="h-24 text-center">
                   Heç bir istifadəçi tapılmadı.
                 </TableCell>
               </TableRow>
@@ -532,7 +564,7 @@ export default function Users() {
                           <UserIcon className="h-5 w-5 text-primary" />
                         </div>
                         <div>
-                          <div className="font-medium">{safeToString(user.name)}</div>
+                          <div className="font-medium">{user.name || getUserDisplayName(user)}</div>
                           <div className="text-sm text-muted-foreground flex items-center gap-1">
                             <Mail className="h-3 w-3" />
                             {safeToString(user.email)}
@@ -557,16 +589,6 @@ export default function Users() {
                           </div>
                         )}
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      {user.phone ? (
-                        <div className="text-sm flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {safeToString(user.phone)}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant={getStatusBadgeVariant(userStatus)}>

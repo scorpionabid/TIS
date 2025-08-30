@@ -84,6 +84,7 @@ Route::middleware('permission:users.read')->group(function () {
     Route::get('users/roles/available', [UserController::class, 'getAvailableRoles']);
     Route::get('users/institutions/available', [UserUtilityController::class, 'institutions']);
     Route::get('users/departments/available', [UserUtilityController::class, 'departments']);
+    Route::post('users/check-email-unique', [UserUtilityController::class, 'checkEmailUnique']);
 });
 
 // Institution bulk operations (must be before parameterized routes)

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Dialog,
@@ -37,6 +37,8 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
   const [availableInstitutions, setAvailableInstitutions] = useState<Array<{id: number, name: string, type: string, level: number, parent_id: number | null}>>([]);
   const [availableDepartments, setAvailableDepartments] = useState<Array<{id: number, name: string, department_type: string, institution: {id: number, name: string, type: string}}>>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
+  const [emailValidation, setEmailValidation] = useState<{isChecking: boolean, isUnique?: boolean, message?: string}>({isChecking: false});
+  const [selectedBirthDate, setSelectedBirthDate] = useState<string>('');
 
   // Load subjects for teacher professional fields
   const { data: subjects } = useQuery({
@@ -57,6 +59,8 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
       setAvailableInstitutions([]);
       setAvailableDepartments([]);
       setLoadingOptions(true);
+      setSelectedBirthDate('');
+      setEmailValidation({isChecking: false});
     }
   }, [open]);
 
@@ -137,6 +141,63 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
     }
   };
 
+  // Calculate age from birth date
+  const calculateAgeFromDate = (birthDate: string): string => {
+    if (!birthDate) return '';
+    
+    try {
+      const birth = new Date(birthDate);
+      const today = new Date();
+      
+      if (birth > today) return ''; // Invalid birth date
+      
+      let age = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+      }
+      
+      return age >= 0 ? ` (${age} yaş)` : '';
+    } catch (error) {
+      return '';
+    }
+  };
+
+  // Debounced email uniqueness check
+  const debouncedEmailCheck = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout;
+      return (email: string) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(async () => {
+          if (!email || email.length < 3 || !/\S+@\S+\.\S+/.test(email)) {
+            setEmailValidation({isChecking: false});
+            return;
+          }
+
+          setEmailValidation({isChecking: true});
+          
+          try {
+            const result = await userService.checkEmailUnique(email, user?.id);
+            setEmailValidation({
+              isChecking: false,
+              isUnique: result.isUnique,
+              message: result.message
+            });
+          } catch (error) {
+            setEmailValidation({
+              isChecking: false,
+              isUnique: false,
+              message: 'Email yoxlanması uğursuz oldu'
+            });
+          }
+        }, 500); // 500ms delay
+      };
+    })(),
+    [user?.id]
+  );
+
   // Check if selected role is teacher or student
   const isTeacherRole = (roleId: string) => {
     const role = availableRoles.find(r => r.id.toString() === roleId);
@@ -181,11 +242,37 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
       required: true, // Email məcburi sahədir
       placeholder: 'ornek@edu.gov.az',
       validation: commonValidations.email.required,
+      onChange: (value: string) => {
+        debouncedEmailCheck(value);
+      },
+      description: emailValidation.isChecking 
+        ? 'Email yoxlanılır...' 
+        : emailValidation.message || 'Unikalılıq üçün email avtomatik yoxlanacaq',
+      status: emailValidation.isChecking 
+        ? 'loading' 
+        : emailValidation.isUnique === false 
+        ? 'error' 
+        : emailValidation.isUnique === true 
+        ? 'success' 
+        : undefined,
     }),
     createField('password', 'Şifrə', 'password', {
       required: !user,
-      placeholder: 'Minimum 8 simvol',
-      validation: !user ? commonValidations.required : undefined,
+      placeholder: 'Minimum 8 simvol, böyük və kiçik hərf, rəqəm',
+      description: 'Güclü şifrə: minimum 8 simvol, ən azı 1 böyük hərf, 1 kiçik hərf və 1 rəqəm',
+      validation: !user 
+        ? z.string()
+            .min(8, 'Şifrə minimum 8 simvol olmalıdır')
+            .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Şifrədə ən azı 1 böyük hərf, 1 kiçik hərf və 1 rəqəm olmalıdır')
+        : z.string()
+            .min(8, 'Şifrə minimum 8 simvol olmalıdır')
+            .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Şifrədə ən azı 1 böyük hərf, 1 kiçik hərf və 1 rəqəm olmalıdır')
+            .optional().or(z.literal('')),
+    }),
+    createField('password_confirmation', 'Şifrə təkrarı', 'password', {
+      required: !user,
+      placeholder: 'Şifrəni təkrar daxil edin',
+      validation: !user ? z.string().min(8, 'Şifrə təkrarı minimum 8 simvol olmalıdır') : z.string().min(8, 'Şifrə təkrarı minimum 8 simvol olmalıdır').optional().or(z.literal('')),
     }),
     createField('contact_phone', 'Telefon', 'text', {
       placeholder: '+994 XX XXX XX XX',
@@ -194,6 +281,12 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
     createField('birth_date', 'Doğum tarixi', 'date', {
       placeholder: 'Tarix seçin (ixtiyari)',
       required: false,
+      onChange: (value: string) => {
+        setSelectedBirthDate(value);
+      },
+      description: selectedBirthDate 
+        ? `Seçilmiş tarix${calculateAgeFromDate(selectedBirthDate)}`
+        : 'Doğum tarixini seçin (məcburi deyil)',
     }),
     createField('gender', 'Cins', 'select', {
       options: [
@@ -384,9 +477,33 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
         }
       }
 
-      // Add password_confirmation for validation
-      if (data.password) {
-        data.password_confirmation = data.password;
+      // Check email uniqueness before submission
+      if (data.email && emailValidation.isUnique === false) {
+        toast({
+          title: 'Email xətası',
+          description: 'Bu email artıq istifadə olunur',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Validate password confirmation
+      if (data.password && data.password_confirmation) {
+        if (data.password !== data.password_confirmation) {
+          toast({
+            title: 'Şifrə xətası',
+            description: 'Şifrə və şifrə təkrarı uyğun gəlmir',
+            variant: 'destructive',
+          });
+          return;
+        }
+      } else if (data.password && !data.password_confirmation) {
+        toast({
+          title: 'Şifrə təkrarı lazımdır',
+          description: 'Şifrəni təkrar daxil edin',
+          variant: 'destructive',
+        });
+        return;
       }
 
       // Ensure birth_date is null if empty

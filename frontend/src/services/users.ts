@@ -454,6 +454,26 @@ class UserService {
     URL.revokeObjectURL(url);
   }
 
+  async checkEmailUnique(email: string, excludeUserId?: number): Promise<{isUnique: boolean, message?: string}> {
+    try {
+      const response = await apiClient.post('/users/check-email-unique', {
+        email: email,
+        exclude_user_id: excludeUserId
+      });
+      
+      return {
+        isUnique: response.data?.is_unique ?? false,
+        message: response.data?.message
+      };
+    } catch (error) {
+      console.error('Email uniqueness check failed:', error);
+      return {
+        isUnique: false,
+        message: 'Email yoxlanması uğursuz oldu'
+      };
+    }
+  }
+
 }
 
 export const userService = new UserService();
