@@ -229,7 +229,7 @@ export default function Users() {
           description: "İstifadəçi məlumatları uğurla yeniləndi.",
         });
       } else {
-        await userService.createUser(data);
+        await userService.createUser(data, currentUser?.role);
         toast({
           title: "İstifadəçi əlavə edildi",
           description: "Yeni istifadəçi uğurla yaradıldı.",
@@ -255,7 +255,7 @@ export default function Users() {
 
   const handleDeleteConfirm = async (user: User, deleteType: 'soft' | 'hard') => {
     try {
-      await userService.deleteUser(user.id);
+      await userService.deleteUser(user.id, currentUser?.role);
       
       toast({
         title: "İstifadəçi silindi",

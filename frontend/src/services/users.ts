@@ -129,8 +129,33 @@ class UserService {
     throw new Error('User not found');
   }
 
-  async createUser(data: CreateUserData): Promise<User> {
-    const response = await apiClient.post<User>('/users', data);
+  async createUser(data: CreateUserData, currentUserRole?: string): Promise<User> {
+    // Use passed role or fallback to localStorage
+    let role = currentUserRole;
+    if (!role) {
+      const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+      role = currentUser?.role;
+    }
+    
+    console.log('🔍 Debug role for endpoint selection:', role);
+    
+    let endpoint = '/users';
+    
+    // Use role-specific endpoints for better permission handling
+    switch(role) {
+      case 'regionadmin':
+        endpoint = '/regionadmin/users';
+        break;
+      case 'sektoradmin':
+        endpoint = '/sektoradmin/users';
+        break;
+      default:
+        endpoint = '/users';
+        break;
+    }
+    
+    console.log(`🚀 Creating user with role ${role} using endpoint ${endpoint}`);
+    const response = await apiClient.post<User>(endpoint, data);
     
     if (response.data) {
       return response.data;
@@ -149,8 +174,31 @@ class UserService {
     throw new Error('Failed to update user');
   }
 
-  async deleteUser(id: number): Promise<void> {
-    await apiClient.delete(`/users/${id}`);
+  async deleteUser(id: number, currentUserRole?: string): Promise<void> {
+    // Use passed role or fallback to localStorage
+    let role = currentUserRole;
+    if (!role) {
+      const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+      role = currentUser?.role;
+    }
+    
+    let endpoint = `/users/${id}`;
+    
+    // Use role-specific endpoints for better permission handling
+    switch(role) {
+      case 'regionadmin':
+        endpoint = `/regionadmin/users/${id}`;
+        break;
+      case 'sektoradmin':
+        endpoint = `/sektoradmin/users/${id}`;
+        break;
+      default:
+        endpoint = `/users/${id}`;
+        break;
+    }
+    
+    console.log(`🗑️ Deleting user with role ${role} using endpoint ${endpoint}`);
+    await apiClient.delete(endpoint);
   }
 
   async toggleUserStatus(id: number): Promise<User> {
@@ -222,6 +270,20 @@ class UserService {
 
   async getAvailableRoles(): Promise<Array<{id: number, name: string, display_name: string, level: number}>> {
     const response = await apiClient.get<Array<{id: number, name: string, display_name: string, level: number}>>('/users/roles/available');
+    
+    if (response.data) {
+      return response.data;
+    }
+    
+    return [];
+  }
+
+  async getAvailableDepartments(roleName?: string, institutionId?: number): Promise<Array<{id: number, name: string, department_type: string, institution: {id: number, name: string, type: string}}>> {
+    const params: Record<string, any> = {};
+    if (roleName) params.role_name = roleName;
+    if (institutionId) params.institution_id = institutionId;
+    
+    const response = await apiClient.get<Array<{id: number, name: string, department_type: string, institution: {id: number, name: string, type: string}}>>('/users/departments/available', params);
     
     if (response.data) {
       return response.data;

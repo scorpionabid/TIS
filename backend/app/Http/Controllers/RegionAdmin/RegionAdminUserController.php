@@ -375,8 +375,9 @@ class RegionAdminUserController extends Controller
             }
             
             return response()->json([
+                'success' => true,
                 'message' => 'User created successfully',
-                'user' => $newUser->load(['roles', 'institution', 'department'])
+                'data' => $newUser->load(['roles', 'institution', 'department'])
             ], 201);
             
         } catch (\Exception $e) {
@@ -407,7 +408,10 @@ class RegionAdminUserController extends Controller
             return response()->json(['message' => 'User not found in your region'], 404);
         }
         
-        return response()->json(['user' => $targetUser]);
+        return response()->json([
+            'success' => true,
+            'data' => $targetUser
+        ]);
     }
 
     /**
@@ -480,8 +484,9 @@ class RegionAdminUserController extends Controller
             }
             
             return response()->json([
+                'success' => true,
                 'message' => 'User updated successfully',
-                'user' => $targetUser->load(['roles', 'institution', 'department'])
+                'data' => $targetUser->load(['roles', 'institution', 'department'])
             ]);
             
         } catch (\Exception $e) {

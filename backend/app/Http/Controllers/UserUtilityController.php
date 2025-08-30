@@ -106,6 +106,25 @@ class UserUtilityController extends BaseController
     }
 
     /**
+     * Get available departments for regional operator
+     */
+    public function departments(Request $request): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $validated = $request->validate([
+                'role_name' => 'nullable|string|exists:roles,name',
+                'institution_id' => 'nullable|integer|exists:institutions,id'
+            ]);
+            
+            $departments = $this->utilityService->getAvailableDepartments(
+                $validated['role_name'] ?? null,
+                $validated['institution_id'] ?? null
+            );
+            return $this->success($departments, 'Available departments retrieved successfully');
+        }, 'user.utility.departments');
+    }
+
+    /**
      * Get user activity report
      */
     public function activityReport(Request $request, User $user): JsonResponse

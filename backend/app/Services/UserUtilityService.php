@@ -254,6 +254,35 @@ class UserUtilityService
     }
     
     /**
+     * Get available departments based on role and institution
+     */
+    public function getAvailableDepartments(?string $roleName = null, ?int $institutionId = null): Collection
+    {
+        $user = Auth::user();
+        $query = \App\Models\Department::with('institution:id,name,type')
+            ->where('is_active', true)
+            ->select(['id', 'name', 'department_type', 'institution_id']);
+        
+        // Apply role-based filtering
+        if ($roleName === 'regionoperator') {
+            // Regional operator can be assigned to departments in their region
+            if ($user && $user->institution) {
+                // Get all departments from current user's region and its sub-institutions
+                $userInstitution = $user->institution;
+                $accessibleInstitutionIds = $userInstitution->getAllChildrenIds();
+                $query->whereIn('institution_id', $accessibleInstitutionIds);
+            }
+        }
+        
+        // Filter by specific institution if provided
+        if ($institutionId) {
+            $query->where('institution_id', $institutionId);
+        }
+        
+        return $query->orderBy('name')->get();
+    }
+    
+    /**
      * Get user activity report
      */
     public function getUserActivityReport(User $user, int $days = 30): array
