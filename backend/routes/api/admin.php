@@ -3,7 +3,7 @@
 use App\Http\Controllers\UserControllerRefactored as UserController;
 use App\Http\Controllers\UserUtilityController;
 use App\Http\Controllers\InstitutionController;
-use App\Http\Controllers\Institution\InstitutionCRUDControllerRefactored as InstitutionCRUDController;
+use App\Http\Controllers\Institution\InstitutionCRUDControllerRefactored as InstitutionCRUDControllerRefactored;
 use App\Http\Controllers\InstitutionTypeController;
 use App\Http\Controllers\InstitutionHierarchyController;
 use App\Http\Controllers\InstitutionDepartmentController;
@@ -118,9 +118,9 @@ Route::middleware('permission:institutions.write')->group(function () {
     Route::post('institutions/export', [InstitutionController::class, 'exportInstitutions']);
     
     // Type-based Import/Export routes
-    Route::post('institutions/import/template-by-type', [InstitutionCRUDController::class, 'downloadImportTemplateByType']);
-    Route::post('institutions/import-by-type', [InstitutionCRUDController::class, 'importFromTemplateByType']);
-    Route::post('institutions/export-by-type', [InstitutionCRUDController::class, 'exportInstitutionsByType']);
+    Route::post('institutions/import/template-by-type', [InstitutionCRUDControllerRefactored::class, 'downloadImportTemplateByType']);
+    Route::post('institutions/import-by-type', [InstitutionCRUDControllerRefactored::class, 'importFromTemplateByType']);
+    Route::post('institutions/export-by-type', [InstitutionCRUDControllerRefactored::class, 'exportInstitutionsByType']);
 });
 
 // Institution Types Management (SuperAdmin only)

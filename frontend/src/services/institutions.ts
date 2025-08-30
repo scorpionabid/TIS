@@ -252,7 +252,7 @@ class InstitutionService extends BaseService<Institution> {
         ...apiClient['getHeaders'](),
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ institution_type: institutionType }),
+      body: JSON.stringify({ type: institutionType }),
     });
 
     if (!response.ok) {
@@ -291,7 +291,7 @@ class InstitutionService extends BaseService<Institution> {
 
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('institution_type', institutionType);
+      formData.append('type', institutionType);
 
       // Debug FormData contents
       console.log('FormData contents:', {
@@ -351,7 +351,7 @@ class InstitutionService extends BaseService<Institution> {
         'Content-Type': 'application/json',
       },
       credentials: 'include',
-      body: JSON.stringify({ institution_type: institutionType }),
+      body: JSON.stringify({ type: institutionType }),
     });
 
     console.log('Export response:', {

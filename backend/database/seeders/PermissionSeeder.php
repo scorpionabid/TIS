@@ -304,7 +304,7 @@ class PermissionSeeder extends Seeder
             ],
             'regionadmin' => [
                 'users.read', 'users.create', 'users.update', 'users.delete',
-                'institutions.create', 'institutions.read', 'institutions.update', 'institutions.hierarchy',
+                'institutions.create', 'institutions.read', 'institutions.update', 'institutions.write', 'institutions.hierarchy',
                 'surveys.create', 'surveys.read', 'surveys.update', 'surveys.publish', 'surveys.approve',
                 'schedules.read', 'schedules.update', 'grades.read', 'attendance.manage', 'attendance.read', 'attendance.update', 'attendance.approve',
                 'documents.create', 'documents.read', 'documents.update', 'documents.delete', 'documents.share', 'documents.bulk', 'documents.analytics', 'documents.tracking',
