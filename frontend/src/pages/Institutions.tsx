@@ -506,27 +506,29 @@ const Institutions = () => {
               Yeni Müəssisə Əlavə Et
             </Button>
           )}
+          {/* Import/Export button for superadmin and regionadmin */}
+          {(currentUser?.role === 'superadmin' || currentUser?.role === 'regionadmin') && (
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2" 
+              onClick={() => setIsImportExportModalOpen(true)}
+              title="Müəssisələri idxal və ixrac et"
+            >
+              <Upload className="h-4 w-4" />
+              İdxal/İxrac
+            </Button>
+          )}
+          {/* Institution Types Management - only for superadmin */}
           {currentUser?.role === 'superadmin' && (
-            <>
-              <Button 
-                variant="outline" 
-                className="flex items-center gap-2" 
-                onClick={() => setIsImportExportModalOpen(true)}
-                title="Müəssisələri idxal və ixrac et"
-              >
-                <Upload className="h-4 w-4" />
-                İdxal/İxrac
-              </Button>
-              <Button 
-                variant="outline" 
-                className="flex items-center gap-2" 
-                onClick={() => window.open('/institution-types-management', '_blank')}
-                title="Yalnız superadmin istifadəçilər üçün mövcuddur"
-              >
-                <Settings className="h-4 w-4" />
-                Müəssisə Növlərini İdarə Et
-              </Button>
-            </>
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2" 
+              onClick={() => window.open('/institution-types-management', '_blank')}
+              title="Yalnız superadmin istifadəçilər üçün mövcuddur"
+            >
+              <Settings className="h-4 w-4" />
+              Müəssisə Növlərini İdarə Et
+            </Button>
           )}
         </div>
       </div>
