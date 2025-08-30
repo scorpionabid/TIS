@@ -521,11 +521,97 @@ class RegionAdminUserController extends Controller
         }
         
         try {
+            \DB::beginTransaction();
+            
+            // Delete related records first to avoid foreign key constraints
+            
+            // Delete user profile
+            if ($targetUser->profile) {
+                $targetUser->profile->delete();
+            }
+            
+            // Delete user devices and sessions
+            \DB::table('session_activities')->where('user_id', $targetUser->id)->delete();
+            \DB::table('user_sessions')->where('user_id', $targetUser->id)->delete();
+            \DB::table('user_devices')->where('user_id', $targetUser->id)->delete();
+            
+            // Delete security related records
+            \DB::table('security_alerts')->where('user_id', $targetUser->id)->delete();
+            \DB::table('security_alerts')->where('assigned_to', $targetUser->id)->update(['assigned_to' => null]);
+            \DB::table('account_lockouts')->where('user_id', $targetUser->id)->delete();
+            \DB::table('security_events')->where('user_id', $targetUser->id)->delete();
+            \DB::table('security_events')->where('target_user_id', $targetUser->id)->delete();
+            \DB::table('security_events')->where('resolved_by', $targetUser->id)->update(['resolved_by' => null]);
+            
+            // Delete activity and audit logs
+            \DB::table('activity_logs')->where('user_id', $targetUser->id)->delete();
+            \DB::table('audit_logs')->where('user_id', $targetUser->id)->delete();
+            
+            // Delete user storage quota
+            \DB::table('user_storage_quotas')->where('user_id', $targetUser->id)->delete();
+            
+            // Delete uploads and documents
+            \DB::table('uploads')->where('user_id', $targetUser->id)->delete();
+            \DB::table('document_shares')->where('shared_by', $targetUser->id)->delete();
+            \DB::table('document_downloads')->where('user_id', $targetUser->id)->update(['user_id' => null]);
+            
+            // Delete survey related records
+            \DB::table('survey_responses')->where('respondent_id', $targetUser->id)->delete();
+            \DB::table('survey_responses')->where('approved_by', $targetUser->id)->update(['approved_by' => null]);
+            \DB::table('survey_versions')->where('created_by', $targetUser->id)->delete();
+            \DB::table('survey_audit_logs')->where('user_id', $targetUser->id)->update(['user_id' => null]);
+            \DB::table('surveys')->where('creator_id', $targetUser->id)->delete();
+            \DB::table('surveys')->where('school_approved_by', $targetUser->id)->update(['school_approved_by' => null]);
+            \DB::table('surveys')->where('sector_approved_by', $targetUser->id)->update(['sector_approved_by' => null]);
+            \DB::table('surveys')->where('region_approved_by', $targetUser->id)->update(['region_approved_by' => null]);
+            
+            // Delete task related records
+            \DB::table('task_comments')->where('user_id', $targetUser->id)->delete();
+            \DB::table('tasks')->where('assigned_to', $targetUser->id)->update(['assigned_to' => null]);
+            \DB::table('tasks')->where('created_by', $targetUser->id)->update(['created_by' => null]);
+            
+            // Delete school staff and teaching records
+            \DB::table('school_staff')->where('user_id', $targetUser->id)->delete();
+            \DB::table('teacher_subjects')->where('teacher_id', $targetUser->id)->delete();
+            \DB::table('teacher_availability')->where('teacher_id', $targetUser->id)->delete();
+            \DB::table('teacher_availability')->where('created_by', $targetUser->id)->delete();
+            \DB::table('teacher_availability')->where('approved_by', $targetUser->id)->update(['approved_by' => null]);
+            
+            // Delete schedule related records
+            \DB::table('schedule_sessions')->where('teacher_id', $targetUser->id)->update(['teacher_id' => null]);
+            \DB::table('schedule_sessions')->where('substitute_teacher_id', $targetUser->id)->update(['substitute_teacher_id' => null]);
+            \DB::table('schedules')->where('created_by', $targetUser->id)->delete();
+            \DB::table('schedules')->where('reviewed_by', $targetUser->id)->update(['reviewed_by' => null]);
+            \DB::table('schedules')->where('approved_by', $targetUser->id)->update(['approved_by' => null]);
+            
+            // Delete academic calendar records
+            \DB::table('academic_calendars')->where('created_by', $targetUser->id)->delete();
+            \DB::table('academic_calendars')->where('approved_by', $targetUser->id)->update(['approved_by' => null]);
+            
+            // Delete other records
+            \DB::table('grades')->where('homeroom_teacher_id', $targetUser->id)->update(['homeroom_teacher_id' => null]);
+            \DB::table('reports')->where('creator_id', $targetUser->id)->delete();
+            \DB::table('indicator_values')->where('approved_by', $targetUser->id)->update(['approved_by' => null]);
+            \DB::table('statistics')->where('verified_by', $targetUser->id)->update(['verified_by' => null]);
+            
+            // Detach roles and permissions 
+            \DB::table('model_has_roles')->where('model_id', $targetUser->id)->where('model_type', 'App\\Models\\User')->delete();
+            \DB::table('model_has_permissions')->where('model_id', $targetUser->id)->where('model_type', 'App\\Models\\User')->delete();
+            \DB::table('role_user')->where('user_id', $targetUser->id)->delete();
+            
+            // Delete user tokens
+            \DB::table('personal_access_tokens')->where('tokenable_id', $targetUser->id)->where('tokenable_type', 'App\\Models\\User')->delete();
+            
+            // Finally delete the user
             $targetUser->delete();
+            
+            \DB::commit();
             
             return response()->json(['message' => 'User deleted successfully']);
             
         } catch (\Exception $e) {
+            \DB::rollback();
+            
             return response()->json([
                 'message' => 'Failed to delete user',
                 'error' => $e->getMessage()
