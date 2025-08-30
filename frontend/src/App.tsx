@@ -1,3 +1,4 @@
+import { lazy, Suspense, useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,55 +7,62 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { RoleProtectedRoute } from "@/components/auth/RoleProtectedRoute";
+import { LazyWrapper } from "@/components/common/LazyWrapper";
 import Layout from "./components/layout/Layout";
-import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import Users from "./pages/Users";
-import Students from "./pages/Students";
-import Roles from "./pages/Roles";
-import Departments from "./pages/Departments";
-import Institutions from "./pages/Institutions";
-import Preschools from "./pages/Preschools";
-import Regions from "./pages/Regions";
-import Sectors from "./pages/Sectors";
-import Hierarchy from "./pages/Hierarchy";
-import Surveys from "./pages/Surveys";
-import SurveyResults from "./pages/SurveyResults";
-import SurveyArchive from "./pages/SurveyArchive";
-import SurveyResponse from "./pages/SurveyResponse";
-import Tasks from "./pages/Tasks";
-import Documents from "./pages/Documents";
-import Links from "./pages/Links";
-import Reports from "./pages/Reports";
-import InstitutionTypesManagement from "./pages/InstitutionTypesManagement";
-import Notifications from "./pages/Notifications";
-import Analytics from "./pages/Analytics";
-import Settings from "./pages/Settings";
-import AuditLogs from "./pages/AuditLogs";
-import Performance from "./pages/Performance";
-import SchoolWorkload from "./pages/SchoolWorkload";
-import SchoolSchedules from "./pages/SchoolSchedules";
-import AssessmentTypes from "./pages/AssessmentTypes";
-import AssessmentResults from "./pages/AssessmentResults";
-import AssessmentEntry from "./pages/AssessmentEntry";
-import SubjectManagement from "./pages/SubjectManagement";
-import Approvals from "./pages/Approvals";
-import RegionAdminIndex from "./pages/regionadmin/RegionAdminIndex";
-import RegionAdminUsers from "./pages/regionadmin/RegionAdminUsers";
-import RegionAdminSectors from "./pages/regionadmin/RegionAdminSectors";
-import SchoolSurveys from "./pages/school/SchoolSurveys";
-import SchoolTasks from "./pages/school/SchoolTasks";
 
-import SchoolTeachers from "./pages/school/SchoolTeachers";
-import SchoolClasses from "./pages/school/SchoolClasses";
-import SchoolAttendanceRecord from "./pages/school/SchoolAttendanceRecord";
-import SchoolGradebook from "./pages/school/SchoolGradebook";
-import SchoolAssessments from "./pages/SchoolAssessments";
-import AttendanceReports from "./pages/AttendanceReports";
-import TeacherSchedule from "./pages/teacher/TeacherSchedule";
-import SchoolScheduleManagement from "./pages/school/SchoolScheduleManagement";
-import RegionSchedules from "./pages/regionadmin/RegionSchedules";
-import { useState } from "react";
+// Lazy load pages for better performance
+const Index = lazy(() => import("./pages/Index"));
+const Users = lazy(() => import("./pages/Users"));
+const Students = lazy(() => import("./pages/Students"));
+const Roles = lazy(() => import("./pages/Roles"));
+const Departments = lazy(() => import("./pages/Departments"));
+const Institutions = lazy(() => import("./pages/Institutions"));
+const Preschools = lazy(() => import("./pages/Preschools"));
+const Regions = lazy(() => import("./pages/Regions"));
+const Sectors = lazy(() => import("./pages/Sectors"));
+const Hierarchy = lazy(() => import("./pages/Hierarchy"));
+const Surveys = lazy(() => import("./pages/Surveys"));
+const SurveyResults = lazy(() => import("./pages/SurveyResults"));
+const SurveyArchive = lazy(() => import("./pages/SurveyArchive"));
+const SurveyResponse = lazy(() => import("./pages/SurveyResponse"));
+const Tasks = lazy(() => import("./pages/Tasks"));
+const Documents = lazy(() => import("./pages/Documents"));
+const Links = lazy(() => import("./pages/Links"));
+const Reports = lazy(() => import("./pages/Reports"));
+const InstitutionTypesManagement = lazy(() => import("./pages/InstitutionTypesManagement"));
+const Notifications = lazy(() => import("./pages/Notifications"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const Settings = lazy(() => import("./pages/Settings"));
+const AuditLogs = lazy(() => import("./pages/AuditLogs"));
+const Performance = lazy(() => import("./pages/Performance"));
+const SchoolWorkload = lazy(() => import("./pages/SchoolWorkload"));
+const SchoolSchedules = lazy(() => import("./pages/SchoolSchedules"));
+const AssessmentTypes = lazy(() => import("./pages/AssessmentTypes"));
+const AssessmentResults = lazy(() => import("./pages/AssessmentResults"));
+const AssessmentEntry = lazy(() => import("./pages/AssessmentEntry"));
+const SubjectManagement = lazy(() => import("./pages/SubjectManagement"));
+const Approvals = lazy(() => import("./pages/Approvals"));
+
+// RegionAdmin pages
+const RegionAdminIndex = lazy(() => import("./pages/regionadmin/RegionAdminIndex"));
+const RegionAdminUsers = lazy(() => import("./pages/regionadmin/RegionAdminUsers"));
+const RegionAdminSectors = lazy(() => import("./pages/regionadmin/RegionAdminSectors"));
+const RegionSchedules = lazy(() => import("./pages/regionadmin/RegionSchedules"));
+
+// School pages  
+const SchoolSurveys = lazy(() => import("./pages/school/SchoolSurveys"));
+const SchoolTasks = lazy(() => import("./pages/school/SchoolTasks"));
+const SchoolTeachers = lazy(() => import("./pages/school/SchoolTeachers"));
+const SchoolClasses = lazy(() => import("./pages/school/SchoolClasses"));
+const SchoolAttendanceRecord = lazy(() => import("./pages/school/SchoolAttendanceRecord"));
+const SchoolGradebook = lazy(() => import("./pages/school/SchoolGradebook"));
+const SchoolAssessments = lazy(() => import("./pages/SchoolAssessments"));
+const AttendanceReports = lazy(() => import("./pages/AttendanceReports"));
+const SchoolScheduleManagement = lazy(() => import("./pages/school/SchoolScheduleManagement"));
+
+// Teacher pages
+const TeacherSchedule = lazy(() => import("./pages/teacher/TeacherSchedule"));
 
 const queryClient = new QueryClient();
 
@@ -124,61 +132,67 @@ const App = () => (
                 </ProtectedRoute>
               }
             >
-              <Route index element={<Index />} />
-              <Route path="users" element={<Users />} />
-              <Route path="students" element={<Students />} />
-              <Route path="roles" element={<Roles />} />
-              <Route path="departments" element={<Departments />} />
-              <Route path="institutions" element={<Institutions />} />
-              <Route path="preschools" element={<Preschools />} />
-              <Route path="regions" element={<Regions />} />
-              <Route path="sectors" element={<Sectors />} />
-              <Route path="hierarchy" element={<Hierarchy />} />
-              <Route path="surveys" element={<Surveys />} />
-              <Route path="survey-response/:surveyId" element={<SurveyResponse />} />
-              <Route path="survey-response/:surveyId/:responseId" element={<SurveyResponse />} />
+              <Route index element={<LazyWrapper><Index /></LazyWrapper>} />
+              <Route path="users" element={<LazyWrapper><Users /></LazyWrapper>} />
+              <Route path="students" element={<LazyWrapper><Students /></LazyWrapper>} />
+              <Route path="roles" element={<LazyWrapper><Roles /></LazyWrapper>} />
+              <Route path="departments" element={<LazyWrapper><Departments /></LazyWrapper>} />
+              <Route path="institutions" element={<LazyWrapper><Institutions /></LazyWrapper>} />
+              <Route path="preschools" element={<LazyWrapper><Preschools /></LazyWrapper>} />
+              <Route path="regions" element={<LazyWrapper><Regions /></LazyWrapper>} />
+              <Route path="sectors" element={<LazyWrapper><Sectors /></LazyWrapper>} />
+              <Route path="hierarchy" element={<LazyWrapper><Hierarchy /></LazyWrapper>} />
+              <Route path="surveys" element={<LazyWrapper><Surveys /></LazyWrapper>} />
+              <Route path="survey-response/:surveyId" element={<LazyWrapper><SurveyResponse /></LazyWrapper>} />
+              <Route path="survey-response/:surveyId/:responseId" element={<LazyWrapper><SurveyResponse /></LazyWrapper>} />
               <Route path="approvals" element={
-                <RoleProtectedRoute allowedRoles={['superadmin', 'regionadmin', 'sektoradmin']}>
-                  <Approvals />
-                </RoleProtectedRoute>
+                <LazyWrapper>
+                  <RoleProtectedRoute allowedRoles={['superadmin', 'regionadmin', 'sektoradmin']}>
+                    <Approvals />
+                  </RoleProtectedRoute>
+                </LazyWrapper>
               } />
-              <Route path="survey-results" element={<SurveyResults />} />
-              <Route path="survey-archive" element={<SurveyArchive />} />
-              <Route path="tasks" element={<Tasks />} />
-              <Route path="documents" element={<Documents />} />
-              <Route path="links" element={<Links />} />
-              <Route path="reports" element={<Reports />} />
+              <Route path="survey-results" element={<LazyWrapper><SurveyResults /></LazyWrapper>} />
+              <Route path="survey-archive" element={<LazyWrapper><SurveyArchive /></LazyWrapper>} />
+              <Route path="tasks" element={<LazyWrapper><Tasks /></LazyWrapper>} />
+              <Route path="documents" element={<LazyWrapper><Documents /></LazyWrapper>} />
+              <Route path="links" element={<LazyWrapper><Links /></LazyWrapper>} />
+              <Route path="reports" element={<LazyWrapper><Reports /></LazyWrapper>} />
               <Route path="subjects" element={
-                <RoleProtectedRoute allowedRoles={['superadmin', 'regionadmin']}>
-                  <SubjectManagement />
-                </RoleProtectedRoute>
+                <LazyWrapper>
+                  <RoleProtectedRoute allowedRoles={['superadmin', 'regionadmin']}>
+                    <SubjectManagement />
+                  </RoleProtectedRoute>
+                </LazyWrapper>
               } />
-              <Route path="institution-types-management" element={<InstitutionTypesManagement />} />
-              <Route path="notifications" element={<Notifications />} />
-              <Route path="analytics" element={<Analytics />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="audit-logs" element={<AuditLogs />} />
-              <Route path="performance" element={<Performance />} />
-              <Route path="school/workload" element={<SchoolWorkload />} />
-              <Route path="school/schedules" element={<SchoolSchedules />} />
+              <Route path="institution-types-management" element={<LazyWrapper><InstitutionTypesManagement /></LazyWrapper>} />
+              <Route path="notifications" element={<LazyWrapper><Notifications /></LazyWrapper>} />
+              <Route path="analytics" element={<LazyWrapper><Analytics /></LazyWrapper>} />
+              <Route path="settings" element={<LazyWrapper><Settings /></LazyWrapper>} />
+              <Route path="audit-logs" element={<LazyWrapper><AuditLogs /></LazyWrapper>} />
+              <Route path="performance" element={<LazyWrapper><Performance /></LazyWrapper>} />
+              <Route path="school/workload" element={<LazyWrapper><SchoolWorkload /></LazyWrapper>} />
+              <Route path="school/schedules" element={<LazyWrapper><SchoolSchedules /></LazyWrapper>} />
               
               {/* Assessment Management Routes */}
-              <Route path="assessments/types" element={<AssessmentTypes />} />
-              <Route path="assessments/results" element={<AssessmentResults />} />
+              <Route path="assessments/types" element={<LazyWrapper><AssessmentTypes /></LazyWrapper>} />
+              <Route path="assessments/results" element={<LazyWrapper><AssessmentResults /></LazyWrapper>} />
               <Route path="assessments/entry" element={
-                <RoleProtectedRoute allowedRoles={['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'teacher']}>
-                  <AssessmentEntry />
-                </RoleProtectedRoute>
+                <LazyWrapper>
+                  <RoleProtectedRoute allowedRoles={['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'teacher']}>
+                    <AssessmentEntry />
+                  </RoleProtectedRoute>
+                </LazyWrapper>
               } />
               
               
               {/* RegionAdmin Routes */}
-              <Route path="regionadmin" element={<RegionAdminIndex />} />
-              <Route path="regionadmin/users/operators" element={<RegionAdminUsers />} />
-              <Route path="regionadmin/users/sektoradmins" element={<RegionAdminUsers />} />
-              <Route path="regionadmin/users/schooladmins" element={<RegionAdminUsers />} />
-              <Route path="regionadmin/users/teachers" element={<RegionAdminUsers />} />
-              <Route path="regionadmin/sectors" element={<RegionAdminSectors />} />
+              <Route path="regionadmin" element={<LazyWrapper><RegionAdminIndex /></LazyWrapper>} />
+              <Route path="regionadmin/users/operators" element={<LazyWrapper><RegionAdminUsers /></LazyWrapper>} />
+              <Route path="regionadmin/users/sektoradmins" element={<LazyWrapper><RegionAdminUsers /></LazyWrapper>} />
+              <Route path="regionadmin/users/schooladmins" element={<LazyWrapper><RegionAdminUsers /></LazyWrapper>} />
+              <Route path="regionadmin/users/teachers" element={<LazyWrapper><RegionAdminUsers /></LazyWrapper>} />
+              <Route path="regionadmin/sectors" element={<LazyWrapper><RegionAdminSectors /></LazyWrapper>} />
               <Route path="regionadmin/schools" element={<div className="p-6"><h1>Regional Schools</h1><p>Hazırlanmaqdadır...</p></div>} />
               <Route path="regionadmin/hierarchy" element={<div className="p-6"><h1>Regional Hierarchy</h1><p>Hazırlanmaqdadır...</p></div>} />
               <Route path="regionadmin/tasks/*" element={<div className="p-6"><h1>Regional Tasks</h1><p>Hazırlanmaqdadır...</p></div>} />
@@ -186,23 +200,23 @@ const App = () => (
               <Route path="regionadmin/documents/*" element={<div className="p-6"><h1>Regional Documents</h1><p>Hazırlanmaqdadır...</p></div>} />
               <Route path="regionadmin/reports/*" element={<div className="p-6"><h1>Regional Reports</h1><p>Hazırlanmaqdadır...</p></div>} />
               <Route path="regionadmin/settings/*" element={<div className="p-6"><h1>Regional Settings</h1><p>Hazırlanmaqdadır...</p></div>} />
-              <Route path="regionadmin/schedules" element={<RegionSchedules />} />
+              <Route path="regionadmin/schedules" element={<LazyWrapper><RegionSchedules /></LazyWrapper>} />
               
               {/* SchoolAdmin Routes */}
-              <Route path="school/surveys" element={<SchoolSurveys />} />
-              <Route path="school/tasks" element={<SchoolTasks />} />
+              <Route path="school/surveys" element={<LazyWrapper><SchoolSurveys /></LazyWrapper>} />
+              <Route path="school/tasks" element={<LazyWrapper><SchoolTasks /></LazyWrapper>} />
               <Route path="school/students" element={<Navigate to="/students" replace />} />
-              <Route path="school/teachers" element={<SchoolTeachers />} />
-              <Route path="school/classes" element={<SchoolClasses />} />
-              <Route path="school/attendance" element={<SchoolAttendanceRecord />} />
-              <Route path="school/attendance/reports" element={<AttendanceReports />} />
-              <Route path="school/assessments" element={<SchoolAssessments />} />
-              <Route path="school/assessments/reports" element={<AssessmentResults />} />
-              <Route path="school/gradebook" element={<SchoolGradebook />} />
-              <Route path="school/schedule-management" element={<SchoolScheduleManagement />} />
+              <Route path="school/teachers" element={<LazyWrapper><SchoolTeachers /></LazyWrapper>} />
+              <Route path="school/classes" element={<LazyWrapper><SchoolClasses /></LazyWrapper>} />
+              <Route path="school/attendance" element={<LazyWrapper><SchoolAttendanceRecord /></LazyWrapper>} />
+              <Route path="school/attendance/reports" element={<LazyWrapper><AttendanceReports /></LazyWrapper>} />
+              <Route path="school/assessments" element={<LazyWrapper><SchoolAssessments /></LazyWrapper>} />
+              <Route path="school/assessments/reports" element={<LazyWrapper><AssessmentResults /></LazyWrapper>} />
+              <Route path="school/gradebook" element={<LazyWrapper><SchoolGradebook /></LazyWrapper>} />
+              <Route path="school/schedule-management" element={<LazyWrapper><SchoolScheduleManagement /></LazyWrapper>} />
               
               {/* Teacher Routes */}
-              <Route path="teacher/schedule" element={<TeacherSchedule />} />
+              <Route path="teacher/schedule" element={<LazyWrapper><TeacherSchedule /></LazyWrapper>} />
             </Route>
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

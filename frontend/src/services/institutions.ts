@@ -246,20 +246,37 @@ class InstitutionService extends BaseService<Institution> {
 
   // Type-based Import/Export methods
   async downloadImportTemplateByType(institutionType: string): Promise<Blob> {
+    console.log('Starting template download for institution type:', institutionType);
+    
     const response = await fetch(`${apiClient['baseURL']}/institutions/import/template-by-type`, {
       method: 'POST',
       headers: {
         ...apiClient['getHeaders'](),
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify({ type: institutionType }),
     });
 
+    console.log('Template download response:', {
+      status: response.status,
+      statusText: response.statusText,
+      contentType: response.headers.get('content-type')
+    });
+
     if (!response.ok) {
-      throw new Error('Template download failed');
+      const errorText = await response.text();
+      console.error('Template download error response:', errorText);
+      throw new Error(`Template download failed: ${response.status} - ${errorText}`);
     }
 
-    return response.blob();
+    const blob = await response.blob();
+    console.log('Template blob received:', {
+      size: blob.size,
+      type: blob.type
+    });
+    
+    return blob;
   }
 
   async importFromTemplateByType(file: File, institutionType: string): Promise<any> {

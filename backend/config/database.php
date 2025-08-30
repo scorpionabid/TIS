@@ -20,6 +20,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Performance Monitoring Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for database performance monitoring and optimization.
+    |
+    */
+
+    'slow_query_threshold' => env('DB_SLOW_QUERY_THRESHOLD', 500), // 500ms threshold
+
+    /*
+    |--------------------------------------------------------------------------
     | Database Connections
     |--------------------------------------------------------------------------
     |

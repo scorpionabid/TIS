@@ -74,7 +74,7 @@ class UserService extends BaseService
      */
     public function getUsersByRole(string $roleName): \Illuminate\Database\Eloquent\Collection
     {
-        return User::whereHas('role', function ($q) use ($roleName) {
+        return User::whereHas('roles', function ($q) use ($roleName) {
             $q->where('name', $roleName);
         })->with($this->relationships)->get();
     }

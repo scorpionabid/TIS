@@ -33,46 +33,140 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // Vendor chunks
+          // Vendor chunks - finer granularity
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+            // React ecosystem
+            if (id.includes('react') || id.includes('react-dom')) {
               return 'react-vendor';
+            }
+            if (id.includes('react-router') || id.includes('@remix-run/router')) {
+              return 'router-vendor';
             }
             if (id.includes('@tanstack/react-query')) {
               return 'query-vendor';
             }
-            if (id.includes('@radix-ui')) {
+            
+            // UI libraries
+            if (id.includes('@radix-ui') || id.includes('react-aria')) {
               return 'ui-vendor';
             }
-            if (id.includes('recharts')) {
-              return 'chart-vendor';
-            }
-            if (id.includes('react-hook-form')) {
-              return 'form-vendor';
-            }
-            if (id.includes('lucide-react')) {
+            if (id.includes('lucide-react') || id.includes('heroicons')) {
               return 'icon-vendor';
             }
+            
+            // Charts and visualization
+            if (id.includes('recharts') || id.includes('d3')) {
+              return 'chart-vendor';
+            }
+            
+            // Forms and validation
+            if (id.includes('react-hook-form') || id.includes('zod') || id.includes('yup')) {
+              return 'form-vendor';
+            }
+            
+            // Date and time libraries
+            if (id.includes('date-fns') || id.includes('dayjs') || id.includes('moment')) {
+              return 'date-vendor';
+            }
+            
+            // Utility libraries
+            if (id.includes('lodash') || id.includes('clsx') || id.includes('class-variance-authority')) {
+              return 'utils-vendor';
+            }
+            
             return 'vendor';
           }
           
-          // App chunks
-          if (id.includes('/dashboard/')) {
-            return 'dashboard';
+          // App feature chunks - more granular
+          if (id.includes('/pages/') || id.includes('/components/')) {
+            // Authentication
+            if (id.includes('auth') || id.includes('login') || id.includes('Auth')) {
+              return 'auth';
+            }
+            
+            // Dashboard components
+            if (id.includes('/dashboard/') || id.includes('Dashboard')) {
+              return 'dashboard';
+            }
+            
+            // User management
+            if (id.includes('/users/') || id.includes('User') || id.includes('users.ts')) {
+              return 'users';
+            }
+            
+            // Institution management
+            if (id.includes('/institutions/') || id.includes('Institution') || id.includes('institutions.ts')) {
+              return 'institutions';
+            }
+            
+            // Teacher management
+            if (id.includes('/teachers/') || id.includes('Teacher') || id.includes('teachers.ts')) {
+              return 'teachers';
+            }
+            
+            // Student management
+            if (id.includes('/students/') || id.includes('Student') || id.includes('students.ts')) {
+              return 'students';
+            }
+            
+            // Assessment system
+            if (id.includes('/assessment') || id.includes('Assessment') || id.includes('assessment')) {
+              return 'assessments';
+            }
+            
+            // Survey system
+            if (id.includes('/survey') || id.includes('Survey') || id.includes('survey')) {
+              return 'surveys';
+            }
+            
+            // Reports and analytics
+            if (id.includes('/reports/') || id.includes('Report') || id.includes('Analytics')) {
+              return 'reports';
+            }
+            
+            // Settings and admin
+            if (id.includes('/settings/') || id.includes('Settings') || id.includes('/admin/')) {
+              return 'admin';
+            }
           }
-          if (id.includes('/teachers/') || id.includes('services/teachers')) {
-            return 'teachers';
+          
+          // Services
+          if (id.includes('/services/')) {
+            if (id.includes('BaseService') || id.includes('CacheService')) {
+              return 'core-services';
+            }
+            return 'services';
           }
-          if (id.includes('/students/') || id.includes('services/students')) {
-            return 'students';
+          
+          // Hooks
+          if (id.includes('/hooks/')) {
+            if (id.includes('useRole') || id.includes('useNavigation') || id.includes('useAuth')) {
+              return 'core-hooks';
+            }
+            return 'hooks';
           }
-          if (id.includes('/generic/') || id.includes('useEntityManagerV2')) {
+          
+          // Utils and constants
+          if (id.includes('/utils/') || id.includes('/constants/')) {
+            return 'utils';
+          }
+          
+          // Layout components
+          if (id.includes('/layout/') || id.includes('Sidebar') || id.includes('Header')) {
+            return 'layout';
+          }
+          
+          // Generic system components
+          if (id.includes('/generic/') || id.includes('useEntityManagerV2') || id.includes('EntityManager')) {
             return 'generic-system';
           }
         }
       }
     },
-    chunkSizeWarningLimit: 800
+    chunkSizeWarningLimit: 500, // Lower threshold for better optimization
+    target: 'esnext',
+    minify: 'esbuild', // Use esbuild instead of terser
+    reportCompressedSize: false, // Disable gzip size reporting for faster builds
   },
   plugins: [
     react(),

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Exception;
 
 abstract class BaseService
@@ -14,6 +15,8 @@ abstract class BaseService
     protected array $searchableFields = [];
     protected array $filterableFields = [];
     protected array $relationships = [];
+    protected int $cacheMinutes = 5; // Default cache duration
+    protected bool $enableCache = true;
 
     /**
      * Get model instance
@@ -34,9 +37,70 @@ abstract class BaseService
     }
 
     /**
+     * Generate cache key for queries
+     */
+    protected function getCacheKey(string $method, array $params = []): string
+    {
+        $modelName = class_basename($this->modelClass);
+        $paramHash = md5(serialize($params));
+        return "service_{$modelName}_{$method}_{$paramHash}";
+    }
+
+    /**
+     * Cache query result
+     */
+    protected function cacheQuery(string $cacheKey, callable $callback, int $minutes = null)
+    {
+        if (!$this->enableCache) {
+            return $callback();
+        }
+
+        $minutes = $minutes ?? $this->cacheMinutes;
+        
+        return Cache::remember($cacheKey, now()->addMinutes($minutes), function () use ($callback, $cacheKey) {
+            Log::info("🔄 Cache miss: {$cacheKey}");
+            return $callback();
+        });
+    }
+
+    /**
+     * Clear cache for this service
+     */
+    protected function clearServiceCache(): void
+    {
+        $modelName = class_basename($this->modelClass);
+        $pattern = "service_{$modelName}_*";
+        
+        // This would need Redis or custom cache implementation for pattern deletion
+        // For now, we'll just flush all cache when needed
+        if (config('cache.default') === 'redis') {
+            Cache::flush();
+        }
+    }
+
+    /**
      * Get all records with optional filters
      */
-    public function getAll(array $filters = [], array $relationships = []): \Illuminate\Database\Eloquent\Collection
+    public function getAll(array $filters = [], array $relationships = [], bool $useCache = true): \Illuminate\Database\Eloquent\Collection
+    {
+        if (!$useCache) {
+            return $this->executeGetAllQuery($filters, $relationships);
+        }
+
+        $cacheKey = $this->getCacheKey('getAll', [
+            'filters' => $filters,
+            'relationships' => $relationships
+        ]);
+
+        return $this->cacheQuery($cacheKey, function () use ($filters, $relationships) {
+            return $this->executeGetAllQuery($filters, $relationships);
+        });
+    }
+
+    /**
+     * Execute get all query without cache
+     */
+    protected function executeGetAllQuery(array $filters, array $relationships): \Illuminate\Database\Eloquent\Collection
     {
         $query = $this->getQuery();
         

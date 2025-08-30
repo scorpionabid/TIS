@@ -16,11 +16,14 @@ import React, { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { TablePagination } from "@/components/common/TablePagination";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRoleCheck } from "@/hooks/useRoleCheck";
+import { USER_ROLES } from "@/constants/roles";
 import { useInstitutionTypes } from "@/hooks/useInstitutionTypes";
 import { getInstitutionIcon, getTypeLabel, canAccessInstitutionType } from "@/utils/institutionUtils";
 
 const Institutions = () => {
   const { currentUser } = useAuth();
+  const { isSuperAdmin, isRegionAdmin, isSektorAdmin } = useRoleCheck();
   const [selectedType, setSelectedType] = useState<string>(() => {
     console.log('🎯 Initializing selectedType with value: all');
     return 'all';
@@ -129,7 +132,7 @@ const Institutions = () => {
       let sectors = [];
       
       try {
-        if (currentUser?.role === 'superadmin') {
+        if (isSuperAdmin) {
           // superadmin can see all regions and sectors - using direct API calls
           const regionsParams = { type: 'regional' };
           const sectorsParams = { type: 'sector' };
@@ -139,7 +142,7 @@ const Institutions = () => {
           
           regions = regionsResponse.data?.data || [];
           sectors = sectorsResponse.data?.data || [];
-        } else if (currentUser?.role === 'regionadmin') {
+        } else if (isRegionAdmin) {
           // regionadmin can only see their own region and its sectors
           if (currentUser.institution?.id) {
             try {

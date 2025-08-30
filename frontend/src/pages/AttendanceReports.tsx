@@ -28,6 +28,8 @@ import { institutionService } from '@/services/institutions';
 import { format } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { USER_ROLES } from '@/constants/roles';
 import { toast } from 'sonner';
 
 interface AttendanceRecord {
@@ -56,9 +58,19 @@ interface AttendanceStats {
 
 export default function AttendanceReports() {
   const { currentUser } = useAuth();
+  const { 
+    canAccess, 
+    isSuperAdmin, 
+    isRegionAdmin, 
+    isSektorAdmin, 
+    isSchoolAdmin,
+    isTeacher
+  } = useRoleCheck();
 
   // Security check - only educational administrative roles can access attendance reports
-  if (!currentUser || !['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'müəllim'].includes(currentUser.role)) {
+  const allowedRoles = [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM];
+  
+  if (!canAccess(allowedRoles)) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
@@ -84,10 +96,6 @@ export default function AttendanceReports() {
 
   // Get current user's institution for filtering
   const userInstitutionId = currentUser?.institution?.id;
-  const isSuperAdmin = currentUser?.role === 'superadmin';
-  const isRegionAdmin = currentUser?.role === 'regionadmin';
-  const isSektorAdmin = currentUser?.role === 'sektoradmin';
-  const isSchoolAdmin = currentUser?.role === 'schooladmin';
 
   // Load schools data (only for higher admins)
   const { data: schoolsResponse } = useQuery({

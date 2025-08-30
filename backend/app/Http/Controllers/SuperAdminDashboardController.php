@@ -21,20 +21,29 @@ class SuperAdminDashboardController extends Controller
     {
         try {
             $analytics = Cache::remember('superadmin_analytics', 300, function () {
+                $userStats = DB::select("
+                    SELECT 
+                        (SELECT COUNT(*) FROM users) as total,
+                        (SELECT COUNT(*) FROM users WHERE is_active = 1) as active,
+                        (SELECT COUNT(*) FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as recent_registrations
+                ")[0];
+                
+                $roleStats = DB::table('users')
+                    ->join('model_has_roles', 'users.id', '=', 'model_has_roles.model_id')
+                    ->join('roles', 'model_has_roles.role_id', '=', 'roles.id')
+                    ->where('model_has_roles.model_type', User::class)
+                    ->selectRaw('roles.name as role_name, COUNT(*) as count')
+                    ->groupBy('roles.name')
+                    ->get()
+                    ->pluck('count', 'role_name')
+                    ->toArray();
+                
                 return [
                     'users' => [
-                        'total' => User::count(),
-                        'active' => User::where('is_active', true)->count(),
-                        'by_role' => DB::table('users')
-                            ->join('model_has_roles', 'users.id', '=', 'model_has_roles.model_id')
-                            ->join('roles', 'model_has_roles.role_id', '=', 'roles.id')
-                            ->where('model_has_roles.model_type', User::class)
-                            ->selectRaw('roles.name as role_name, COUNT(*) as count')
-                            ->groupBy('roles.name')
-                            ->get()
-                            ->pluck('count', 'role_name')
-                            ->toArray(),
-                        'recent_registrations' => User::where('created_at', '>=', now()->subDays(7))->count()
+                        'total' => $userStats->total,
+                        'active' => $userStats->active,
+                        'by_role' => $roleStats,
+                        'recent_registrations' => $userStats->recent_registrations
                     ],
                     'institutions' => [
                         'total' => Institution::count(),

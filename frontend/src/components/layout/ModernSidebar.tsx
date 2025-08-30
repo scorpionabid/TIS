@@ -5,7 +5,7 @@ import { SidebarMenu } from '@/components/layout/components/Sidebar/SidebarMenu'
 import { SidebarFooter } from '@/components/layout/components/Sidebar/SidebarFooter';
 import { useSidebarBehavior } from '@/hooks/useSidebar';
 import { useAuth } from '@/contexts/AuthContext';
-import { getMenuForRole } from '@/config/navigation';
+import { useNavigationCache, useNavigationPerformance } from '@/hooks/useNavigationCache';
 
 interface ModernSidebarProps {
   onLogout: () => void;
@@ -14,34 +14,40 @@ interface ModernSidebarProps {
 export const ModernSidebar: React.FC<ModernSidebarProps> = ({ onLogout }) => {
   const { isExpanded } = useSidebarBehavior();
   const { currentUser } = useAuth();
+  const { navigationMenu, getCacheStats, cacheKey } = useNavigationCache();
+  const { measureMenuGeneration } = useNavigationPerformance();
 
-  // Debug user role and menu groups
+  // Debug user role and menu groups with performance monitoring
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && navigationMenu.length > 0) {
       console.log('Current User Role:', currentUser.role);
-      console.log('Current User:', currentUser);
-      const menuGroups = getMenuForRole(currentUser.role);
-      console.log('Menu Groups for Role:', menuGroups);
+      console.log('Cache Key:', cacheKey);
+      
+      // Measure performance
+      const perfStats = measureMenuGeneration(navigationMenu);
+      console.log('Navigation Performance:', perfStats);
+      
+      // Cache statistics
+      const cacheStats = getCacheStats();
+      console.log('Navigation Cache Stats:', cacheStats);
       
       // Debug each menu group
-      menuGroups.forEach((group, index) => {
+      navigationMenu.forEach((group, index) => {
         console.log(`Menu Group ${index + 1}:`, group.label, 'Items:', group.items.length);
         group.items.forEach((item, itemIndex) => {
           console.log(`  Item ${itemIndex + 1}:`, item.label, 'Path:', item.path, 'Children:', item.children?.length || 0);
         });
       });
     }
-  }, [currentUser]);
+  }, [currentUser, navigationMenu, cacheKey, measureMenuGeneration, getCacheStats]);
 
   if (!currentUser) return null;
-
-  const menuGroups = getMenuForRole(currentUser.role);
 
   return (
     <SidebarContainer>
       <div className="flex flex-col h-full">
         <SidebarHeader isExpanded={isExpanded} />
-        <SidebarMenu menuGroups={menuGroups} />
+        <SidebarMenu menuGroups={navigationMenu} />
         <SidebarFooter isExpanded={isExpanded} onLogout={onLogout} />
       </div>
     </SidebarContainer>

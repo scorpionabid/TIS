@@ -131,7 +131,11 @@ class InstitutionAssignmentService
      */
     public function getInstitutionHierarchy(int $institutionId): string
     {
-        $institution = Institution::with('parent.parent.parent')->find($institutionId);
+        $institution = Institution::with(['parent' => function($query) {
+            $query->with(['parent' => function($query) {
+                $query->with('parent');
+            }]);
+        }])->find($institutionId);
         
         if (!$institution) {
             return '';

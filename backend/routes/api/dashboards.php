@@ -244,3 +244,11 @@ Route::prefix('schooladmin')->middleware(['role:schooladmin', 'regional.access:s
     // Route::post('import/students', [App\Http\Controllers\School\SchoolImportController::class, 'importStudents']);
     // Route::post('import/teachers', [App\Http\Controllers\School\SchoolImportController::class, 'importTeachers']);
 });
+
+// Performance monitoring routes (SuperAdmin only)
+Route::middleware(['role:SuperAdmin'])->prefix('performance')->group(function () {
+    Route::get('metrics', [App\Http\Controllers\PerformanceController::class, 'getRealTimeMetrics']);
+    Route::get('trends', [App\Http\Controllers\PerformanceController::class, 'getPerformanceTrends']);
+    Route::get('health', [App\Http\Controllers\PerformanceController::class, 'getSystemHealth']);
+    Route::get('report', [App\Http\Controllers\PerformanceController::class, 'generateReport']);
+});

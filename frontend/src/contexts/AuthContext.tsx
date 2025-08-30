@@ -1,25 +1,25 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authService, User as AuthUser, LoginCredentials } from '@/services/auth';
 import { useToast } from '@/hooks/use-toast';
-
-export type UserRole = 'superadmin' | 'regionadmin' | 'regionoperator' | 'sektoradmin' | 'schooladmin' | 'müəllim' | 'user';
+import { USER_ROLES, UserRole, isValidRole } from '@/constants/roles';
 
 // Backend to Frontend role mapping
 const mapBackendRoleToFrontend = (backendRole: string): UserRole => {
   const roleMapping: Record<string, UserRole> = {
-    'superadmin': 'superadmin',
-    'regionadmin': 'regionadmin', 
-    'regionoperator': 'regionoperator',
-    'sektoradmin': 'sektoradmin',
-    'schooladmin': 'schooladmin', // Backend schooladmin → Frontend schooladmin
-    'muavin': 'müəllim',
-    'ubr': 'müəllim', 
-    'tesarrufat': 'müəllim',
-    'psixoloq': 'müəllim',
-    'müəllim': 'müəllim'
+    'superadmin': USER_ROLES.SUPERADMIN,
+    'regionadmin': USER_ROLES.REGIONADMIN, 
+    'regionoperator': USER_ROLES.REGIONOPERATOR,
+    'sektoradmin': USER_ROLES.SEKTORADMIN,
+    'schooladmin': USER_ROLES.SCHOOLADMIN, // Backend schooladmin → Frontend schooladmin
+    'muavin': USER_ROLES.MUELLIM,
+    'ubr': USER_ROLES.MUELLIM, 
+    'tesarrufat': USER_ROLES.MUELLIM,
+    'psixoloq': USER_ROLES.MUELLIM,
+    'müəllim': USER_ROLES.MUELLIM
   };
   
-  return roleMapping[backendRole] || 'user';
+  const mappedRole = roleMapping[backendRole];
+  return mappedRole && isValidRole(mappedRole) ? mappedRole : USER_ROLES.MUELLIM;
 };
 
 export interface User {
@@ -240,7 +240,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (!currentUser) return false;
     
     // SuperAdmin has all permissions
-    if (currentUser.role === 'superadmin') return true;
+    if (currentUser.role === USER_ROLES.SUPERADMIN) return true;
     
     return currentUser.permissions.includes(permission);
   };

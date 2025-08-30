@@ -287,11 +287,11 @@ class SectorManagerService extends BaseService
                 'schools_managed' => $sector->children()->count(),
                 'active_schools' => $sector->children()->where('is_active', true)->count(),
                 'total_students' => $sector->children()->withCount('students')->get()->sum('students_count'),
-                'total_teachers' => $sector->children()->with('users')->get()->sum(function($school) {
-                    return $school->users->filter(function($user) {
-                        return $user->hasRole('teacher');
-                    })->count();
-                }),
+                'total_teachers' => $sector->children()->withCount(['users' => function($query) {
+                    $query->whereHas('roles', function($roleQuery) {
+                        $roleQuery->where('name', 'teacher');
+                    });
+                }])->get()->sum('users_count'),
                 'recent_tasks_completed' => $sector->tasks()->where('status', 'completed')
                     ->where('completed_at', '>=', now()->subDays(30))->count(),
                 'documents_uploaded' => $sector->documents()->where('created_at', '>=', now()->subDays(30))->count()
