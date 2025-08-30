@@ -684,4 +684,65 @@ class RegionAdminInstitutionController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get classes for a specific institution
+     */
+    public function getInstitutionClasses(Request $request, $institutionId): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            $userRegionId = $user->institution_id;
+            
+            // Get allowed institutions
+            $region = \App\Models\Institution::find($userRegionId);
+            $allowedInstitutionIds = $region->getAllChildrenIds();
+            $allowedInstitutionIds[] = $userRegionId;
+            
+            // Check if requested institution is allowed
+            if (!in_array($institutionId, $allowedInstitutionIds)) {
+                return response()->json(['message' => 'Institution not found in your region'], 404);
+            }
+            
+            $institution = \App\Models\Institution::findOrFail($institutionId);
+            
+            // Get classes for this institution
+            $classes = \App\Models\Grade::where('institution_id', $institutionId)
+                ->with([
+                    'homeroomTeacher:id,username,first_name,last_name',
+                    'homeroomTeacher.profile:user_id,first_name,last_name',
+                    'room:id,name,capacity',
+                    'academicYear:id,year,is_current'
+                ])
+                ->when($request->get('is_active'), function ($query, $isActive) {
+                    $query->where('is_active', $isActive);
+                })
+                ->orderBy('class_level')
+                ->orderBy('name')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $classes,
+                'institution' => [
+                    'id' => $institution->id,
+                    'name' => $institution->name,
+                    'type' => $institution->type,
+                ],
+                'statistics' => [
+                    'total_classes' => $classes->count(),
+                    'active_classes' => $classes->where('is_active', true)->count(),
+                    'total_students' => $classes->sum('student_count'),
+                    'average_class_size' => $classes->count() > 0 ? round($classes->sum('student_count') / $classes->count(), 1) : 0,
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch institution classes',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

@@ -63,6 +63,11 @@ Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|supera
     Route::put('departments/{department}', [RegionAdminInstitutionController::class, 'updateDepartment']);
     Route::delete('departments/{department}', [RegionAdminInstitutionController::class, 'deleteDepartment']);
     
+    // Classes management endpoints for RegionAdmin
+    Route::get('classes', [App\Http\Controllers\RegionAdmin\RegionAdminClassController::class, 'index']);
+    Route::get('classes/{class}', [App\Http\Controllers\RegionAdmin\RegionAdminClassController::class, 'show']);
+    Route::get('institutions/{institution}/classes', [RegionAdminInstitutionController::class, 'getInstitutionClasses']);
+    
     // User management endpoints - READ operations
     Route::get('users', [RegionAdminUserController::class, 'index']);
     Route::get('users/{user}', [RegionAdminUserController::class, 'show']);
