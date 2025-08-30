@@ -394,6 +394,17 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
         data.birth_date = null;
       }
 
+      // For regional operator, get institution_id from selected department
+      let institutionIdToUse = data.institution_id ? parseInt(data.institution_id) : null;
+      
+      if (data.role_name === 'regionoperator' && data.department_id && !institutionIdToUse) {
+        // Find the selected department and get its institution_id
+        const selectedDepartment = availableDepartments.find(dept => dept.id.toString() === data.department_id);
+        if (selectedDepartment && selectedDepartment.institution) {
+          institutionIdToUse = selectedDepartment.institution.id;
+        }
+      }
+
       // Prepare data for backend - use simple structure
       const userData = {
         username: data.username,
@@ -403,7 +414,7 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
         password: data.password,
         password_confirmation: data.password_confirmation,
         role_name: data.role_name,
-        institution_id: data.institution_id ? parseInt(data.institution_id) : null,
+        institution_id: institutionIdToUse,
         department_id: data.department_id ? parseInt(data.department_id) : null,
         is_active: data.is_active !== false, // default to true
         contact_phone: data.contact_phone,
@@ -419,12 +430,38 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
           : 'Yeni istifadəçi əlavə edildi',
       });
       onClose();
-    } catch (error) {
-      toast({
-        title: 'Xəta',
-        description: 'Əməliyyat zamanı xəta baş verdi',
-        variant: 'destructive',
-      });
+    } catch (error: any) {
+      console.error('User creation error:', error);
+      
+      // Handle validation errors specifically
+      if (error.message === 'Validation failed' && error.errors) {
+        const errorMessages = Object.entries(error.errors)
+          .map(([field, messages]: [string, any]) => {
+            const fieldName = field === 'username' ? 'İstifadəçi adı' :
+                            field === 'email' ? 'E-poçt' :
+                            field === 'institution_id' ? 'Müəssisə' :
+                            field === 'department_id' ? 'Departament' :
+                            field === 'role_name' ? 'Rol' :
+                            field === 'password' ? 'Parol' : field;
+            
+            const messageList = Array.isArray(messages) ? messages : [messages];
+            return `${fieldName}: ${messageList.join(', ')}`;
+          })
+          .join('\n');
+          
+        toast({
+          title: 'Validation Xətası',
+          description: errorMessages,
+          variant: 'destructive',
+        });
+      } else {
+        // Generic error message
+        toast({
+          title: 'Xəta',
+          description: error.message || 'Əməliyyat zamanı xəta baş verdi',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setLoading(false);
     }

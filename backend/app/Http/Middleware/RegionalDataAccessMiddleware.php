@@ -285,7 +285,7 @@ class RegionalDataAccessMiddleware
      */
     private function hasInstitutionIdInRequest($request): bool
     {
-        return $request->has('institution_id') || 
+        return ($request->has('institution_id') && $request->input('institution_id') !== null) || 
                $request->route('institution') ||
                $request->route('institutionId');
     }
@@ -295,7 +295,7 @@ class RegionalDataAccessMiddleware
      */
     private function getInstitutionIdFromRequest($request): ?int
     {
-        if ($request->has('institution_id')) {
+        if ($request->has('institution_id') && $request->input('institution_id') !== null) {
             return (int) $request->input('institution_id');
         }
         

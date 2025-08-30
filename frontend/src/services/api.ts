@@ -265,7 +265,13 @@ class ApiClient {
             console.warn('🚪 Skipping auto-logout for assessment context - letting component handle 401 gracefully');
           }
         }
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+        
+        // Create enhanced error with validation details
+        const enhancedError = new Error(data.message || `HTTP error! status: ${response.status}`);
+        if (data.errors) {
+          (enhancedError as any).errors = data.errors;
+        }
+        throw enhancedError;
       }
       
       return data;
