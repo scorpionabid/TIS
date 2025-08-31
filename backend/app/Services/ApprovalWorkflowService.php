@@ -33,7 +33,7 @@ class ApprovalWorkflowService extends BaseService
         $this->filterByApprovalAuthority($query, $user);
 
         // Apply filters
-        $query = $this->applyFilters($query, $request);
+        $query = $this->applyRequestFilters($query, $request);
 
         // Apply sorting
         $sortField = $request->get('sort', 'created_at');
@@ -373,9 +373,9 @@ class ApprovalWorkflowService extends BaseService
     }
 
     /**
-     * Apply filters to query
+     * Apply request filters to query
      */
-    private function applyFilters($query, Request $request)
+    protected function applyRequestFilters($query, Request $request)
     {
         if ($request->filled('status')) {
             $query->where('current_status', $request->status);

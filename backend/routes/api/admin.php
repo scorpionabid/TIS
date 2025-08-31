@@ -348,6 +348,7 @@ Route::prefix('approvals')->group(function () {
     Route::post('/survey-responses/{response}/approve', [ApprovalApiControllerRefactored::class, 'approveSurveyResponse'])->middleware('permission:approvals.approve');
     Route::post('/survey-responses/{response}/reject', [ApprovalApiControllerRefactored::class, 'rejectSurveyResponse'])->middleware('permission:approvals.approve');
     Route::post('/survey-responses/bulk-approve', [ApprovalApiControllerRefactored::class, 'bulkApproveSurveyResponses'])->middleware('permission:approvals.approve');
+    Route::post('/survey-responses/bulk-reject', [ApprovalApiControllerRefactored::class, 'bulkRejectSurveyResponses'])->middleware('permission:approvals.approve');
     
     // Delegation management - BEFORE {approval} route
     Route::get('/delegations', [ApprovalApiControllerRefactored::class, 'getDelegations'])->middleware('permission:approvals.delegate');

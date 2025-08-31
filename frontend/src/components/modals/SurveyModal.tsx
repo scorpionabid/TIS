@@ -24,20 +24,28 @@ interface SurveyModalProps {
 interface Question {
   id?: string;
   question: string;
-  type: 'text' | 'textarea' | 'radio' | 'checkbox' | 'select' | 'rating' | 'date';
+  type: 'text' | 'textarea' | 'number' | 'radio' | 'checkbox' | 'select' | 'rating' | 'date' | 'file_upload';
   options?: string[];
   required: boolean;
   order: number;
+  validation?: {
+    min_value?: number;
+    max_value?: number;
+    max_file_size?: number;
+    allowed_file_types?: string[];
+  };
 }
 
 const questionTypes = [
   { value: 'text', label: 'Qısa mətn' },
   { value: 'textarea', label: 'Uzun mətn' },
+  { value: 'number', label: 'Rəqəm' },
   { value: 'radio', label: 'Tək seçim' },
   { value: 'checkbox', label: 'Çox seçim' },
   { value: 'select', label: 'Dropdown seçim' },
   { value: 'rating', label: 'Qiymətləndirmə' },
   { value: 'date', label: 'Tarix' },
+  { value: 'file_upload', label: 'Fayl yükləmə' },
 ];
 
 export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps) {
@@ -53,6 +61,7 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
     allow_multiple_responses: false,
     target_institutions: [],
     target_roles: [],
+    start_date: new Date().toISOString().split('T')[0], // Default to today
   });
 
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -61,6 +70,14 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
     type: 'text',
     required: false,
   });
+
+  // Character limits
+  const MAX_TITLE_LENGTH = 200;
+  const MAX_DESCRIPTION_LENGTH = 1000;
+  const MAX_QUESTION_LENGTH = 500;
+
+  // Institution search and filtering
+  const [institutionSearch, setInstitutionSearch] = useState('');
 
   const isEditMode = !!survey;
 
@@ -79,12 +96,32 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
     ? institutionsResponse.data
     : [];
 
+  // Filter institutions based on search
+  const filteredInstitutions = availableInstitutions.filter((institution: any) => 
+    institution.name.toLowerCase().includes(institutionSearch.toLowerCase())
+  );
+
+  // Helper functions for bulk selection
+  const selectInstitutionsByLevel = (level: number) => {
+    const levelIds = availableInstitutions
+      .filter((inst: any) => inst.level === level)
+      .map((inst: any) => inst.id);
+    handleInputChange('target_institutions', levelIds);
+  };
+
+  const selectInstitutionsByType = (filterFn: (inst: any) => boolean) => {
+    const typeIds = availableInstitutions
+      .filter(filterFn)
+      .map((inst: any) => inst.id);
+    handleInputChange('target_institutions', typeIds);
+  };
+
   useEffect(() => {
     if (survey) {
       setFormData({
         title: survey.title,
         description: survey.description || '',
-        questions: survey.questions,
+        questions: survey.questions || [],
         start_date: survey.start_date,
         end_date: survey.end_date,
         target_institutions: survey.target_institutions || [],
@@ -93,7 +130,7 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
         allow_multiple_responses: survey.allow_multiple_responses,
         max_responses: survey.max_responses,
       });
-      setQuestions(survey.questions.map(q => ({
+      setQuestions((survey.questions || []).map(q => ({
         id: q.id?.toString(),
         question: q.question,
         type: q.type,
@@ -119,12 +156,18 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Only submit if we're on step 3 (final step)
+    if (currentStep < 3) {
+      return;
+    }
+    
     if (!formData.title.trim()) {
       toast({
         title: "Xəta",
         description: "Sorğu başlığı daxil edilməlidir",
         variant: "destructive",
       });
+      setCurrentStep(1);
       return;
     }
 
@@ -132,6 +175,16 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
       toast({
         title: "Xəta",
         description: "Ən azı bir sual əlavə edilməlidir",
+        variant: "destructive",
+      });
+      setCurrentStep(2);
+      return;
+    }
+
+    if (!formData.target_institutions || formData.target_institutions.length === 0) {
+      toast({
+        title: "Xəta",
+        description: "Ən azı bir hədəf müəssisə seçilməlidir",
         variant: "destructive",
       });
       return;
@@ -229,6 +282,40 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
   };
 
   const needsOptions = ['radio', 'checkbox', 'select'].includes(newQuestion.type as string);
+  const needsNumberValidation = newQuestion.type === 'number';
+  const needsFileValidation = newQuestion.type === 'file_upload';
+
+  // Step validation functions
+  const validateStep1 = (): boolean => {
+    if (!formData.title.trim()) {
+      toast({
+        title: "Xəta",
+        description: "Sorğu başlığı daxil edilməlidir",
+        variant: "destructive",
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const validateStep2 = (): boolean => {
+    if (questions.length === 0) {
+      toast({
+        title: "Xəta",
+        description: "Ən azı bir sual əlavə edilməlidir",
+        variant: "destructive",
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const handleNextStep = () => {
+    if (currentStep === 1 && !validateStep1()) return;
+    if (currentStep === 2 && !validateStep2()) return;
+    
+    setCurrentStep(prev => prev + 1);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -270,25 +357,43 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
           {currentStep === 1 && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="title">Sorğu başlığı *</Label>
+                <div className="flex justify-between">
+                  <Label htmlFor="title">Sorğu başlığı *</Label>
+                  <span className="text-xs text-muted-foreground">
+                    {formData.title.length}/{MAX_TITLE_LENGTH}
+                  </span>
+                </div>
                 <Input
                   id="title"
                   value={formData.title}
+                  maxLength={MAX_TITLE_LENGTH}
                   onChange={(e) => handleInputChange('title', e.target.value)}
                   placeholder="Sorğunun başlığını daxil edin"
                   required
                 />
+                {formData.title.length > MAX_TITLE_LENGTH * 0.9 && (
+                  <p className="text-xs text-amber-600">Başlıq uzunluq limitinə yaxındır</p>
+                )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Təsvir</Label>
+                <div className="flex justify-between">
+                  <Label htmlFor="description">Təsvir</Label>
+                  <span className="text-xs text-muted-foreground">
+                    {(formData.description || '').length}/{MAX_DESCRIPTION_LENGTH}
+                  </span>
+                </div>
                 <Textarea
                   id="description"
                   value={formData.description}
+                  maxLength={MAX_DESCRIPTION_LENGTH}
                   onChange={(e) => handleInputChange('description', e.target.value)}
                   placeholder="Sorğunun təsvirini daxil edin..."
                   rows={4}
                 />
+                {(formData.description || '').length > MAX_DESCRIPTION_LENGTH * 0.9 && (
+                  <p className="text-xs text-amber-600">Təsvir uzunluq limitinə yaxındır</p>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -470,6 +575,78 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                     </div>
                   )}
 
+                  {needsNumberValidation && (
+                    <div className="space-y-2">
+                      <Label>Rəqəm tənzimləmələri</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs">Minimum dəyər</Label>
+                          <Input 
+                            type="number" 
+                            placeholder="0"
+                            onChange={(e) => setNewQuestion(prev => ({
+                              ...prev,
+                              validation: { ...prev.validation, min_value: e.target.value ? Number(e.target.value) : undefined }
+                            }))}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Maksimum dəyər</Label>
+                          <Input 
+                            type="number" 
+                            placeholder="100"
+                            onChange={(e) => setNewQuestion(prev => ({
+                              ...prev,
+                              validation: { ...prev.validation, max_value: e.target.value ? Number(e.target.value) : undefined }
+                            }))}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {needsFileValidation && (
+                    <div className="space-y-2">
+                      <Label>Fayl yükləmə tənzimləmələri</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs">Maksimum fayl ölçüsü (MB)</Label>
+                          <Input 
+                            type="number" 
+                            min="1" 
+                            max="50" 
+                            defaultValue="10"
+                            onChange={(e) => setNewQuestion(prev => ({
+                              ...prev,
+                              validation: { ...prev.validation, max_file_size: e.target.value ? Number(e.target.value) * 1024 * 1024 : undefined }
+                            }))}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">İcazəli formatlar</Label>
+                          <Select onValueChange={(value) => {
+                            const formats = value.split(',');
+                            setNewQuestion(prev => ({
+                              ...prev,
+                              validation: { ...prev.validation, allowed_file_types: formats }
+                            }));
+                          }}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Format seçin..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pdf">PDF</SelectItem>
+                              <SelectItem value="doc,docx">Word</SelectItem>
+                              <SelectItem value="xls,xlsx">Excel</SelectItem>
+                              <SelectItem value="jpg,png">Şəkil</SelectItem>
+                              <SelectItem value="pdf,doc,docx,xls,xlsx">Sənədlər</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <Button type="button" onClick={addQuestion}>
                     <Plus className="h-4 w-4 mr-2" />
                     Sualı əlavə et
@@ -484,29 +661,132 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Hədəf müəssisələr</Label>
+                
+                {/* Search Input */}
+                <div className="relative">
+                  <Input
+                    type="text"
+                    placeholder="Müəssisə adı ilə axtar..."
+                    value={institutionSearch}
+                    onChange={(e) => setInstitutionSearch(e.target.value)}
+                    className="pl-10"
+                  />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                </div>
+                
+                {/* Enhanced Bulk Selection Buttons */}
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const allIds = availableInstitutions.map((inst: any) => inst.id);
+                        handleInputChange('target_institutions', allIds);
+                      }}
+                    >
+                      <Users className="h-4 w-4 mr-1" />
+                      Hamısını seç
+                    </Button>
+                    
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleInputChange('target_institutions', [])}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Hamısını ləğv et
+                    </Button>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => selectInstitutionsByLevel(2)}
+                    >
+                      <Building2 className="h-4 w-4 mr-1" />
+                      Regional idarələr
+                    </Button>
+                    
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => selectInstitutionsByLevel(3)}
+                    >
+                      <Target className="h-4 w-4 mr-1" />
+                      Sektorlar
+                    </Button>
+                    
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => selectInstitutionsByType((inst: any) => 
+                        inst.level === 4 && inst.name.toLowerCase().includes('məktəb')
+                      )}
+                    >
+                      <Building2 className="h-4 w-4 mr-1" />
+                      Məktəblər
+                    </Button>
+                    
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => selectInstitutionsByType((inst: any) => 
+                        inst.level === 4 && (inst.name.toLowerCase().includes('bağça') || inst.name.toLowerCase().includes('uşaq'))
+                      )}
+                    >
+                      <Users className="h-4 w-4 mr-1" />
+                      Məktəbəqədər
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="border rounded-lg p-4 max-h-48 overflow-y-auto">
-                  {availableInstitutions.map((institution: any) => (
-                    <div key={institution.id} className="flex items-center space-x-2 py-1">
-                      <Checkbox
-                        id={`institution-${institution.id}`}
-                        checked={(formData.target_institutions || []).includes(institution.id)}
-                        onCheckedChange={(checked) => {
-                          const currentTargets = formData.target_institutions || [];
-                          if (checked) {
-                            handleInputChange('target_institutions', [...currentTargets, institution.id]);
-                          } else {
-                            handleInputChange('target_institutions', currentTargets.filter(id => id !== institution.id));
-                          }
-                        }}
-                      />
-                      <Label
-                        htmlFor={`institution-${institution.id}`}
-                        className="text-sm font-normal cursor-pointer"
-                      >
-                        {institution.name}
-                      </Label>
+                  {filteredInstitutions.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground">
+                      <Building2 className="h-8 w-8 mx-auto mb-2" />
+                      <p>Axtarış nəticəsində müəssisə tapılmadı</p>
                     </div>
-                  ))}
+                  ) : (
+                    filteredInstitutions.map((institution: any) => (
+                      <div key={institution.id} className="flex items-center space-x-2 py-1">
+                        <Checkbox
+                          id={`institution-${institution.id}`}
+                          checked={(formData.target_institutions || []).includes(institution.id)}
+                          onCheckedChange={(checked) => {
+                            const currentTargets = formData.target_institutions || [];
+                            if (checked) {
+                              handleInputChange('target_institutions', [...currentTargets, institution.id]);
+                            } else {
+                              handleInputChange('target_institutions', currentTargets.filter(id => id !== institution.id));
+                            }
+                          }}
+                        />
+                        <Label
+                          htmlFor={`institution-${institution.id}`}
+                          className="text-sm font-normal cursor-pointer flex items-center gap-2"
+                        >
+                          <span>{institution.name}</span>
+                          {institution.level && (
+                            <Badge variant="outline" className="text-xs">
+                              Səviyyə {institution.level}
+                            </Badge>
+                          )}
+                        </Label>
+                      </div>
+                    ))
+                  )}
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {(formData.target_institutions || []).length} müəssisə seçilib
@@ -550,7 +830,7 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
               {currentStep < 3 ? (
                 <Button
                   type="button"
-                  onClick={() => setCurrentStep(prev => prev + 1)}
+                  onClick={handleNextStep}
                   disabled={isLoading}
                 >
                   Növbəti

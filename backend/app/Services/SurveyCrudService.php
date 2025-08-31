@@ -18,7 +18,7 @@ class SurveyCrudService
      */
     public function getPaginatedList(array $params): LengthAwarePaginator
     {
-        $query = Survey::with(['creator.profile']);
+        $query = Survey::with(['creator.profile'])->withCount(['questions']);
         
         // Apply filters
         $this->applyFilters($query, $params);
@@ -422,6 +422,7 @@ class SurveyCrudService
                 'name' => $survey->institution?->name
             ],
             'response_count' => $survey->responses_count ?? 0,
+            'questions_count' => $survey->questions_count ?? $survey->questions()->count(),
             'max_responses' => $survey->max_responses,
             'is_anonymous' => $survey->is_anonymous,
             'requires_login' => $survey->requires_login,
@@ -441,7 +442,35 @@ class SurveyCrudService
         $basic = $this->formatForResponse($survey);
         
         return array_merge($basic, [
-            'questions' => $survey->questions,
+            'questions' => $survey->questions->map(function ($question) {
+                return [
+                    'id' => $question->id,
+                    'question' => $question->question,  // Uses accessor
+                    'description' => $question->description,
+                    'type' => $question->type,
+                    'order' => $question->order,        // Uses accessor
+                    'required' => $question->required,  // Uses accessor
+                    'is_active' => $question->is_active,
+                    'options' => $question->options,
+                    'validation_rules' => $question->validation_rules,
+                    'metadata' => $question->metadata,
+                    'min_value' => $question->min_value,
+                    'max_value' => $question->max_value,
+                    'min_length' => $question->min_length,
+                    'max_length' => $question->max_length,
+                    'allowed_file_types' => $question->allowed_file_types,
+                    'max_file_size' => $question->max_file_size,
+                    'rating_min' => $question->rating_min,
+                    'rating_max' => $question->rating_max,
+                    'rating_min_label' => $question->rating_min_label,
+                    'rating_max_label' => $question->rating_max_label,
+                    'table_headers' => $question->table_headers,
+                    'table_rows' => $question->table_rows,
+                    'translations' => $question->translations,
+                    'created_at' => $question->created_at,
+                    'updated_at' => $question->updated_at,
+                ];
+            }),
             'settings' => $survey->settings,
             'targeting_rules' => $survey->targeting_rules,
             'notification_settings' => $survey->notification_settings,

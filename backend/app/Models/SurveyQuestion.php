@@ -97,6 +97,30 @@ class SurveyQuestion extends Model
     }
 
     /**
+     * Get question field as alias for title (frontend compatibility)
+     */
+    public function getQuestionAttribute(): string
+    {
+        return $this->title;
+    }
+
+    /**
+     * Get required field as alias for is_required (frontend compatibility)  
+     */
+    public function getRequiredAttribute(): bool
+    {
+        return $this->is_required;
+    }
+
+    /**
+     * Get order field as alias for order_index (frontend compatibility)
+     */
+    public function getOrderAttribute(): int
+    {
+        return $this->order_index;
+    }
+
+    /**
      * Scope: By type
      */
     public function scopeByType(Builder $query, string $type): Builder

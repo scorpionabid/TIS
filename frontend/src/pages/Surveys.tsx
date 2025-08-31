@@ -1,20 +1,25 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, ClipboardList, Calendar, TrendingUp, Eye, Edit, Trash2, Play, Pause, BarChart3, AlertTriangle } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Plus, ClipboardList, Calendar, TrendingUp, Eye, Edit, Trash2, Play, Pause, BarChart3, AlertTriangle, Archive, MoreHorizontal } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { surveyService, Survey, CreateSurveyData } from "@/services/surveys";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SurveyModal } from "@/components/modals/SurveyModal";
+import { SurveyViewModal } from "@/components/modals/SurveyViewModal";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { apiClient } from "@/services/api";
 
 export default function Surveys() {
   const { currentUser } = useAuth();
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'active' | 'completed' | 'archived'>('all');
   const [showSurveyModal, setShowSurveyModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
   const [selectedSurvey, setSelectedSurvey] = useState<Survey | null>(null);
+  const [viewingSurvey, setViewingSurvey] = useState<Survey | null>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -161,19 +166,65 @@ export default function Surveys() {
     setShowSurveyModal(true);
   };
 
-  const handleDeleteSurvey = async (id: number) => {
-    if (window.confirm('Sorğunu silmək istədiyinizdən əminsiniz?')) {
+  const handleViewSurvey = async (survey: Survey) => {
+    try {
+      // Fetch detailed survey data with questions
+      const detailedSurvey = await surveyService.getById(survey.id);
+      setViewingSurvey(detailedSurvey);
+      setShowViewModal(true);
+    } catch (error) {
+      console.error('Failed to fetch survey details:', error);
+      toast({
+        variant: "destructive",
+        title: "Xəta",
+        description: "Sorğu məlumatları yüklənərkən xəta baş verdi"
+      });
+    }
+  };
+
+  const handleDeleteSurvey = async (id: number, forceDelete = false) => {
+    const deleteType = forceDelete ? 'tam silmək' : 'arxivə göndərmək';
+    const message = forceDelete 
+      ? 'Bu sorğu və bütün məlumatları tam olaraq silinəcək. Bu əməliyyat geri qaytarıla bilməz!' 
+      : 'Bu sorğu arxivə göndəriləcək və gələcəkdə bərpa edilə bilər.';
+    
+    if (window.confirm(`${message}\n\nDavam etmək istədiyinizdən əminsiniz?`)) {
       try {
-        await deleteSurveyMutation.mutateAsync(id);
+        if (forceDelete) {
+          // Hard delete - call force delete endpoint
+          await apiClient.delete(`/surveys/${id}?force=true`);
+          toast({
+            title: "Uğurlu",
+            description: "Sorğu tamamilə silindi",
+          });
+        } else {
+          // Soft delete - use archive endpoint
+          await archiveSurveyMutation.mutateAsync(id);
+        }
+        queryClient.invalidateQueries({ queryKey: ['surveys'] });
+        queryClient.invalidateQueries({ queryKey: ['survey-stats'] });
       } catch (error) {
         toast({
           title: "Xəta",
-          description: "Sorğu silinərkən xəta baş verdi",
+          description: `Sorğu ${deleteType} zamanı xəta baş verdi`,
           variant: "destructive",
         });
       }
     }
   };
+
+  // Add archive mutation
+  const archiveSurveyMutation = useMutation({
+    mutationFn: (id: number) => surveyService.archive(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['surveys'] });
+      queryClient.invalidateQueries({ queryKey: ['survey-stats'] });
+      toast({
+        title: "Uğurlu",
+        description: "Sorğu arxivə göndərildi",
+      });
+    },
+  });
 
   const handlePublishSurvey = async (id: number) => {
     try {
@@ -361,14 +412,19 @@ export default function Surveys() {
                         : survey.description || 'Təsvir yoxdur'}
                     </p>
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>{survey.responses_count || 0} cavab</span>
-                      <span>{survey.questions?.length || 0} sual</span>
+                      <span>{survey.response_count || 0} cavab</span>
+                      <span>{survey.questions_count || survey.questions?.length || 0} sual</span>
                       <span>Yaradıldı: {formatDate(survey.created_at)}</span>
-                      {survey.creator && <span>Yaradan: {survey.creator.name}</span>}
+                      {survey.creator && <span>Yaradan: {survey.creator.full_name || survey.creator.username}</span>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => handleViewSurvey(survey)}
+                      title="Sorğunu göstər"
+                    >
                       <Eye className="h-4 w-4" />
                     </Button>
                     <Button 
@@ -381,7 +437,7 @@ export default function Surveys() {
                     </Button>
                     {(
                       currentUser?.role === 'superadmin' || 
-                      survey.created_by === currentUser?.id ||
+                      survey.creator?.id === currentUser?.id ||
                       (['regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || ''))
                     ) && (
                       <>
@@ -412,15 +468,28 @@ export default function Surveys() {
                             <Pause className="h-4 w-4" />
                           </Button>
                         )}
-                        {(currentUser?.role === 'superadmin' || survey.created_by === currentUser?.id) && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleDeleteSurvey(survey.id)}
-                            disabled={deleteSurveyMutation.isPending}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                        {(currentUser?.role === 'superadmin' || survey.creator?.id === currentUser?.id) && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleDeleteSurvey(survey.id, false)}>
+                                <Archive className="h-4 w-4 mr-2" />
+                                Arxivə göndər
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => handleDeleteSurvey(survey.id, true)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Tam sil
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
                       </>
                     )}
@@ -449,6 +518,16 @@ export default function Surveys() {
         }}
         survey={selectedSurvey}
         onSave={handleSaveSurvey}
+      />
+
+      {/* Survey View Modal */}
+      <SurveyViewModal
+        open={showViewModal}
+        onClose={() => {
+          setShowViewModal(false);
+          setViewingSurvey(null);
+        }}
+        survey={viewingSurvey}
       />
     </div>
   );

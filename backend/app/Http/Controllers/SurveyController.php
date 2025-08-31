@@ -155,13 +155,40 @@ class SurveyController extends BaseController
     }
 
     /**
-     * Delete survey
+     * Delete survey (soft delete by default, force delete if requested)
      */
-    public function destroy(Survey $survey): JsonResponse
+    public function destroy(Request $request, Survey $survey): JsonResponse
     {
         try {
-            $this->crudService->delete($survey);
-            return $this->successResponse(null, 'Survey deleted successfully');
+            $forceDelete = $request->boolean('force', false);
+            
+            if ($forceDelete) {
+                // Hard delete - completely remove from database
+                // First delete related records to avoid foreign key constraints
+                \DB::transaction(function () use ($survey) {
+                    // Delete audit logs if they exist
+                    \DB::table('survey_audit_logs')->where('survey_id', $survey->id)->delete();
+                    
+                    // Delete survey responses if they exist
+                    $survey->responses()->delete();
+                    
+                    // Delete survey questions if they exist
+                    $survey->questions()->delete();
+                    
+                    // Finally delete the survey
+                    $survey->forceDelete();
+                });
+                
+                return $this->successResponse(null, 'Survey permanently deleted successfully');
+            } else {
+                // Soft delete - mark as archived
+                $survey->update([
+                    'status' => 'archived',
+                    'archived_at' => now()
+                ]);
+                
+                return $this->successResponse(null, 'Survey archived successfully');
+            }
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
         }
@@ -254,5 +281,110 @@ class SurveyController extends BaseController
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
         }
+    }
+
+    /**
+     * Get analytics overview for surveys dashboard
+     */
+    public function getAnalyticsOverview(): JsonResponse
+    {
+        try {
+            $user = auth()->user();
+            
+            // Get surveys based on user permissions
+            $surveysQuery = Survey::query();
+            
+            // Apply user-based filtering based on permissions
+            if (!$user->hasRole(['superadmin', 'regionadmin'])) {
+                $surveysQuery->where('creator_id', $user->id);
+            }
+            
+            $allSurveys = $surveysQuery->get();
+            
+            $overview = [
+                'total_surveys' => $allSurveys->count(),
+                'active_surveys' => $allSurveys->where('status', 'published')->count(),
+                'draft_surveys' => $allSurveys->where('status', 'draft')->count(),
+                'closed_surveys' => $allSurveys->where('status', 'closed')->count(),
+                'archived_surveys' => $allSurveys->where('status', 'archived')->count(),
+                'my_surveys' => $allSurveys->where('creator_id', $user->id)->count(),
+                'my_active_surveys' => $allSurveys->where('creator_id', $user->id)->where('status', 'published')->count(),
+            ];
+            
+            $response_stats = [
+                'total_responses' => $allSurveys->sum('response_count'),
+                'completed_responses' => $allSurveys->sum('response_count'), // Assuming all are completed for now
+                'completion_rate' => $allSurveys->count() > 0 ? round(($allSurveys->where('status', 'published')->count() / $allSurveys->count()) * 100, 2) : 0,
+                'average_response_rate' => $allSurveys->count() > 0 ? round($allSurveys->avg('response_count') ?? 0, 2) : 0,
+            ];
+            
+            $breakdowns = [
+                'by_status' => [
+                    'draft' => $allSurveys->where('status', 'draft')->count(),
+                    'published' => $allSurveys->where('status', 'published')->count(),
+                    'closed' => $allSurveys->where('status', 'closed')->count(),
+                    'archived' => $allSurveys->where('status', 'archived')->count(),
+                ],
+                'by_type' => [
+                    'form' => $allSurveys->where('survey_type', 'form')->count(),
+                    'poll' => $allSurveys->where('survey_type', 'poll')->count(),
+                    'assessment' => $allSurveys->where('survey_type', 'assessment')->count(),
+                    'feedback' => $allSurveys->where('survey_type', 'feedback')->count(),
+                ],
+                'monthly_trend' => [] // Can be implemented later
+            ];
+            
+            $recent_surveys = $allSurveys->sortByDesc('created_at')->take(5)->values();
+            $attention_needed = $allSurveys->where('status', 'draft')->take(3)->values();
+            
+            $analytics = [
+                'overview' => $overview,
+                'response_stats' => $response_stats,
+                'breakdowns' => $breakdowns,
+                'recent_surveys' => $recent_surveys->map(function ($survey) {
+                    return $this->crudService->formatForResponse($survey);
+                }),
+                'attention_needed' => $attention_needed->map(function ($survey) {
+                    return $this->crudService->formatForResponse($survey);
+                }),
+                'user_context' => [
+                    'role' => $user->roles->first()->name ?? 'user',
+                    'institution_name' => $user->institution->name ?? null,
+                    'permissions' => $user->getAllPermissions()->pluck('name')->toArray(),
+                ]
+            ];
+            
+            return $this->successResponse($analytics, 'Analytics overview retrieved successfully');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Get statistics for a specific survey
+     */
+    public function getStats(Survey $survey): JsonResponse
+    {
+        try {
+            $stats = [
+                'total_responses' => $survey->response_count ?? 0,
+                'completion_rate' => $survey->max_responses > 0 ? round(($survey->response_count / $survey->max_responses) * 100, 2) : 0,
+                'average_completion_time' => 0, // Can be calculated from responses
+                'responses_by_day' => [], // Can be implemented later
+                'demographic_breakdown' => [] // Can be implemented later
+            ];
+            
+            return $this->successResponse($stats, 'Survey statistics retrieved successfully');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Get advanced statistics for a specific survey (alias for getStats)
+     */
+    public function getAdvancedStatistics(Survey $survey): JsonResponse
+    {
+        return $this->getStats($survey);
     }
 }

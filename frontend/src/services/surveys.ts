@@ -4,27 +4,34 @@ import { apiClient } from './api';
 export interface Survey extends BaseEntity {
   title: string;
   description?: string;
-  questions: SurveyQuestion[];
-  status: 'draft' | 'active' | 'paused' | 'completed' | 'archived';
+  questions?: SurveyQuestion[];
+  status: 'draft' | 'published' | 'active' | 'paused' | 'completed' | 'archived';
   start_date?: string;
   end_date?: string;
   target_roles?: string[];
   target_institutions?: number[];
-  created_by: number;
-  responses_count?: number;
+  response_count?: number;
+  questions_count?: number;
   max_responses?: number;
   is_anonymous: boolean;
   allow_multiple_responses: boolean;
   creator?: {
     id: number;
+    username: string;
+    full_name: string;
+  };
+  institution?: {
+    id: number;
     name: string;
   };
+  survey_type?: string;
+  published_at?: string;
 }
 
 export interface SurveyQuestion {
   id?: number;
   question: string;
-  type: 'text' | 'textarea' | 'radio' | 'checkbox' | 'select' | 'rating' | 'date';
+  type: 'text' | 'textarea' | 'number' | 'radio' | 'checkbox' | 'select' | 'rating' | 'date' | 'file_upload';
   options?: string[];
   required: boolean;
   order: number;
@@ -33,6 +40,8 @@ export interface SurveyQuestion {
     max_length?: number;
     min_value?: number;
     max_value?: number;
+    allowed_file_types?: string[];
+    max_file_size?: number;
   };
 }
 
@@ -108,6 +117,12 @@ class SurveyService extends BaseService<Survey> {
     super('/surveys');
   }
 
+  // Override getAll to handle API response structure correctly
+  async getAll(params?: PaginationParams, useCache: boolean = true): Promise<any> {
+    const response = await apiClient.get(this.baseEndpoint, params);
+    return response;
+  }
+
   async publish(id: number) {
     const response = await apiClient.post(`${this.baseEndpoint}/${id}/publish`);
     return response.data;
@@ -179,16 +194,25 @@ class SurveyService extends BaseService<Survey> {
   }
 
   async exportResponses(id: number, format: 'xlsx' | 'csv' = 'xlsx') {
-    const response = await fetch(`${(apiClient as any).baseURL}/surveys/${id}/export?format=${format}`, {
-      method: 'GET',
-      headers: (apiClient as any).getHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error('Export failed');
+    try {
+      const response = await apiClient.get(`${this.baseEndpoint}/${id}/export`, {
+        format,
+        responseType: 'blob'
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Export failed');
     }
+  }
 
-    return response.blob();
+  async getAnalyticsOverview() {
+    const response = await apiClient.get(`${this.baseEndpoint}/analytics/overview`);
+    return response.data;
+  }
+
+  async getSurveyAnalytics(id: number) {
+    const response = await apiClient.get(`${this.baseEndpoint}/${id}/analytics`);
+    return response.data;
   }
 
   async getAvailableTargets() {

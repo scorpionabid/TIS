@@ -258,6 +258,18 @@ class ApprovalService {
     return response.data;
   }
 
+  // Get survey responses with hierarchical filtering (new enhanced method)
+  async getSurveyResponsesHierarchical(status: string = 'submitted', surveyId?: number): Promise<ApiResponse<any>> {
+    const response = await apiClient.get('/approvals/survey-responses', {
+      params: { 
+        status,
+        survey_id: surveyId,
+        per_page: 50 
+      }
+    });
+    return response.data;
+  }
+
   // Approve a survey response
   async approveSurveyResponse(responseId: number, comments?: string): Promise<ApiResponse<void>> {
     const response = await apiClient.post(`/approvals/survey-responses/${responseId}/approve`, {

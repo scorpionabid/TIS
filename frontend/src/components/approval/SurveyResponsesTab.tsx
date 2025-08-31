@@ -109,9 +109,10 @@ const SurveyResponsesTab: React.FC = () => {
 
     try {
       setLoading(true);
-      const response = await approvalService.getSurveyResponses(selectedSurvey.id, statusFilter);
+      const response = await approvalService.getSurveyResponsesHierarchical(statusFilter, selectedSurvey?.id);
       if (response.success) {
-        let filteredResponses = response.data;
+        // Handle new API response structure
+        let filteredResponses = response.data.survey_responses || response.data;
         
         // Apply search filter
         if (searchTerm) {

@@ -94,6 +94,14 @@ class SurveyResponse extends Model
     }
 
     /**
+     * Get the approval request for this survey response.
+     */
+    public function approvalRequest()
+    {
+        return $this->morphOne(\App\Models\DataApprovalRequest::class, 'approvable');
+    }
+
+    /**
      * Check if response is submitted.
      */
     public function isSubmitted(): bool
@@ -190,16 +198,37 @@ class SurveyResponse extends Model
         $this->status = 'approved';
         $this->approved_by = $approver->id;
         $this->approved_at = now();
+        
+        // Update associated approval request if exists
+        if ($this->approvalRequest) {
+            $this->approvalRequest->update([
+                'status' => 'approved',
+                'approved_at' => now(),
+                'approver_id' => $approver->id
+            ]);
+        }
+        
         $this->save();
     }
 
     /**
      * Reject the response.
      */
-    public function reject(string $reason): void
+    public function reject(string $reason, ?User $rejector = null): void
     {
         $this->status = 'rejected';
         $this->rejection_reason = $reason;
+        
+        // Update associated approval request if exists
+        if ($this->approvalRequest) {
+            $this->approvalRequest->update([
+                'status' => 'rejected',
+                'rejected_at' => now(),
+                'rejection_reason' => $reason,
+                'approver_id' => $rejector ? $rejector->id : null
+            ]);
+        }
+        
         $this->save();
     }
 

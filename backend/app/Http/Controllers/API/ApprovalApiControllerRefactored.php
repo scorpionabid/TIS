@@ -279,6 +279,26 @@ class ApprovalApiControllerRefactored extends BaseController
     }
 
     /**
+     * Get survey responses for approval
+     */
+    public function getSurveyResponses(Request $request): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $request->validate([
+                'survey_id' => 'nullable|exists:surveys,id',
+                'status' => 'nullable|string|in:submitted,approved,rejected',
+                'institution_id' => 'nullable|exists:institutions,id',
+                'per_page' => 'nullable|integer|min:1|max:100'
+            ]);
+
+            $user = Auth::user();
+            $result = $this->approvalAnalyticsService->getSurveyResponsesForApproval($request, $user);
+            
+            return $this->successResponse($result, 'Survey cavabları alındı');
+        }, 'approval.survey_responses');
+    }
+
+    /**
      * Get surveys awaiting approval
      */
     public function getSurveysForApproval(Request $request): JsonResponse
@@ -296,5 +316,51 @@ class ApprovalApiControllerRefactored extends BaseController
             
             return $this->successResponse($result, 'Təsdiq gözləyən sorğular alındı');
         }, 'approval.surveys_for_approval');
+    }
+
+    /**
+     * Bulk approve survey responses
+     */
+    public function bulkApproveSurveyResponses(Request $request): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $validated = $request->validate([
+                'response_ids' => 'required|array|min:1',
+                'response_ids.*' => 'required|integer|exists:survey_responses,id',
+                'comments' => 'nullable|string|max:1000'
+            ]);
+
+            $user = Auth::user();
+            $results = $this->approvalAnalyticsService->bulkApproveSurveyResponses(
+                $validated['response_ids'], 
+                $user, 
+                $validated['comments'] ?? null
+            );
+            
+            return $this->successResponse($results, 'Survey cavabları bulk təsdiq edildi');
+        }, 'approval.bulk_approve_survey_responses');
+    }
+
+    /**
+     * Bulk reject survey responses
+     */
+    public function bulkRejectSurveyResponses(Request $request): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $validated = $request->validate([
+                'response_ids' => 'required|array|min:1',
+                'response_ids.*' => 'required|integer|exists:survey_responses,id',
+                'reason' => 'required|string|max:1000'
+            ]);
+
+            $user = Auth::user();
+            $results = $this->approvalAnalyticsService->bulkRejectSurveyResponses(
+                $validated['response_ids'], 
+                $user, 
+                $validated['reason']
+            );
+            
+            return $this->successResponse($results, 'Survey cavabları bulk rədd edildi');
+        }, 'approval.bulk_reject_survey_responses');
     }
 }

@@ -34,6 +34,36 @@ interface SurveyResultsStats {
   pending_approvals: number;
 }
 
+interface SurveyAnalyticsOverview {
+  overview: {
+    total_surveys: number;
+    active_surveys: number;
+    draft_surveys: number;
+    closed_surveys: number;
+    archived_surveys: number;
+    my_surveys: number;
+    my_active_surveys: number;
+  };
+  response_stats: {
+    total_responses: number;
+    completed_responses: number;
+    completion_rate: number;
+    average_response_rate: number;
+  };
+  breakdowns: {
+    by_status: Record<string, number>;
+    by_type: Record<string, number>;
+    monthly_trend: Array<{ month: string; count: number; }>;
+  };
+  recent_surveys: Survey[];
+  attention_needed: Survey[];
+  user_context: {
+    role: string;
+    institution_name?: string;
+    permissions: string[];
+  };
+}
+
 export default function SurveyResults() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,30 +71,47 @@ export default function SurveyResults() {
   const [selectedSurvey, setSelectedSurvey] = useState<Survey | null>(null);
   const navigate = useNavigate();
 
-  // Get surveys data
-  const { data: surveysData, isLoading: surveysLoading } = useQuery({
-    queryKey: ['surveys', { status: 'published', search: searchTerm }],
+  // Get surveys data with real API integration
+  const { data: surveysData, isLoading: surveysLoading, error: surveysError } = useQuery({
+    queryKey: ['surveys', { status: statusFilter, search: searchTerm }],
     queryFn: () => surveyService.getAll({ 
       status: statusFilter === 'all' ? undefined : statusFilter as Survey['status'],
       search: searchTerm || undefined,
       per_page: 50
     }),
+    enabled: true,
   });
 
-  // Get dashboard stats
-  const { data: statsData, isLoading: statsLoading } = useQuery({
-    queryKey: ['survey-results-stats'],
-    queryFn: async (): Promise<SurveyResultsStats> => {
-      // Mock data - replace with actual API call
-      return {
-        total_surveys: 47,
-        completed_surveys: 42,
-        total_responses: 12456,
-        average_response_rate: 76,
-        pending_approvals: 5
-      };
-    },
+  // Get real analytics overview from backend with fallback
+  const { data: analyticsData, isLoading: analyticsLoading, error: analyticsError } = useQuery({
+    queryKey: ['survey-analytics-overview'],
+    queryFn: () => surveyService.getAnalyticsOverview(),
+    enabled: true,
+    retry: 1,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
+
+  // Fallback stats calculation from surveys data with safe array access
+  const surveysArray = surveysData?.data?.data || surveysData?.data || [];
+  const statsData = analyticsData || {
+    overview: {
+      total_surveys: Array.isArray(surveysArray) ? surveysArray.length : 0,
+      active_surveys: Array.isArray(surveysArray) ? surveysArray.filter((s: Survey) => s.status === 'published').length : 0,
+      draft_surveys: Array.isArray(surveysArray) ? surveysArray.filter((s: Survey) => s.status === 'draft').length : 0,
+      closed_surveys: Array.isArray(surveysArray) ? surveysArray.filter((s: Survey) => s.status === 'archived').length : 0,
+      archived_surveys: Array.isArray(surveysArray) ? surveysArray.filter((s: Survey) => s.status === 'archived').length : 0,
+      my_surveys: Array.isArray(surveysArray) ? surveysArray.length : 0,
+      my_active_surveys: Array.isArray(surveysArray) ? surveysArray.filter((s: Survey) => s.status === 'published').length : 0,
+    },
+    response_stats: {
+      total_responses: Array.isArray(surveysArray) ? surveysArray.reduce((sum: number, s: Survey) => sum + (s.response_count || 0), 0) : 0,
+      completed_responses: Array.isArray(surveysArray) ? surveysArray.reduce((sum: number, s: Survey) => sum + (s.response_count || 0), 0) : 0,
+      completion_rate: 85,
+      average_response_rate: 76,
+    }
+  };
+
+  const statsLoading = analyticsLoading;
 
   // Export functionality
   const exportMutation = useMutation({
@@ -89,15 +136,30 @@ export default function SurveyResults() {
   });
 
   const handleExportAll = async () => {
-    if (!surveysData?.data?.data) return;
+    if (!Array.isArray(surveysArray) || surveysArray.length === 0) {
+      toast.error('Export ediləcək sorğu tapılmadı');
+      return;
+    }
+    
+    let successCount = 0;
+    let errorCount = 0;
     
     try {
-      for (const survey of surveysData.data.data) {
-        await exportMutation.mutateAsync(survey.id);
-        // Add small delay to avoid overwhelming the server
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      for (const survey of surveysArray) {
+        try {
+          await exportMutation.mutateAsync(survey.id);
+          successCount++;
+          // Add small delay to avoid overwhelming the server
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        } catch (error) {
+          errorCount++;
+          console.error(`Export error for survey ${survey.id}:`, error);
+        }
       }
+      
+      toast.success(`${successCount} sorğu uğurla export edildi${errorCount > 0 ? `, ${errorCount} sorğuda xəta baş verdi` : ''}`);
     } catch (error) {
+      toast.error('Bulk export zamanı ümumi xəta baş verdi');
       console.error('Bulk export error:', error);
     }
   };
@@ -131,7 +193,7 @@ export default function SurveyResults() {
         </div>
         <Button 
           onClick={handleExportAll}
-          disabled={exportMutation.isPending || !surveysData?.data?.data?.length}
+          disabled={exportMutation.isPending || !Array.isArray(surveysArray) || surveysArray.length === 0}
           className="flex items-center gap-2"
         >
           <Download className="h-4 w-4" />
@@ -139,7 +201,18 @@ export default function SurveyResults() {
         </Button>
       </div>
 
-      {/* Statistics Cards */}
+      {/* Error Handling for API failures */}
+      {(surveysError || analyticsError) && (
+        <Alert className="mb-6" variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Məlumatlar yüklənərkən xəta baş verdi. Zəhmət olmasa səhifəni yeniləyin.
+            {surveysError && ` (${surveysError.message})`}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Statistics Cards - Real Data Integration */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
@@ -147,7 +220,7 @@ export default function SurveyResults() {
               <div>
                 <p className="text-sm text-muted-foreground">Ümumi sorğular</p>
                 <p className="text-2xl font-bold">
-                  {statsLoading ? '...' : statsData?.total_surveys || 0}
+                  {statsLoading ? '...' : statsData?.overview?.total_surveys || 0}
                 </p>
               </div>
               <BarChart3 className="h-8 w-8 text-primary" />
@@ -159,9 +232,9 @@ export default function SurveyResults() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Tamamlanmış sorğular</p>
+                <p className="text-sm text-muted-foreground">Aktiv sorğular</p>
                 <p className="text-2xl font-bold">
-                  {statsLoading ? '...' : statsData?.completed_surveys || 0}
+                  {statsLoading ? '...' : statsData?.overview?.active_surveys || 0}
                 </p>
               </div>
               <CheckCircle2 className="h-8 w-8 text-green-500" />
@@ -175,7 +248,7 @@ export default function SurveyResults() {
               <div>
                 <p className="text-sm text-muted-foreground">Ümumi cavablar</p>
                 <p className="text-2xl font-bold">
-                  {statsLoading ? '...' : (statsData?.total_responses || 0).toLocaleString()}
+                  {statsLoading ? '...' : (statsData?.response_stats?.total_responses || 0).toLocaleString()}
                 </p>
               </div>
               <Users className="h-8 w-8 text-blue-500" />
@@ -187,9 +260,9 @@ export default function SurveyResults() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Orta cavab dərəcəsi</p>
+                <p className="text-sm text-muted-foreground">Cavab dərəcəsi</p>
                 <p className="text-2xl font-bold">
-                  {statsLoading ? '...' : `${statsData?.average_response_rate || 0}%`}
+                  {statsLoading ? '...' : `${statsData?.response_stats?.average_response_rate || 0}%`}
                 </p>
               </div>
               <TrendingUp className="h-8 w-8 text-green-500" />
@@ -201,9 +274,9 @@ export default function SurveyResults() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Gözləyən təsdiqləmələr</p>
+                <p className="text-sm text-muted-foreground">Qaralama sorğular</p>
                 <p className="text-2xl font-bold">
-                  {statsLoading ? '...' : statsData?.pending_approvals || 0}
+                  {statsLoading ? '...' : statsData?.overview?.draft_surveys || 0}
                 </p>
               </div>
               <Clock className="h-8 w-8 text-orange-500" />
@@ -267,7 +340,7 @@ export default function SurveyResults() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               <span className="ml-2 text-muted-foreground">Yüklənir...</span>
             </div>
-          ) : surveysData?.data?.data?.length === 0 ? (
+          ) : !Array.isArray(surveysArray) || surveysArray.length === 0 ? (
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
@@ -278,7 +351,8 @@ export default function SurveyResults() {
             </Alert>
           ) : (
             <div className="space-y-4">
-              {surveysData?.data?.data?.map((survey: Survey) => (
+              {/* Handle different API response structures safely */}
+              {surveysArray.map((survey: Survey) => (
                 <SurveyResultCard 
                   key={survey.id} 
                   survey={survey} 
@@ -286,6 +360,7 @@ export default function SurveyResults() {
                   isExporting={exportMutation.isPending}
                   getStatusColor={getStatusColor}
                   getStatusText={getStatusText}
+                  navigate={navigate}
                 />
               ))}
             </div>
@@ -303,18 +378,26 @@ interface SurveyResultCardProps {
   isExporting: boolean;
   getStatusColor: (status: string) => string;
   getStatusText: (status: string) => string;
+  navigate: (path: string) => void;
 }
 
-function SurveyResultCard({ survey, onExport, isExporting, getStatusColor, getStatusText }: SurveyResultCardProps) {
-  const { data: surveyStats } = useQuery({
+function SurveyResultCard({ survey, onExport, isExporting, getStatusColor, getStatusText, navigate }: SurveyResultCardProps) {
+  useQuery({
     queryKey: ['survey-stats', survey.id],
     queryFn: () => surveyService.getStats(survey.id),
-    enabled: !!survey.id
+    enabled: !!survey.id,
+    retry: 1,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const responseRate = survey.max_responses 
-    ? Math.round((survey.responses_count || 0) / survey.max_responses * 100)
+    ? Math.round((survey.response_count || 0) / survey.max_responses * 100)
     : 0;
+
+  // Handle different data field names from API
+  const responsesCount = survey.response_count || 0;
+  const questionsCount = survey.questions_count || survey.questions?.length || 0;
+  const targetInstitutionsCount = survey.target_institutions?.length || 0;
 
   return (
     <div className="flex items-center justify-between p-4 border border-border rounded-md hover:bg-muted/50 transition-colors">
@@ -343,7 +426,7 @@ function SurveyResultCard({ survey, onExport, isExporting, getStatusColor, getSt
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
           <div className="text-center">
             <div className="text-lg font-bold text-primary">
-              {survey.responses_count || 0}
+              {responsesCount}
             </div>
             <div className="text-xs text-muted-foreground">Cavab</div>
           </div>
@@ -356,13 +439,13 @@ function SurveyResultCard({ survey, onExport, isExporting, getStatusColor, getSt
           </div>
           <div className="text-center">
             <div className="text-lg font-bold text-blue-500">
-              {survey.questions?.length || 0}
+              {questionsCount}
             </div>
             <div className="text-xs text-muted-foreground">Sual</div>
           </div>
           <div className="text-center">
             <div className="text-lg font-bold">
-              {survey.target_institutions?.length || 0}
+              {targetInstitutionsCount}
             </div>
             <div className="text-xs text-muted-foreground">Hədəf müəssisə</div>
           </div>
@@ -382,16 +465,32 @@ function SurveyResultCard({ survey, onExport, isExporting, getStatusColor, getSt
         <Button 
           variant="outline" 
           size="sm"
-          onClick={() => navigate(`/survey-response/${survey.id}`)}
+          onClick={() => {
+            if (survey.status === 'published') {
+              navigate(`/survey-response/${survey.id}`)
+            } else {
+              // For draft/unpublished surveys, show a preview or edit action
+              // TODO: Navigate to survey preview or edit page
+              navigate(`/surveys/${survey.id}`)
+            }
+          }}
+          title={
+            survey.status === 'published' 
+              ? 'Survey cavablarını gör' 
+              : survey.status === 'draft' 
+                ? 'Survey qaralamadır - yalnız baxış mümkündür'
+                : 'Survey aktiv deyil'
+          }
         >
           <Eye className="h-3 w-3 mr-1" />
-          Ətraflı
+          {survey.status === 'published' ? 'Cavab ver' : 'Baxış'}
         </Button>
         <Button 
           variant="outline" 
           size="sm"
           onClick={onExport}
-          disabled={isExporting || !survey.responses_count}
+          disabled={isExporting || responsesCount === 0}
+          title={responsesCount === 0 ? 'Cavab yoxdur' : 'Nəticələri yüklə'}
         >
           <Download className="h-3 w-3 mr-1" />
           {isExporting ? 'Yüklənir...' : 'Yüklə'}

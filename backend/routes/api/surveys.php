@@ -34,6 +34,7 @@ Route::middleware('permission:surveys.read')->group(function () {
     Route::get('surveys/{survey}', [SurveyController::class, 'show']);
     Route::get('surveys/{survey}/questions', [SurveyController::class, 'getQuestions']);
     Route::get('surveys/{survey}/preview', [SurveyController::class, 'preview']);
+    Route::get('surveys/{survey}/form', [SurveyController::class, 'getSurveyForResponse']);
     Route::get('surveys/{survey}/export', [SurveyController::class, 'export']);
 });
 

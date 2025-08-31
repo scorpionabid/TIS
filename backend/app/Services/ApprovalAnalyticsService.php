@@ -44,6 +44,54 @@ class ApprovalAnalyticsService extends BaseService
     }
 
     /**
+     * Get survey responses for approval with hierarchical filtering
+     */
+    public function getSurveyResponsesForApproval(Request $request, $user): array
+    {
+        $query = \App\Models\SurveyResponse::with([
+            'survey:id,title,description,survey_type',
+            'institution:id,name,type',
+            'respondent:id,name,username,email',
+            'department:id,name'
+        ])->where('status', 'submitted');
+
+        // Apply hierarchical filtering based on user role
+        $this->applySurveyResponseHierarchy($query, $user);
+        
+        // Apply filters
+        if ($request->filled('survey_id')) {
+            $query->where('survey_id', $request->survey_id);
+        }
+        
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        
+        if ($request->filled('institution_id') && $user->hasRole(['superadmin', 'regionadmin'])) {
+            $query->where('institution_id', $request->institution_id);
+        }
+
+        // Sort by submission date
+        $query->orderBy('submitted_at', 'desc');
+
+        $perPage = $request->get('per_page', 15);
+        $responses = $query->paginate($perPage);
+
+        return [
+            'survey_responses' => $responses->items(),
+            'meta' => [
+                'current_page' => $responses->currentPage(),
+                'last_page' => $responses->lastPage(),
+                'per_page' => $responses->perPage(),
+                'total' => $responses->total(),
+                'from' => $responses->firstItem(),
+                'to' => $responses->lastItem()
+            ],
+            'filters_applied' => $this->getAppliedFilters($request, $user)
+        ];
+    }
+
+    /**
      * Get surveys for approval
      */
     public function getSurveysForApproval(Request $request, $user): array
@@ -381,5 +429,163 @@ class ApprovalAnalyticsService extends BaseService
                 $query->where('institution_id', $schoolInstitution->id);
             }
         }
+    }
+
+    /**
+     * Apply hierarchical access control for survey responses
+     */
+    private function applySurveyResponseHierarchy($query, $user)
+    {
+        if ($user->hasRole(['superadmin'])) {
+            // SuperAdmin can see all survey responses
+            return;
+        }
+
+        if ($user->hasRole('regionadmin')) {
+            // RegionAdmin: Can see SektorAdmin and SchoolAdmin responses in their region
+            $regionInstitution = $user->institution;
+            if ($regionInstitution && $regionInstitution->level == 2) {
+                $childIds = $regionInstitution->getAllChildrenIds();
+                $query->whereIn('institution_id', $childIds)
+                      ->whereHas('respondent', function($q) {
+                          $q->whereHas('roles', function($roleQuery) {
+                              $roleQuery->whereIn('name', ['sektoradmin', 'schooladmin']);
+                          });
+                      });
+            }
+        } 
+        elseif ($user->hasRole('sektoradmin')) {
+            // SektorAdmin: Can only see SchoolAdmin responses in their sector
+            $sectorInstitution = $user->institution;
+            if ($sectorInstitution && $sectorInstitution->level == 3) {
+                $childIds = $sectorInstitution->getAllChildrenIds();
+                $query->whereIn('institution_id', $childIds)
+                      ->whereHas('respondent', function($q) {
+                          $q->whereHas('roles', function($roleQuery) {
+                              $roleQuery->where('name', 'schooladmin');
+                          });
+                      });
+            }
+        } 
+        else {
+            // Other roles can only see their own institution's responses
+            if ($user->institution) {
+                $query->where('institution_id', $user->institution->id);
+            }
+        }
+    }
+
+    /**
+     * Get applied filters information
+     */
+    private function getAppliedFilters(Request $request, $user): array
+    {
+        return [
+            'user_role' => $user->getRoleNames()->first(),
+            'institution_filter' => $user->institution ? $user->institution->name : null,
+            'status_filter' => $request->get('status', 'submitted'),
+            'survey_filter' => $request->filled('survey_id') ? $request->survey_id : null,
+        ];
+    }
+
+    /**
+     * Bulk approve survey responses
+     */
+    public function bulkApproveSurveyResponses(array $responseIds, $user, ?string $comments = null): array
+    {
+        $approvedCount = 0;
+        $failedCount = 0;
+        $errors = [];
+
+        foreach ($responseIds as $responseId) {
+            try {
+                $response = \App\Models\SurveyResponse::findOrFail($responseId);
+                
+                // Check if user has permission to approve this response
+                if ($this->canUserApproveResponse($user, $response)) {
+                    $response->approve($user);
+                    $approvedCount++;
+                } else {
+                    $failedCount++;
+                    $errors[] = "Response {$responseId}: İcazəniz yoxdur";
+                }
+            } catch (\Exception $e) {
+                $failedCount++;
+                $errors[] = "Response {$responseId}: " . $e->getMessage();
+            }
+        }
+
+        return [
+            'total_requested' => count($responseIds),
+            'approved_count' => $approvedCount,
+            'failed_count' => $failedCount,
+            'errors' => $errors,
+            'success_rate' => count($responseIds) > 0 ? ($approvedCount / count($responseIds)) * 100 : 0
+        ];
+    }
+
+    /**
+     * Bulk reject survey responses
+     */
+    public function bulkRejectSurveyResponses(array $responseIds, $user, string $reason): array
+    {
+        $rejectedCount = 0;
+        $failedCount = 0;
+        $errors = [];
+
+        foreach ($responseIds as $responseId) {
+            try {
+                $response = \App\Models\SurveyResponse::findOrFail($responseId);
+                
+                // Check if user has permission to reject this response
+                if ($this->canUserApproveResponse($user, $response)) {
+                    $response->reject($reason, $user);
+                    $rejectedCount++;
+                } else {
+                    $failedCount++;
+                    $errors[] = "Response {$responseId}: İcazəniz yoxdur";
+                }
+            } catch (\Exception $e) {
+                $failedCount++;
+                $errors[] = "Response {$responseId}: " . $e->getMessage();
+            }
+        }
+
+        return [
+            'total_requested' => count($responseIds),
+            'rejected_count' => $rejectedCount,
+            'failed_count' => $failedCount,
+            'errors' => $errors,
+            'success_rate' => count($responseIds) > 0 ? ($rejectedCount / count($responseIds)) * 100 : 0
+        ];
+    }
+
+    /**
+     * Check if user can approve/reject a survey response based on hierarchy
+     */
+    private function canUserApproveResponse($user, $response): bool
+    {
+        // SuperAdmin can approve anything
+        if ($user->hasRole('superadmin')) {
+            return true;
+        }
+
+        // RegionAdmin can approve responses from their region
+        if ($user->hasRole('regionadmin')) {
+            if ($user->institution && $user->institution->level == 2) {
+                $childIds = $user->institution->getAllChildrenIds();
+                return in_array($response->institution_id, $childIds);
+            }
+        }
+
+        // SektorAdmin can approve responses from their sector schools
+        if ($user->hasRole('sektoradmin')) {
+            if ($user->institution && $user->institution->level == 3) {
+                $childIds = $user->institution->getAllChildrenIds();
+                return in_array($response->institution_id, $childIds);
+            }
+        }
+
+        return false;
     }
 }
