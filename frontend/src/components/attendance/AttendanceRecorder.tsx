@@ -34,11 +34,17 @@ export const AttendanceRecorder: React.FC<AttendanceRecorderProps> = ({ classNam
     attendanceData,
     dailyStats,
     currentUser,
+    institutions,
     
     // Loading states
     studentsLoading,
     statsLoading,
     isRecordingAttendance,
+    institutionsLoading,
+    
+    // Institution state
+    selectedInstitutionId,
+    setSelectedInstitutionId,
     
     // Actions
     updateAttendanceStatus,
@@ -76,6 +82,10 @@ export const AttendanceRecorder: React.FC<AttendanceRecorderProps> = ({ classNam
         onDateChange={setSelectedDate}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        institutions={institutions}
+        selectedInstitutionId={selectedInstitutionId}
+        onInstitutionChange={setSelectedInstitutionId}
+        institutionsLoading={institutionsLoading}
       />
 
       {selectedClassId ? (

@@ -92,6 +92,23 @@ class InstitutionService extends BaseService<Institution> {
     return this.getAll(params);
   }
 
+  // Get only level 4 institutions (schools and preschools)
+  async getStudentInstitutions(params?: PaginationParams) {
+    console.log('🏫 InstitutionService.getStudentInstitutions called with params:', params);
+    try {
+      // Filter for level 4 institutions only (schools and preschools)
+      const response = await apiClient.get<Institution[]>(this.baseEndpoint, {
+        ...params,
+        level: 4 // Only level 4 institutions (schools and preschools)
+      });
+      console.log('✅ InstitutionService.getStudentInstitutions successful:', response);
+      return response as any;
+    } catch (error) {
+      console.error('❌ InstitutionService.getStudentInstitutions failed:', error);
+      throw error;
+    }
+  }
+
   async getByType(type: Institution['type'], params?: PaginationParams) {
     const response = await apiClient.get<Institution[]>(`${this.baseEndpoint}`, { ...params, type });
     return response as any; // PaginatedResponse

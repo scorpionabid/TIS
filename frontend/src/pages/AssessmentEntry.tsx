@@ -80,26 +80,26 @@ export default function AssessmentEntry() {
     return item && item.id && item.name && getSafeSelectValue(item.id) !== '';
   };
 
-  // Fetch institutions
+  // Fetch institutions (only schools and preschools where students exist)
   const { data: institutionsResponse, isLoading: institutionsLoading } = useQuery({
-    queryKey: ['institutions-dropdown'],
+    queryKey: ['student-institutions-dropdown'],
     queryFn: () => {
-      console.log('🏢 AssessmentEntry: Fetching institutions...');
+      console.log('🏢 AssessmentEntry: Fetching student institutions (schools & preschools)...');
       console.log('🔑 AssessmentEntry: Current token exists:', !!localStorage.getItem('auth_token'));
       console.log('👤 AssessmentEntry: Current user:', JSON.stringify({ 
         name: currentUser?.name, 
         role: currentUser?.role,
         permissions: currentUser?.permissions?.slice(0, 5) 
       }));
-      return institutionService.getInstitutions({ per_page: 100 });
+      return institutionService.getStudentInstitutions({ per_page: 100 });
     },
     staleTime: 1000 * 60 * 10,
     onSuccess: (data) => {
-      console.log('✅ AssessmentEntry: Institutions loaded successfully:', data?.data?.length || 0, 'items');
+      console.log('✅ AssessmentEntry: Student institutions loaded successfully:', data?.data?.length || 0, 'items');
     },
     onError: (error) => {
-      console.error('❌ AssessmentEntry: Failed to load institutions:', error);
-      console.error('❌ AssessmentEntry: Institution API call failed - this might cause logout');
+      console.error('❌ AssessmentEntry: Failed to load student institutions:', error);
+      console.error('❌ AssessmentEntry: Student institutions API call failed - this might cause logout');
     }
   });
 

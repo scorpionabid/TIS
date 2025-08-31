@@ -267,10 +267,34 @@ class AttendanceService extends BaseService {
   }
 
   /**
+   * Get classes by institution (for attendance management)
+   */
+  async getClassesByInstitution(institutionId: number): Promise<any[]> {
+    try {
+      console.log('🏫 AttendanceService: Fetching classes for institution:', institutionId);
+      
+      // Try to get classes from schoolAdmin service for the institution
+      const { schoolAdminService } = await import('./schoolAdmin');
+      
+      // For now, we'll use the existing getClasses method
+      // This should be enhanced to filter by institution on the backend
+      const classes = await schoolAdminService.getClasses();
+      
+      console.log('📚 AttendanceService: Received classes:', classes?.length || 0);
+      return classes || [];
+    } catch (error) {
+      console.error('❌ Error fetching classes by institution:', error);
+      return [];
+    }
+  }
+
+  /**
    * Get students by class (integrates with student service)
    */
   async getStudentsByClass(classId: number, institutionId?: number): Promise<any[]> {
     try {
+      console.log('👥 AttendanceService: Fetching students for class:', classId, 'institution:', institutionId);
+      
       // Import student service dynamically to avoid circular imports
       const { studentService } = await import('./students');
       
@@ -280,13 +304,15 @@ class AttendanceService extends BaseService {
           class_name: classId.toString(),
           per_page: 100
         });
+        console.log('📊 AttendanceService: Received students:', response?.students?.length || 0);
         return response.students || [];
       }
       
       // Fallback: return empty if no institution
+      console.warn('⚠️ No institution provided for getStudentsByClass');
       return [];
     } catch (error) {
-      console.error('Error fetching students by class:', error);
+      console.error('❌ Error fetching students by class:', error);
       return [];
     }
   }

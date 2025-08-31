@@ -3,11 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { toast } from 'sonner';
 import { attendanceService, BulkAttendanceData } from '@/services/attendance';
+import { institutionService } from '@/services/institutions';
 import { useAuth } from '@/contexts/AuthContext';
 
 export interface UseAttendanceDataProps {
   selectedClassId: number | null;
   selectedDate: string;
+  selectedInstitution?: number | null;
 }
 
 export interface AttendanceDataState {
@@ -17,26 +19,57 @@ export interface AttendanceDataState {
   };
 }
 
-export const useAttendanceData = ({ selectedClassId, selectedDate }: UseAttendanceDataProps) => {
+export const useAttendanceData = ({ selectedClassId, selectedDate, selectedInstitution }: UseAttendanceDataProps) => {
   const queryClient = useQueryClient();
   const { currentUser } = useAuth();
   const [attendanceData, setAttendanceData] = useState<AttendanceDataState>({});
+  const [selectedInstitutionId, setSelectedInstitutionId] = useState<number | null>(selectedInstitution || null);
   
   const userInstitutionId = currentUser?.institution?.id;
   const isSuperAdmin = currentUser?.role === 'superadmin';
   const isRegionAdmin = currentUser?.role === 'regionadmin';
+  const isSektorAdmin = currentUser?.role === 'sektoradmin';
+  const isSchoolAdmin = currentUser?.role === 'schooladmin';
 
-  // Fetch classes
+  // Auto-select institution for SchoolAdmin
+  useEffect(() => {
+    if (isSchoolAdmin && userInstitutionId && !selectedInstitutionId) {
+      console.log('🏫 Auto-selecting school admin institution:', userInstitutionId, currentUser?.institution?.name);
+      setSelectedInstitutionId(userInstitutionId);
+    }
+  }, [isSchoolAdmin, userInstitutionId, selectedInstitutionId, currentUser]);
+
+  // Fetch institutions for role-based access (only schools and preschools)
+  const { 
+    data: institutionsResponse, 
+    isLoading: institutionsLoading 
+  } = useQuery({
+    queryKey: ['student-institutions-dropdown'],
+    queryFn: () => {
+      console.log('🏢 AttendanceData: Fetching student institutions (schools & preschools)...');
+      return institutionService.getStudentInstitutions({ per_page: 100 });
+    },
+    enabled: !isSchoolAdmin, // Only fetch if not school admin
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const institutions = institutionsResponse?.data || [];
+
+  // Fetch classes based on selected institution
   const { 
     data: classes,
     isLoading: classesLoading 
   } = useQuery({
-    queryKey: ['schoolAdmin', 'classes'],
+    queryKey: ['attendance-classes', selectedInstitutionId],
     queryFn: async () => {
-      const { schoolAdminService } = await import('@/services/schoolAdmin');
-      return schoolAdminService.getClasses();
+      if (!selectedInstitutionId) return [];
+      
+      console.log('🏛️ Fetching classes for institution:', selectedInstitutionId);
+      
+      // Use attendance service to get classes by institution
+      return attendanceService.getClassesByInstitution(selectedInstitutionId);
     },
-    enabled: !!(userInstitutionId || isSuperAdmin || isRegionAdmin),
+    enabled: !!selectedInstitutionId,
     refetchOnWindowFocus: false,
     staleTime: 1000 * 60 * 10, // 10 minutes
   });
@@ -46,9 +79,9 @@ export const useAttendanceData = ({ selectedClassId, selectedDate }: UseAttendan
     data: students,
     isLoading: studentsLoading 
   } = useQuery({
-    queryKey: ['attendance-students', selectedClassId, userInstitutionId],
-    queryFn: () => selectedClassId ? attendanceService.getStudentsByClass(selectedClassId, userInstitutionId) : Promise.resolve([]),
-    enabled: !!selectedClassId,
+    queryKey: ['attendance-students', selectedClassId, selectedInstitutionId],
+    queryFn: () => selectedClassId ? attendanceService.getStudentsByClass(selectedClassId, selectedInstitutionId) : Promise.resolve([]),
+    enabled: !!selectedClassId && !!selectedInstitutionId,
     refetchOnWindowFocus: false,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -191,17 +224,25 @@ export const useAttendanceData = ({ selectedClassId, selectedDate }: UseAttendan
     existingAttendance,
     attendanceStats,
     attendanceData,
+    institutions,
     
     // Loading states
     classesLoading,
     studentsLoading,
     attendanceLoading,
     statsLoading,
+    institutionsLoading,
+    
+    // Institution state
+    selectedInstitutionId,
+    setSelectedInstitutionId,
     
     // User info
     userInstitutionId,
     isSuperAdmin,
     isRegionAdmin,
+    isSektorAdmin,
+    isSchoolAdmin,
     currentUser,
     
     // Actions

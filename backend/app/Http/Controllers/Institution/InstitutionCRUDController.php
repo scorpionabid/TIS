@@ -28,6 +28,10 @@ class InstitutionCRUDController extends Controller
             $query->where('type', $request->type);
         }
 
+        if ($request->has('level')) {
+            $query->where('level', $request->integer('level'));
+        }
+
         if ($request->has('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
         }
