@@ -102,7 +102,7 @@ export default function Preschools() {
 
   // Fetch preschools
   const { data: preschoolsResponse, isLoading, error } = useQuery({
-    queryKey: ['preschools', filters, currentUser?.role, currentUser?.institution_id],
+    queryKey: ['preschools', filters, currentUser?.role, currentUser?.institution?.id],
     queryFn: () => preschoolsService.getPreschools(filters),
     refetchOnWindowFocus: false,
   });
@@ -133,7 +133,7 @@ export default function Preschools() {
 
   // Fetch statistics
   const { data: statisticsResponse } = useQuery({
-    queryKey: ['preschool-statistics', currentUser?.role, currentUser?.institution_id],
+    queryKey: ['preschool-statistics', currentUser?.role, currentUser?.institution?.id],
     queryFn: () => preschoolsService.getPreschoolStatistics(),
     refetchOnWindowFocus: false,
   });

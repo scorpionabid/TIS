@@ -41,7 +41,7 @@ export default function RegionAdminSectors() {
 
   // Fetch regional sectors
   const { data: sectors, isLoading, error } = useQuery({
-    queryKey: ['regionadmin-sectors', currentUser?.institution_id],
+    queryKey: ['regionadmin-sectors', currentUser?.institution?.id],
     queryFn: async () => {
       // Mock data - replace with actual API call
       const mockSectors: Sector[] = [

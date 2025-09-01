@@ -294,6 +294,14 @@ class ApprovalService {
     });
     return response.data;
   }
+
+  async bulkRejectSurveyResponses(responseIds: number[], reason: string): Promise<ApiResponse<{ rejected_count: number; failed_count: number }>> {
+    const response = await apiClient.post('/approvals/survey-responses/bulk-reject', {
+      response_ids: responseIds,
+      reason
+    });
+    return response.data;
+  }
 }
 
 export const approvalService = new ApprovalService();

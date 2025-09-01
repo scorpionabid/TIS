@@ -49,7 +49,7 @@ export default function Regions() {
 
   // Fetch regions from API with higher per_page to get all institutions
   const { data: institutionsResponse, isLoading, error } = useQuery({
-    queryKey: ['institutions', currentUser?.role, currentUser?.institution_id],
+    queryKey: ['institutions', currentUser?.role, currentUser?.institution?.id],
     queryFn: () => institutionService.getAll({ per_page: 100 }),
   });
 

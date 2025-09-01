@@ -387,4 +387,234 @@ class SurveyController extends BaseController
     {
         return $this->getStats($survey);
     }
+
+    /**
+     * Get survey analytics for RegionAdmin (hierarchical view)
+     */
+    public function getRegionAnalytics(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            
+            if (!$user->hasRole('regionadmin')) {
+                return $this->errorResponse('Bu xidmət yalnız RegionAdmin üçündür', 403);
+            }
+            
+            $userRegionId = $user->institution_id;
+            
+            // Get all institutions in region hierarchy  
+            $allRegionInstitutions = Institution::where(function($query) use ($userRegionId) {
+                $query->where('id', $userRegionId)
+                      ->orWhere('parent_id', $userRegionId)
+                      ->orWhereHas('parent', function($q) use ($userRegionId) {
+                          $q->where('parent_id', $userRegionId);
+                      });
+            })->get();
+            
+            $institutionIds = $allRegionInstitutions->pluck('id');
+            
+            // Survey statistics using creator relationship
+            $totalSurveys = Survey::whereHas('creator', function($q) use ($institutionIds) {
+                $q->whereIn('institution_id', $institutionIds);
+            })->count();
+            
+            $publishedSurveys = Survey::whereHas('creator', function($q) use ($institutionIds) {
+                $q->whereIn('institution_id', $institutionIds);
+            })->where('status', 'published')->count();
+            
+            $draftSurveys = Survey::whereHas('creator', function($q) use ($institutionIds) {
+                $q->whereIn('institution_id', $institutionIds);
+            })->where('status', 'draft')->count();
+            
+            // Response statistics
+            $totalResponses = SurveyResponse::whereHas('survey.creator', function($query) use ($institutionIds) {
+                $query->whereIn('institution_id', $institutionIds);
+            })->count();
+            
+            // Survey performance by sector
+            $surveysBySector = Institution::where('parent_id', $userRegionId)
+                ->where('level', 3)
+                ->with(['children'])
+                ->get()
+                ->map(function($sector) use ($institutionIds) {
+                    $schoolIds = $sector->children->pluck('id');
+                    
+                    $surveys = Survey::whereJsonOverlaps('target_institutions', $schoolIds->toArray())->count();
+                    
+                    $responses = SurveyResponse::whereHas('survey.creator', function($query) use ($institutionIds) {
+                        $query->whereIn('institution_id', $institutionIds);
+                    })->whereIn('institution_id', $schoolIds)->count();
+                    
+                    return [
+                        'sector_name' => $sector->name,
+                        'surveys_count' => $surveys,
+                        'responses_count' => $responses,
+                        'response_rate' => $surveys > 0 ? round(($responses / ($surveys * 10)) * 100, 1) : 0
+                    ];
+                });
+            
+            return $this->successResponse([
+                'survey_totals' => [
+                    'total' => $totalSurveys,
+                    'published' => $publishedSurveys,
+                    'draft' => $draftSurveys,
+                    'total_responses' => $totalResponses
+                ],
+                'surveys_by_sector' => $surveysBySector,
+                'average_response_rate' => $surveysBySector->avg('response_rate') ?? 0,
+                'most_active_sector' => $surveysBySector->sortByDesc('responses_count')->first()
+            ], 'Region analytics retrieved successfully');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Get detailed surveys list with hierarchical filtering
+     */
+    public function getHierarchicalList(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            $perPage = $request->get('per_page', 15);
+            $search = $request->get('search');
+            $statusFilter = $request->get('status');
+            
+            $query = Survey::with(['creator']);
+            
+            // Apply hierarchical filtering based on user role
+            if (!$user->hasRole('superadmin')) {
+                if ($user->hasRole('regionadmin')) {
+                    // RegionAdmin can see surveys from their region
+                    $regionId = $user->institution_id;
+                    $childIds = Institution::where('parent_id', $regionId)
+                        ->orWhereHas('parent', function($q) use ($regionId) {
+                            $q->where('parent_id', $regionId);
+                        })->pluck('id');
+                    
+                    $query->whereHas('creator', function($q) use ($childIds, $user) {
+                        $q->whereIn('institution_id', array_merge($childIds->toArray(), [$user->institution_id]));
+                    });
+                } elseif ($user->hasRole('sektoradmin')) {
+                    // SektorAdmin can see surveys from their sector
+                    $sectorId = $user->institution_id;
+                    $childIds = Institution::where('parent_id', $sectorId)->pluck('id');
+                    
+                    $query->whereHas('creator', function($q) use ($childIds, $user) {
+                        $q->whereIn('institution_id', array_merge($childIds->toArray(), [$user->institution_id]));
+                    });
+                } else {
+                    // Other roles see only their own surveys
+                    $query->where('creator_id', $user->id);
+                }
+            }
+            
+            // Apply search filter
+            if ($search) {
+                $query->where(function($q) use ($search) {
+                    $q->where('title', 'like', "%{$search}%")
+                      ->orWhere('description', 'like', "%{$search}%");
+                });
+            }
+            
+            // Apply status filter
+            if ($statusFilter) {
+                $query->where('status', $statusFilter);
+            }
+            
+            $surveys = $query->orderBy('created_at', 'desc')->paginate($perPage);
+            
+            return $this->paginatedResponse($surveys, 'Hierarchical surveys list retrieved successfully');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Get analytics for a specific survey
+     */
+    public function getSurveyAnalytics(Survey $survey): JsonResponse
+    {
+        try {
+            $analytics = [
+                'survey_id' => $survey->id,
+                'title' => $survey->title,
+                'total_responses' => $survey->responses()->count(),
+                'completion_rate' => $survey->getCompletionRate(),
+                'response_by_status' => [
+                    'draft' => $survey->responses()->where('status', 'draft')->count(),
+                    'submitted' => $survey->responses()->where('status', 'submitted')->count(),
+                    'approved' => $survey->responses()->where('status', 'approved')->count(),
+                    'rejected' => $survey->responses()->where('status', 'rejected')->count(),
+                ],
+                'created_at' => $survey->created_at,
+                'start_date' => $survey->start_date,
+                'end_date' => $survey->end_date,
+            ];
+
+            return $this->successResponse($analytics, 'Survey analytics retrieved successfully');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Get insights for a specific survey
+     */
+    public function getSurveyInsights(Survey $survey): JsonResponse
+    {
+        try {
+            $insights = [
+                'survey_id' => $survey->id,
+                'title' => $survey->title,
+                'performance_metrics' => [
+                    'avg_completion_time' => $survey->getAverageCompletionTime(),
+                    'response_rate' => $survey->getResponseRate(),
+                    'abandonment_rate' => $survey->getAbandonmentRate(),
+                ],
+                'question_analysis' => $survey->questions->map(function ($question) {
+                    return [
+                        'id' => $question->id,
+                        'title' => $question->title,
+                        'type' => $question->type,
+                        'response_count' => $question->responses()->count(),
+                        'summary' => $question->getResponseSummary(),
+                    ];
+                }),
+                'recommendations' => $this->generateInsightRecommendations($survey),
+            ];
+
+            return $this->successResponse($insights, 'Survey insights retrieved successfully');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Generate recommendations based on survey data
+     */
+    private function generateInsightRecommendations(Survey $survey): array
+    {
+        $recommendations = [];
+        
+        $completionRate = $survey->getCompletionRate();
+        if ($completionRate < 50) {
+            $recommendations[] = [
+                'type' => 'completion_rate',
+                'message' => 'Tamamlama nisbəti aşağıdır. Sorğunu sadələşdirməyi və ya təklifləri daha cəlbedici etməyi nəzərə alın.',
+                'priority' => 'high'
+            ];
+        }
+
+        $questionCount = $survey->questions()->count();
+        if ($questionCount > 20) {
+            $recommendations[] = [
+                'type' => 'question_count',
+                'message' => 'Sualların sayı çoxdur. Sorğunu qısaltmağı nəzərə alın.',
+                'priority' => 'medium'
+            ];
+        }
+
+        return $recommendations;
+    }
 }

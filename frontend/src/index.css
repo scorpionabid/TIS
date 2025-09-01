@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import mobile optimizations */
+@import './styles/mobile-optimizations.css';
+
 /* Azerbaijan Education Management System (ATİS) Design System
 Inspired by Azerbaijan's national colors and modern government interfaces
 All colors MUST be HSL format for consistent theming

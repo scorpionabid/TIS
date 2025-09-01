@@ -73,19 +73,21 @@ class SurveyCrudService
                 'description' => $data['description'] ?? null,
                 'survey_type' => $data['survey_type'] ?? 'form',
                 'status' => $data['status'] ?? 'draft',
-                'questions' => $data['questions'] ?? [],
-                'settings' => $data['settings'] ?? [],
-                'targeting_rules' => $data['targeting_rules'] ?? [],
+                'structure' => [
+                    'settings' => $data['settings'] ?? [],
+                    'notification_settings' => $data['notification_settings'] ?? [],
+                ],
+                'target_institutions' => $data['target_institutions'] ?? [],
+                'target_departments' => $data['target_departments'] ?? [],
                 'start_date' => $data['start_date'] ?? null,
                 'end_date' => $data['end_date'] ?? null,
                 'creator_id' => Auth::id(),
-                'institution_id' => $data['institution_id'] ?? Auth::user()->institution_id,
-                'max_responses' => $data['max_responses'] ?? null,
+                'max_questions' => $data['max_questions'] ?? 10,
+                'completion_threshold' => $data['max_responses'] ?? null,
                 'is_anonymous' => $data['is_anonymous'] ?? false,
                 'allow_multiple_responses' => $data['allow_multiple_responses'] ?? false,
-                'requires_login' => $data['requires_login'] ?? true,
-                'auto_close_on_max' => $data['auto_close_on_max'] ?? false,
-                'notification_settings' => $data['notification_settings'] ?? [],
+                'approval_status' => 'pending',
+                'estimated_recipients' => count($data['target_institutions'] ?? []) * 10,
             ]);
 
             // Create questions if provided
@@ -103,6 +105,9 @@ class SurveyCrudService
                         'validation_rules' => $questionData['validation'] ?? null,
                     ]);
                 }
+                
+                // Update questions count
+                $survey->updateQuestionsCount();
             }
 
             // Create initial version
@@ -130,19 +135,51 @@ class SurveyCrudService
         return DB::transaction(function () use ($survey, $data) {
             $oldData = $survey->toArray();
             
-            // Prepare update data
+            // Prepare update data for valid Survey fields
             $updateData = array_intersect_key($data, array_flip([
-                'title', 'description', 'survey_type', 'questions', 'settings', 
-                'targeting_rules', 'start_date', 'end_date', 'max_responses',
-                'is_anonymous', 'allow_multiple_responses', 'requires_login',
-                'auto_close_on_max', 'notification_settings'
+                'title', 'description', 'survey_type', 'start_date', 'end_date',
+                'is_anonymous', 'allow_multiple_responses', 'max_questions',
+                'completion_threshold', 'target_institutions', 'target_departments'
             ]));
+
+            // Update structure if settings changed
+            if (isset($data['settings']) || isset($data['notification_settings'])) {
+                $structure = $survey->structure ?? [];
+                if (isset($data['settings'])) {
+                    $structure['settings'] = $data['settings'];
+                }
+                if (isset($data['notification_settings'])) {
+                    $structure['notification_settings'] = $data['notification_settings'];
+                }
+                $updateData['structure'] = $structure;
+            }
 
             // Update survey
             $survey->update($updateData);
 
-            // Create version if questions changed
-            if (isset($data['questions']) && $data['questions'] !== $oldData['questions']) {
+            // Update questions if provided
+            if (isset($data['questions'])) {
+                // Remove old questions
+                $survey->questions()->delete();
+                
+                // Create new questions
+                foreach ($data['questions'] as $index => $questionData) {
+                    $backendType = $this->mapQuestionType($questionData['type']);
+                    
+                    $survey->questions()->create([
+                        'title' => $questionData['question'],
+                        'type' => $backendType,
+                        'order_index' => $questionData['order'] ?? $index + 1,
+                        'is_required' => $questionData['required'] ?? false,
+                        'options' => $questionData['options'] ?? null,
+                        'validation_rules' => $questionData['validation'] ?? null,
+                    ]);
+                }
+                
+                // Update questions count
+                $survey->updateQuestionsCount();
+                
+                // Create version for questions change
                 $this->createVersion($survey, 'Questions updated', $data);
             }
 
@@ -518,21 +555,109 @@ class SurveyCrudService
     private function mapQuestionType(string $frontendType): string
     {
         $mapping = [
+            // Legacy frontend types (for backward compatibility)
             'radio' => 'single_choice',
-            'checkbox' => 'multiple_choice',
-            'text' => 'text',
+            'checkbox' => 'multiple_choice', 
             'textarea' => 'text',
-            'number' => 'number',
             'email' => 'text',
-            'date' => 'date',
+            'select' => 'single_choice',
             'file' => 'file_upload',
+            
+            // New aligned types (pass through)
+            'text' => 'text',
+            'number' => 'number', 
+            'date' => 'date',
+            'single_choice' => 'single_choice',
+            'multiple_choice' => 'multiple_choice',
+            'file_upload' => 'file_upload',
             'rating' => 'rating',
-            'select' => 'single_choice'
+            'table_matrix' => 'table_matrix',
         ];
 
         return $mapping[$frontendType] ?? 'text';
     }
     
+    /**
+     * Get hierarchical institution IDs for user
+     */
+    public function getHierarchicalInstitutionIds($user): array
+    {
+        if ($user->hasRole('superadmin')) {
+            return Institution::pluck('id')->toArray();
+        }
+        
+        if ($user->hasRole('regionadmin')) {
+            $userRegionId = $user->institution_id;
+            return Institution::where(function($query) use ($userRegionId) {
+                $query->where('id', $userRegionId)
+                      ->orWhere('parent_id', $userRegionId)
+                      ->orWhereHas('parent', function($q) use ($userRegionId) {
+                          $q->where('parent_id', $userRegionId);
+                      });
+            })->pluck('id')->toArray();
+        }
+        
+        if ($user->hasRole('sektoradmin')) {
+            $userSectorId = $user->institution_id;
+            return Institution::where(function($query) use ($userSectorId) {
+                $query->where('id', $userSectorId)
+                      ->orWhere('parent_id', $userSectorId);
+            })->pluck('id')->toArray();
+        }
+        
+        // SchoolAdmin and other roles see only their own institution
+        return [$user->institution_id];
+    }
+
+    /**
+     * Apply hierarchical access control to survey query
+     */
+    public function applyHierarchicalFiltering($query, $user): void
+    {
+        if ($user->hasRole('superadmin')) {
+            return; // SuperAdmin sees all
+        }
+        
+        $allowedInstitutionIds = $this->getHierarchicalInstitutionIds($user);
+        
+        $query->whereHas('creator', function($q) use ($allowedInstitutionIds) {
+            $q->whereIn('institution_id', $allowedInstitutionIds);
+        });
+    }
+
+    /**
+     * Get performance metrics by sector (for RegionAdmin)
+     */
+    public function getPerformanceBySector($user): array
+    {
+        if (!$user->hasRole('regionadmin')) {
+            return [];
+        }
+        
+        $userRegionId = $user->institution_id;
+        
+        return Institution::where('parent_id', $userRegionId)
+            ->where('level', 3)
+            ->with(['children'])
+            ->get()
+            ->map(function($sector) {
+                $schoolIds = $sector->children->pluck('id');
+                
+                $surveys = Survey::whereJsonOverlaps('target_institutions', $schoolIds->toArray())->count();
+                
+                $responses = SurveyResponse::whereHas('survey', function($query) {
+                    // Survey from this region
+                })->whereIn('institution_id', $schoolIds)->count();
+                
+                return [
+                    'sector_name' => $sector->name,
+                    'surveys_count' => $surveys,
+                    'responses_count' => $responses,
+                    'response_rate' => $surveys > 0 ? round(($responses / ($surveys * 10)) * 100, 1) : 0
+                ];
+            })->toArray();
+    }
+
     /**
      * Log activity
      */

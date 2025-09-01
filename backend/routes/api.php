@@ -31,6 +31,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Survey Management Routes
     require __DIR__ . '/api/surveys.php';
     
+    // Survey Approval Routes (Enhanced)
+    require __DIR__ . '/api/survey-approval.php';
+    
     // Educational Management Routes
     require __DIR__ . '/api/educational.php';
     
@@ -43,4 +46,4 @@ Route::middleware('auth:sanctum')->group(function () {
     // Specialized Module Routes
     require __DIR__ . '/api/specialized.php';
     
-});
+});Route::get('/test-approval', function() { return response()->json(['status' => 'working']); });

@@ -161,26 +161,27 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     switch (question.type) {
       case 'text':
         return (
-          <Input
-            value={value || ''}
-            onChange={(e) => handleInputChange(questionId, e.target.value)}
-            placeholder="Cavabınızı yazın..."
-            className="w-full"
-          />
-        );
-
-      case 'textarea':
-        return (
           <Textarea
             value={value || ''}
             onChange={(e) => handleInputChange(questionId, e.target.value)}
-            placeholder="Ətraflı cavabınızı yazın..."
-            rows={4}
+            placeholder="Cavabınızı yazın..."
+            rows={3}
             className="w-full"
           />
         );
 
-      case 'radio':
+      case 'number':
+        return (
+          <Input
+            type="number"
+            value={value || ''}
+            onChange={(e) => handleInputChange(questionId, e.target.value)}
+            placeholder="Rəqəm daxil edin..."
+            className="w-full"
+          />
+        );
+
+      case 'single_choice':
         return (
           <RadioGroup
             value={value || ''}
@@ -196,7 +197,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
           </RadioGroup>
         );
 
-      case 'checkbox':
+      case 'multiple_choice':
         const checkboxValue = value || [];
         return (
           <div className="space-y-2">
@@ -218,39 +219,29 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
           </div>
         );
 
-      case 'select':
-        return (
-          <Select value={value || ''} onValueChange={(val) => handleInputChange(questionId, val)}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Seçin..." />
-            </SelectTrigger>
-            <SelectContent>
-              {question.options?.map((option, index) => (
-                <SelectItem key={index} value={option}>
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        );
-
       case 'rating':
-        const ratings = [1, 2, 3, 4, 5];
+        const ratings = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         return (
-          <RadioGroup
-            value={value?.toString() || ''}
-            onValueChange={(val) => handleInputChange(questionId, parseInt(val))}
-            className="flex space-x-4"
-          >
-            {ratings.map((rating) => (
-              <div key={rating} className="flex flex-col items-center space-y-1">
-                <RadioGroupItem value={rating.toString()} id={`${questionId}-${rating}`} />
-                <Label htmlFor={`${questionId}-${rating}`} className="text-xs">
-                  {rating}
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center text-sm text-gray-600">
+              <span>Pis</span>
+              <span>Əla</span>
+            </div>
+            <RadioGroup
+              value={value?.toString() || ''}
+              onValueChange={(val) => handleInputChange(questionId, parseInt(val))}
+              className="flex space-x-2 justify-between"
+            >
+              {ratings.map((rating) => (
+                <div key={rating} className="flex flex-col items-center space-y-1">
+                  <RadioGroupItem value={rating.toString()} id={`${questionId}-${rating}`} />
+                  <Label htmlFor={`${questionId}-${rating}`} className="text-xs">
+                    {rating}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
         );
 
       case 'date':
@@ -261,6 +252,37 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
             onChange={(e) => handleInputChange(questionId, e.target.value)}
             className="w-full"
           />
+        );
+
+      case 'file_upload':
+        return (
+          <div className="space-y-2">
+            <Input
+              type="file"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  handleInputChange(questionId, {
+                    name: file.name,
+                    size: file.size,
+                    type: file.type
+                  });
+                }
+              }}
+              accept=".pdf,.doc,.docx,.xls,.xlsx"
+              className="w-full"
+            />
+            {value && (
+              <p className="text-sm text-gray-600">Seçilmiş fayl: {value.name}</p>
+            )}
+          </div>
+        );
+
+      case 'table_matrix':
+        return (
+          <div className="space-y-2">
+            <p className="text-sm text-gray-600">Cədvəl tipli suallar hələ dəstəklənmir</p>
+          </div>
         );
 
       default:

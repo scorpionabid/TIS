@@ -24,7 +24,7 @@ interface SurveyModalProps {
 interface Question {
   id?: string;
   question: string;
-  type: 'text' | 'textarea' | 'number' | 'radio' | 'checkbox' | 'select' | 'rating' | 'date' | 'file_upload';
+  type: 'text' | 'number' | 'date' | 'single_choice' | 'multiple_choice' | 'file_upload' | 'rating' | 'table_matrix';
   options?: string[];
   required: boolean;
   order: number;
@@ -37,15 +37,14 @@ interface Question {
 }
 
 const questionTypes = [
-  { value: 'text', label: 'Qısa mətn' },
-  { value: 'textarea', label: 'Uzun mətn' },
-  { value: 'number', label: 'Rəqəm' },
-  { value: 'radio', label: 'Tək seçim' },
-  { value: 'checkbox', label: 'Çox seçim' },
-  { value: 'select', label: 'Dropdown seçim' },
-  { value: 'rating', label: 'Qiymətləndirmə' },
-  { value: 'date', label: 'Tarix' },
+  { value: 'text', label: 'Mətn sahəsi' },
+  { value: 'number', label: 'Rəqəm sahəsi' },
+  { value: 'date', label: 'Tarix seçimi' },
+  { value: 'single_choice', label: 'Tək seçim' },
+  { value: 'multiple_choice', label: 'Çox seçim' },
   { value: 'file_upload', label: 'Fayl yükləmə' },
+  { value: 'rating', label: 'Qiymətləndirmə' },
+  { value: 'table_matrix', label: 'Cədvəl/Matris' },
 ];
 
 export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps) {
@@ -281,7 +280,7 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
     }));
   };
 
-  const needsOptions = ['radio', 'checkbox', 'select'].includes(newQuestion.type as string);
+  const needsOptions = ['single_choice', 'multiple_choice'].includes(newQuestion.type as string);
   const needsNumberValidation = newQuestion.type === 'number';
   const needsFileValidation = newQuestion.type === 'file_upload';
 

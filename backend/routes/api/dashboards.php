@@ -4,9 +4,9 @@ use App\Http\Controllers\SuperAdminDashboardController;
 use App\Http\Controllers\RegionAdmin\RegionAdminDashboardController;
 use App\Http\Controllers\RegionAdmin\RegionAdminInstitutionController;
 use App\Http\Controllers\RegionAdmin\RegionAdminUserController;
-use App\Http\Controllers\RegionAdmin\RegionAdminSurveyController;
 use App\Http\Controllers\RegionAdmin\RegionAdminReportsController;
 use App\Http\Controllers\RegionAdmin\RegionAdminTaskController;
+use App\Http\Controllers\SurveyController;
 use App\Http\Controllers\RegionOperator\RegionOperatorDashboardController;
 use App\Http\Controllers\SektorAdmin\SektorAdminDashboardController;
 use App\Http\Controllers\MektebAdmin\MektebAdminDashboardController;
@@ -84,10 +84,8 @@ Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|supera
     // Route::post('users/{user}/assign-institution', [RegionAdminUserController::class, 'assignInstitution']);
     // Route::post('users/bulk-create', [RegionAdminUserController::class, 'bulkCreateUsers']);
     
-    // Survey analytics endpoints
-    Route::get('surveys/analytics', [RegionAdminSurveyController::class, 'getSurveyAnalytics']);
-    Route::get('surveys/{survey}/responses', [RegionAdminSurveyController::class, 'getSurveyResponses']);
-    Route::get('surveys/{survey}/statistics', [RegionAdminSurveyController::class, 'getSurveyStatistics']);
+    // Survey analytics endpoints for RegionAdmin dashboard
+    Route::get('surveys/dashboard-analytics', [SurveyController::class, 'getRegionAnalytics']);
     
     // Reports endpoints
     Route::get('reports/institutions', [RegionAdminReportsController::class, 'getInstitutionReports']);

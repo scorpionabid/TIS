@@ -169,16 +169,31 @@ class PermissionSeeder extends Seeder
             'schedules.delete',
             'schedules.approve',
 
-            // Approval Management
+            // Approval Management - Enhanced
             'approvals.create',
             'approvals.read',
-            'approvals.update',
+            'approvals.update', 
             'approvals.delete',
             'approvals.approve',
             'approvals.reject',
+            'approvals.return',
+            'approvals.bulk_approve',
+            'approvals.bulk_reject',
             'approvals.analytics',
             'approvals.reports',
             'approvals.delegate',
+            'approvals.workflow_manage',
+            'approvals.template_manage',
+            
+            // Task Approval Specific
+            'tasks.approve',
+            'tasks.reject',
+            'tasks.approve_bulk',
+            
+            // Event Approval Specific  
+            'events.approve',
+            'events.reject',
+            'events.approve_bulk',
 
             // Room Management - Phase 2 API
             'rooms.create',
@@ -296,7 +311,8 @@ class PermissionSeeder extends Seeder
                 'subjects.create', 'subjects.read', 'subjects.update', 'subjects.delete', 'subjects.manage', 'subjects.assign',
                 'students.create', 'students.read', 'students.update', 'students.delete', 'students.write', 'students.manage', 'students.export', 'students.import', 'students.bulk', 'students.grades', 'students.attendance', 'students.schedule', 'students.enroll', 'students.transfer', 'students.graduate', 'students.analytics', 'students.reports',
                 'classes.create', 'classes.read', 'classes.update', 'classes.delete', 'classes.write', 'classes.manage', 'classes.assign', 'classes.students', 'classes.teachers', 'classes.schedule', 'classes.attendance', 'classes.grades', 'classes.bulk', 'classes.analytics',
-                'approvals.create', 'approvals.read', 'approvals.update', 'approvals.delete', 'approvals.approve', 'approvals.reject', 'approvals.analytics', 'approvals.reports', 'approvals.delegate',
+                'approvals.create', 'approvals.read', 'approvals.update', 'approvals.delete', 'approvals.approve', 'approvals.reject', 'approvals.return', 'approvals.bulk_approve', 'approvals.bulk_reject', 'approvals.analytics', 'approvals.reports', 'approvals.delegate', 'approvals.workflow_manage', 'approvals.template_manage',
+                'tasks.approve', 'tasks.reject', 'tasks.approve_bulk', 'events.approve', 'events.reject', 'events.approve_bulk',
                 'rooms.create', 'rooms.read', 'rooms.update', 'rooms.delete', 'rooms.manage', 'rooms.assign',
                 'grades.create', 'grades.read', 'grades.update', 'grades.delete', 'grades.manage', 'grades.assign',
                 'events.create', 'events.read', 'events.update', 'events.delete', 'events.manage', 'events.approve', 'events.register', 'events.cancel',
@@ -327,7 +343,8 @@ class PermissionSeeder extends Seeder
                 'inventory.create', 'inventory.read', 'inventory.update', 'inventory.manage', 'inventory.assign', 'inventory.maintenance',
                 'view teacher_performance', 'create teacher_performance', 'edit teacher_performance', 'manage teacher_performance', 'approve teacher_performance',
                 'departments.create', 'departments.read', 'departments.update', 'departments.delete', 'departments.manage', 'departments.write',
-                'approvals.create', 'approvals.read', 'approvals.approve', 'approvals.reject', 'approvals.analytics', 'approvals.delegate',
+                'approvals.create', 'approvals.read', 'approvals.approve', 'approvals.reject', 'approvals.return', 'approvals.bulk_approve', 'approvals.bulk_reject', 'approvals.analytics', 'approvals.delegate',
+                'tasks.approve', 'tasks.reject', 'events.approve', 'events.reject',
                 'links.create', 'links.read', 'links.update', 'links.delete', 'links.share', 'links.bulk', 'links.analytics', 'links.tracking',
                 'analytics.view'
             ],
@@ -372,7 +389,8 @@ class PermissionSeeder extends Seeder
                 'rooms.read', 'rooms.update',
                 'grades.read', 'grades.update',
                 'events.read', 'events.register',
-                'approvals.read', 'approvals.approve', 'approvals.reject',
+                'approvals.read', 'approvals.approve', 'approvals.reject', 'approvals.return',
+                'tasks.approve', 'tasks.reject', 'events.approve', 'events.reject',
                 'departments.read',
                 'students.read',
                 'classes.read',

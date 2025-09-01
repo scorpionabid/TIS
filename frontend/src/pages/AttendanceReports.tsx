@@ -99,7 +99,7 @@ export default function AttendanceReports() {
 
   // Load schools data (only for higher admins)
   const { data: schoolsResponse } = useQuery({
-    queryKey: ['institutions', 'schools', currentUser?.role, currentUser?.institution_id],
+    queryKey: ['institutions', 'schools', currentUser?.role, currentUser?.institution?.id],
     queryFn: () => institutionService.getAll(),
     enabled: isSuperAdmin || isRegionAdmin || isSektorAdmin
   });
@@ -114,7 +114,7 @@ export default function AttendanceReports() {
 
   // Load attendance data
   const { data: attendanceResponse, isLoading: attendanceLoading, refetch } = useQuery({
-    queryKey: ['attendance-reports', selectedSchool, selectedClass, startDate, endDate, reportType, currentUser?.role, currentUser?.institution_id],
+    queryKey: ['attendance-reports', selectedSchool, selectedClass, startDate, endDate, reportType, currentUser?.role, currentUser?.institution?.id],
     queryFn: () => {
       const filters: any = {
         start_date: startDate,
@@ -138,7 +138,7 @@ export default function AttendanceReports() {
 
   // Load attendance stats
   const { data: statsResponse } = useQuery({
-    queryKey: ['attendance-stats-reports', selectedSchool, startDate, endDate, currentUser?.role, currentUser?.institution_id],
+    queryKey: ['attendance-stats-reports', selectedSchool, startDate, endDate, currentUser?.role, currentUser?.institution?.id],
     queryFn: () => {
       const filters: any = {
         start_date: startDate,

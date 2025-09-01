@@ -1,10 +1,12 @@
 import React, { Suspense } from 'react';
 import { Loader2 } from 'lucide-react';
+import { ErrorBoundary } from './ErrorBoundary';
 
 interface LazyWrapperProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
   minHeight?: string;
+  errorFallback?: React.ReactNode;
 }
 
 const DefaultFallback = ({ minHeight = "400px" }: { minHeight?: string }) => (
@@ -22,12 +24,15 @@ const DefaultFallback = ({ minHeight = "400px" }: { minHeight?: string }) => (
 export const LazyWrapper: React.FC<LazyWrapperProps> = ({ 
   children, 
   fallback,
-  minHeight = "400px"
+  minHeight = "400px",
+  errorFallback
 }) => {
   return (
-    <Suspense fallback={fallback || <DefaultFallback minHeight={minHeight} />}>
-      {children}
-    </Suspense>
+    <ErrorBoundary fallback={errorFallback}>
+      <Suspense fallback={fallback || <DefaultFallback minHeight={minHeight} />}>
+        {children}
+      </Suspense>
+    </ErrorBoundary>
   );
 };
 

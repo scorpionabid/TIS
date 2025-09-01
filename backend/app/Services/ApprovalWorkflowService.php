@@ -110,7 +110,7 @@ class ApprovalWorkflowService extends BaseService
                 'current_status' => $nextStatus,
                 'current_approver_role' => $nextStatus === 'approved' ? null : $this->getNextApproverRole($workflow, $approval->current_approver_role),
                 'approved_at' => $nextStatus === 'approved' ? now() : null,
-                'processed_at' => now()
+                'completed_at' => now()
             ]);
 
             // Create notifications
@@ -155,7 +155,7 @@ class ApprovalWorkflowService extends BaseService
                 'current_status' => 'rejected',
                 'current_approver_role' => null,
                 'rejected_at' => now(),
-                'processed_at' => now()
+                'completed_at' => now()
             ]);
 
             // Create rejection notification
@@ -195,7 +195,7 @@ class ApprovalWorkflowService extends BaseService
             $approval->update([
                 'current_status' => 'needs_revision',
                 'current_approver_role' => null,
-                'processed_at' => now()
+                'completed_at' => now()
             ]);
 
             // Create revision notification
@@ -344,8 +344,8 @@ class ApprovalWorkflowService extends BaseService
 
         // Processing time analytics
         $processingTimes = DataApprovalRequest::whereBetween('created_at', [$dateFrom, $dateTo])
-            ->whereNotNull('processed_at')
-            ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, created_at, processed_at)) as avg_hours')
+            ->whereNotNull('completed_at')
+            ->selectRaw('AVG((julianday(completed_at) - julianday(created_at)) * 24) as avg_hours')
             ->value('avg_hours');
 
         // Approval rate by workflow type

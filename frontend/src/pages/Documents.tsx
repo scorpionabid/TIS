@@ -46,7 +46,7 @@ export default function Documents() {
   const canTrackDocuments = currentUser && ['superadmin', 'regionadmin'].includes(currentUser.role);
   
   const { data: documents, isLoading } = useQuery({
-    queryKey: ['documents', searchTerm, categoryFilter, typeFilter, accessLevelFilter, uploaderFilter, dateFilter, currentUser?.role, currentUser?.institution_id],
+    queryKey: ['documents', searchTerm, categoryFilter, typeFilter, accessLevelFilter, uploaderFilter, dateFilter, currentUser?.role, currentUser?.institution?.id],
     queryFn: () => documentService.getAll({
       search: searchTerm || undefined,
       category: categoryFilter === 'all' ? undefined : categoryFilter,

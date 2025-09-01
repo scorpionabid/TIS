@@ -36,13 +36,14 @@ export function SurveyViewModal({ open, onClose, survey }: SurveyViewModalProps)
 
   const getQuestionTypeBadge = (type: string) => {
     const types: Record<string, string> = {
-      'text': 'Qısa mətn',
-      'textarea': 'Uzun mətn',
-      'radio': 'Tək seçim',
-      'checkbox': 'Çox seçim',
-      'select': 'Dropdown',
+      'text': 'Mətn sahəsi',
+      'number': 'Rəqəm sahəsi', 
+      'date': 'Tarix seçimi',
+      'single_choice': 'Tək seçim',
+      'multiple_choice': 'Çox seçim',
+      'file_upload': 'Fayl yükləmə',
       'rating': 'Qiymətləndirmə',
-      'date': 'Tarix'
+      'table_matrix': 'Cədvəl/Matris'
     };
     
     return (

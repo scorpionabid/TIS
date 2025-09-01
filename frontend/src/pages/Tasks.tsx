@@ -94,7 +94,7 @@ export default function Tasks() {
 
   // Load tasks
   const { data: tasksResponse, isLoading, error } = useQuery({
-    queryKey: ['tasks', currentUser?.role, currentUser?.institution_id],
+    queryKey: ['tasks', currentUser?.role, currentUser?.institution?.id],
     queryFn: () => taskService.getAll(),
   });
 

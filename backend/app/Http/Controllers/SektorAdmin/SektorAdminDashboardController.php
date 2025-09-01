@@ -5,8 +5,8 @@ namespace App\Http\Controllers\SektorAdmin;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\SektorAdmin\Dashboard\DashboardStatsController;
 use App\Http\Controllers\SektorAdmin\Dashboard\SchoolManagementController;
-use App\Http\Controllers\SektorAdmin\Dashboard\SurveyApprovalController;
-use App\Http\Controllers\SektorAdmin\Dashboard\TaskApprovalController;
+// Note: SurveyApprovalController and TaskApprovalController have been consolidated
+// into the main SurveyApprovalController and will be handled via service layer
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -14,15 +14,11 @@ class SektorAdminDashboardController extends Controller
 {
     protected $statsController;
     protected $schoolController;
-    protected $surveyController;
-    protected $taskController;
 
     public function __construct()
     {
         $this->statsController = new DashboardStatsController();
         $this->schoolController = new SchoolManagementController();
-        $this->surveyController = new SurveyApprovalController();
-        $this->taskController = new TaskApprovalController();
     }
 
     /**
@@ -50,75 +46,107 @@ class SektorAdminDashboardController extends Controller
     }
 
     /**
-     * Get pending survey responses for approval
+     * Survey approval methods moved to main SurveyApprovalController
+     * These methods are deprecated and will redirect to the new controller
+     */
+    
+    /**
+     * @deprecated Use SurveyApprovalController instead
      */
     public function getPendingSurveyResponses(Request $request): JsonResponse
     {
-        return $this->surveyController->getPendingSurveyResponses($request);
+        // Redirect to new approval system
+        return response()->json([
+            'message' => 'Survey approval functionality has been moved to /api/survey-approval endpoints',
+            'redirect_to' => '/api/survey-approval/pending'
+        ], 301);
     }
 
     /**
-     * Get survey response details for review
+     * @deprecated Use SurveyApprovalController instead
      */
     public function getSurveyResponseDetails(Request $request, int $responseId): JsonResponse
     {
-        return $this->surveyController->getSurveyResponseDetails($request, $responseId);
+        return response()->json([
+            'message' => 'Survey approval functionality has been moved to /api/survey-approval endpoints',
+            'redirect_to' => "/api/survey-approval/requests/{$responseId}"
+        ], 301);
     }
 
     /**
-     * Approve survey response
+     * @deprecated Use SurveyApprovalController instead
      */
     public function approveSurveyResponse(Request $request, int $responseId): JsonResponse
     {
-        return $this->surveyController->approveSurveyResponse($request, $responseId);
+        return response()->json([
+            'message' => 'Survey approval functionality has been moved to /api/survey-approval endpoints',
+            'redirect_to' => "/api/survey-approval/requests/{$responseId}/approve"
+        ], 301);
     }
 
     /**
-     * Reject survey response
+     * @deprecated Use SurveyApprovalController instead
      */
     public function rejectSurveyResponse(Request $request, int $responseId): JsonResponse
     {
-        return $this->surveyController->rejectSurveyResponse($request, $responseId);
+        return response()->json([
+            'message' => 'Survey approval functionality has been moved to /api/survey-approval endpoints',
+            'redirect_to' => "/api/survey-approval/requests/{$responseId}/reject"
+        ], 301);
     }
 
-
     /**
-     * Get pending tasks for approval
+     * @deprecated Task approval functionality to be handled by task management system
      */
     public function getPendingTasks(Request $request): JsonResponse
     {
-        return $this->taskController->getPendingTasks($request);
+        return response()->json([
+            'message' => 'Task approval functionality handled by task management system',
+            'redirect_to' => '/api/tasks/pending'
+        ], 301);
     }
 
     /**
-     * Get task details for review
+     * @deprecated Task approval functionality to be handled by task management system
      */
     public function getTaskDetails(Request $request, int $taskId): JsonResponse
     {
-        return $this->taskController->getTaskDetails($request, $taskId);
+        return response()->json([
+            'message' => 'Task approval functionality handled by task management system',
+            'redirect_to' => "/api/tasks/{$taskId}"
+        ], 301);
     }
 
     /**
-     * Approve task
+     * @deprecated Task approval functionality to be handled by task management system
      */
     public function approveTask(Request $request, int $taskId): JsonResponse
     {
-        return $this->taskController->approveTask($request, $taskId);
+        return response()->json([
+            'message' => 'Task approval functionality handled by task management system',
+            'redirect_to' => "/api/tasks/{$taskId}/approve"
+        ], 301);
     }
 
     /**
-     * Reject task
+     * @deprecated Task approval functionality to be handled by task management system
      */
     public function rejectTask(Request $request, int $taskId): JsonResponse
     {
-        return $this->taskController->rejectTask($request, $taskId);
+        return response()->json([
+            'message' => 'Task approval functionality handled by task management system',
+            'redirect_to' => "/api/tasks/{$taskId}/reject"
+        ], 301);
     }
 
     /**
-     * Get task statistics for sector
+     * @deprecated Task approval functionality to be handled by task management system
      */
     public function getTaskStatistics(Request $request): JsonResponse
     {
-        return $this->taskController->getTaskStatistics($request);
+        return response()->json([
+            'message' => 'Task statistics handled by task management system',
+            'redirect_to' => '/api/tasks/statistics'
+        ], 301);
     }
 }

@@ -90,15 +90,18 @@ const SurveyResponsesTab: React.FC = () => {
     try {
       setLoading(true);
       const response = await approvalService.getSurveysForApproval();
-      if (response.success) {
+      if (response.success && Array.isArray(response.data)) {
         setSurveys(response.data);
         if (response.data.length > 0) {
           setSelectedSurvey(response.data[0]);
         }
+      } else {
+        setSurveys([]);
       }
     } catch (error) {
       console.error('Error loading surveys:', error);
       toast.error('Sorğular yüklənərkən xəta baş verdi');
+      setSurveys([]);
     } finally {
       setLoading(false);
     }
@@ -112,22 +115,25 @@ const SurveyResponsesTab: React.FC = () => {
       const response = await approvalService.getSurveyResponsesHierarchical(statusFilter, selectedSurvey?.id);
       if (response.success) {
         // Handle new API response structure
-        let filteredResponses = response.data.survey_responses || response.data;
+        let filteredResponses = response.data?.survey_responses || response.data || [];
         
         // Apply search filter
-        if (searchTerm) {
+        if (searchTerm && Array.isArray(filteredResponses)) {
           filteredResponses = filteredResponses.filter((response: SurveyResponse) => 
-            response.institution.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            response.respondent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            response.respondent.email.toLowerCase().includes(searchTerm.toLowerCase())
+            response?.institution?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            response?.respondent?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            response?.respondent?.email?.toLowerCase().includes(searchTerm.toLowerCase())
           );
         }
 
-        setSurveyResponses(filteredResponses);
+        setSurveyResponses(Array.isArray(filteredResponses) ? filteredResponses : []);
+      } else {
+        setSurveyResponses([]);
       }
     } catch (error) {
       console.error('Error loading survey responses:', error);
       toast.error('Sorğu cavabları yüklənərkən xəta baş verdi');
+      setSurveyResponses([]);
     } finally {
       setLoading(false);
     }
@@ -165,16 +171,45 @@ const SurveyResponsesTab: React.FC = () => {
   const handleBulkApprove = async () => {
     if (selectedResponses.length === 0) return;
 
+    const confirmMessage = `${selectedResponses.length} sorğu cavabını təsdiqləməyə əminsiniz? Bu əməliyyat geri qaytarıla bilməz.`;
+    if (!confirm(confirmMessage)) return;
+
     try {
       const response = await approvalService.bulkApproveSurveyResponses(selectedResponses);
       if (response.success) {
-        toast.success(`${response.data.approved_count} sorğu cavabı təsdiqləndi`);
+        toast.success(`✅ ${response.data.approved_count} sorğu cavabı təsdiqləndi`, {
+          duration: 5000
+        });
         setSelectedResponses([]);
         loadSurveyResponses();
       }
     } catch (error) {
       console.error('Error bulk approving:', error);
       toast.error('Kütləvi təsdiq zamanı xəta baş verdi');
+    }
+  };
+
+  const handleBulkReject = async () => {
+    if (selectedResponses.length === 0) return;
+
+    const reason = prompt(`${selectedResponses.length} sorğu cavabını rədd etmək üçün səbəbi daxil edin:`);
+    if (!reason) return;
+
+    const confirmMessage = `${selectedResponses.length} sorğu cavabını rədd etməyə əminsiniz? Bu əməliyyat geri qaytarıla bilməz.`;
+    if (!confirm(confirmMessage)) return;
+
+    try {
+      const response = await approvalService.bulkRejectSurveyResponses(selectedResponses, reason);
+      if (response.success) {
+        toast.success(`❌ ${response.data.rejected_count} sorğu cavabı rədd edildi`, {
+          duration: 5000
+        });
+        setSelectedResponses([]);
+        loadSurveyResponses();
+      }
+    } catch (error) {
+      console.error('Error bulk rejecting:', error);
+      toast.error('Kütləvi rədd zamanı xəta baş verdi');
     }
   };
 
@@ -190,7 +225,7 @@ const SurveyResponsesTab: React.FC = () => {
     if (selectedResponses.length === surveyResponses.length) {
       setSelectedResponses([]);
     } else {
-      setSelectedResponses(surveyResponses.map(response => response.id));
+      setSelectedResponses(surveyResponses?.map(response => response?.id) || []);
     }
   };
 
@@ -249,7 +284,7 @@ const SurveyResponsesTab: React.FC = () => {
               <Select 
                 value={selectedSurvey?.id.toString() || ''} 
                 onValueChange={(value) => {
-                  const survey = surveys.find(s => s.id.toString() === value);
+                  const survey = surveys?.find(s => s?.id?.toString() === value);
                   setSelectedSurvey(survey || null);
                 }}
               >
@@ -257,11 +292,11 @@ const SurveyResponsesTab: React.FC = () => {
                   <SelectValue placeholder="Sorğu seçin..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {surveys.map(survey => (
-                    <SelectItem key={survey.id} value={survey.id.toString()}>
-                      {survey.title} ({survey.category})
+                  {surveys?.map(survey => (
+                    <SelectItem key={survey?.id} value={survey?.id?.toString()}>
+                      {survey?.title} ({survey?.category})
                     </SelectItem>
-                  ))}
+                  )) || []}
                 </SelectContent>
               </Select>
             </div>
@@ -296,18 +331,39 @@ const SurveyResponsesTab: React.FC = () => {
 
           {/* Bulk Actions */}
           {selectedResponses.length > 0 && statusFilter === 'submitted' && (
-            <div className="flex items-center space-x-2 p-3 bg-blue-50 rounded-lg">
-              <span className="text-sm font-medium text-blue-800">
-                {selectedResponses.length} cavab seçildi
-              </span>
-              <Button 
-                size="sm" 
-                onClick={handleBulkApprove}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                <Check className="h-4 w-4 mr-1" />
-                Hamısını Təsdiq Et
-              </Button>
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center justify-center w-8 h-8 bg-blue-600 rounded-full">
+                  <Users className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-blue-900">
+                    {selectedResponses.length} sorğu cavabı seçildi
+                  </div>
+                  <div className="text-xs text-blue-600">
+                    Kütləvi əməliyyat etmək üçün düyməni basın
+                  </div>
+                </div>
+              </div>
+              <div className="flex space-x-2">
+                <Button 
+                  size="sm" 
+                  onClick={handleBulkApprove}
+                  className="bg-green-600 hover:bg-green-700 text-white shadow-md"
+                >
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  Hamısını Təsdiq Et
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="destructive"
+                  onClick={handleBulkReject}
+                  className="shadow-md"
+                >
+                  <XCircle className="h-4 w-4 mr-1" />
+                  Hamısını Rədd Et
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
@@ -366,30 +422,37 @@ const SurveyResponsesTab: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {surveyResponses.map((response) => (
-                  <div key={response.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                {surveyResponses?.map((response) => (
+                  <div 
+                    key={response?.id} 
+                    className={`border rounded-lg p-4 transition-colors ${
+                      selectedResponses.includes(response?.id) 
+                        ? 'bg-blue-50 border-blue-200' 
+                        : 'hover:bg-gray-50'
+                    }`}
+                  >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center space-x-3 mb-2">
                           {statusFilter === 'submitted' && (
                             <input
                               type="checkbox"
-                              checked={selectedResponses.includes(response.id)}
-                              onChange={() => handleSelectResponse(response.id)}
+                              checked={selectedResponses.includes(response?.id)}
+                              onChange={() => handleSelectResponse(response?.id)}
                               className="rounded border-gray-300"
                             />
                           )}
                           
                           <Badge 
-                            variant={getStatusBadgeVariant(response.status) as any}
+                            variant={getStatusBadgeVariant(response?.status) as any}
                             className="flex items-center space-x-1"
                           >
-                            {getStatusIcon(response.status)}
-                            <span>{getStatusText(response.status)}</span>
+                            {getStatusIcon(response?.status)}
+                            <span>{getStatusText(response?.status)}</span>
                           </Badge>
                           
                           <span className="text-sm text-gray-500">
-                            {response.progress_percentage}% tamamlandı
+                            {response?.progress_percentage || 0}% tamamlandı
                           </span>
                         </div>
 
@@ -397,37 +460,37 @@ const SurveyResponsesTab: React.FC = () => {
                           <div className="flex items-center space-x-2">
                             <Building className="h-4 w-4" />
                             <span>
-                              <span className="font-medium">Müəssisə:</span> {response.institution.name}
+                              <span className="font-medium">Müəssisə:</span> {response?.institution?.name || 'N/A'}
                             </span>
                           </div>
                           <div className="flex items-center space-x-2">
                             <User className="h-4 w-4" />
                             <span>
-                              <span className="font-medium">Cavablayan:</span> {response.respondent.name}
+                              <span className="font-medium">Cavablayan:</span> {response?.respondent?.name || 'N/A'}
                             </span>
                           </div>
                           <div className="flex items-center space-x-2">
                             <Calendar className="h-4 w-4" />
                             <span>
-                              <span className="font-medium">Tarix:</span> {formatDistanceToNow(new Date(response.submitted_at), { addSuffix: true, locale: az })}
+                              <span className="font-medium">Tarix:</span> {response?.submitted_at ? formatDistanceToNow(new Date(response.submitted_at), { addSuffix: true, locale: az }) : 'N/A'}
                             </span>
                           </div>
                         </div>
 
                         <div className="text-sm text-gray-600">
-                          <span className="font-medium">Email:</span> {response.respondent.email}
+                          <span className="font-medium">Email:</span> {response?.respondent?.email || 'N/A'}
                         </div>
 
-                        {response.rejection_reason && (
+                        {response?.rejection_reason && (
                           <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-                            <span className="font-medium">Rədd səbəbi:</span> {response.rejection_reason}
+                            <span className="font-medium">Rədd səbəbi:</span> {response?.rejection_reason}
                           </div>
                         )}
 
-                        {response.approved_by && (
+                        {response?.approved_by && (
                           <div className="mt-2 text-sm text-green-600">
-                            <span className="font-medium">Təsdiqləyən:</span> {response.approved_by} 
-                            {response.approved_at && (
+                            <span className="font-medium">Təsdiqləyən:</span> {response?.approved_by} 
+                            {response?.approved_at && (
                               <span className="text-gray-500 ml-2">
                                 ({formatDistanceToNow(new Date(response.approved_at), { addSuffix: true, locale: az })})
                               </span>
@@ -440,7 +503,7 @@ const SurveyResponsesTab: React.FC = () => {
                         <div className="flex items-center space-x-2 ml-4">
                           <Button
                             size="sm"
-                            onClick={() => handleApproveResponse(response.id)}
+                            onClick={() => handleApproveResponse(response?.id)}
                             className="bg-green-600 hover:bg-green-700"
                           >
                             <Check className="h-4 w-4 mr-1" />
@@ -449,7 +512,7 @@ const SurveyResponsesTab: React.FC = () => {
                           <Button
                             variant="destructive"
                             size="sm"
-                            onClick={() => handleRejectResponse(response.id)}
+                            onClick={() => handleRejectResponse(response?.id)}
                           >
                             <X className="h-4 w-4 mr-1" />
                             Rədd Et

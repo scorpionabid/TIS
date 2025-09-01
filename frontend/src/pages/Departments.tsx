@@ -97,7 +97,7 @@ export default function Departments() {
       sortField, 
       sortDirection,
       userRole: currentUser?.role,
-      institutionId: currentUser?.institution_id
+      institutionId: currentUser?.institution?.id
     }],
     queryFn: async () => {
       const response = await departmentService.getAll({

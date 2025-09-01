@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { Plus, ClipboardList, Calendar, TrendingUp, Eye, Edit, Trash2, Play, Pause, BarChart3, AlertTriangle, Archive, MoreHorizontal } from "lucide-react";
+import { Plus, ClipboardList, Calendar, TrendingUp, Eye, Edit, Trash2, Play, Pause, BarChart3, AlertTriangle, Archive, MoreHorizontal, Layout, UserCheck2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { surveyService, Survey, CreateSurveyData } from "@/services/surveys";
 import { Badge } from "@/components/ui/badge";
@@ -9,17 +9,23 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SurveyModal } from "@/components/modals/SurveyModal";
 import { SurveyViewModal } from "@/components/modals/SurveyViewModal";
+import { SurveyTemplateGallery } from "@/components/surveys/SurveyTemplateGallery";
+import { SurveyDelegationModal } from "@/components/surveys/SurveyDelegationModal";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiClient } from "@/services/api";
+import { surveyApprovalService } from "@/services/surveyApproval";
 
 export default function Surveys() {
   const { currentUser } = useAuth();
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'active' | 'completed' | 'archived'>('all');
   const [showSurveyModal, setShowSurveyModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showTemplateGallery, setShowTemplateGallery] = useState(false);
+  const [showDelegationModal, setShowDelegationModal] = useState(false);
   const [selectedSurvey, setSelectedSurvey] = useState<Survey | null>(null);
   const [viewingSurvey, setViewingSurvey] = useState<Survey | null>(null);
+  const [selectedApprovalRequest, setSelectedApprovalRequest] = useState<any>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -41,7 +47,7 @@ export default function Surveys() {
   }
   
   const { data: surveys, isLoading, error } = useQuery({
-    queryKey: ['surveys', statusFilter, currentUser?.role, currentUser?.institution_id],
+    queryKey: ['surveys', statusFilter, currentUser?.role, currentUser?.institution?.id],
     queryFn: () => surveyService.getAll({
       status: statusFilter === 'all' ? undefined : statusFilter,
       per_page: 20
@@ -259,10 +265,23 @@ export default function Surveys() {
             <p className="text-muted-foreground">Sorğuların yaradılması və idarə edilməsi</p>
           </div>
           {['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || '') && (
-            <Button className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Yeni Sorğu
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="outline"
+                className="flex items-center gap-2"
+                onClick={() => setShowTemplateGallery(true)}
+              >
+                <Layout className="h-4 w-4" />
+                Template-lər
+              </Button>
+              <Button 
+                className="flex items-center gap-2"
+                onClick={() => setShowSurveyModal(true)}
+              >
+                <Plus className="h-4 w-4" />
+                Yeni Sorğu
+              </Button>
+            </div>
           )}
         </div>
         
@@ -297,13 +316,23 @@ export default function Surveys() {
           <p className="text-muted-foreground">Sorğuların yaradılması və idarə edilməsi</p>
         </div>
         {['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || '') && (
-          <Button 
-            className="flex items-center gap-2"
-            onClick={() => setShowSurveyModal(true)}
-          >
-            <Plus className="h-4 w-4" />
-            Yeni Sorğu
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="outline"
+              className="flex items-center gap-2"
+              onClick={() => setShowTemplateGallery(true)}
+            >
+              <Layout className="h-4 w-4" />
+              Template-lər
+            </Button>
+            <Button 
+              className="flex items-center gap-2"
+              onClick={() => setShowSurveyModal(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Yeni Sorğu
+            </Button>
+          </div>
         )}
       </div>
 
@@ -528,6 +557,45 @@ export default function Surveys() {
           setViewingSurvey(null);
         }}
         survey={viewingSurvey}
+      />
+
+      {/* Survey Template Gallery Modal */}
+      <SurveyTemplateGallery
+        open={showTemplateGallery}
+        onClose={() => setShowTemplateGallery(false)}
+        onUseTemplate={(template) => {
+          // Create new survey from template
+          setSelectedSurvey({
+            id: 0,
+            title: template.name,
+            description: template.description,
+            questions: template.questions || [],
+            status: 'draft',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            response_count: 0,
+            questions_count: template.questions?.length || 0
+          } as Survey);
+          setShowTemplateGallery(false);
+          setShowSurveyModal(true);
+        }}
+      />
+
+      {/* Survey Delegation Modal */}
+      <SurveyDelegationModal
+        open={showDelegationModal}
+        onClose={() => {
+          setShowDelegationModal(false);
+          setSelectedApprovalRequest(null);
+        }}
+        approvalRequest={selectedApprovalRequest}
+        onDelegate={(delegationData) => {
+          // Handle delegation success
+          setShowDelegationModal(false);
+          setSelectedApprovalRequest(null);
+          // Refresh surveys or show success message
+          queryClient.invalidateQueries({ queryKey: ['surveys'] });
+        }}
       />
     </div>
   );

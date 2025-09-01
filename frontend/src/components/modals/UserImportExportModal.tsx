@@ -50,7 +50,7 @@ export const UserImportExportModal: React.FC<UserImportExportModalProps> = ({ is
   const [selectedRoleType, setSelectedRoleType] = useState<string>('');
   const [exportFilters, setExportFilters] = useState({
     role: '',
-    institution_id: currentUser?.institution_id || 'all',
+    institution_id: currentUser?.institution?.id || 'all',
     is_active: 'all',
     format: 'xlsx' as 'xlsx' | 'csv'
   });

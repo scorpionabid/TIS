@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Route;
 // Enhanced Survey Analytics & Statistics (must be before {survey} routes)
 Route::middleware('permission:surveys.read')->group(function () {
     Route::get('surveys/analytics/overview', [SurveyController::class, 'getAnalyticsOverview']);
+    Route::get('surveys/analytics/region', [SurveyController::class, 'getRegionAnalytics']);
+    Route::get('surveys/hierarchical', [SurveyController::class, 'getHierarchicalList']);
     Route::get('surveys/analytics/response-trends', [SurveyController::class, 'getResponseTrends']);
     Route::get('surveys/analytics/completion-rates', [SurveyController::class, 'getCompletionRates']);
     Route::get('surveys/analytics/demographics', [SurveyController::class, 'getDemographicAnalysis']);

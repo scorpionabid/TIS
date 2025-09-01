@@ -40,7 +40,7 @@ export default function RegionAdminUsers() {
   // Fetch regional users by role
   const fetchUsersByRole = (role: string) => {
     return useQuery({
-      queryKey: ['regionadmin-users', role, currentUser?.institution_id],
+      queryKey: ['regionadmin-users', role, currentUser?.institution?.id],
       queryFn: async () => {
         try {
           // Real API call - determine role name for backend

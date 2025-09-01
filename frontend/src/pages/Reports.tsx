@@ -72,7 +72,7 @@ export default function Reports() {
 
   // Load overview stats
   const { data: overviewResponse, isLoading: overviewLoading, error: overviewError } = useQuery({
-    queryKey: ['reports-overview', filters, currentUser?.role, currentUser?.institution_id],
+    queryKey: ['reports-overview', filters, currentUser?.role, currentUser?.institution?.id],
     queryFn: () => reportsService.getOverviewStats(filters),
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
     retry: 1,
@@ -81,7 +81,7 @@ export default function Reports() {
 
   // Load institutional performance
   const { data: institutionalResponse, isLoading: institutionalLoading } = useQuery({
-    queryKey: ['reports-institutional', filters, currentUser?.role, currentUser?.institution_id],
+    queryKey: ['reports-institutional', filters, currentUser?.role, currentUser?.institution?.id],
     queryFn: () => reportsService.getInstitutionalPerformance(filters),
     enabled: selectedReportType === 'institutional',
     staleTime: 1000 * 60 * 5,
@@ -89,7 +89,7 @@ export default function Reports() {
 
   // Load user activity report - restricted to SuperAdmin and RegionAdmin only
   const { data: userActivityResponse, isLoading: userActivityLoading } = useQuery({
-    queryKey: ['reports-user-activity', filters, currentUser?.role, currentUser?.institution_id],
+    queryKey: ['reports-user-activity', filters, currentUser?.role, currentUser?.institution?.id],
     queryFn: () => reportsService.getUserActivityReport(filters),
     enabled: selectedReportType === 'user_activity' && ['superadmin', 'regionadmin'].includes(currentUser?.role || ''),
     staleTime: 1000 * 60 * 5,

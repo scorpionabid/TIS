@@ -403,6 +403,28 @@ class Survey extends Model
     }
 
     /**
+     * Get targeting institutions as collection (for backward compatibility)
+     */
+    public function getTargetingAttribute()
+    {
+        $institutions = $this->target_institutions ?? [];
+        return collect($institutions)->map(function ($institutionId) {
+            return (object) [
+                'institution_id' => $institutionId,
+                'institution' => Institution::find($institutionId)
+            ];
+        });
+    }
+
+    /**
+     * Get count of target institutions
+     */
+    public function getTargetingCountAttribute(): int
+    {
+        return count($this->target_institutions ?? []);
+    }
+
+    /**
      * Get survey analytics
      */
     public function getAnalytics(): array

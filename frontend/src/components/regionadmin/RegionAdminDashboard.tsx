@@ -72,13 +72,13 @@ export const RegionAdminDashboard = () => {
     id: currentUser?.id,
     name: currentUser?.name,
     role: currentUser?.role,
-    institution_id: currentUser?.institution_id,
+    institution_id: currentUser?.institution?.id,
     permissions: currentUser?.permissions?.slice(0, 3)
   });
 
   // Fetch regional statistics
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
-    queryKey: ['regionadmin-stats', currentUser?.institution_id || 'no-institution'],
+    queryKey: ['regionadmin-stats', currentUser?.institution?.id || 'no-institution'],
     queryFn: async () => {
       console.log('📊 RegionAdminDashboard: Fetching stats for user:', currentUser?.name);
       const response = await apiClient.get<RegionStats>('/regionadmin/dashboard/stats');
@@ -91,7 +91,7 @@ export const RegionAdminDashboard = () => {
 
   // Fetch recent activities
   const { data: activities, isLoading: activitiesLoading, error: activitiesError } = useQuery({
-    queryKey: ['regionadmin-activities', currentUser?.institution_id || 'no-institution'],
+    queryKey: ['regionadmin-activities', currentUser?.institution?.id || 'no-institution'],
     queryFn: async () => {
       console.log('📋 RegionAdminDashboard: Fetching activities for user:', currentUser?.name);
       const response = await apiClient.get<RecentActivity[]>('/regionadmin/dashboard/activities');
@@ -148,6 +148,37 @@ export const RegionAdminDashboard = () => {
             ))}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // Check if user has no institution assignment
+  if (!currentUser?.institution?.id) {
+    return (
+      <div className="p-6 space-y-6">
+        <Card className="border-amber-200 bg-amber-50">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2 text-amber-600">
+              <AlertTriangle className="h-5 w-5" />
+              <span>Müəssisə təyini tələb olunur</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <p className="text-sm text-amber-800">
+                RegionAdmin dashboardunu görmək üçün müəssisəyə təyin olunmalısınız.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Bu problemin həlli üçün sistem administratoru ilə əlaqə saxlayın.
+              </p>
+              <div className="pt-2">
+                <Badge variant="outline" className="text-amber-600 border-amber-300">
+                  İstifadəçi ID: {currentUser?.id} | İstifadəçi adı: {currentUser?.name}
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }

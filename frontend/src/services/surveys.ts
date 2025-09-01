@@ -31,7 +31,7 @@ export interface Survey extends BaseEntity {
 export interface SurveyQuestion {
   id?: number;
   question: string;
-  type: 'text' | 'textarea' | 'number' | 'radio' | 'checkbox' | 'select' | 'rating' | 'date' | 'file_upload';
+  type: 'text' | 'number' | 'date' | 'single_choice' | 'multiple_choice' | 'file_upload' | 'rating' | 'table_matrix';
   options?: string[];
   required: boolean;
   order: number;

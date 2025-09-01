@@ -43,6 +43,8 @@ const AssessmentResults = lazy(() => import("./pages/AssessmentResults"));
 const AssessmentEntry = lazy(() => import("./pages/AssessmentEntry"));
 const SubjectManagement = lazy(() => import("./pages/SubjectManagement"));
 const Approvals = lazy(() => import("./pages/Approvals"));
+const SurveyAnalytics = lazy(() => import("./pages/SurveyAnalytics"));
+const SurveyExport = lazy(() => import("./pages/SurveyExport"));
 
 // RegionAdmin pages
 const RegionAdminIndex = lazy(() => import("./pages/regionadmin/RegionAdminIndex"));
@@ -154,6 +156,20 @@ const App = () => (
               } />
               <Route path="survey-results" element={<LazyWrapper><SurveyResults /></LazyWrapper>} />
               <Route path="survey-archive" element={<LazyWrapper><SurveyArchive /></LazyWrapper>} />
+              <Route path="survey-analytics" element={
+                <LazyWrapper>
+                  <RoleProtectedRoute allowedRoles={['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin']}>
+                    <SurveyAnalytics />
+                  </RoleProtectedRoute>
+                </LazyWrapper>
+              } />
+              <Route path="survey-export" element={
+                <LazyWrapper>
+                  <RoleProtectedRoute allowedRoles={['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin']}>
+                    <SurveyExport />
+                  </RoleProtectedRoute>
+                </LazyWrapper>
+              } />
               <Route path="tasks" element={<LazyWrapper><Tasks /></LazyWrapper>} />
               <Route path="documents" element={<LazyWrapper><Documents /></LazyWrapper>} />
               <Route path="links" element={<LazyWrapper><Links /></LazyWrapper>} />

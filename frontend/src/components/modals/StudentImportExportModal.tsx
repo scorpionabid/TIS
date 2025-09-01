@@ -43,7 +43,7 @@ export const StudentImportExportModal: React.FC<StudentImportExportModalProps> =
   const [importResult, setImportResult] = useState<any>(null);
   const [exportFilters, setExportFilters] = useState({
     class_id: 'all',
-    institution_id: currentUser?.institution_id || 'all',
+    institution_id: currentUser?.institution?.id || 'all',
     is_active: 'all',
     format: 'xlsx' as 'xlsx' | 'csv'
   });

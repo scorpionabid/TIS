@@ -350,6 +350,15 @@ Route::prefix('approvals')->group(function () {
     Route::post('/survey-responses/bulk-approve', [ApprovalApiControllerRefactored::class, 'bulkApproveSurveyResponses'])->middleware('permission:approvals.approve');
     Route::post('/survey-responses/bulk-reject', [ApprovalApiControllerRefactored::class, 'bulkRejectSurveyResponses'])->middleware('permission:approvals.approve');
     
+    // Event Approval - Consolidated
+    Route::post('/events/{event}/approve', [ApprovalApiControllerRefactored::class, 'approveEvent'])->middleware('permission:events.approve');
+    Route::post('/events/{event}/reject', [ApprovalApiControllerRefactored::class, 'rejectEvent'])->middleware('permission:events.reject');
+    
+    // Task Approval - Consolidated  
+    Route::get('/tasks/pending', [ApprovalApiControllerRefactored::class, 'getPendingTasks'])->middleware('permission:approvals.read');
+    Route::post('/tasks/{task}/approve', [ApprovalApiControllerRefactored::class, 'approveTask'])->middleware('permission:tasks.approve');
+    Route::post('/tasks/{task}/reject', [ApprovalApiControllerRefactored::class, 'rejectTask'])->middleware('permission:tasks.reject');
+    
     // Delegation management - BEFORE {approval} route
     Route::get('/delegations', [ApprovalApiControllerRefactored::class, 'getDelegations'])->middleware('permission:approvals.delegate');
     Route::post('/delegations', [ApprovalApiControllerRefactored::class, 'createDelegation'])->middleware('permission:approvals.delegate');

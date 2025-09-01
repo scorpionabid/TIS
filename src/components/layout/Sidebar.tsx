@@ -139,6 +139,8 @@ export const Sidebar = ({ userRole, currentUser, onNavigate, onLogout, currentPa
             { label: "Sorğular", path: "/surveys" },
             { label: "Təsdiq", path: "/survey-approval" },
             { label: "Sorğu nəticələri", path: "/survey-results" },
+            { label: "Analitika", path: "/survey-analytics" },
+            { label: "Export", path: "/survey-export" },
             { label: "Arxiv", path: "/survey-archive" },
           ]
         },
@@ -190,6 +192,7 @@ export const Sidebar = ({ userRole, currentUser, onNavigate, onLogout, currentPa
       RegionAdmin: [
         { icon: ClipboardListIcon, label: "Sorğular", path: "/surveys" },
         { icon: BarChart3Icon, label: "Sorğu Nəticələri", path: "/survey-results" },
+        { icon: BarChart3Icon, label: "Sorğu Analitikası", path: "/survey-analytics" },
         { icon: UsersIcon, label: "Sektorlar", path: "/sectors" },
         { icon: FolderIcon, label: "Sənədlər", path: "/documents" },
         { icon: BarChart3Icon, label: "Hesabatlar", path: "/reports" },
