@@ -361,7 +361,7 @@ class SurveyResponseService extends BaseService
         return $stats;
     }
 
-    private function applyFilters($query, array $filters): void
+    protected function applyFilters($query, array $filters): void
     {
         if (!empty($filters['survey_id'])) {
             $query->bySurvey($filters['survey_id']);

@@ -6,6 +6,8 @@ use App\Models\Survey;
 use App\Models\SurveyVersion;
 use App\Models\SurveyAuditLog;
 use App\Models\ActivityLog;
+use App\Models\Institution;
+use App\Models\SurveyResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -22,6 +24,9 @@ class SurveyCrudService
         
         // Apply filters
         $this->applyFilters($query, $params);
+        
+        // Apply hierarchical filtering - ƏSAS DÜZƏLİŞ
+        $this->applySurveyVisibilityFiltering($query, auth()->user());
         
         // Apply search
         if (!empty($params['search'])) {
@@ -50,7 +55,43 @@ class SurveyCrudService
      */
     public function getWithRelations(Survey $survey): Survey
     {
-        $survey->load(['creator.profile', 'versions', 'responses.user']);
+        $survey->load(['creator.profile', 'versions', 'responses.respondent', 'questions']);
+        
+        // Format questions for API response (backward compatibility)
+        if ($survey->questions->count() > 0) {
+            $questionsData = $survey->questions->map(function($question) {
+                // Ensure options is always an array
+                $options = [];
+                if ($question->options) {
+                    if (is_string($question->options)) {
+                        $options = json_decode($question->options, true) ?? [];
+                    } elseif (is_array($question->options)) {
+                        $options = $question->options;
+                    }
+                }
+                
+                return [
+                    'id' => $question->id,
+                    'question' => $question->title,
+                    'type' => $this->mapQuestionTypeToFrontend($question->type),
+                    'required' => $question->is_required,
+                    'options' => $options,
+                    'order' => $question->order_index,
+                    'backend_type' => $question->type, // Keep original backend type for debugging
+                ];
+            })->toArray();
+            
+            // Update structure with questions for compatibility
+            $structure = $survey->structure ?? [];
+            $structure['sections'] = [
+                [
+                    'id' => 'default',
+                    'title' => 'Questions',
+                    'questions' => $questionsData
+                ]
+            ];
+            $survey->structure = $structure;
+        }
         
         // Log activity
         $this->logActivity('survey_view', "Viewed survey: {$survey->title}", [
@@ -132,6 +173,11 @@ class SurveyCrudService
      */
     public function update(Survey $survey, array $data): Survey
     {
+        // Check if survey can be edited
+        if ($survey->status === 'published' && $survey->responses()->count() > 0) {
+            throw new \Exception('Yayımlanmış və cavabları olan sorğuları düzəliş etmək olmaz');
+        }
+        
         return DB::transaction(function () use ($survey, $data) {
             $oldData = $survey->toArray();
             
@@ -141,6 +187,14 @@ class SurveyCrudService
                 'is_anonymous', 'allow_multiple_responses', 'max_questions',
                 'completion_threshold', 'target_institutions', 'target_departments'
             ]));
+            
+            // Debug: Log update data preparation
+            \Log::info('SurveyCrudService update data preparation:', [
+                'survey_id' => $survey->id,
+                'original_target_institutions' => $data['target_institutions'] ?? 'not in original data',
+                'prepared_target_institutions' => $updateData['target_institutions'] ?? 'not in update data',
+                'update_data_keys' => array_keys($updateData)
+            ]);
 
             // Update structure if settings changed
             if (isset($data['settings']) || isset($data['notification_settings'])) {
@@ -155,46 +209,151 @@ class SurveyCrudService
             }
 
             // Update survey
-            $survey->update($updateData);
+            try {
+                $survey->update($updateData);
+                \Log::info('Survey update successful:', ['survey_id' => $survey->id]);
+            } catch (\Exception $e) {
+                \Log::error('Survey update failed:', [
+                    'survey_id' => $survey->id,
+                    'error' => $e->getMessage(),
+                    'update_data' => $updateData
+                ]);
+                throw $e;
+            }
 
             // Update questions if provided
             if (isset($data['questions'])) {
-                // Remove old questions
-                $survey->questions()->delete();
+                try {
+                    // Remove old questions
+                    \Log::info('Deleting existing questions for survey', ['survey_id' => $survey->id]);
+                    $survey->questions()->delete();
+                    \Log::info('Successfully deleted existing questions');
+                } catch (\Exception $e) {
+                    \Log::error('Failed to delete existing questions:', [
+                        'survey_id' => $survey->id,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                    throw $e;
+                }
                 
                 // Create new questions
                 foreach ($data['questions'] as $index => $questionData) {
-                    $backendType = $this->mapQuestionType($questionData['type']);
-                    
-                    $survey->questions()->create([
-                        'title' => $questionData['question'],
-                        'type' => $backendType,
-                        'order_index' => $questionData['order'] ?? $index + 1,
-                        'is_required' => $questionData['required'] ?? false,
-                        'options' => $questionData['options'] ?? null,
-                        'validation_rules' => $questionData['validation'] ?? null,
-                    ]);
+                    try {
+                        $backendType = $this->mapQuestionType($questionData['type']);
+                        
+                        \Log::info('Creating question:', [
+                            'index' => $index,
+                            'question' => $questionData['question'],
+                            'type' => $backendType,
+                            'options' => $questionData['options'] ?? null,
+                            'options_type' => gettype($questionData['options'] ?? null)
+                        ]);
+                        
+                        // Handle options - convert empty arrays to null
+                        $options = $questionData['options'] ?? null;
+                        if (is_array($options) && empty($options)) {
+                            $options = null;
+                        }
+                        
+                        $newQuestion = $survey->questions()->create([
+                            'title' => $questionData['question'],
+                            'type' => $backendType,
+                            'order_index' => $questionData['order'] ?? $index + 1,
+                            'is_required' => $questionData['required'] ?? false,
+                            'options' => $options,
+                            'validation_rules' => $questionData['validation'] ?? null,
+                        ]);
+                        
+                        \Log::info('Question created successfully:', [
+                            'question_id' => $newQuestion->id,
+                            'title' => $newQuestion->title,
+                            'type' => $newQuestion->type
+                        ]);
+                    } catch (\Exception $e) {
+                        \Log::error('Question creation failed:', [
+                            'survey_id' => $survey->id,
+                            'question_index' => $index,
+                            'error' => $e->getMessage(),
+                            'question_data' => $questionData
+                        ]);
+                        throw $e;
+                    }
                 }
                 
+                \Log::info('All questions processed successfully');
+                
                 // Update questions count
-                $survey->updateQuestionsCount();
+                try {
+                    \Log::info('Updating questions count');
+                    $survey->updateQuestionsCount();
+                    \Log::info('Questions count updated successfully');
+                } catch (\Exception $e) {
+                    \Log::error('Failed to update questions count:', [
+                        'survey_id' => $survey->id,
+                        'error' => $e->getMessage()
+                    ]);
+                    throw $e;
+                }
                 
                 // Create version for questions change
-                $this->createVersion($survey, 'Questions updated', $data);
+                try {
+                    \Log::info('Creating version for questions change');
+                    $this->createVersion($survey, 'Questions updated', $data);
+                    \Log::info('Version created successfully');
+                } catch (\Exception $e) {
+                    \Log::error('Failed to create version:', [
+                        'survey_id' => $survey->id,
+                        'error' => $e->getMessage()
+                    ]);
+                    throw $e;
+                }
             }
 
             // Log activity
-            $this->logActivity('survey_update', "Updated survey: {$survey->title}", [
-                'entity_type' => 'Survey',
-                'entity_id' => $survey->id,
-                'before_state' => $oldData,
-                'after_state' => $survey->toArray()
-            ]);
+            try {
+                \Log::info('Starting activity log');
+                $this->logActivity('survey_update', "Updated survey: {$survey->title}", [
+                    'entity_type' => 'Survey',
+                    'entity_id' => $survey->id,
+                    'before_state' => $oldData,
+                    'after_state' => $survey->toArray()
+                ]);
+                \Log::info('Activity log completed');
+            } catch (\Exception $e) {
+                \Log::error('Activity log failed:', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                throw $e;
+            }
             
             // Log survey audit
-            $this->logSurveyAudit($survey, 'updated', 'Survey updated', [
-                'changes' => array_diff_assoc($updateData, $oldData)
-            ]);
+            try {
+                \Log::info('Starting survey audit log');
+                // Calculate changes safely for nested arrays
+                $changes = [];
+                foreach ($updateData as $key => $newValue) {
+                    $oldValue = $oldData[$key] ?? null;
+                    if (json_encode($newValue) !== json_encode($oldValue)) {
+                        $changes[$key] = [
+                            'old' => $oldValue,
+                            'new' => $newValue
+                        ];
+                    }
+                }
+                
+                $this->logSurveyAudit($survey, 'updated', 'Survey updated', [
+                    'changes' => $changes
+                ]);
+                \Log::info('Survey audit log completed');
+            } catch (\Exception $e) {
+                \Log::error('Survey audit log failed:', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                throw $e;
+            }
 
             return $survey->load(['creator.profile', 'versions']);
         });
@@ -279,7 +438,7 @@ class SurveyCrudService
             'remaining_responses' => $survey->max_responses ? 
                 $survey->max_responses - $survey->responses()->count() : null,
             'expires_at' => $survey->end_date,
-            'estimated_duration' => $this->estimateResponseTime($survey->questions)
+            'estimated_duration' => $this->estimateResponseTime($survey->questions->toArray())
         ];
     }
     
@@ -465,6 +624,8 @@ class SurveyCrudService
             'requires_login' => $survey->requires_login,
             'start_date' => $survey->start_date,
             'end_date' => $survey->end_date,
+            'target_institutions' => $survey->target_institutions,
+            'target_departments' => $survey->target_departments,
             'published_at' => $survey->published_at,
             'created_at' => $survey->created_at,
             'updated_at' => $survey->updated_at
@@ -578,6 +739,25 @@ class SurveyCrudService
     }
     
     /**
+     * Map backend question types to frontend types
+     */
+    private function mapQuestionTypeToFrontend(string $backendType): string
+    {
+        $mapping = [
+            'single_choice' => 'radio',
+            'multiple_choice' => 'checkbox',
+            'text' => 'text',
+            'number' => 'number',
+            'date' => 'date',
+            'file_upload' => 'file',
+            'rating' => 'rating',
+            'table_matrix' => 'table',
+        ];
+
+        return $mapping[$backendType] ?? 'text';
+    }
+    
+    /**
      * Get hierarchical institution IDs for user
      */
     public function getHierarchicalInstitutionIds($user): array
@@ -622,6 +802,38 @@ class SurveyCrudService
         
         $query->whereHas('creator', function($q) use ($allowedInstitutionIds) {
             $q->whereIn('institution_id', $allowedInstitutionIds);
+        });
+    }
+
+    /**
+     * Apply survey visibility filtering - users see surveys they created OR surveys targeted to them
+     */
+    public function applySurveyVisibilityFiltering($query, $user): void
+    {
+        if ($user->hasRole('superadmin')) {
+            return; // SuperAdmin sees all
+        }
+        
+        $userInstitutionId = $user->institution_id;
+        $allowedInstitutionIds = $this->getHierarchicalInstitutionIds($user);
+        
+        $query->where(function($q) use ($allowedInstitutionIds, $userInstitutionId) {
+            // See surveys created by users from allowed institutions (hierarchy)
+            $q->whereHas('creator', function($creatorQuery) use ($allowedInstitutionIds) {
+                $creatorQuery->whereIn('institution_id', $allowedInstitutionIds);
+            })
+            // OR see surveys targeted to this user's institution or hierarchy
+            ->orWhere(function($targetQuery) use ($userInstitutionId, $allowedInstitutionIds) {
+                $targetQuery->where(function($q1) use ($userInstitutionId) {
+                    // Surveys targeted to user's own institution
+                    $q1->whereJsonContains('target_institutions', $userInstitutionId);
+                })->orWhere(function($q2) use ($allowedInstitutionIds) {
+                    // Surveys targeted to any institution in user's hierarchy
+                    foreach ($allowedInstitutionIds as $instId) {
+                        $q2->orWhereJsonContains('target_institutions', $instId);
+                    }
+                });
+            });
         });
     }
 

@@ -3,6 +3,8 @@
 use App\Http\Controllers\SurveyController;
 use App\Http\Controllers\SurveyResponseController;
 use App\Http\Controllers\SurveyTargetingController;
+use App\Http\Controllers\SurveyNotificationController;
+use App\Http\Controllers\BulkJobController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -74,10 +76,12 @@ Route::middleware('permission:survey_responses.read')->group(function () {
 });
 
 Route::middleware('permission:survey_responses.write')->group(function () {
+    Route::post('surveys/{survey}/responses/start', [SurveyResponseController::class, 'startResponse']);
     Route::post('surveys/{survey}/respond', [SurveyResponseController::class, 'store']);
     Route::put('survey-responses/{response}', [SurveyResponseController::class, 'update']);
     Route::delete('survey-responses/{response}', [SurveyResponseController::class, 'destroy']);
     Route::post('survey-responses/{response}/submit', [SurveyResponseController::class, 'submit']);
+    Route::put('survey-responses/{response}/save', [SurveyResponseController::class, 'saveResponse']);
     Route::post('survey-responses/{response}/save-draft', [SurveyResponseController::class, 'saveDraft']);
 });
 
@@ -87,4 +91,24 @@ Route::middleware('permission:survey_responses.approve')->group(function () {
     Route::post('survey-responses/{response}/approve', [SurveyResponseController::class, 'approve']);
     Route::post('survey-responses/{response}/reject', [SurveyResponseController::class, 'reject']);
     Route::get('survey-responses/{response}/approval-history', [SurveyResponseController::class, 'getApprovalHistory']);
+});
+
+// Bulk job management routes
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('bulk-jobs/{jobId}/status', [BulkJobController::class, 'getJobStatus']);
+    Route::get('bulk-jobs/user/history', [BulkJobController::class, 'getUserJobs']);
+    Route::post('bulk-jobs/{jobId}/cancel', [BulkJobController::class, 'cancelJob']);
+});
+
+// Admin bulk job statistics
+Route::middleware(['auth:sanctum', 'role:superadmin'])->group(function () {
+    Route::get('bulk-jobs/statistics', [BulkJobController::class, 'getJobStatistics']);
+});
+
+// Survey Notifications - accessible by all authenticated users
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('survey-notifications', [SurveyNotificationController::class, 'index']);
+    Route::get('survey-notifications/unread-count', [SurveyNotificationController::class, 'unreadCount']);
+    Route::get('survey-notifications/stats', [SurveyNotificationController::class, 'stats']);
+    Route::post('survey-notifications/{surveyId}/mark-read', [SurveyNotificationController::class, 'markAsRead']);
 });

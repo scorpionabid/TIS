@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -35,6 +36,7 @@ interface NotificationDropdownProps {
   onMarkAsRead: (id: number) => void;
   onMarkAllAsRead: () => void;
   onDelete: (id: number) => void;
+  onNotificationClick?: (id: number) => void;
 }
 
 const getNotificationIcon = (type: Notification['type']) => {
@@ -77,7 +79,8 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   unreadCount,
   onMarkAsRead,
   onMarkAllAsRead,
-  onDelete
+  onDelete,
+  onNotificationClick
 }) => {
   return (
     <DropdownMenu>
@@ -132,6 +135,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                 className={`relative p-3 rounded-md cursor-pointer transition-colors hover:bg-accent/50 ${
                   !notification.isRead ? 'bg-accent/30' : ''
                 }`}
+                onClick={() => onNotificationClick?.(notification.id)}
               >
                 <div className="flex items-start space-x-3">
                   {/* Notification Icon */}

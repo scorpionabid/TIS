@@ -157,6 +157,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
   const renderQuestion = (question: SurveyQuestion) => {
     const questionId = question.id?.toString() || '';
     const value = responses[questionId];
+    const isDisabled = currentResponse?.status !== 'draft';
 
     switch (question.type) {
       case 'text':
@@ -167,6 +168,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
             placeholder="Cavabınızı yazın..."
             rows={3}
             className="w-full"
+            disabled={isDisabled}
           />
         );
 
@@ -178,6 +180,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
             onChange={(e) => handleInputChange(questionId, e.target.value)}
             placeholder="Rəqəm daxil edin..."
             className="w-full"
+            disabled={isDisabled}
           />
         );
 
@@ -187,6 +190,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
             value={value || ''}
             onValueChange={(val) => handleInputChange(questionId, val)}
             className="space-y-2"
+            disabled={isDisabled}
           >
             {question.options?.map((option, index) => (
               <div key={index} className="flex items-center space-x-2">
@@ -212,6 +216,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
                       : checkboxValue.filter((v: string) => v !== option);
                     handleInputChange(questionId, newValue);
                   }}
+                  disabled={isDisabled}
                 />
                 <Label htmlFor={`${questionId}-${index}`}>{option}</Label>
               </div>
@@ -231,6 +236,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
               value={value?.toString() || ''}
               onValueChange={(val) => handleInputChange(questionId, parseInt(val))}
               className="flex space-x-2 justify-between"
+              disabled={isDisabled}
             >
               {ratings.map((rating) => (
                 <div key={rating} className="flex flex-col items-center space-y-1">
@@ -251,6 +257,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
             value={value || ''}
             onChange={(e) => handleInputChange(questionId, e.target.value)}
             className="w-full"
+            disabled={isDisabled}
           />
         );
 
@@ -271,6 +278,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
               }}
               accept=".pdf,.doc,.docx,.xls,.xlsx"
               className="w-full"
+              disabled={isDisabled}
             />
             {value && (
               <p className="text-sm text-gray-600">Seçilmiş fayl: {value.name}</p>
@@ -292,6 +300,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
             onChange={(e) => handleInputChange(questionId, e.target.value)}
             placeholder="Cavabınızı yazın..."
             className="w-full"
+            disabled={isDisabled}
           />
         );
     }
@@ -404,8 +413,8 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
                 <span className="bg-blue-100 text-blue-800 w-6 h-6 rounded-full flex items-center justify-center text-sm font-medium">
                   {index + 1}
                 </span>
-                {question.question}
-                {question.required && <span className="text-red-500">*</span>}
+                {question.title}
+                {(question.required || question.is_required) && <span className="text-red-500">*</span>}
               </CardTitle>
             </CardHeader>
             <CardContent>

@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Survey;
+use App\Models\User;
 use App\Services\SurveyCrudService;
+use App\Notifications\SurveyApprovalNotification;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Traits\ValidationRules;
@@ -87,7 +89,7 @@ class SurveyController extends BaseController
             'status' => 'nullable|string|in:draft,published',
             'questions' => 'required|array|min:1',
             'questions.*.question' => 'required|string|max:1000',
-            'questions.*.type' => 'required|string|in:text,textarea,select,radio,checkbox,rating,email,number,file,date',
+            'questions.*.type' => 'required|string|in:text,number,date,single_choice,multiple_choice,file_upload,rating,table_matrix',
             'questions.*.required' => 'nullable|boolean',
             'questions.*.options' => 'nullable|array',
             'settings' => 'nullable|array',
@@ -100,7 +102,9 @@ class SurveyController extends BaseController
             'allow_multiple_responses' => 'nullable|boolean',
             'requires_login' => 'nullable|boolean',
             'auto_close_on_max' => 'nullable|boolean',
-            'notification_settings' => 'nullable|array'
+            'notification_settings' => 'nullable|array',
+            'target_institutions' => 'nullable|array',
+            'target_institutions.*' => 'integer|exists:institutions,id'
         ]);
 
         try {
@@ -124,7 +128,7 @@ class SurveyController extends BaseController
             'survey_type' => 'sometimes|string|in:form,poll,assessment,feedback',
             'questions' => 'sometimes|required|array|min:1',
             'questions.*.question' => 'required|string|max:1000',
-            'questions.*.type' => 'required|string|in:text,textarea,select,radio,checkbox,rating,email,number,file,date',
+            'questions.*.type' => 'required|string|in:text,number,date,single_choice,multiple_choice,file_upload,rating,table_matrix',
             'questions.*.required' => 'nullable|boolean',
             'questions.*.options' => 'nullable|array',
             'settings' => 'nullable|array',
@@ -136,7 +140,9 @@ class SurveyController extends BaseController
             'allow_multiple_responses' => 'nullable|boolean',
             'requires_login' => 'nullable|boolean',
             'auto_close_on_max' => 'nullable|boolean',
-            'notification_settings' => 'nullable|array'
+            'notification_settings' => 'nullable|array',
+            'target_institutions' => 'nullable|array',
+            'target_institutions.*' => 'integer|exists:institutions,id'
         ]);
 
         try {
@@ -145,7 +151,21 @@ class SurveyController extends BaseController
                 return $this->errorResponse('Cannot update published survey with responses', 400);
             }
 
+            // Debug: Log update data
+            \Log::info('Survey update request:', [
+                'survey_id' => $survey->id,
+                'target_institutions' => $validated['target_institutions'] ?? 'not provided',
+                'validated_keys' => array_keys($validated)
+            ]);
+
             $updatedSurvey = $this->crudService->update($survey, $validated);
+            
+            // Debug: Log after update
+            \Log::info('Survey after update:', [
+                'survey_id' => $survey->id,
+                'target_institutions' => $updatedSurvey->target_institutions
+            ]);
+            
             $formattedSurvey = $this->crudService->formatDetailedForResponse($updatedSurvey);
             
             return $this->successResponse($formattedSurvey, 'Survey updated successfully');
@@ -205,6 +225,9 @@ class SurveyController extends BaseController
                 'status' => 'published',
                 'published_at' => now()
             ]);
+            
+            // Send notifications to target institutions
+            $this->notifyTargetInstitutions($survey);
             
             $formattedSurvey = $this->crudService->formatDetailedForResponse($survey);
             
@@ -527,6 +550,64 @@ class SurveyController extends BaseController
             return $this->paginatedResponse($surveys, 'Hierarchical surveys list retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Send notifications to target institutions when survey is published
+     */
+    protected function notifyTargetInstitutions(Survey $survey): void
+    {
+        try {
+            $targetInstitutions = $survey->target_institutions ?? [];
+            
+            if (empty($targetInstitutions)) {
+                \Log::info('No target institutions found for survey', ['survey_id' => $survey->id]);
+                return;
+            }
+
+            // Get users from target institutions who should receive notifications
+            $usersToNotify = User::whereIn('institution_id', $targetInstitutions)
+                ->whereHas('roles', function($query) {
+                    $query->whereIn('name', ['schooladmin', 'teacher', 'sektoradmin']); 
+                })
+                ->get();
+
+            foreach ($usersToNotify as $user) {
+                // Create mock approval request for notification system compatibility
+                $mockApprovalRequest = (object) [
+                    'id' => null,
+                    'priority' => 'normal',
+                    'deadline' => $survey->end_date,
+                    'institution' => $user->institution,
+                    'submitter' => $survey->creator,
+                ];
+
+                $additionalData = [
+                    'survey_id' => $survey->id,
+                    'survey_title' => $survey->title,
+                    'survey_category' => $survey->survey_type ?? 'general',
+                    'institution_name' => $user->institution->name ?? '',
+                    'assigned_by' => $survey->creator->name ?? 'Sistem',
+                    'deadline' => $survey->end_date?->toISOString(),
+                    'priority' => $survey->priority ?? 'normal',
+                ];
+
+                // Send notification
+                $user->notify(new SurveyApprovalNotification($mockApprovalRequest, 'survey_assigned', $additionalData));
+            }
+
+            \Log::info('Survey assignment notifications sent', [
+                'survey_id' => $survey->id,
+                'target_institutions' => $targetInstitutions,
+                'notified_users_count' => $usersToNotify->count()
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to send survey assignment notifications', [
+                'survey_id' => $survey->id,
+                'error' => $e->getMessage()
+            ]);
         }
     }
 

@@ -3,13 +3,36 @@ import { Input } from "@/components/ui/input";
 import { UserProfile } from "@/components/layout/components/Header/UserProfile";
 import { NotificationDropdown } from "@/components/layout/components/Header/NotificationDropdown";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { surveyService } from "@/services/surveys";
 
 interface DashboardHeaderProps {
   title: string;
   subtitle?: string;
   notificationCount?: number;
   onLogout?: () => void;
+}
+
+interface SurveyNotification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  data: {
+    survey_id: number;
+    survey_title: string;
+    survey_description: string;
+    due_date?: string;
+    priority: string;
+    questions_count: number;
+    action_url: string;
+  };
+  read_at?: string;
+  created_at: string;
+  is_read: boolean;
+  priority: string;
+  category: string;
 }
 
 export const DashboardHeader = ({ 
@@ -19,55 +42,135 @@ export const DashboardHeader = ({
   onLogout
 }: DashboardHeaderProps) => {
   const { currentUser } = useAuth();
-  
-  // Sample notification data for testing
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      title: "Yeni sorğu təsdiqi",
-      message: "Əməkdaşların motivasiyası sorğusu təsdiq üçün göndərildi",
-      type: "info" as const,
-      isRead: false,
-      createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString() // 30 minutes ago
-    },
-    {
-      id: 2,
-      title: "Sistem yeniləməsi",
-      message: "Sistem yeniləməsi uğurla tamamlandı",
-      type: "success" as const,
-      isRead: false,
-      createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() // 2 hours ago
-    },
-    {
-      id: 3,
-      title: "Xəbərdarlıq",
-      message: "Serverdə yaddaş istifadəsi yüksək səviyyədədir",
-      type: "warning" as const,
-      isRead: true,
-      createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() // 1 day ago
+  const navigate = useNavigate();
+  const [surveyNotifications, setSurveyNotifications] = useState<SurveyNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  // Convert survey notifications to NotificationDropdown format
+  const convertToNotificationFormat = (surveyNotification: SurveyNotification) => ({
+    id: parseInt(surveyNotification.id.replace('survey_', '')),
+    title: surveyNotification.title,
+    message: surveyNotification.message,
+    type: surveyNotification.priority === 'overdue' ? 'error' as const :
+          surveyNotification.priority === 'high' ? 'warning' as const :
+          'info' as const,
+    isRead: surveyNotification.is_read,
+    createdAt: surveyNotification.created_at
+  });
+
+  const notifications = surveyNotifications.map(convertToNotificationFormat);
+
+  // Load survey notifications
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        setLoading(true);
+        const [notificationsResponse, unreadResponse] = await Promise.all([
+          surveyService.getSurveyNotifications({ limit: 10 }),
+          surveyService.getUnreadSurveyCount()
+        ]);
+        
+        setSurveyNotifications(notificationsResponse || []);
+        setUnreadCount(unreadResponse?.unread_count || 0);
+      } catch (error) {
+        console.error('Error loading survey notifications:', error);
+        // Fallback to empty state
+        setSurveyNotifications([]);
+        setUnreadCount(0);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (currentUser) {
+      loadNotifications();
     }
-  ]);
+  }, [currentUser]);
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-
-  const handleMarkAsRead = (id: number) => {
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification.id === id 
-          ? { ...notification, isRead: true }
-          : notification
-      )
-    );
+  const handleMarkAsRead = async (id: number) => {
+    try {
+      // Find the survey notification that matches this id
+      const surveyNotification = surveyNotifications.find(n => 
+        parseInt(n.id.replace('survey_', '')) === id
+      );
+      
+      if (surveyNotification) {
+        const surveyId = surveyNotification.data.survey_id;
+        await surveyService.markSurveyNotificationAsRead(surveyId);
+        
+        // Update local state
+        setSurveyNotifications(prev => 
+          prev.map(notification => 
+            notification.id === `survey_${id}` 
+              ? { ...notification, is_read: true, read_at: new Date().toISOString() }
+              : notification
+          )
+        );
+        
+        // Update unread count
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
   };
 
-  const handleMarkAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notification => ({ ...notification, isRead: true }))
-    );
+  const handleMarkAllAsRead = async () => {
+    try {
+      // Mark all unread survey notifications as read
+      const unreadNotifications = surveyNotifications.filter(n => !n.is_read);
+      
+      await Promise.all(
+        unreadNotifications.map(notification => 
+          surveyService.markSurveyNotificationAsRead(notification.data.survey_id)
+        )
+      );
+      
+      // Update local state
+      setSurveyNotifications(prev => 
+        prev.map(notification => ({ 
+          ...notification, 
+          is_read: true, 
+          read_at: new Date().toISOString() 
+        }))
+      );
+      
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
   };
 
   const handleDeleteNotification = (id: number) => {
-    setNotifications(prev => prev.filter(notification => notification.id !== id));
+    // Remove from local state (we don't have a delete API, so just hide it locally)
+    setSurveyNotifications(prev => prev.filter(notification => 
+      parseInt(notification.id.replace('survey_', '')) !== id
+    ));
+    
+    // Update unread count if this was unread
+    const wasUnread = notifications.find(n => n.id === id && !n.isRead);
+    if (wasUnread) {
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    }
+  };
+
+  const handleNotificationClick = (id: number) => {
+    // Find the survey notification that matches this id
+    const surveyNotification = surveyNotifications.find(n => 
+      parseInt(n.id.replace('survey_', '')) === id
+    );
+    
+    if (surveyNotification) {
+      const surveyId = surveyNotification.data.survey_id;
+      // Navigate to survey response page
+      navigate(`/survey-response/${surveyId}`);
+      
+      // Mark as read if it's unread
+      if (!surveyNotification.is_read) {
+        handleMarkAsRead(id);
+      }
+    }
   };
   return (
     <div className="flex items-center justify-between w-full">
@@ -97,6 +200,7 @@ export const DashboardHeader = ({
           onMarkAsRead={handleMarkAsRead}
           onMarkAllAsRead={handleMarkAllAsRead}
           onDelete={handleDeleteNotification}
+          onNotificationClick={handleNotificationClick}
         />
 
         {/* User Profile */}

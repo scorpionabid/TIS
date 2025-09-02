@@ -208,7 +208,7 @@ export function SurveyViewModal({ open, onClose, survey }: SurveyViewModalProps)
                         <div className="space-y-2">
                           <p className="text-sm font-medium text-muted-foreground">Seçim variantları:</p>
                           <div className="pl-4 space-y-1">
-                            {question.options.map((option, optionIndex) => (
+                            {(question.options || []).map((option, optionIndex) => (
                               <div key={optionIndex} className="flex items-center gap-2 text-sm">
                                 <div className="w-2 h-2 rounded-full bg-muted-foreground"></div>
                                 <span>{option}</span>

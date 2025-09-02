@@ -21,11 +21,11 @@ class SurveyApprovalNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    protected DataApprovalRequest $approvalRequest;
+    protected $approvalRequest;
     protected string $notificationType;
     protected array $additionalData;
 
-    public function __construct(DataApprovalRequest $approvalRequest, string $notificationType, array $additionalData = [])
+    public function __construct($approvalRequest, string $notificationType, array $additionalData = [])
     {
         $this->approvalRequest = $approvalRequest;
         $this->notificationType = $notificationType;
@@ -37,7 +37,12 @@ class SurveyApprovalNotification extends Notification implements ShouldQueue
      */
     public function via($notifiable): array
     {
-        $channels = ['database'];
+        $channels = [];
+
+        // Skip database for survey assignments due to table structure incompatibility
+        if (!in_array($this->notificationType, ['survey_assigned', 'survey_deadline_reminder'])) {
+            $channels[] = 'database';
+        }
 
         // Email notification - role-based settings
         if ($this->shouldSendEmail($notifiable)) {
@@ -70,6 +75,12 @@ class SurveyApprovalNotification extends Notification implements ShouldQueue
             case 'approval_deadline_reminder':
                 return $this->deadlineReminderEmail($mailMessage, $notifiable);
             
+            case 'survey_assigned':
+                return $this->surveyAssignedEmail($mailMessage, $notifiable);
+            
+            case 'survey_deadline_reminder':
+                return $this->surveyDeadlineReminderEmail($mailMessage, $notifiable);
+            
             default:
                 return $this->defaultEmail($mailMessage, $notifiable);
         }
@@ -82,20 +93,25 @@ class SurveyApprovalNotification extends Notification implements ShouldQueue
     {
         $surveyInfo = $this->getSurveyInfo();
         
+        $notificationType = in_array($this->notificationType, ['survey_assigned', 'survey_deadline_reminder']) 
+            ? 'survey_assignment' 
+            : 'survey_approval';
+
         return [
-            'type' => 'survey_approval',
+            'type' => $notificationType,
             'subtype' => $this->notificationType,
-            'approval_request_id' => $this->approvalRequest->id,
+            'approval_request_id' => $this->approvalRequest->id ?? null,
+            'survey_id' => $this->additionalData['survey_id'] ?? null,
             'title' => $this->getTitle(),
             'message' => $this->getMessage($notifiable),
             'survey_info' => $surveyInfo,
             'action_url' => $this->getActionUrl(),
-            'priority' => $this->approvalRequest->priority ?? 'normal',
-            'deadline' => $this->approvalRequest->deadline,
+            'priority' => $this->approvalRequest->priority ?? $this->additionalData['priority'] ?? 'normal',
+            'deadline' => $this->approvalRequest->deadline ?? $this->additionalData['deadline'] ?? null,
             'metadata' => array_merge($this->additionalData, [
-                'institution_name' => $this->approvalRequest->institution->name ?? '',
-                'submitted_by' => $this->approvalRequest->submitter->name ?? '',
-                'current_status' => $this->approvalRequest->current_status,
+                'institution_name' => $this->approvalRequest->institution->name ?? $this->additionalData['institution_name'] ?? '',
+                'submitted_by' => $this->approvalRequest->submitter->name ?? $this->additionalData['submitted_by'] ?? '',
+                'current_status' => $this->approvalRequest->current_status ?? $this->additionalData['status'] ?? 'assigned',
             ]),
         ];
     }
@@ -261,6 +277,18 @@ class SurveyApprovalNotification extends Notification implements ShouldQueue
      */
     protected function getSurveyInfo(): array
     {
+        // Survey assignment notification üçün
+        if (in_array($this->notificationType, ['survey_assigned', 'survey_deadline_reminder'])) {
+            return [
+                'survey_title' => $this->additionalData['survey_title'] ?? 'Yeni Sorğu',
+                'survey_category' => $this->additionalData['survey_category'] ?? 'general',
+                'progress_percentage' => 0,
+                'institution_name' => $this->additionalData['institution_name'] ?? '',
+                'respondent_name' => '',
+            ];
+        }
+
+        // Approval workflow üçün mövcud logic
         $requestData = $this->approvalRequest->request_data ?? [];
         
         if (isset($requestData['survey_response_id'])) {
@@ -279,7 +307,7 @@ class SurveyApprovalNotification extends Notification implements ShouldQueue
         }
 
         return [
-            'survey_title' => $this->approvalRequest->request_title,
+            'survey_title' => $this->approvalRequest->request_title ?? 'Survey',
             'survey_category' => 'general',
             'progress_percentage' => 100,
             'institution_name' => $this->approvalRequest->institution->name ?? '',
@@ -298,6 +326,8 @@ class SurveyApprovalNotification extends Notification implements ShouldQueue
             'approval_rejected' => 'Survey Rədd Edildi',
             'approval_delegated' => 'Survey Təsdiq Həvaləsi',
             'approval_deadline_reminder' => 'Survey Deadline Xatırlatması',
+            'survey_assigned' => 'Yeni Survey Təyinatı',
+            'survey_deadline_reminder' => 'Survey Deadline Xatırlatması',
         ];
 
         return $titles[$this->notificationType] ?? 'Survey Bildirişi';
@@ -316,6 +346,8 @@ class SurveyApprovalNotification extends Notification implements ShouldQueue
             'approval_rejected' => "Survey cavabınız rədd edildi: {$surveyInfo['survey_title']}",
             'approval_delegated' => "Survey təsdiq səlahiyyəti həvalə edildi: {$surveyInfo['survey_title']}",
             'approval_deadline_reminder' => "Survey təsdiq deadline-ı yaxınlaşır: {$surveyInfo['survey_title']}",
+            'survey_assigned' => "Sizə yeni survey təyin edildi: {$surveyInfo['survey_title']}",
+            'survey_deadline_reminder' => "Survey cavablandırma deadline-ı yaxınlaşır: {$surveyInfo['survey_title']}",
         ];
 
         return $messages[$this->notificationType] ?? "Survey bildirişi: {$surveyInfo['survey_title']}";
@@ -327,7 +359,66 @@ class SurveyApprovalNotification extends Notification implements ShouldQueue
     protected function getActionUrl(): string
     {
         $baseUrl = config('app.frontend_url', config('app.url'));
+        
+        // Survey assignment üçün fərqli URL
+        if (in_array($this->notificationType, ['survey_assigned', 'survey_deadline_reminder'])) {
+            $surveyId = $this->additionalData['survey_id'] ?? null;
+            return $surveyId ? "{$baseUrl}/survey-response/{$surveyId}" : "{$baseUrl}/surveys";
+        }
+        
+        // Approval workflow üçün
         return "{$baseUrl}/surveys/approval/{$this->approvalRequest->id}";
+    }
+
+    /**
+     * Survey təyinatı email
+     */
+    protected function surveyAssignedEmail(MailMessage $message, $notifiable): MailMessage
+    {
+        $surveyInfo = $this->getSurveyInfo();
+        $institutionName = $this->additionalData['institution_name'] ?? '';
+        $assignedBy = $this->additionalData['assigned_by'] ?? '';
+
+        return $message
+            ->subject("📋 Yeni Survey Təyinatı - {$surveyInfo['survey_title']}")
+            ->greeting("Salam {$notifiable->name}!")
+            ->line("Sizə yeni survey təyin edildi:")
+            ->line("📋 **Survey:** {$surveyInfo['survey_title']}")
+            ->line("🏢 **Müəssisə:** {$institutionName}")
+            ->line("👤 **Təyin edən:** {$assignedBy}")
+            ->when(isset($this->additionalData['deadline']), function ($message) {
+                return $message->line("🕒 **Son tarix:** " . date('d.m.Y H:i', strtotime($this->additionalData['deadline'])));
+            })
+            ->when(isset($this->additionalData['priority']), function ($message) {
+                return $message->line("⏰ **Prioritet:** " . $this->getPriorityLabel($this->additionalData['priority']));
+            })
+            ->line("Zəhmət olmasa, survey-i vaxtında cavablandırın.")
+            ->action('Survey-i Cavabla', $this->getActionUrl())
+            ->line("Təşəkkür edirik!")
+            ->line("**ATİS - Azərbaycan Təhsil İdarəetmə Sistemi**");
+    }
+
+    /**
+     * Survey deadline xatırlatması email (respondents üçün)
+     */
+    protected function surveyDeadlineReminderEmail(MailMessage $message, $notifiable): MailMessage
+    {
+        $surveyInfo = $this->getSurveyInfo();
+        $daysLeft = $this->additionalData['days_left'] ?? 1;
+
+        return $message
+            ->subject("⏰ Survey Deadline Xatırlatması - {$surveyInfo['survey_title']}")
+            ->greeting("Salam {$notifiable->name}!")
+            ->line("Cavablandırmanız gözlənilən survey-in deadline-ı yaxınlaşır:")
+            ->line("📋 **Survey:** {$surveyInfo['survey_title']}")
+            ->line("🕒 **Qalan vaxt:** {$daysLeft} gün")
+            ->when(isset($this->additionalData['deadline']), function ($message) {
+                return $message->line("📅 **Son tarix:** " . date('d.m.Y H:i', strtotime($this->additionalData['deadline'])));
+            })
+            ->line("Zəhmət olmasa, survey-i vaxtında cavablandırın.")
+            ->action('Survey-i Cavabla', $this->getActionUrl())
+            ->line("Təşəkkür edirik!")
+            ->line("**ATİS - Azərbaycan Təhsil İdarəetmə Sistemi**");
     }
 
     /**

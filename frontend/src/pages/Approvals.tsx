@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import ApprovalDashboard from '../components/approval/ApprovalDashboard';
+import SurveyResponseApprovalDashboard from '../components/approval/SurveyResponseApprovalDashboard';
 import { Card, CardContent } from '../components/ui/card';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Shield, AlertTriangle } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Shield, AlertTriangle, Target, FileCheck } from 'lucide-react';
 
 const Approvals: React.FC = () => {
   const { currentUser: user } = useAuth();
@@ -60,8 +62,36 @@ const Approvals: React.FC = () => {
 
   return (
     <div className="container mx-auto p-6">
-      {/* Approval Dashboard */}
-      <ApprovalDashboard />
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <Shield className="h-8 w-8 text-primary" />
+          Təsdiq Paneli
+        </h1>
+        <p className="text-muted-foreground mt-1">
+          Məlumat təsdiqi və sorğu cavablarının idarə edilməsi
+        </p>
+      </div>
+
+      <Tabs defaultValue="survey-responses" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="survey-responses" className="flex items-center gap-2">
+            <Target className="h-4 w-4" />
+            Sorğu Cavabları
+          </TabsTrigger>
+          <TabsTrigger value="general-approvals" className="flex items-center gap-2">
+            <FileCheck className="h-4 w-4" />
+            Ümumi Təsdiqlər
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="survey-responses">
+          <SurveyResponseApprovalDashboard />
+        </TabsContent>
+
+        <TabsContent value="general-approvals">
+          <ApprovalDashboard />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

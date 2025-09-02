@@ -167,9 +167,46 @@ export default function Surveys() {
     }
   };
 
-  const handleEditSurvey = (survey: Survey) => {
-    setSelectedSurvey(survey);
-    setShowSurveyModal(true);
+  // Check if survey can be edited (not published with responses)
+  const canEditSurvey = (survey: Survey) => {
+    // Draft surveys can always be edited
+    if (survey.status === 'draft') return true;
+    
+    // Active surveys can be edited
+    if (survey.status === 'active') return true;
+    
+    // Published surveys can only be edited if they have no responses
+    if (survey.status === 'published') {
+      return (survey.response_count || 0) === 0;
+    }
+    
+    return false;
+  };
+
+  const handleEditSurvey = async (survey: Survey) => {
+    // Check if survey can be edited
+    if (!canEditSurvey(survey)) {
+      toast({
+        title: "Düzəliş mümkün deyil",
+        description: "Yayımlanmış və cavabları olan sorğuları dəyişdirmək olmaz. Məlumat tamlığını qorumaq üçün bu məhdudiyyət var.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Fetch full survey details including questions
+      const fullSurvey = await surveyService.getById(survey.id);
+      console.log('🔍 Full survey loaded for edit:', fullSurvey);
+      setSelectedSurvey(fullSurvey);
+      setShowSurveyModal(true);
+    } catch (error) {
+      toast({
+        title: "Xəta",
+        description: "Sorğu məlumatları yüklənə bilmədi",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleViewSurvey = async (survey: Survey) => {
@@ -474,8 +511,14 @@ export default function Surveys() {
                           variant="ghost" 
                           size="sm"
                           onClick={() => handleEditSurvey(survey)}
+                          disabled={!canEditSurvey(survey)}
+                          title={
+                            canEditSurvey(survey) 
+                              ? "Sorğunu düzəliş et" 
+                              : "Yayımlanmış və cavabları olan sorğuları düzəliş etmək olmaz"
+                          }
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className={`h-4 w-4 ${!canEditSurvey(survey) ? 'text-muted-foreground' : ''}`} />
                         </Button>
                         {survey.status === 'draft' && (
                           <Button 

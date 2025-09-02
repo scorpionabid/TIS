@@ -38,7 +38,7 @@ docker-compose -f docker-compose.simple.yml logs frontend
 cd backend
 
 # Start development server  
-php artisan serve --host=127.0.0.1 --port=8001
+php artisan serve --host=127.0.0.1 --port=8000
 
 # Run migrations
 php artisan migrate
@@ -90,7 +90,7 @@ npm run lint
 
 ### Project Structure
 - **Backend**: Laravel 11 API with Sanctum authentication, PostgreSQL/SQLite database
-- **Frontend**: React 19 with TypeScript, Vite build tool, Tailwind CSS 4.x
+- **Frontend**: React 18.3.1 with TypeScript, Vite build tool, Tailwind CSS 3.4.11
 - **Infrastructure**: Docker containers with Nginx reverse proxy
 
 
@@ -252,7 +252,7 @@ src/components/
 
 ## Local Development URLs
 - **Frontend**: http://localhost:3000 (Docker: same)
-- **Backend API**: http://localhost:8001/api (Docker: http://localhost:8000/api)
+- **Backend API**: http://localhost:8000/api (Docker: same)
 - **Database**: localhost:5432 (PostgreSQL) or SQLite file
 - **Docker Backend**: http://localhost:8000
 - **Docker Frontend**: http://localhost:3000
@@ -272,7 +272,7 @@ src/components/
 ## Key Libraries & Technologies
 
 ### Backend Stack
-- **Laravel Framework**: 12.x with PHP 8.2+
+- **Laravel Framework**: 11.x with PHP 8.2+
 - **Authentication**: Laravel Sanctum for API tokens
 - **Permissions**: Spatie Laravel Permission package
 - **Database**: PostgreSQL (production) / SQLite (development)

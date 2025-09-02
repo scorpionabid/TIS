@@ -98,7 +98,7 @@ class SurveyResponse extends Model
      */
     public function approvalRequest()
     {
-        return $this->morphOne(\App\Models\DataApprovalRequest::class, 'approvable');
+        return $this->morphOne(\App\Models\DataApprovalRequest::class, 'approvalable');
     }
 
     /**

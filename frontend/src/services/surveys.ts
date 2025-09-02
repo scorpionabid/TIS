@@ -30,19 +30,33 @@ export interface Survey extends BaseEntity {
 
 export interface SurveyQuestion {
   id?: number;
-  question: string;
+  title: string;
+  description?: string;
   type: 'text' | 'number' | 'date' | 'single_choice' | 'multiple_choice' | 'file_upload' | 'rating' | 'table_matrix';
   options?: string[];
-  required: boolean;
-  order: number;
-  validation?: {
-    min_length?: number;
-    max_length?: number;
-    min_value?: number;
-    max_value?: number;
-    allowed_file_types?: string[];
-    max_file_size?: number;
-  };
+  required?: boolean;
+  is_required?: boolean;
+  order?: number;
+  order_index?: number;
+  is_active?: boolean;
+  validation_rules?: any;
+  metadata?: any;
+  min_value?: number;
+  max_value?: number;
+  min_length?: number;
+  max_length?: number;
+  allowed_file_types?: string[];
+  max_file_size?: number;
+  rating_min?: number;
+  rating_max?: number;
+  rating_min_label?: string;
+  rating_max_label?: string;
+  table_headers?: string[];
+  table_rows?: string[];
+  translations?: any;
+  created_at?: string;
+  updated_at?: string;
+  survey_id?: number;
 }
 
 export interface CreateSurveyData {
@@ -217,6 +231,27 @@ class SurveyService extends BaseService<Survey> {
 
   async getAvailableTargets() {
     const response = await apiClient.get(`${this.baseEndpoint}/targets`);
+    return response.data;
+  }
+
+  // Survey notification methods
+  async getSurveyNotifications(params?: { limit?: number; only_unread?: boolean }) {
+    const response = await apiClient.get('/survey-notifications', params);
+    return response.data;
+  }
+
+  async getUnreadSurveyCount() {
+    const response = await apiClient.get('/survey-notifications/unread-count');
+    return response.data;
+  }
+
+  async getSurveyNotificationStats() {
+    const response = await apiClient.get('/survey-notifications/stats');
+    return response.data;
+  }
+
+  async markSurveyNotificationAsRead(surveyId: number) {
+    const response = await apiClient.post(`/survey-notifications/${surveyId}/mark-read`);
     return response.data;
   }
 }

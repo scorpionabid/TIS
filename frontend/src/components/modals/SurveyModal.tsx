@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -51,6 +51,7 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [isStepChanging, setIsStepChanging] = useState(false);
   
   const [formData, setFormData] = useState<CreateSurveyData>({
     title: '',
@@ -115,28 +116,81 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
     handleInputChange('target_institutions', typeIds);
   };
 
+  // Check if survey is editable
+  const isEditable = (survey: Survey | null) => {
+    if (!survey) return true; // New surveys are always editable
+    
+    // Draft surveys can always be edited
+    if (survey.status === 'draft') return true;
+    
+    // Active surveys can be edited
+    if (survey.status === 'active') return true;
+    
+    // Published surveys can only be edited if they have no responses
+    if (survey.status === 'published') {
+      return (survey.response_count || 0) === 0;
+    }
+    
+    return false;
+  };
+
   useEffect(() => {
     if (survey) {
-      setFormData({
+      // Debug: Log survey data in edit mode
+      console.log('🔍 Survey loaded for editing:', {
+        id: survey.id,
+        title: survey.title,
+        target_institutions: survey.target_institutions,
+        questions_count: survey.questions?.length || 0
+      });
+      
+      const newFormData = {
         title: survey.title,
         description: survey.description || '',
         questions: survey.questions || [],
         start_date: survey.start_date,
         end_date: survey.end_date,
-        target_institutions: survey.target_institutions || [],
+        target_institutions: Array.isArray(survey.target_institutions) ? survey.target_institutions : [],
         target_roles: survey.target_roles || [],
         is_anonymous: survey.is_anonymous,
         allow_multiple_responses: survey.allow_multiple_responses,
         max_responses: survey.max_responses,
+      };
+      
+      // Debug: Confirm formData is set
+      console.log('🔍 FormData set with target_institutions:', newFormData.target_institutions);
+      setFormData(newFormData);
+      const mappedQuestions = (survey.questions || []).map(q => {
+        console.log('🐛 Raw question data:', {
+          id: q.id,
+          options: q.options,
+          optionsType: typeof q.options,
+          isArray: Array.isArray(q.options)
+        });
+        
+        return {
+          id: q.id?.toString(),
+          question: q.question,
+          type: q.type,
+          options: Array.isArray(q.options) ? q.options : [],
+          required: q.required,
+          order: q.order,
+        };
       });
-      setQuestions((survey.questions || []).map(q => ({
-        id: q.id?.toString(),
-        question: q.question,
-        type: q.type,
-        options: q.options || [],
-        required: q.required,
-        order: q.order,
-      })));
+      
+      // Debug: Questions mapping
+      console.log('🔍 Questions mapping:', {
+        original: survey.questions,
+        mapped: mappedQuestions,
+        count: mappedQuestions.length
+      });
+      
+      setQuestions(mappedQuestions);
+      // Also sync formData to include the mapped questions
+      setFormData(prev => ({
+        ...prev,
+        questions: mappedQuestions,
+      }));
     } else {
       setFormData({
         title: '',
@@ -154,11 +208,21 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🚨 handleSubmit called, currentStep:', currentStep, 'isStepChanging:', isStepChanging);
+    
+    // Prevent form submission during step transitions
+    if (isStepChanging) {
+      console.log('🚨 handleSubmit: blocked due to step change in progress');
+      return;
+    }
     
     // Only submit if we're on step 3 (final step)
     if (currentStep < 3) {
+      console.log('🚨 handleSubmit: currentStep < 3, returning early');
       return;
     }
+    
+    console.log('🚨 handleSubmit: proceeding with submission');
     
     if (!formData.title.trim()) {
       toast({
@@ -203,6 +267,15 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
         })),
       };
 
+      // Debug: Log survey data being sent
+      console.log('🚀 Sending survey data:', {
+        questions: surveyData.questions.map(q => ({question: q.question, type: q.type})),
+        questionCount: surveyData.questions.length,
+        target_institutions: surveyData.target_institutions,
+        formData_target_institutions: formData.target_institutions,
+        all_survey_data_keys: Object.keys(surveyData)
+      });
+
       await onSave(surveyData);
       toast({
         title: "Uğurlu",
@@ -246,7 +319,10 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
       order: questions.length + 1,
     };
 
-    setQuestions(prev => [...prev, question]);
+    const updatedQuestions = [...questions, question];
+    setQuestions(updatedQuestions);
+    // Sync formData.questions
+    setFormData(prev => ({ ...prev, questions: updatedQuestions }));
     setNewQuestion({
       question: '',
       type: 'text',
@@ -256,7 +332,10 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
   };
 
   const removeQuestion = (id: string) => {
-    setQuestions(prev => prev.filter(q => q.id !== id));
+    const updatedQuestions = questions.filter(q => q.id !== id);
+    setQuestions(updatedQuestions);
+    // Sync formData.questions
+    setFormData(prev => ({ ...prev, questions: updatedQuestions }));
   };
 
   const addOption = () => {
@@ -310,10 +389,18 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
   };
 
   const handleNextStep = () => {
+    console.log('🚀 handleNextStep called, currentStep:', currentStep);
     if (currentStep === 1 && !validateStep1()) return;
     if (currentStep === 2 && !validateStep2()) return;
     
+    console.log('🚀 Setting currentStep to:', currentStep + 1);
+    setIsStepChanging(true);
     setCurrentStep(prev => prev + 1);
+    
+    // Reset the step changing flag after a brief moment
+    setTimeout(() => {
+      setIsStepChanging(false);
+    }, 100);
   };
 
   return (
@@ -322,9 +409,37 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Target className="h-5 w-5" />
-            {isEditMode ? `${survey?.title} sorğusunu redaktə et` : 'Yeni sorğu yarat'}
+            {isEditMode ? 
+              (isEditable(survey) ? 
+                `${survey?.title} sorğusunu redaktə et` : 
+                `${survey?.title} sorğusuna baxış (Redaktə edilə bilməz)`
+              ) : 
+              'Yeni sorğu yarat'
+            }
           </DialogTitle>
+          <DialogDescription>
+            {isEditMode ? 
+              (isEditable(survey) ? 
+                'Sorğu məlumatlarını dəyişdirin və yenidən yadda saxlayın' : 
+                'Bu sorğu yayımlanıb və cavabları var. Məlumat tamlığını qorumaq üçün redaktə edilə bilməz.'
+              ) : 
+              'Yeni sorğu yaratmaq üçün aşağıdakı formu doldurun'
+            }
+          </DialogDescription>
         </DialogHeader>
+
+        {/* Warning banner for non-editable surveys */}
+        {isEditMode && !isEditable(survey) && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-center gap-2 text-amber-800">
+              <AlertTriangle className="h-5 w-5" />
+              <div>
+                <p className="font-medium">Bu sorğu redaktə edilə bilməz</p>
+                <p className="text-sm">Yayımlanmış və cavabları olan sorğuları dəyişdirmək məlumat tamlığını pozar. Yeni sorğu yaradın.</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="mb-6">
           <div className="flex items-center gap-4">
@@ -465,9 +580,20 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                           <div className="mt-2">
                             <p className="text-sm text-muted-foreground">Seçimlər:</p>
                             <ul className="list-disc list-inside text-sm text-muted-foreground">
-                              {question.options.map((option, i) => (
-                                <li key={i}>{option}</li>
-                              ))}
+                              {(() => {
+                                console.log('🐛 Debug question.options:', {
+                                  questionId: question.id,
+                                  options: question.options,
+                                  optionsType: typeof question.options,
+                                  isArray: Array.isArray(question.options),
+                                  value: question.options
+                                });
+                                
+                                const safeOptions = Array.isArray(question.options) ? question.options : [];
+                                return safeOptions.map((option, i) => (
+                                  <li key={i}>{option}</li>
+                                ));
+                              })()}
                             </ul>
                           </div>
                         )}
@@ -488,6 +614,11 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                   <div className="text-center py-8 text-muted-foreground">
                     <Target className="h-12 w-12 mx-auto mb-4" />
                     <p>Hələlik sual əlavə edilməyib</p>
+                    {isEditMode && (
+                      <p className="text-xs text-red-500 mt-2">
+                        DEBUG: Edit mode - Questions count: {questions.length} | Survey ID: {survey?.id}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -530,8 +661,8 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           id="required"
-                          checked={newQuestion.required || false}
-                          onCheckedChange={(checked) => setNewQuestion(prev => ({ ...prev, required: !!checked }))}
+                          checked={Boolean(newQuestion.required)}
+                          onCheckedChange={(checked) => setNewQuestion(prev => ({ ...prev, required: Boolean(checked) }))}
                         />
                         <Label htmlFor="required" className="text-sm font-normal cursor-pointer">
                           Məcburi sual
@@ -762,7 +893,12 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                       <div key={institution.id} className="flex items-center space-x-2 py-1">
                         <Checkbox
                           id={`institution-${institution.id}`}
-                          checked={(formData.target_institutions || []).includes(institution.id)}
+                          checked={
+                            formData.target_institutions?.includes(institution.id) || 
+                            formData.target_institutions?.includes(String(institution.id)) ||
+                            formData.target_institutions?.map(String).includes(String(institution.id)) ||
+                            false
+                          }
                           onCheckedChange={(checked) => {
                             const currentTargets = formData.target_institutions || [];
                             if (checked) {
@@ -835,9 +971,15 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                   Növbəti
                 </Button>
               ) : (
-                <Button type="submit" disabled={isLoading}>
+                <Button 
+                  type="submit" 
+                  disabled={isLoading || (isEditMode && !isEditable(survey))}
+                >
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isEditMode ? 'Yenilə' : 'Yarat'}
+                  {isEditMode ? 
+                    (isEditable(survey) ? 'Yenilə' : 'Redaktə edilə bilməz') : 
+                    'Yarat'
+                  }
                 </Button>
               )}
             </div>

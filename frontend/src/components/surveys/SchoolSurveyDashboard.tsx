@@ -212,7 +212,17 @@ export const SchoolSurveyDashboard: React.FC<SchoolSurveyDashboardProps> = ({ cl
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Gözləyən</p>
-                <p className="text-2xl font-bold text-orange-600">{surveyStats.pending}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-2xl font-bold text-orange-600">{surveyStats.pending}</p>
+                  {surveyStats.pending > 0 && (
+                    <div className="relative">
+                      <span className="flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500"></span>
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
               <Clock className="h-8 w-8 text-orange-600" />
             </div>
@@ -369,14 +379,24 @@ export const SchoolSurveyDashboard: React.FC<SchoolSurveyDashboardProps> = ({ cl
                       {/* Survey Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <h3 className="text-lg font-semibold text-foreground truncate">
-                              {survey.title}
-                            </h3>
-                            {survey.description && (
-                              <p className="text-muted-foreground text-sm mt-1 line-clamp-2">
-                                {survey.description}
-                              </p>
+                          <div className="flex items-start gap-2">
+                            <div>
+                              <h3 className="text-lg font-semibold text-foreground truncate">
+                                {survey.title}
+                              </h3>
+                              {survey.description && (
+                                <p className="text-muted-foreground text-sm mt-1 line-clamp-2">
+                                  {survey.description}
+                                </p>
+                              )}
+                            </div>
+                            {survey.response_status === 'not_started' && (
+                              <div className="relative mt-1">
+                                <span className="flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                                </span>
+                              </div>
                             )}
                           </div>
                           <div className="flex items-center gap-2 ml-4">
