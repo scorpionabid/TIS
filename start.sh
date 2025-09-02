@@ -34,6 +34,13 @@ check_docker() {
     if command -v docker >/dev/null 2>&1 && command -v docker-compose >/dev/null 2>&1; then
         if docker info >/dev/null 2>&1; then
             return 0
+        else
+            print_warning "Docker daemon işləmir, başladılır..."
+            open -a Docker 2>/dev/null || true
+            sleep 10
+            if docker info >/dev/null 2>&1; then
+                return 0
+            fi
         fi
     fi
     return 1
@@ -162,34 +169,41 @@ start_docker() {
     print_status "Container statusunu yoxla..."
     docker-compose -f docker-compose.simple.yml ps
     
-    # Test API endpoints
+    # Test API endpoints with health checks
     print_status "API endpoints-i test et..."
     backend_ready=false
-    for i in {1..10}; do
-        if curl -s http://127.0.0.1:8000 >/dev/null 2>&1; then
+    for i in {1..15}; do
+        # Try health endpoint first, then root
+        if curl -s http://127.0.0.1:8000/api/health >/dev/null 2>&1 || curl -s http://127.0.0.1:8000 >/dev/null 2>&1; then
             print_success "Backend hazır: http://localhost:8000"
             backend_ready=true
             break
         fi
-        sleep 2
+        sleep 3
     done
     
     if [ "$backend_ready" = false ]; then
         print_warning "Backend problemi var - container logs yoxla: docker-compose -f docker-compose.simple.yml logs backend"
+        print_status "Backend yenidən başladılır..."
+        docker-compose -f docker-compose.simple.yml restart backend
+        sleep 5
     fi
     
     frontend_ready=false
-    for i in {1..10}; do
-        if curl -s http://127.0.0.1:3000 >/dev/null 2>&1; then
+    for i in {1..15}; do
+        if curl -s -I http://127.0.0.1:3000 | grep -q "200 OK"; then
             print_success "Frontend hazır: http://localhost:3000"
             frontend_ready=true
             break
         fi
-        sleep 2
+        sleep 3
     done
     
     if [ "$frontend_ready" = false ]; then
         print_warning "Frontend problemi var - container logs yoxla: docker-compose -f docker-compose.simple.yml logs frontend"
+        print_status "Frontend yenidən başladılır..."
+        docker-compose -f docker-compose.simple.yml restart frontend
+        sleep 5
     fi
     
     print_success "Docker rejimi hazırdır!"
