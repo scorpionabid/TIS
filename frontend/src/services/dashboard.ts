@@ -199,10 +199,6 @@ class DashboardService {
     return response;
   }
 
-  async getSchoolClasses() {
-    const response = await apiClient.get('/schooladmin/classes');
-    return response;
-  }
 
   async getSchoolTeachers() {
     const response = await apiClient.get('/schooladmin/teachers');

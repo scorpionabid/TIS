@@ -396,20 +396,56 @@ class DailyAttendanceSummary extends Model
                $this->getTotalAbsentPeriods() > ($this->total_periods_scheduled * 0.5); // Missed more than half
     }
 
-    // Pattern detection
+    // Pattern detection and summary generation
     public static function generateDailySummary(int $studentId, Carbon $date): self
     {
         $attendanceRecords = AttendanceRecord::where('student_id', $studentId)
             ->whereDate('attendance_date', $date)
             ->get();
 
+        // Get or create summary for this student and date
+        $summary = static::where([
+            'student_id' => $studentId,
+            'attendance_date' => $date
+        ])->first();
+
         if ($attendanceRecords->isEmpty()) {
-            return static::createEmptySummary($studentId, $date);
+            if (!$summary) {
+                return static::createEmptySummary($studentId, $date);
+            }
+            // Update existing summary to reflect no records
+            $summary->update([
+                'daily_status' => 'not_scheduled',
+                'total_periods_scheduled' => 0,
+                'periods_present' => 0,
+                'periods_absent' => 0,
+                'periods_late' => 0,
+                'periods_excused' => 0,
+                'daily_attendance_rate' => 0,
+                'summary_generated_at' => now()
+            ]);
+            return $summary;
         }
 
-        $summary = new static();
-        $summary->student_id = $studentId;
-        $summary->attendance_date = $date;
+        if (!$summary) {
+            $summary = new static();
+            $summary->student_id = $studentId;
+            $summary->attendance_date = $date;
+            
+            // Get student's grade/class information
+            $student = User::find($studentId);
+            if ($student && $student->grades->isNotEmpty()) {
+                $summary->grade_id = $student->grades->first()->id;
+            } else {
+                // Create a default grade if student has no grade assigned
+                $summary->grade_id = 1; // TODO: Handle this better
+            }
+            
+            // Set academic year and term (you might want to get these dynamically)
+            $summary->academic_year_id = 1; // TODO: Get current academic year
+            $summary->academic_term_id = 1; // TODO: Get current academic term
+        }
+
         $summary->processAttendanceRecords($attendanceRecords);
         $summary->save();
 
@@ -418,8 +454,19 @@ class DailyAttendanceSummary extends Model
 
     private static function createEmptySummary(int $studentId, Carbon $date): self
     {
+        // Get student's grade information
+        $student = User::find($studentId);
+        $gradeId = 1; // Default
+        
+        if ($student && $student->grades->isNotEmpty()) {
+            $gradeId = $student->grades->first()->id;
+        }
+
         return static::create([
             'student_id' => $studentId,
+            'grade_id' => $gradeId,
+            'academic_year_id' => 1, // TODO: Get current academic year
+            'academic_term_id' => 1, // TODO: Get current academic term
             'attendance_date' => $date,
             'daily_status' => 'not_scheduled',
             'total_periods_scheduled' => 0,

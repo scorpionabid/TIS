@@ -1,6 +1,7 @@
 import { BaseService, BaseEntity, PaginationParams } from './BaseService';
 import { apiClient } from './api';
-import { SchoolClass, SchoolTeacher, SchoolStudent, CreateStudentData, AttendanceRecord, Assessment } from './schoolAdmin';
+import { SchoolTeacher, SchoolStudent, CreateStudentData, AttendanceRecord, Assessment } from './schoolAdmin';
+import { Grade } from './grades';
 import { handleApiResponse, handleArrayResponse, handleApiResponseWithError } from '@/utils/apiResponseHandler';
 import { logger } from '@/utils/logger';
 
@@ -25,7 +26,7 @@ class SuperAdminService {
   // ===================
   // CLASS MANAGEMENT
   // ===================
-  async getClasses(params?: PaginationParams): Promise<SchoolClass[]> {
+  async getClasses(params?: PaginationParams): Promise<Grade[]> {
     try {
       logger.debug('SuperAdmin fetching classes', {
         component: 'SuperAdminService',
@@ -34,8 +35,8 @@ class SuperAdminService {
       });
       
       const endpoint = '/classes';
-      const response = await apiClient.get<SchoolClass[]>(endpoint, params);
-      return handleArrayResponse<SchoolClass>(response, 'SuperAdminService.getClasses');
+      const response = await apiClient.get<Grade[]>(endpoint, params);
+      return handleArrayResponse<Grade>(response, 'SuperAdminService.getClasses');
       
     } catch (error) {
       logger.error('Failed to fetch classes as SuperAdmin', error);
@@ -43,30 +44,30 @@ class SuperAdminService {
     }
   }
 
-  async getClass(classId: number): Promise<SchoolClass> {
+  async getClass(classId: number): Promise<Grade> {
     try {
-      const response = await apiClient.get<SchoolClass>(`/classes/${classId}`);
-      return handleApiResponseWithError<SchoolClass>(response, `SuperAdminService.getClass(${classId})`, 'SuperAdminService');
+      const response = await apiClient.get<Grade>(`/classes/${classId}`);
+      return handleApiResponseWithError<Grade>(response, `SuperAdminService.getClass(${classId})`, 'SuperAdminService');
     } catch (error) {
       logger.error(`Failed to fetch class ${classId}`, error);
       throw error;
     }
   }
 
-  async createClass(data: Partial<SchoolClass>): Promise<SchoolClass> {
+  async createClass(data: Partial<Grade>): Promise<Grade> {
     try {
-      const response = await apiClient.post<SchoolClass>('/classes', data);
-      return handleApiResponseWithError<SchoolClass>(response, 'SuperAdminService.createClass', 'SuperAdminService');
+      const response = await apiClient.post<Grade>('/classes', data);
+      return handleApiResponseWithError<Grade>(response, 'SuperAdminService.createClass', 'SuperAdminService');
     } catch (error) {
       logger.error('Failed to create class as SuperAdmin', error);
       throw error;
     }
   }
 
-  async updateClass(classId: number, data: Partial<SchoolClass>): Promise<SchoolClass> {
+  async updateClass(classId: number, data: Partial<Grade>): Promise<Grade> {
     try {
-      const response = await apiClient.put<SchoolClass>(`/classes/${classId}`, data);
-      return handleApiResponseWithError<SchoolClass>(response, `SuperAdminService.updateClass(${classId})`, 'SuperAdminService');
+      const response = await apiClient.put<Grade>(`/classes/${classId}`, data);
+      return handleApiResponseWithError<Grade>(response, `SuperAdminService.updateClass(${classId})`, 'SuperAdminService');
     } catch (error) {
       logger.error(`Failed to update class ${classId}`, error);
       throw error;

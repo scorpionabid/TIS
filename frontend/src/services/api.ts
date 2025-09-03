@@ -226,6 +226,10 @@ class ApiClient {
         console.error('❌ Response URL:', response.url);
         if (data.errors) {
           console.error('❌ Validation Errors:', data.errors);
+          // Log each validation error in detail
+          Object.keys(data.errors).forEach(field => {
+            console.error(`❌ Field "${field}":`, data.errors[field]);
+          });
         }
         if (response.status === 401) {
           console.warn('🚪 401 Unauthorized detected');

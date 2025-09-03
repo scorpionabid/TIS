@@ -216,6 +216,38 @@ class AttendanceService extends BaseService {
   }
 
   /**
+   * Get daily attendance report
+   */
+  async getDailyReport(date?: string): Promise<{ success: boolean; data: any; message?: string }> {
+    const params = date ? `?date=${date}` : '';
+    return this.get<{ success: boolean; data: any; message?: string }>(`${this.baseUrl}/daily-report${params}`);
+  }
+
+  /**
+   * Get weekly attendance summary
+   */
+  async getWeeklySummary(startDate?: string, endDate?: string): Promise<{ success: boolean; data: any; message?: string }> {
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    const queryString = params.toString();
+    const endpoint = queryString ? `${this.baseUrl}/weekly-summary?${queryString}` : `${this.baseUrl}/weekly-summary`;
+    return this.get<{ success: boolean; data: any; message?: string }>(endpoint);
+  }
+
+  /**
+   * Get monthly attendance statistics
+   */
+  async getMonthlyStatistics(month?: number, year?: number): Promise<{ success: boolean; data: any; message?: string }> {
+    const params = new URLSearchParams();
+    if (month) params.append('month', month.toString());
+    if (year) params.append('year', year.toString());
+    const queryString = params.toString();
+    const endpoint = queryString ? `${this.baseUrl}/monthly-statistics?${queryString}` : `${this.baseUrl}/monthly-statistics`;
+    return this.get<{ success: boolean; data: any; message?: string }>(endpoint);
+  }
+
+  /**
    * Export attendance data to CSV
    */
   async exportAttendance(filters?: AttendanceFilters): Promise<Blob> {

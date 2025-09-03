@@ -13,11 +13,11 @@ import {
   Calendar,
   TrendingUp
 } from 'lucide-react';
-import { SchoolClass } from '@/services/schoolAdmin';
+import { Grade } from '@/services/grades';
 import { cn } from '@/lib/utils';
 
 interface ClassSelectorProps {
-  classes?: SchoolClass[];
+  classes?: Grade[];
   selectedClassId: number | null;
   onClassChange: (classId: number | null) => void;
   onRefresh: () => void;
@@ -38,11 +38,11 @@ export const ClassSelector: React.FC<ClassSelectorProps> = ({
   const selectedClass = classes.find(c => c.id === selectedClassId);
   const activeClasses = classes.filter(c => c.is_active);
 
-  const getClassStats = (cls: SchoolClass) => {
+  const getClassStats = (cls: Grade) => {
     return {
       studentCount: cls.student_count || 0,
-      teacherCount: cls.teacher_count || 0,
-      subjectCount: cls.subject_count || 0
+      teacherCount: cls.homeroom_teacher ? 1 : 0,
+      subjectCount: 0 // TODO: Add subjects count from Grade model
     };
   };
 

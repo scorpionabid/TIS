@@ -139,35 +139,8 @@ export interface SchoolTaskFilters extends PaginationParams {
   due_date_to?: string;
 }
 
-// Class management interfaces
-export interface SchoolClass extends BaseEntity {
-  name: string;
-  grade_level: number;
-  academic_year: string;
-  class_teacher_id?: number;
-  room_number?: string;
-  capacity: number;
-  current_enrollment: number;
-  is_active: boolean;
-  schedule?: ClassSchedule[];
-  students?: Student[];
-  class_teacher?: {
-    id: number;
-    name: string;
-    email: string;
-  };
-}
-
-export interface ClassSchedule {
-  id: number;
-  day_of_week: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday';
-  start_time: string;
-  end_time: string;
-  subject_name: string;
-  teacher_id: number;
-  teacher_name: string;
-  room_number?: string;
-}
+// Legacy interfaces - moved to grades service
+// Note: SchoolClass and ClassSchedule have been migrated to Grade interface in grades.ts
 
 // Teacher management interfaces
 export interface SchoolTeacher extends BaseEntity {
@@ -389,34 +362,9 @@ class SchoolAdminService {
     return response.data || response as any;
   }
 
-  // Class management methods
-  async getClasses(params?: PaginationParams): Promise<SchoolClass[]> {
-    const baseEndpoint = this.baseEndpoint || '/schooladmin';
-    console.log('🔍 SchoolAdminService.getClasses called with:', { baseEndpoint, thisBaseEndpoint: this.baseEndpoint, params });
-    const endpoint = `${baseEndpoint}/classes`;
-    console.log('🔍 Final endpoint:', endpoint);
-    const response = await apiClient.get<SchoolClass[]>(endpoint, params);
-    return response.data || response as any;
-  }
-
-  async getClass(classId: number): Promise<SchoolClass> {
-    const response = await apiClient.get<SchoolClass>(`${this.baseEndpoint}/classes/${classId}`);
-    return response.data || response as any;
-  }
-
-  async createClass(data: Partial<SchoolClass>): Promise<SchoolClass> {
-    const response = await apiClient.post<SchoolClass>(`${this.baseEndpoint}/classes`, data);
-    return response.data || response as any;
-  }
-
-  async updateClass(classId: number, data: Partial<SchoolClass>): Promise<SchoolClass> {
-    const response = await apiClient.put<SchoolClass>(`${this.baseEndpoint}/classes/${classId}`, data);
-    return response.data || response as any;
-  }
-
-  async deleteClass(classId: number): Promise<void> {
-    await apiClient.delete(`${this.baseEndpoint}/classes/${classId}`);
-  }
+  // Legacy class management methods - migrated to gradeService
+  // Note: Class management has been moved to gradeService in grades.ts
+  // Use gradeService.getGrades(), gradeService.createGrade(), etc. instead
 
   // Teacher management methods  
   async getTeachers(params?: PaginationParams): Promise<SchoolTeacher[]> {

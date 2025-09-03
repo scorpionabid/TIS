@@ -25,8 +25,13 @@ class Grade extends Model
         'homeroom_teacher_id',
         'student_count',
         'specialty',
+        'description',
         'metadata',
         'is_active',
+        'teacher_assigned_at',
+        'teacher_removed_at',
+        'deactivated_at',
+        'deactivated_by',
     ];
 
     /**
@@ -41,6 +46,9 @@ class Grade extends Model
             'student_count' => 'integer',
             'metadata' => 'array',
             'is_active' => 'boolean',
+            'teacher_assigned_at' => 'datetime',
+            'teacher_removed_at' => 'datetime',
+            'deactivated_at' => 'datetime',
         ];
     }
 
@@ -127,7 +135,7 @@ class Grade extends Model
     public function students()
     {
         return $this->belongsToMany(User::class, 'student_enrollments', 'grade_id', 'student_id')
-                    ->withPivot(['enrollment_date', 'status', 'notes'])
+                    ->withPivot(['enrollment_date', 'enrollment_status', 'enrollment_notes'])
                     ->withTimestamps();
     }
 
@@ -136,7 +144,7 @@ class Grade extends Model
      */
     public function activeStudents()
     {
-        return $this->students()->wherePivot('status', 'active');
+        return $this->students()->wherePivot('enrollment_status', 'active');
     }
 
     /**
@@ -152,7 +160,7 @@ class Grade extends Model
      */
     public function activeStudentEnrollments(): HasMany
     {
-        return $this->studentEnrollments()->where('status', 'active');
+        return $this->studentEnrollments()->where('enrollment_status', 'active');
     }
 
     /**
@@ -299,5 +307,208 @@ class Grade extends Model
     public function scopeSearchByName($query, string $search)
     {
         return $query->where('name', 'ILIKE', "%{$search}%");
+    }
+
+    /**
+     * Get the deactivated by user.
+     */
+    public function deactivatedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deactivated_by');
+    }
+
+    /**
+     * Get capacity status attribute.
+     */
+    public function getCapacityStatusAttribute(): string
+    {
+        if (!$this->room) {
+            return 'no_room';
+        }
+
+        $utilization = $this->getUtilizationRateAttribute();
+        
+        if ($utilization > 100) {
+            return 'over_capacity';
+        } elseif ($utilization >= 95) {
+            return 'full';
+        } elseif ($utilization >= 80) {
+            return 'near_capacity';
+        } else {
+            return 'available';
+        }
+    }
+
+    /**
+     * Get utilization rate attribute.
+     */
+    public function getUtilizationRateAttribute(): float
+    {
+        if (!$this->room || $this->room->capacity === 0) {
+            return 0;
+        }
+
+        return round(($this->student_count / $this->room->capacity) * 100, 2);
+    }
+
+    /**
+     * Get available spots attribute.
+     */
+    public function getAvailableSpotsAttribute(): int
+    {
+        return max(0, ($this->room?->capacity ?? 0) - $this->student_count);
+    }
+
+    /**
+     * Get performance metrics attribute.
+     */
+    public function getPerformanceMetricsAttribute(): array
+    {
+        // This would be populated from attendance and assessment data
+        return [
+            'attendance_rate' => 0, // TODO: Calculate from attendance records
+            'average_grade' => 0, // TODO: Calculate from assessment results
+            'homework_completion' => 0, // TODO: Calculate from homework tracking
+            'behavior_score' => 0, // TODO: Calculate from behavior records
+        ];
+    }
+
+    /**
+     * Check if grade is overcrowded.
+     */
+    public function isOvercrowded(): bool
+    {
+        return $this->room && $this->student_count > $this->room->capacity;
+    }
+
+    /**
+     * Check if grade needs attention (no teacher or room).
+     */
+    public function needsAttention(): bool
+    {
+        return !$this->homeroom_teacher_id || !$this->room_id;
+    }
+
+    /**
+     * Get grade summary for reporting.
+     */
+    public function getSummary(): array
+    {
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'full_name' => $this->full_name,
+            'display_name' => $this->display_name,
+            'class_level' => $this->class_level,
+            'student_count' => $this->student_count,
+            'capacity' => $this->room?->capacity ?? 0,
+            'utilization_rate' => $this->utilization_rate,
+            'capacity_status' => $this->capacity_status,
+            'has_teacher' => !is_null($this->homeroom_teacher_id),
+            'has_room' => !is_null($this->room_id),
+            'needs_attention' => $this->needsAttention(),
+            'is_active' => $this->is_active,
+        ];
+    }
+
+    /**
+     * Scope for grades that need attention.
+     */
+    public function scopeNeedsAttention($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('homeroom_teacher_id')
+              ->orWhereNull('room_id');
+        })->where('is_active', true);
+    }
+
+    /**
+     * Scope for overcrowded grades.
+     */
+    public function scopeOvercrowded($query)
+    {
+        return $query->whereHas('room', function ($q) {
+            $q->whereRaw('grades.student_count > rooms.capacity');
+        });
+    }
+
+    /**
+     * Scope for underutilized grades.
+     */
+    public function scopeUnderutilized($query, int $threshold = 60)
+    {
+        return $query->whereHas('room', function ($q) use ($threshold) {
+            $q->whereRaw('grades.student_count < (rooms.capacity * ? / 100)', [$threshold]);
+        });
+    }
+
+    /**
+     * Scope for grades with capacity status.
+     */
+    public function scopeByCapacityStatus($query, string $status)
+    {
+        switch ($status) {
+            case 'available':
+                return $query->whereHas('room', function ($q) {
+                    $q->whereRaw('grades.student_count < (rooms.capacity * 0.8)');
+                });
+            case 'near_capacity':
+                return $query->whereHas('room', function ($q) {
+                    $q->whereRaw('grades.student_count >= (rooms.capacity * 0.8)')
+                      ->whereRaw('grades.student_count < (rooms.capacity * 0.95)');
+                });
+            case 'full':
+                return $query->whereHas('room', function ($q) {
+                    $q->whereRaw('grades.student_count >= (rooms.capacity * 0.95)')
+                      ->whereRaw('grades.student_count <= rooms.capacity');
+                });
+            case 'over_capacity':
+                return $query->whereHas('room', function ($q) {
+                    $q->whereRaw('grades.student_count > rooms.capacity');
+                });
+            case 'no_room':
+                return $query->whereNull('room_id');
+            default:
+                return $query;
+        }
+    }
+
+    /**
+     * Get recent activity logs for this grade.
+     */
+    public function getRecentActivity(int $limit = 10): array
+    {
+        // This would integrate with activity log system
+        return [];
+    }
+
+    /**
+     * Update student count from active enrollments.
+     */
+    public function updateStudentCountFromEnrollments(): void
+    {
+        $activeCount = $this->activeStudentEnrollments()->count();
+        $this->update(['student_count' => $activeCount]);
+    }
+
+    /**
+     * Check if grade can accommodate more students.
+     */
+    public function canAccommodateStudents(int $count = 1): bool
+    {
+        return $this->available_spots >= $count;
+    }
+
+    /**
+     * Get suggested optimal student count based on room capacity.
+     */
+    public function getOptimalStudentCount(): int
+    {
+        if (!$this->room) {
+            return 25; // Default suggestion
+        }
+
+        // Suggest 85% of room capacity as optimal
+        return floor($this->room->capacity * 0.85);
     }
 }

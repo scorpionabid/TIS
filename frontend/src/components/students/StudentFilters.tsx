@@ -8,14 +8,14 @@ import {
   useInstitutionFilter
 } from '@/components/common/GenericFilter';
 import type { StudentFilters } from './hooks/useSchoolStudentManagerGeneric';
-import { SchoolClass } from '@/services/schoolAdmin';
+import { Grade } from '@/services/grades';
 
 interface StudentFiltersProps {
   searchTerm: string;
   setSearchTerm: (term: string) => void;
   filters: StudentFilters;
   setFilters: React.Dispatch<React.SetStateAction<StudentFilters>>;
-  classes?: SchoolClass[];
+  classes?: Grade[];
 }
 
 export const StudentFiltersNew: React.FC<StudentFiltersProps> = ({

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { toast } from 'sonner';
 import { attendanceService, BulkAttendanceData } from '@/services/attendance';
+import { attendanceRecordService, BulkAttendanceRecordData } from '@/services/attendanceRecords';
 import { institutionService } from '@/services/institutions';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -113,16 +114,21 @@ export const useAttendanceData = ({ selectedClassId, selectedDate, selectedInsti
     refetchOnWindowFocus: false,
   });
 
-  // Record attendance mutation
+  // Record attendance mutation - using new comprehensive API
   const recordAttendanceMutation = useMutation({
-    mutationFn: (data: BulkAttendanceData) => attendanceService.recordBulkAttendance(data),
-    onSuccess: () => {
-      toast.success('Davamiyyət qeydə alındı');
+    mutationFn: (data: BulkAttendanceRecordData) => attendanceRecordService.bulkCreateAttendanceRecords(data),
+    onSuccess: (response) => {
+      const { created_count, updated_count, error_count } = response.data;
+      if (error_count > 0) {
+        toast.warning(`Davamiyyət qeydə alındı: ${created_count} yaradıldı, ${updated_count} yeniləndi, ${error_count} xəta`);
+      } else {
+        toast.success(`Davamiyyət qeydə alındı: ${created_count} yaradıldı, ${updated_count} yeniləndi`);
+      }
       queryClient.invalidateQueries({ queryKey: ['attendance-records'] });
       refetchAttendance();
     },
-    onError: () => {
-      toast.error('Davamiyyət qeydə alına bilmədi');
+    onError: (error: any) => {
+      toast.error('Davamiyyət qeydə alına bilmədi: ' + (error.message || 'Naməlum xəta'));
     },
   });
 
@@ -178,17 +184,21 @@ export const useAttendanceData = ({ selectedClassId, selectedDate, selectedInsti
   };
 
   const saveAttendance = (classId: number, date: string) => {
-    if (!students) return;
+    if (!students || !currentUser) return;
 
     const attendanceRecords = students.map(student => ({
       student_id: student.id,
-      status: attendanceData[student.id]?.status || 'present',
+      status: attendanceData[student.id]?.status as any || 'present',
       notes: attendanceData[student.id]?.notes || undefined
     }));
 
-    const bulkData: BulkAttendanceData = {
+    // Use the new comprehensive AttendanceRecord API
+    const bulkData: BulkAttendanceRecordData = {
       class_id: classId,
-      date,
+      teacher_id: currentUser.id,
+      academic_year_id: 1, // TODO: Get current academic year
+      attendance_date: date,
+      period_number: 1, // Default to first period
       attendance_records: attendanceRecords
     };
 

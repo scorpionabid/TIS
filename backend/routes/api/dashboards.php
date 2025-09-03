@@ -13,6 +13,7 @@ use App\Http\Controllers\MektebAdmin\MektebAdminDashboardController;
 use App\Http\Controllers\School\SchoolDashboardController;
 use App\Http\Controllers\School\SchoolStudentController;
 use App\Http\Controllers\School\SchoolTeacherController;
+use App\Http\Controllers\Grade\GradeUnifiedController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -63,10 +64,10 @@ Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|supera
     Route::put('departments/{department}', [RegionAdminInstitutionController::class, 'updateDepartment']);
     Route::delete('departments/{department}', [RegionAdminInstitutionController::class, 'deleteDepartment']);
     
-    // Classes management endpoints for RegionAdmin
-    Route::get('classes', [App\Http\Controllers\RegionAdmin\RegionAdminClassController::class, 'index']);
-    Route::get('classes/{class}', [App\Http\Controllers\RegionAdmin\RegionAdminClassController::class, 'show']);
-    Route::get('institutions/{institution}/classes', [RegionAdminInstitutionController::class, 'getInstitutionClasses']);
+    // Classes management endpoints for RegionAdmin - Updated to use GradeUnifiedController
+    Route::get('grades', [GradeUnifiedController::class, 'index']);
+    Route::get('grades/{grade}', [GradeUnifiedController::class, 'show']);
+    Route::get('institutions/{institution}/grades', [RegionAdminInstitutionController::class, 'getInstitutionClasses']);
     
     // User management endpoints - READ operations
     Route::get('users', [RegionAdminUserController::class, 'index']);
@@ -149,11 +150,11 @@ Route::prefix('sektoradmin')->middleware(['role:sektoradmin', 'regional.access:s
     Route::get('students/statistics', [App\Http\Controllers\SektorAdmin\SektorStudentController::class, 'getStudentStatistics']);
     Route::get('students/export', [App\Http\Controllers\SektorAdmin\SektorStudentController::class, 'exportStudentData']);
     
-    // Class Management
-    Route::get('classes', [App\Http\Controllers\SektorAdmin\SektorClassController::class, 'getSectorClasses']);
-    Route::get('schools/{schoolId}/classes', [App\Http\Controllers\SektorAdmin\SektorClassController::class, 'getClassesBySchool']);
-    Route::get('classes/{classId}/students', [App\Http\Controllers\SektorAdmin\SektorClassController::class, 'getClassStudents']);
-    Route::get('classes/schedules', [App\Http\Controllers\SektorAdmin\SektorClassController::class, 'getClassSchedules']);
+    // Grade Management - Updated to use GradeUnifiedController
+    Route::get('grades', [GradeUnifiedController::class, 'index']);
+    Route::get('schools/{schoolId}/grades', [GradeUnifiedController::class, 'index']);
+    Route::get('grades/{gradeId}/students', [GradeUnifiedController::class, 'students']);
+    Route::get('grades/{gradeId}', [GradeUnifiedController::class, 'show']);
     
     // Schedule Management
     Route::get('schedules', [App\Http\Controllers\SektorAdmin\SektorScheduleController::class, 'getSectorSchedules']);
@@ -183,7 +184,7 @@ Route::prefix('teacher')->middleware(['role:müəllim', 'regional.access:school'
 });
 
 // School Admin Dashboard Routes - Unified routing structure
-Route::prefix('schooladmin')->middleware(['role:schooladmin', 'regional.access:school', 'audit.logging'])->group(function () {
+Route::prefix('schooladmin')->middleware(['auth:sanctum', 'role_or_permission:schooladmin|regionadmin|sektoradmin', 'regional.access:school', 'audit.logging'])->group(function () {
     // Dashboard endpoints - using new controllers
     Route::get('dashboard/overview', [SchoolDashboardController::class, 'getOverview']);
     Route::get('dashboard/statistics', [SchoolDashboardController::class, 'getStatistics']);
@@ -215,14 +216,14 @@ Route::prefix('schooladmin')->middleware(['role:schooladmin', 'regional.access:s
     Route::post('tasks/{task}/complete', [App\Http\Controllers\School\SchoolTaskController::class, 'completeTask']);
     Route::get('tasks/{task}/details', [App\Http\Controllers\School\SchoolTaskController::class, 'getTaskDetails']);
     
-    // Class management routes
-    Route::get('classes', [App\Http\Controllers\School\SchoolClassController::class, 'index']);
-    Route::post('classes', [App\Http\Controllers\School\SchoolClassController::class, 'store']);
-    Route::get('classes/{class}', [App\Http\Controllers\School\SchoolClassController::class, 'show']);
-    Route::put('classes/{class}', [App\Http\Controllers\School\SchoolClassController::class, 'update']);
-    Route::delete('classes/{class}', [App\Http\Controllers\School\SchoolClassController::class, 'destroy']);
-    Route::get('classes/{class}/students', [App\Http\Controllers\School\SchoolClassController::class, 'getStudents']);
-    Route::post('classes/{class}/students', [App\Http\Controllers\School\SchoolClassController::class, 'assignStudents']);
+    // Grade management routes - Updated to use GradeUnifiedController
+    Route::get('grades', [GradeUnifiedController::class, 'index']);
+    Route::post('grades', [GradeUnifiedController::class, 'store']);
+    Route::get('grades/{grade}', [GradeUnifiedController::class, 'show']);
+    Route::put('grades/{grade}', [GradeUnifiedController::class, 'update']);
+    Route::delete('grades/{grade}', [GradeUnifiedController::class, 'destroy']);
+    Route::get('grades/{grade}/students', [GradeUnifiedController::class, 'students']);
+    Route::post('grades/{grade}/students/enroll', [GradeUnifiedController::class, 'enrollStudent']);
     
     // Teacher management routes
     Route::get('teachers', [SchoolTeacherController::class, 'index']);
@@ -242,6 +243,15 @@ Route::prefix('schooladmin')->middleware(['role:schooladmin', 'regional.access:s
     Route::get('inventory', [App\Http\Controllers\School\SchoolInventoryController::class, 'getInventoryItems']);
     Route::get('inventory/{item}', [App\Http\Controllers\School\SchoolInventoryController::class, 'getInventoryItem']);
     Route::get('inventory/statistics/overview', [App\Http\Controllers\School\SchoolInventoryController::class, 'getInventoryStatistics']);
+    
+    // Bulk Attendance Management Routes - New Feature
+    Route::prefix('bulk-attendance')->group(function () {
+        Route::get('/', [App\Http\Controllers\School\BulkAttendanceController::class, 'index'])->middleware('permission:attendance.read');
+        Route::post('/', [App\Http\Controllers\School\BulkAttendanceController::class, 'store'])->middleware('permission:attendance.create');
+        Route::get('daily-report', [App\Http\Controllers\School\BulkAttendanceController::class, 'getDailyReport'])->middleware('permission:attendance.read');
+        Route::get('weekly-summary', [App\Http\Controllers\School\BulkAttendanceController::class, 'getWeeklySummary'])->middleware('permission:attendance.read');
+        Route::get('export', [App\Http\Controllers\School\BulkAttendanceController::class, 'exportData'])->middleware('permission:attendance.read');
+    });
     
     // Import routes for school admin - TODO: implement SchoolImportController
     // Route::post('import/students', [App\Http\Controllers\School\SchoolImportController::class, 'importStudents']);

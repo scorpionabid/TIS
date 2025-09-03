@@ -44,12 +44,9 @@ export interface ChangePasswordData {
 
 class AuthService {
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
-    // First get CSRF token for Laravel Sanctum
-    try {
-      await apiClient.get('/sanctum/csrf-cookie');
-    } catch (error) {
-      console.warn('CSRF cookie request failed:', error);
-    }
+    // CSRF token disabled for API-only authentication
+    // Laravel Sanctum with token authentication doesn't require CSRF for API endpoints
+    console.log('🔐 Auth Service: Using token-based authentication, skipping CSRF cookie');
     
     // Clear any existing auth data before login
     console.log('🧹 Auth Service: Clearing existing auth data before login');
@@ -61,6 +58,13 @@ class AuthService {
       password: credentials.password,
       device_name: 'web-browser',
     };
+    
+    console.log('🔍 Auth Service: Sending login data:', {
+      login: loginData.login,
+      password: '[' + loginData.password.length + ' chars]',
+      device_name: loginData.device_name,
+      credentialsSource: credentials
+    });
     
     const response = await apiClient.post<any>('/login', loginData);
     

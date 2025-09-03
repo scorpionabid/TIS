@@ -2,34 +2,43 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Development Commands
+## 🚫 CRITICAL: Docker-Only Development Mode
 
-### Port Management & System Startup
+**⚠️ ATİS System LOCAL development DEACTIVATED!**
+
+- ❌ Local PostgreSQL: **REMOVED**
+- ❌ Local SQLite database: **REMOVED**  
+- ❌ Local PHP artisan serve: **DO NOT USE**
+- ❌ Local npm run dev: **DO NOT USE**
+
+### ✅ ONLY Docker Development Allowed
+
 ```bash
-# RECOMMENDED: Always use Docker for development
-# The start.sh script now includes automatic port management
+# START SYSTEM (ONLY WAY)
 ./start.sh
 
-# Stop system
+# STOP SYSTEM (ONLY WAY)  
 ./stop.sh
 
-# Manual port cleanup (only if needed)
+# Manual port cleanup (emergency only)
 lsof -ti:8000,8001,8002,3000 | xargs kill -9 2>/dev/null || true
 
-# Troubleshooting: Check container status
+# Container operations
 docker-compose -f docker-compose.simple.yml ps
 docker-compose -f docker-compose.simple.yml logs backend
 docker-compose -f docker-compose.simple.yml logs frontend
 ```
 
-### Starting the System
+### 🐳 Docker Container Commands
 ```bash
+# Backend commands (inside container)
+docker exec atis_backend php artisan migrate
+docker exec atis_backend php artisan tinker
+docker exec atis_backend composer install
 
-# Start with Docker (recommended)
-./start.sh
-
-# Stop system
-./stop.sh
+# Frontend commands (inside container)
+docker exec atis_frontend npm install
+docker exec atis_frontend npm run build
 ```
 
 ### Backend (Laravel 11 + PHP 8.2)

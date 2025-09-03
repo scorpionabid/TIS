@@ -7,8 +7,8 @@ use App\Http\Controllers\API\TeachingLoadApiController;
 use App\Http\Controllers\API\ScheduleApiController;
 use App\Http\Controllers\RoomControllerRefactored as RoomController;
 use App\Http\Controllers\ClassesControllerRefactored as ClassesController;
+use App\Http\Controllers\Grade\GradeUnifiedController;
 use App\Http\Controllers\StudentControllerRefactored as StudentController;
-use App\Http\Controllers\GradeController;
 use App\Http\Controllers\SchoolEventController;
 use App\Http\Controllers\TeacherPerformanceController;
 use App\Http\Controllers\AssessmentController;
@@ -25,12 +25,27 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// Class Attendance API Routes
+// Class Attendance API Routes (Legacy - will be deprecated)
 Route::prefix('class-attendance')->group(function () {
     Route::get('/', [ClassAttendanceApiController::class, 'index'])->middleware('permission:attendance.read');
     Route::post('/', [ClassAttendanceApiController::class, 'store'])->middleware('permission:attendance.write');
     Route::get('/{attendance}', [ClassAttendanceApiController::class, 'show'])->middleware('permission:attendance.read');
     Route::put('/{attendance}', [ClassAttendanceApiController::class, 'update'])->middleware('permission:attendance.write');
+});
+
+// New Comprehensive Attendance Record API
+Route::prefix('attendance-records')->group(function () {
+    Route::get('/', [App\Http\Controllers\API\AttendanceRecordApiController::class, 'index'])->middleware('permission:attendance.read');
+    Route::post('/', [App\Http\Controllers\API\AttendanceRecordApiController::class, 'store'])->middleware('permission:attendance.write');
+    Route::get('/{attendanceRecord}', [App\Http\Controllers\API\AttendanceRecordApiController::class, 'show'])->middleware('permission:attendance.read');
+    Route::put('/{attendanceRecord}', [App\Http\Controllers\API\AttendanceRecordApiController::class, 'update'])->middleware('permission:attendance.write');
+    Route::delete('/{attendanceRecord}', [App\Http\Controllers\API\AttendanceRecordApiController::class, 'destroy'])->middleware('permission:attendance.write');
+    
+    // Bulk operations
+    Route::post('/bulk', [App\Http\Controllers\API\AttendanceRecordApiController::class, 'bulkStore'])->middleware('permission:attendance.bulk');
+    
+    // Statistics
+    Route::get('/statistics/class', [App\Http\Controllers\API\AttendanceRecordApiController::class, 'getClassStatistics'])->middleware('permission:attendance.read');
 });
 
 
@@ -63,14 +78,32 @@ Route::prefix('attendance')->group(function () {
 
 // School Attendance Routes (different from class attendance)
 Route::prefix('school-attendance')->group(function () {
+    // Basic CRUD operations
+    Route::get('/', [App\Http\Controllers\SchoolAttendanceController::class, 'index'])->middleware('permission:school_attendance.read');
+    Route::post('/', [App\Http\Controllers\SchoolAttendanceController::class, 'store'])->middleware('permission:school_attendance.write');
+    Route::get('/{schoolAttendance}', [App\Http\Controllers\SchoolAttendanceController::class, 'show'])->middleware('permission:school_attendance.read');
+    Route::put('/{schoolAttendance}', [App\Http\Controllers\SchoolAttendanceController::class, 'update'])->middleware('permission:school_attendance.write');
+    Route::delete('/{schoolAttendance}', [App\Http\Controllers\SchoolAttendanceController::class, 'destroy'])->middleware('permission:school_attendance.write');
+    
+    // Statistics and filtering
+    Route::get('/stats', [App\Http\Controllers\SchoolAttendanceController::class, 'stats'])->middleware('permission:school_attendance.read');
+    Route::get('/schools/{school}/classes', [App\Http\Controllers\SchoolAttendanceController::class, 'getSchoolClasses'])->middleware('permission:school_attendance.read');
+    
+    // Bulk operations
+    Route::post('/bulk', [App\Http\Controllers\SchoolAttendanceController::class, 'bulkStore'])->middleware('permission:school_attendance.bulk');
+    Route::get('/export', [App\Http\Controllers\SchoolAttendanceController::class, 'export'])->middleware('permission:school_attendance.export');
+    
+    // Reporting endpoints
     Route::get('/daily-report', [App\Http\Controllers\SchoolAttendanceController::class, 'getDailyReport'])->middleware('permission:school_attendance.read');
     Route::get('/weekly-summary', [App\Http\Controllers\SchoolAttendanceController::class, 'getWeeklySummary'])->middleware('permission:school_attendance.read');
     Route::get('/monthly-statistics', [App\Http\Controllers\SchoolAttendanceController::class, 'getMonthlyStatistics'])->middleware('permission:school_attendance.read');
-    Route::post('/mark-absent', [App\Http\Controllers\SchoolAttendanceController::class, 'markAbsent'])->middleware('permission:school_attendance.write');
-    Route::post('/mark-present', [App\Http\Controllers\SchoolAttendanceController::class, 'markPresent'])->middleware('permission:school_attendance.write');
-    Route::get('/alerts', [App\Http\Controllers\SchoolAttendanceController::class, 'getAttendanceAlerts'])->middleware('permission:school_attendance.read');
-    Route::post('/excuse-absence', [App\Http\Controllers\SchoolAttendanceController::class, 'excuseAbsence'])->middleware('permission:school_attendance.excuse');
-    Route::get('/patterns/{student}', [App\Http\Controllers\SchoolAttendanceController::class, 'getAttendancePatterns'])->middleware('permission:school_attendance.analytics');
+    
+    // TODO: These methods need to be implemented
+    // Route::post('/mark-absent', [App\Http\Controllers\SchoolAttendanceController::class, 'markAbsent'])->middleware('permission:school_attendance.write');
+    // Route::post('/mark-present', [App\Http\Controllers\SchoolAttendanceController::class, 'markPresent'])->middleware('permission:school_attendance.write');
+    // Route::get('/alerts', [App\Http\Controllers\SchoolAttendanceController::class, 'getAttendanceAlerts'])->middleware('permission:school_attendance.read');
+    // Route::post('/excuse-absence', [App\Http\Controllers\SchoolAttendanceController::class, 'excuseAbsence'])->middleware('permission:school_attendance.excuse');
+    // Route::get('/patterns/{student}', [App\Http\Controllers\SchoolAttendanceController::class, 'getAttendancePatterns'])->middleware('permission:school_attendance.analytics');
 });
 
 // Schedule Management Routes
@@ -133,7 +166,7 @@ Route::prefix('teachers')->middleware('permission:teachers.read')->group(functio
     Route::get('/analytics/overview', [App\Http\Controllers\School\SchoolTeacherController::class, 'getAnalytics'])->middleware('permission:teachers.analytics');
 });
 
-// Class Management Routes
+// Class Management Routes (Legacy - for backward compatibility)
 Route::prefix('classes')->group(function () {
     Route::get('/', [App\Http\Controllers\ClassesControllerRefactored::class, 'index'])->middleware('permission:classes.read');
     Route::post('/', [App\Http\Controllers\ClassesControllerRefactored::class, 'store'])->middleware('permission:classes.write');
@@ -151,6 +184,27 @@ Route::prefix('classes')->group(function () {
     Route::get('/{class}/grades', [App\Http\Controllers\ClassesControllerRefactored::class, 'getGrades'])->middleware('permission:classes.grades');
     Route::post('/bulk-create', [App\Http\Controllers\ClassesControllerRefactored::class, 'bulkCreate'])->middleware('permission:classes.bulk');
     Route::get('/analytics/overview', [App\Http\Controllers\ClassesControllerRefactored::class, 'getAnalytics'])->middleware('permission:classes.analytics');
+});
+
+// Unified Grades Management Routes (New Implementation)
+Route::prefix('grades')->group(function () {
+    // Core CRUD operations
+    Route::get('/', [GradeUnifiedController::class, 'index'])->middleware('permission:grades.read');
+    Route::post('/', [GradeUnifiedController::class, 'store'])->middleware('permission:grades.create');
+    Route::get('/{grade}', [GradeUnifiedController::class, 'show'])->middleware('permission:grades.read');
+    Route::put('/{grade}', [GradeUnifiedController::class, 'update'])->middleware('permission:grades.edit');
+    Route::delete('/{grade}', [GradeUnifiedController::class, 'destroy'])->middleware('permission:grades.delete');
+    
+    // Student management within grades
+    Route::get('/{grade}/students', [GradeUnifiedController::class, 'students'])->middleware('permission:grades.students');
+    
+    // Teacher assignment
+    Route::post('/{grade}/assign-teacher', [GradeUnifiedController::class, 'assignTeacher'])->middleware('permission:grades.assign_teacher');
+    Route::delete('/{grade}/remove-teacher', [GradeUnifiedController::class, 'removeTeacher'])->middleware('permission:grades.assign_teacher');
+    
+    // Statistics and reporting
+    Route::get('/statistics/overview', [GradeUnifiedController::class, 'statistics'])->middleware('permission:grades.statistics');
+    Route::get('/reports/capacity', [GradeUnifiedController::class, 'capacityReport'])->middleware('permission:grades.reports');
 });
 
 // Room Management Routes
@@ -171,20 +225,6 @@ Route::prefix('rooms')->group(function () {
     Route::post('/maintenance/request', [RoomController::class, 'requestMaintenance'])->middleware('permission:rooms.maintenance');
 });
 
-// Grade Management Routes
-Route::prefix('grades')->group(function () {
-    Route::get('/', [GradeController::class, 'index'])->middleware('permission:grades.read');
-    Route::post('/', [GradeController::class, 'store'])->middleware('permission:grades.write');
-    Route::get('/{grade}', [GradeController::class, 'show'])->middleware('permission:grades.read');
-    Route::put('/{grade}', [GradeController::class, 'update'])->middleware('permission:grades.write');
-    Route::delete('/{grade}', [GradeController::class, 'destroy'])->middleware('permission:grades.write');
-    Route::get('/student/{student}', [GradeController::class, 'getStudentGrades'])->middleware('permission:grades.read');
-    Route::get('/class/{class}', [GradeController::class, 'getClassGrades'])->middleware('permission:grades.read');
-    Route::get('/subject/{subject}', [GradeController::class, 'getSubjectGrades'])->middleware('permission:grades.read');
-    Route::post('/bulk-entry', [GradeController::class, 'bulkEntry'])->middleware('permission:grades.bulk');
-    Route::get('/analytics/performance', [GradeController::class, 'getPerformanceAnalytics'])->middleware('permission:grades.analytics');
-    Route::get('/reports/transcript/{student}', [GradeController::class, 'generateTranscript'])->middleware('permission:grades.transcripts');
-});
 
 // School Event Management Routes  
 Route::prefix('events')->group(function () {

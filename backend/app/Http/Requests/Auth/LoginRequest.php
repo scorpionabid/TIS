@@ -24,6 +24,12 @@ class LoginRequest extends FormRequest
      */
     public function rules(): array
     {
+        \Log::info('LoginRequest validation', [
+            'input_data' => $this->all(),
+            'login_field' => $this->input('login'),
+            'password_length' => strlen($this->input('password') ?? ''),
+        ]);
+        
         return [
             'login' => 'required|string',
             'password' => 'required|string|min:8',

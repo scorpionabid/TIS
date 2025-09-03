@@ -5,13 +5,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label';
 import { GraduationCap, Users, UserPlus } from 'lucide-react';
 import { Student } from '@/services/students';
-import { SchoolClass } from '@/services/schoolAdmin';
+import { Grade } from '@/services/grades';
 
 interface EnrollmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   student: Student | null;
-  classes?: SchoolClass[];
+  classes?: Grade[];
   selectedGradeForEnrollment: string;
   setSelectedGradeForEnrollment: (grade: string) => void;
   onEnroll: (classId: number) => void;

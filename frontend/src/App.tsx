@@ -63,6 +63,7 @@ const SchoolGradebook = lazy(() => import("./pages/school/SchoolGradebook"));
 const SchoolAssessments = lazy(() => import("./pages/SchoolAssessments"));
 const AttendanceReports = lazy(() => import("./pages/AttendanceReports"));
 const SchoolScheduleManagement = lazy(() => import("./pages/school/SchoolScheduleManagement"));
+const BulkAttendanceEntry = lazy(() => import("./pages/school/BulkAttendanceEntry"));
 
 // Teacher pages
 const TeacherSchedule = lazy(() => import("./pages/teacher/TeacherSchedule"));
@@ -227,6 +228,7 @@ const App = () => (
               <Route path="school/teachers" element={<LazyWrapper><SchoolTeachers /></LazyWrapper>} />
               <Route path="school/classes" element={<LazyWrapper><SchoolClasses /></LazyWrapper>} />
               <Route path="school/attendance" element={<LazyWrapper><SchoolAttendanceRecord /></LazyWrapper>} />
+              <Route path="school/attendance/bulk" element={<LazyWrapper><BulkAttendanceEntry /></LazyWrapper>} />
               <Route path="school/attendance/reports" element={<LazyWrapper><AttendanceReports /></LazyWrapper>} />
               <Route path="school/assessments" element={<LazyWrapper><SchoolAssessments /></LazyWrapper>} />
               <Route path="school/assessments/reports" element={<LazyWrapper><AssessmentResults /></LazyWrapper>} />

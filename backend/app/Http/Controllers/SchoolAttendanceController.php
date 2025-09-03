@@ -372,6 +372,327 @@ class SchoolAttendanceController extends Controller
     }
 
     /**
+     * Bulk create attendance records
+     */
+    public function bulkStore(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'records' => 'required|array|min:1',
+            'records.*.school_id' => 'required|exists:institutions,id',
+            'records.*.class_name' => 'required|string|max:10',
+            'records.*.date' => 'required|date|before_or_equal:today',
+            'records.*.start_count' => 'required|integer|min:0',
+            'records.*.end_count' => 'required|integer|min:0',
+            'records.*.notes' => 'nullable|string|max:500'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation xətası',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $created = 0;
+            $errors = [];
+            $userId = Auth::id();
+
+            foreach ($request->records as $index => $recordData) {
+                try {
+                    // Validate end_count <= start_count
+                    if ($recordData['end_count'] > $recordData['start_count']) {
+                        $errors[] = [
+                            'index' => $index,
+                            'error' => 'Gün sonu sayı gün əvvəli sayından çox ola bilməz'
+                        ];
+                        continue;
+                    }
+
+                    // Check for existing record
+                    $existing = SchoolAttendance::where([
+                        'school_id' => $recordData['school_id'],
+                        'class_name' => $recordData['class_name'],
+                        'date' => $recordData['date']
+                    ])->exists();
+
+                    if ($existing) {
+                        $errors[] = [
+                            'index' => $index,
+                            'error' => 'Bu tarix və sinif üçün artıq qeyd mövcuddur'
+                        ];
+                        continue;
+                    }
+
+                    // Calculate attendance rate
+                    $attendanceRate = $recordData['start_count'] > 0 
+                        ? round(($recordData['end_count'] / $recordData['start_count']) * 100, 2) 
+                        : 0;
+
+                    SchoolAttendance::create([
+                        'school_id' => $recordData['school_id'],
+                        'class_name' => $recordData['class_name'],
+                        'date' => $recordData['date'],
+                        'start_count' => $recordData['start_count'],
+                        'end_count' => $recordData['end_count'],
+                        'attendance_rate' => $attendanceRate,
+                        'notes' => $recordData['notes'] ?? null,
+                        'created_by' => $userId
+                    ]);
+
+                    $created++;
+
+                } catch (\Exception $e) {
+                    $errors[] = [
+                        'index' => $index,
+                        'error' => $e->getMessage()
+                    ];
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$created} qeyd yaradıldı",
+                'data' => [
+                    'created_count' => $created,
+                    'error_count' => count($errors),
+                    'errors' => $errors
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Toplu yaratma əməliyyatında xəta baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
+     * Export attendance data
+     */
+    public function export(Request $request)
+    {
+        try {
+            $query = SchoolAttendance::with(['school:id,name']);
+
+            // Apply same filters as index method
+            if ($request->has('school_id') && $request->school_id) {
+                $query->where('school_id', $request->school_id);
+            }
+
+            if ($request->has('class_name') && $request->class_name) {
+                $query->where('class_name', $request->class_name);
+            }
+
+            if ($request->has('start_date') && $request->start_date) {
+                $query->whereDate('date', '>=', $request->start_date);
+            }
+
+            if ($request->has('end_date') && $request->end_date) {
+                $query->whereDate('date', '<=', $request->end_date);
+            }
+
+            $this->applyUserFiltering($query, Auth::user());
+
+            $records = $query->orderBy('date', 'desc')->get();
+
+            // Generate CSV content
+            $csvData = [];
+            $csvData[] = ['Tarix', 'Məktəb', 'Sinif', 'Başlanğıc Sayı', 'Son Sayı', 'Qayıblar', 'Davamiyyət %', 'Qeydlər'];
+
+            foreach ($records as $record) {
+                $csvData[] = [
+                    $record->date->format('d.m.Y'),
+                    $record->school->name,
+                    $record->class_name,
+                    $record->start_count,
+                    $record->end_count,
+                    $record->absent_count,
+                    $record->attendance_rate . '%',
+                    $record->notes ?? ''
+                ];
+            }
+
+            // Convert to CSV
+            $csv = '';
+            foreach ($csvData as $row) {
+                $csv .= implode(',', array_map(function($field) {
+                    return '"' . str_replace('"', '""', $field) . '"';
+                }, $row)) . "\n";
+            }
+
+            return response($csv)
+                ->header('Content-Type', 'text/csv; charset=UTF-8')
+                ->header('Content-Disposition', 'attachment; filename="davamiyyat-' . date('Y-m-d') . '.csv"')
+                ->header('Content-Length', strlen($csv));
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Export zamanı xəta baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
+     * Get daily report
+     */
+    public function getDailyReport(Request $request): JsonResponse
+    {
+        try {
+            $date = $request->get('date', now()->format('Y-m-d'));
+            
+            $query = SchoolAttendance::with(['school:id,name'])
+                ->whereDate('date', $date);
+
+            $this->applyUserFiltering($query, Auth::user());
+
+            $records = $query->get();
+
+            $summary = [
+                'date' => $date,
+                'total_records' => $records->count(),
+                'total_students' => $records->sum('start_count'),
+                'total_present' => $records->sum('end_count'),
+                'total_absent' => $records->sum('start_count') - $records->sum('end_count'),
+                'average_attendance' => $records->avg('attendance_rate') ?? 0,
+                'schools_reported' => $records->pluck('school_id')->unique()->count()
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'summary' => $summary,
+                    'records' => $records
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Günlük hesabat alınarkən xəta baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
+     * Get weekly summary
+     */
+    public function getWeeklySummary(Request $request): JsonResponse
+    {
+        try {
+            $startDate = $request->get('start_date', now()->startOfWeek()->format('Y-m-d'));
+            $endDate = $request->get('end_date', now()->endOfWeek()->format('Y-m-d'));
+
+            $query = SchoolAttendance::with(['school:id,name'])
+                ->whereBetween('date', [$startDate, $endDate]);
+
+            $this->applyUserFiltering($query, Auth::user());
+
+            $records = $query->get();
+
+            // Group by date for daily breakdown
+            $dailyData = $records->groupBy(function($record) {
+                return $record->date->format('Y-m-d');
+            })->map(function($dayRecords) {
+                return [
+                    'total_students' => $dayRecords->sum('start_count'),
+                    'total_present' => $dayRecords->sum('end_count'),
+                    'attendance_rate' => $dayRecords->avg('attendance_rate') ?? 0,
+                    'schools_count' => $dayRecords->count()
+                ];
+            });
+
+            $summary = [
+                'period' => ['start' => $startDate, 'end' => $endDate],
+                'total_records' => $records->count(),
+                'total_students' => $records->sum('start_count'),
+                'total_present' => $records->sum('end_count'),
+                'average_attendance' => $records->avg('attendance_rate') ?? 0,
+                'daily_breakdown' => $dailyData
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $summary
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Həftəlik xülasə alınarkən xəta baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
+     * Get monthly statistics
+     */
+    public function getMonthlyStatistics(Request $request): JsonResponse
+    {
+        try {
+            $month = $request->get('month', now()->month);
+            $year = $request->get('year', now()->year);
+
+            $startDate = Carbon::create($year, $month, 1)->startOfMonth();
+            $endDate = Carbon::create($year, $month, 1)->endOfMonth();
+
+            $query = SchoolAttendance::with(['school:id,name'])
+                ->whereBetween('date', [$startDate, $endDate]);
+
+            $this->applyUserFiltering($query, Auth::user());
+
+            $records = $query->get();
+
+            $statistics = [
+                'period' => $startDate->format('F Y'),
+                'total_school_days' => $records->pluck('date')->unique()->count(),
+                'total_records' => $records->count(),
+                'total_students' => $records->sum('start_count'),
+                'total_present' => $records->sum('end_count'),
+                'total_absent' => $records->sum('start_count') - $records->sum('end_count'),
+                'average_attendance' => round($records->avg('attendance_rate') ?? 0, 2),
+                'best_day' => null,
+                'worst_day' => null,
+                'schools_participating' => $records->pluck('school_id')->unique()->count()
+            ];
+
+            // Find best and worst days
+            $dailyAverages = $records->groupBy(function($record) {
+                return $record->date->format('Y-m-d');
+            })->map(function($dayRecords, $date) {
+                return [
+                    'date' => $date,
+                    'attendance_rate' => round($dayRecords->avg('attendance_rate') ?? 0, 2)
+                ];
+            })->sortBy('attendance_rate');
+
+            if ($dailyAverages->isNotEmpty()) {
+                $statistics['worst_day'] = $dailyAverages->first();
+                $statistics['best_day'] = $dailyAverages->last();
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $statistics
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aylıq statistika alınarkən xəta baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
      * Apply user-based filtering based on role and institution
      */
     private function applyUserFiltering($query, $user): void
