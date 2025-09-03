@@ -77,12 +77,14 @@ Route::middleware('permission:survey_responses.read')->group(function () {
 
 Route::middleware('permission:survey_responses.write')->group(function () {
     Route::post('surveys/{survey}/responses/start', [SurveyResponseController::class, 'startResponse']);
+    Route::post('surveys/{survey}/start', [SurveyResponseController::class, 'start']);
     Route::post('surveys/{survey}/respond', [SurveyResponseController::class, 'store']);
     Route::put('survey-responses/{response}', [SurveyResponseController::class, 'update']);
     Route::delete('survey-responses/{response}', [SurveyResponseController::class, 'destroy']);
     Route::post('survey-responses/{response}/submit', [SurveyResponseController::class, 'submit']);
     Route::put('survey-responses/{response}/save', [SurveyResponseController::class, 'saveResponse']);
     Route::post('survey-responses/{response}/save-draft', [SurveyResponseController::class, 'saveDraft']);
+    Route::post('survey-responses/{response}/reopen', [SurveyResponseController::class, 'reopen']);
 });
 
 // Survey response approval workflow

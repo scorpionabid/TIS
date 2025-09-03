@@ -13,17 +13,28 @@ use App\Services\LoggingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 
-class SurveyResponseApprovalService
+class SurveyResponseApprovalService extends BaseService
 {
+    protected string $modelClass = SurveyResponse::class;
+    protected array $relationships = ['institution', 'department', 'respondent', 'approvalRequest'];
+    protected int $cacheMinutes = 3; // Short cache for approval data
     /**
      * Get survey responses that need approval for a specific survey
      */
     public function getResponsesForApproval(Survey $survey, Request $request, User $user): array
     {
         $query = SurveyResponse::where('survey_id', $survey->id)
-            ->with(['institution', 'department', 'respondent', 'approvalRequest.approvalActions']);
+            ->with([
+                'institution:id,name,type,parent_id',
+                'department:id,name',
+                'respondent:id,name,email',
+                'approvalRequest:id,approvalable_id,current_status,current_approval_level,submitted_at,completed_at',
+                'approvalRequest.approvalActions:id,approval_request_id,approver_id,action,comments,action_taken_at'
+            ])
+            ->select(['id', 'survey_id', 'institution_id', 'department_id', 'respondent_id', 'status', 'submitted_at', 'approved_at', 'progress_percentage']);
 
         // Apply user access control based on role hierarchy
         $this->applyUserAccessControl($query, $user);
@@ -123,6 +134,9 @@ class SurveyResponseApprovalService
 
             // Update response status
             $response->update(['status' => 'submitted']);
+            
+            // Clear cache for approval stats
+            $this->clearApprovalCache($response->survey_id);
 
             return $approvalRequest;
         });
@@ -168,6 +182,9 @@ class SurveyResponseApprovalService
                     'approved_by' => $approver->id,
                     'approved_at' => now(),
                 ]);
+                
+                // Clear cache for approval stats
+                $this->clearApprovalCache($response->survey_id);
 
                 return ['status' => 'completed', 'message' => 'Response fully approved'];
             } else {
@@ -215,6 +232,9 @@ class SurveyResponseApprovalService
                 'status' => 'rejected',
                 'rejection_reason' => $data['comments'] ?? 'Response rejected',
             ]);
+            
+            // Clear cache for approval stats
+            $this->clearApprovalCache($response->survey_id);
 
             return ['status' => 'rejected', 'message' => 'Response rejected'];
         });
@@ -250,6 +270,9 @@ class SurveyResponseApprovalService
             ]);
 
             $response->update(['status' => 'draft']);
+            
+            // Clear cache for approval stats
+            $this->clearApprovalCache($response->survey_id);
 
             return ['status' => 'returned', 'message' => 'Response returned for revision'];
         });
@@ -366,23 +389,38 @@ class SurveyResponseApprovalService
      */
     private function getApprovalStats(Survey $survey, User $user): array
     {
-        $query = SurveyResponse::where('survey_id', $survey->id);
-        $this->applyUserAccessControl($query, $user);
-
-        $total = $query->count();
-        $pending = $query->where('status', 'submitted')->count();
-        $approved = $query->where('status', 'approved')->count();
-        $rejected = $query->where('status', 'rejected')->count();
-        $draft = $query->where('status', 'draft')->count();
-
-        return [
-            'total' => $total,
-            'pending' => $pending,
-            'approved' => $approved,
-            'rejected' => $rejected,
-            'draft' => $draft,
-            'completion_rate' => $total > 0 ? round(($approved + $rejected) / $total * 100, 2) : 0,
-        ];
+        $cacheKey = $this->getCacheKey('approval_stats', [
+            'survey_id' => $survey->id,
+            'user_id' => $user->id,
+            'user_role' => $user->role?->name ?? 'unknown'
+        ]);
+        
+        return $this->cacheQuery($cacheKey, function () use ($survey, $user) {
+            $baseQuery = SurveyResponse::where('survey_id', $survey->id);
+            $this->applyUserAccessControl($baseQuery, $user);
+            
+            // Single query to get all stats with aggregation
+            $stats = $baseQuery->select(
+                DB::raw('COUNT(*) as total'),
+                DB::raw('COUNT(CASE WHEN status = "submitted" THEN 1 END) as pending'),
+                DB::raw('COUNT(CASE WHEN status = "approved" THEN 1 END) as approved'),
+                DB::raw('COUNT(CASE WHEN status = "rejected" THEN 1 END) as rejected'),
+                DB::raw('COUNT(CASE WHEN status = "draft" THEN 1 END) as draft')
+            )->first();
+            
+            $total = $stats->total ?? 0;
+            $approved = $stats->approved ?? 0;
+            $rejected = $stats->rejected ?? 0;
+            
+            return [
+                'total' => $total,
+                'pending' => $stats->pending ?? 0,
+                'approved' => $approved,
+                'rejected' => $rejected,
+                'draft' => $stats->draft ?? 0,
+                'completion_rate' => $total > 0 ? round(($approved + $rejected) / $total * 100, 2) : 0,
+            ];
+        }, $this->cacheMinutes);
     }
 
     /**
@@ -390,36 +428,51 @@ class SurveyResponseApprovalService
      */
     private function applyUserAccessControl($query, User $user): void
     {
-        $role = $user->role ?? $user->roles->pluck('name')->first();
+        // Get role name as string
+        $role = $user->role?->name ?? $user->roles->pluck('name')->first();
 
         switch ($role) {
             case 'superadmin':
                 // SuperAdmin can see everything
                 break;
             case 'regionadmin':
-                // RegionAdmin can see responses from their region
-                if ($user->institution && $user->institution->parent_id) {
-                    $query->whereHas('institution', function($q) use ($user) {
-                        $q->where('parent_id', $user->institution->id)
-                          ->orWhere('id', $user->institution->id);
-                    });
+                // RegionAdmin can see responses from subordinate sectors/schools,
+                // but NOT from their own institution (those go to SuperAdmin)
+                if ($user->institution) {
+                    $childIds = $user->institution->getAllChildrenIds();
+                    // Remove own institution ID to exclude own responses
+                    $childIds = array_diff($childIds, [$user->institution->id]);
+                    if (!empty($childIds)) {
+                        $query->whereIn('institution_id', $childIds);
+                    } else {
+                        // No children to show, return empty result
+                        $query->whereRaw('1 = 0');
+                    }
                 }
                 break;
             case 'sektoradmin':
-                // SektorAdmin can see responses from their sector
+                // SektorAdmin can see responses from subordinate schools,
+                // but NOT from their own institution (those go to RegionAdmin)  
                 if ($user->institution) {
-                    $query->whereHas('institution', function($q) use ($user) {
-                        $q->where('parent_id', $user->institution->id)
-                          ->orWhere('id', $user->institution->id);
-                    });
+                    $childIds = $user->institution->getAllChildrenIds();
+                    // Remove own institution ID to exclude own responses
+                    $childIds = array_diff($childIds, [$user->institution->id]);
+                    if (!empty($childIds)) {
+                        $query->whereIn('institution_id', $childIds);
+                    } else {
+                        // No children to show, return empty result
+                        $query->whereRaw('1 = 0');
+                    }
                 }
                 break;
             case 'schooladmin':
             case 'deputy':
             default:
-                // School level users can only see their own institution
+                // School level users can only see responses from their institution,
+                // but NOT their own responses (those go to SektorAdmin for approval)
                 if ($user->institution_id) {
-                    $query->where('institution_id', $user->institution_id);
+                    $query->where('institution_id', $user->institution_id)
+                          ->where('respondent_id', '!=', $user->id);
                 }
                 break;
         }
@@ -462,5 +515,28 @@ class SurveyResponseApprovalService
             'submitted_at' => $response->submitted_at?->toISOString(),
             'institution_name' => $response->institution?->name,
         ];
+    }
+    
+    /**
+     * Clear approval-related cache for a survey
+     */
+    private function clearApprovalCache(int $surveyId): void
+    {
+        // Clear approval stats cache for all users and roles
+        $patterns = [
+            "service_SurveyResponse_approval_stats_*survey_id*{$surveyId}*",
+            "service_SurveyResponseApprovalService_*"
+        ];
+        
+        // Use cache tags if available, otherwise clear all cache
+        if (config('cache.default') === 'redis') {
+            foreach ($patterns as $pattern) {
+                // Redis pattern deletion would be implemented here
+                // For now, we'll use a simple approach
+            }
+        }
+        
+        // Clear service cache using parent method
+        $this->clearServiceCache();
     }
 }

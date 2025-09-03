@@ -192,6 +192,11 @@ class SurveyService extends BaseService<Survey> {
     return response.data;
   }
 
+  async reopenAsDraft(responseId: number) {
+    const response = await apiClient.post(`/survey-responses/${responseId}/reopen`);
+    return response.data;
+  }
+
   async getResponse(responseId: number) {
     const response = await apiClient.get(`/survey-responses/${responseId}`);
     return response.data;

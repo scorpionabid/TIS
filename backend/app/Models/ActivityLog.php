@@ -153,7 +153,7 @@ class ActivityLog extends Model
     /**
      * Scope to get activities by entity.
      */
-    public function scopeByEntity($query, string $entityType, int $entityId = null)
+    public function scopeByEntity($query, string $entityType, ?int $entityId = null)
     {
         $query = $query->where('entity_type', $entityType);
         

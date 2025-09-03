@@ -4,8 +4,8 @@ console.log('🔧 Environment check:', {
   all_env: import.meta.env
 });
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001/api';
-const SANCTUM_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:8001';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+const SANCTUM_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:8000';
 
 console.log('🔗 API URLs:', { API_BASE_URL, SANCTUM_BASE_URL });
 

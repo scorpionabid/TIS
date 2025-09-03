@@ -431,23 +431,32 @@ class ApprovalWorkflowService extends BaseService
             $regionInstitution = $user->institution;
             if ($regionInstitution && $regionInstitution->level == 2) {
                 $childIds = $regionInstitution->getAllChildrenIds();
-                $query->whereIn('institution_id', $childIds);
+                // RegionAdmin only sees approval requests from subordinate sectors/schools,
+                // but NOT their own submissions (those go to SuperAdmin)
+                $query->whereIn('institution_id', $childIds)
+                      ->where('submitted_by', '!=', $user->id);
             }
         } elseif ($user->hasRole('sektoradmin')) {
             $sectorInstitution = $user->institution;
             if ($sectorInstitution && $sectorInstitution->level == 3) {
                 $childIds = $sectorInstitution->getAllChildrenIds();
-                $query->whereIn('institution_id', $childIds);
+                // SektorAdmin only sees approval requests from subordinate schools,
+                // but NOT their own submissions (those go to RegionAdmin)
+                $query->whereIn('institution_id', $childIds)
+                      ->where('submitted_by', '!=', $user->id);
             }
         } elseif ($user->hasRole('schooladmin')) {
             $schoolInstitution = $user->institution;
             if ($schoolInstitution) {
-                $query->where('institution_id', $schoolInstitution->id);
+                // SchoolAdmin only sees approval requests from their own school,
+                // but NOT their own submissions (those go to SektorAdmin)
+                $query->where('institution_id', $schoolInstitution->id)
+                      ->where('submitted_by', '!=', $user->id);
             }
         } else {
             // For other roles, show requests where they are the current approver or submitter
             $query->where(function ($q) use ($user) {
-                $q->where('submitter_id', $user->id)
+                $q->where('submitted_by', $user->id)
                   ->orWhere('current_approver_role', $user->role->name);
             });
         }

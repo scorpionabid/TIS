@@ -101,30 +101,39 @@ class SurveyResponseService extends BaseService
         $user = Auth::user();
         $userInstitutionId = $user->institution_id;
 
-        if (!$userInstitutionId) {
+        // SuperAdmin və survey creator-ları üçün institution_id tələbi yoxdur
+        if (!$userInstitutionId && !$user->hasRole(['superadmin']) && $survey->creator_id !== $user->id) {
             throw new \InvalidArgumentException('You must belong to an institution to respond to surveys');
         }
 
-        if (!$survey->canInstitutionRespond($userInstitutionId)) {
-            throw new \InvalidArgumentException('This survey is not available for your institution or has expired');
-        }
-
+        // Default institution_id for SuperAdmin or survey creator
+        $institutionId = $userInstitutionId ?: 1; // Default to ministry for superadmin
+        
+        // First check for existing user response before targeting restrictions
         $existingResponse = SurveyResponse::where('survey_id', $surveyId)
-            ->where('institution_id', $userInstitutionId)
+            ->where('institution_id', $institutionId)
             ->where('respondent_id', $user->id)
             ->first();
 
         if ($existingResponse) {
-            if ($existingResponse->is_complete && !$survey->allow_multiple_responses) {
-                throw new \InvalidArgumentException('You have already completed this survey');
-            }
+            // Always return existing response, regardless of completion status
+            // Frontend will handle showing appropriate UI (edit vs view mode)
             return $existingResponse;
         }
+        
+        // Only check targeting restrictions if no existing response
+        // SuperAdmin və survey creator-ları targeting yoxlanışından keçməz
+        if (!$user->hasRole(['superadmin']) && $survey->creator_id !== $user->id) {
+            // Use a modified targeting check that only looks at basic availability, not existing responses
+            if (!$this->canUserStartSurvey($survey, $institutionId)) {
+                throw new \InvalidArgumentException('This survey is not available for your institution or has expired');
+            }
+        }
 
-        return DB::transaction(function () use ($survey, $user, $userInstitutionId, $data) {
+        return DB::transaction(function () use ($survey, $user, $institutionId, $data) {
             $response = SurveyResponse::create([
                 'survey_id' => $survey->id,
-                'institution_id' => $userInstitutionId,
+                'institution_id' => $institutionId,
                 'department_id' => $data['department_id'] ?? null,
                 'respondent_id' => $user->id,
                 'respondent_role' => $user->role?->name,
@@ -145,7 +154,7 @@ class SurveyResponseService extends BaseService
             ]);
 
             $this->logAudit($survey->id, $response->id, 'started', [
-                'institution_id' => $userInstitutionId,
+                'institution_id' => $institutionId,
                 'department_id' => $data['department_id'] ?? null
             ]);
 
@@ -458,5 +467,23 @@ class SurveyResponseService extends BaseService
             'ip_address' => request()->ip(),
             'created_at' => now()
         ]);
+    }
+
+    /**
+     * Check if a user can start a survey (basic availability check without existing response constraints)
+     */
+    private function canUserStartSurvey(Survey $survey, int $institutionId): bool
+    {
+        // Check if survey is active and not expired
+        if (!$survey->isOpenForResponses()) {
+            return false;
+        }
+
+        // Check if institution is in target list
+        if (!in_array($institutionId, $survey->target_institutions ?? [])) {
+            return false;
+        }
+
+        return true;
     }
 }

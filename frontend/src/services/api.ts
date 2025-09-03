@@ -72,17 +72,23 @@ class ApiClient {
   constructor(baseURL?: string) {
     const fallbackURL = 'http://localhost:8000/api';
     console.log('🔧 ApiClient constructor:', { baseURL, API_BASE_URL, fallbackURL });
+    console.log('🔧 Environment check in constructor:', import.meta.env.VITE_API_BASE_URL);
+    console.log('🔧 All env vars:', import.meta.env);
     
     // Set baseURL with multiple fallbacks
     if (baseURL) {
       this.baseURL = baseURL;
+      console.log('🔧 Using parameter baseURL:', baseURL);
     } else if (API_BASE_URL) {
       this.baseURL = API_BASE_URL;
+      console.log('🔧 Using API_BASE_URL constant:', API_BASE_URL);
     } else {
       this.baseURL = fallbackURL;
+      console.log('🔧 Using fallback URL:', fallbackURL);
     }
     
     console.log('🔧 Final baseURL set to:', this.baseURL);
+    console.log('🔧 baseURL type:', typeof this.baseURL);
     
     // Verify it's not undefined
     if (!this.baseURL || this.baseURL === 'undefined') {
@@ -90,7 +96,13 @@ class ApiClient {
       this.baseURL = fallbackURL;
     }
     
-    console.log('🔧 Verified baseURL:', this.baseURL);
+    // HARD CHECK: If still showing 8001, force it to 8000
+    if (this.baseURL.includes(':8001')) {
+      console.error('🚨 DETECTED PORT 8001! Force changing to 8000');
+      this.baseURL = this.baseURL.replace(':8001', ':8000');
+    }
+    
+    console.log('🔧 FINAL VERIFIED baseURL:', this.baseURL);
     this.loadToken();
   }
 
@@ -291,7 +303,7 @@ class ApiClient {
     // Safety check to prevent undefined baseURL
     if (!this.baseURL || this.baseURL === 'undefined' || this.baseURL === undefined) {
       console.error('❌ baseURL is invalid!', { current: this.baseURL, API_BASE_URL });
-      this.baseURL = 'http://localhost:8001/api';
+      this.baseURL = 'http://localhost:8000/api';
       console.error('❌ Fixed baseURL to:', this.baseURL);
     }
     
@@ -353,7 +365,14 @@ class ApiClient {
   }
 
   async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+    // HARD CHECK FOR PORT 8001 BEFORE REQUEST
+    if (this.baseURL.includes(':8001')) {
+      console.error('🚨 CRITICAL: baseURL still contains 8001! Fixing now!');
+      this.baseURL = this.baseURL.replace(':8001', ':8000');
+    }
+    
     console.log(`🌐 API POST ${this.baseURL}${endpoint}`, { data, headers: this.getHeaders() });
+    console.log('🔧 POST: Current baseURL verified:', this.baseURL);
     
     try {
       const response = await fetch(`${this.baseURL}${endpoint}`, {

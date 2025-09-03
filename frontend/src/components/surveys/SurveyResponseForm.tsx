@@ -42,6 +42,8 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
   const { toast } = useToast();
   const [responses, setResponses] = useState<Record<string, any>>({});
   const [currentResponse, setCurrentResponse] = useState<SurveyResponse | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const queryClient = useQueryClient();
 
   // Get survey form data
@@ -63,7 +65,14 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     mutationFn: (departmentId?: number) => surveyService.startResponse(surveyId, departmentId),
     onSuccess: (data) => {
       setCurrentResponse(data.response);
-      toast.success('Survey başladıldı');
+      // If this returns an existing response (has responses), load them
+      if (data.response.responses && Object.keys(data.response.responses).length > 0) {
+        setResponses(data.response.responses);
+        setHasUnsavedChanges(false);
+        toast.success('Saxlanmış survey yükləndi');
+      } else {
+        toast.success('Survey başladıldı');
+      }
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Survey başladılarkən xəta baş verdi');
@@ -105,26 +114,78 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     }
   });
 
+  // Reopen as draft mutation (for submitted responses)
+  const reopenDraftMutation = useMutation({
+    mutationFn: (responseId: number) => surveyService.reopenAsDraft(responseId),
+    onSuccess: (data) => {
+      setCurrentResponse(data.response);
+      queryClient.invalidateQueries({ queryKey: ['survey-response', responseId] });
+      toast.success('Survey yenidən redaktə üçün açıldı');
+      setHasUnsavedChanges(false);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Yenidən açarkən xəta baş verdi');
+    }
+  });
+
   // Initialize responses from existing data
   useEffect(() => {
     if (existingResponse?.response) {
       setCurrentResponse(existingResponse.response);
       setResponses(existingResponse.response.responses || {});
+      setHasUnsavedChanges(false); // Mark as saved when loading existing
     }
   }, [existingResponse]);
 
-  // Auto-start response if no existing response
+  // Auto-start response if no existing response and no responseId provided
   useEffect(() => {
     if (surveyData && !responseId && !currentResponse && !startResponseMutation.isPending) {
       startResponseMutation.mutate();
     }
   }, [surveyData, responseId, currentResponse]);
+  
+  // Load responses from started response (only for new responses without existing data)
+  useEffect(() => {
+    if (currentResponse && !responseId && Object.keys(responses).length === 0) {
+      // This is from startResponse mutation - load its responses if not already loaded
+      setResponses(currentResponse.responses || {});
+      setHasUnsavedChanges(false);
+    }
+  }, [currentResponse, responseId, responses]);
+
+  // Auto-save every 30 seconds if there are unsaved changes
+  useEffect(() => {
+    if (!hasUnsavedChanges || !currentResponse || currentResponse.status !== 'draft') {
+      return;
+    }
+
+    const autoSaveInterval = setInterval(() => {
+      handleSave(false);
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(autoSaveInterval);
+  }, [hasUnsavedChanges, currentResponse]);
+
+  // Warn user about unsaved changes before leaving
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges && currentResponse?.status === 'draft') {
+        e.preventDefault();
+        e.returnValue = 'Saxlanmayan dəyişikliklər var. Səhifəni tərk etmək istəyirsiniz?';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges, currentResponse]);
 
   const handleInputChange = (questionId: string, value: any) => {
     setResponses(prev => ({
       ...prev,
       [questionId]: value
     }));
+    setHasUnsavedChanges(true);
   };
 
   const handleSave = (autoSubmit: boolean = false) => {
@@ -135,6 +196,8 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
       responses,
       autoSubmit
     });
+    setHasUnsavedChanges(false);
+    setLastSaved(new Date());
   };
 
   const handleSubmit = () => {
@@ -147,11 +210,57 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     
     const totalQuestions = surveyData.questions.length;
     const answeredQuestions = surveyData.questions.filter(q => {
-      const response = responses[q.id?.toString() || ''];
-      return response !== undefined && response !== '' && response !== null;
+      const questionId = q.id?.toString() || '';
+      const response = responses[questionId];
+      
+      // Check if question has a meaningful answer
+      if (response === undefined || response === null || response === '') {
+        return false;
+      }
+      
+      // For multiple choice, check if array has items
+      if (q.type === 'multiple_choice' && Array.isArray(response)) {
+        return response.length > 0;
+      }
+      
+      // For other types, check if value exists and is not empty
+      if (typeof response === 'string') {
+        return response.trim().length > 0;
+      }
+      
+      return true;
     }).length;
     
     return totalQuestions > 0 ? Math.round((answeredQuestions / totalQuestions) * 100) : 0;
+  };
+  
+  const getUnansweredRequiredQuestions = (): SurveyQuestion[] => {
+    if (!surveyData?.questions) return [];
+    
+    return surveyData.questions.filter(q => {
+      const isRequired = q.required || q.is_required;
+      if (!isRequired) return false;
+      
+      const questionId = q.id?.toString() || '';
+      const response = responses[questionId];
+      
+      // Check if required question is unanswered
+      if (response === undefined || response === null || response === '') {
+        return true;
+      }
+      
+      // For multiple choice, check if array has items
+      if (q.type === 'multiple_choice' && Array.isArray(response)) {
+        return response.length === 0;
+      }
+      
+      // For other types, check if value exists and is not empty
+      if (typeof response === 'string') {
+        return response.trim().length === 0;
+      }
+      
+      return false;
+    });
   };
 
   const renderQuestion = (question: SurveyQuestion) => {
@@ -341,7 +450,8 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
 
   const survey: SurveyFormData = surveyData;
   const progress = calculateProgress();
-  const isComplete = progress === 100;
+  const unansweredRequired = getUnansweredRequiredQuestions();
+  const isComplete = progress === 100 && unansweredRequired.length === 0;
   const canSubmit = isComplete && currentResponse?.status === 'draft';
 
   const getStatusBadge = () => {
@@ -429,15 +539,51 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-gray-600 space-y-1">
                 {isComplete ? (
                   <span className="flex items-center gap-2 text-green-600">
                     <CheckCircle2 className="w-4 h-4" />
                     Survey tamamlandı və təqdim edilə bilər
                   </span>
                 ) : (
-                  <span>Survey tamamlanmayıb, lakin saxlanıla bilər</span>
+                  <div className="space-y-1">
+                    <span>Survey tamamlanmayıb, lakin saxlanıla bilər</span>
+                    {unansweredRequired.length > 0 && (
+                      <div className="text-xs text-red-600">
+                        {unansweredRequired.length} məcburi sual cavabsızdır:
+                        <ul className="list-disc list-inside ml-2 mt-1">
+                          {unansweredRequired.slice(0, 3).map((q, i) => (
+                            <li key={i}>{q.title}</li>
+                          ))}
+                          {unansweredRequired.length > 3 && (
+                            <li>və {unansweredRequired.length - 3} digər...</li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
                 )}
+                
+                {/* Save Status */}
+                <div className="flex items-center gap-2 text-xs">
+                  {hasUnsavedChanges ? (
+                    <span className="text-amber-600 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      Saxlanmayan dəyişikliklər
+                    </span>
+                  ) : lastSaved ? (
+                    <span className="text-green-600 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      Son saxlanma: {lastSaved.toLocaleTimeString('az-AZ')}
+                    </span>
+                  ) : null}
+                  {saveResponseMutation.isPending && (
+                    <span className="text-blue-600 flex items-center gap-1">
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                      Saxlanılır...
+                    </span>
+                  )}
+                </div>
               </div>
               
               <div className="flex gap-2">
@@ -483,12 +629,33 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
 
       {/* Status Messages */}
       {currentResponse?.status === 'submitted' && (
-        <Alert>
-          <CheckCircle2 className="h-4 w-4" />
-          <AlertDescription>
-            Survey uğurla təqdim edildi və nəzərdən keçirilmə gözləyir.
-          </AlertDescription>
-        </Alert>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <Alert className="flex-1 mr-4">
+                <CheckCircle2 className="h-4 w-4" />
+                <AlertDescription>
+                  Survey uğurla təqdim edildi və nəzərdən keçirilmə gözləyir.
+                </AlertDescription>
+              </Alert>
+              
+              <Button
+                variant="outline"
+                onClick={() => currentResponse && reopenDraftMutation.mutate(currentResponse.id)}
+                disabled={reopenDraftMutation.isPending}
+              >
+                {reopenDraftMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                    Açılır...
+                  </>
+                ) : (
+                  'Yenidən redaktə et'
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {currentResponse?.status === 'approved' && (

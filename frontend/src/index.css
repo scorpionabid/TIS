@@ -1,9 +1,9 @@
+/* Import mobile optimizations */
+@import './styles/mobile-optimizations.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Import mobile optimizations */
-@import './styles/mobile-optimizations.css';
 
 /* Azerbaijan Education Management System (ATİS) Design System
 Inspired by Azerbaijan's national colors and modern government interfaces

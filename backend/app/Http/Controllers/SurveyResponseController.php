@@ -11,6 +11,16 @@ use Illuminate\Http\JsonResponse;
 
 class SurveyResponseController extends BaseController
 {
+    protected SurveyResponseService $responseService;
+    protected PermissionCheckService $permissionService;
+
+    public function __construct(
+        SurveyResponseService $responseService,
+        PermissionCheckService $permissionService
+    ) {
+        $this->responseService = $responseService;
+        $this->permissionService = $permissionService;
+    }
     public function index(Request $request): JsonResponse
     {
         try {
@@ -32,7 +42,7 @@ class SurveyResponseController extends BaseController
                 $validated['per_page'] ?? 15
             );
 
-            return $this->successResponse('Survey responses retrieved successfully', $result);
+            return $this->successResponse($result, 'Survey responses retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse('Failed to retrieve survey responses: ' . $e->getMessage());
         }
@@ -61,8 +71,8 @@ class SurveyResponseController extends BaseController
             $response = $this->responseService->startSurvey($survey->id, $validated);
 
             return $this->successResponse(
-                $response->wasRecentlyCreated ? 'Survey response started successfully' : 'Continuing existing response',
                 ['response' => $response],
+                $response->wasRecentlyCreated ? 'Survey response started successfully' : 'Continuing existing response',
                 $response->wasRecentlyCreated ? 201 : 200
             );
         } catch (\InvalidArgumentException $e) {
@@ -86,7 +96,7 @@ class SurveyResponseController extends BaseController
                 'Survey response submitted successfully' : 
                 'Survey response saved successfully';
 
-            return $this->successResponse($message, ['response' => $updatedResponse]);
+            return $this->successResponse(['response' => $updatedResponse], $message);
         } catch (\InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), $e->getMessage() === 'Cannot modify submitted responses' ? 422 : 403);
         } catch (\Exception $e) {
@@ -100,8 +110,8 @@ class SurveyResponseController extends BaseController
             $submittedResponse = $this->responseService->submitResponse($response->id);
 
             return $this->successResponse(
-                'Survey response submitted successfully',
-                ['response' => $submittedResponse]
+                ['response' => $submittedResponse],
+                'Survey response submitted successfully'
             );
         } catch (\InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);
@@ -116,8 +126,8 @@ class SurveyResponseController extends BaseController
             $approvedResponse = $this->responseService->approveResponse($response->id);
 
             return $this->successResponse(
-                'Survey response approved successfully',
-                ['response' => $approvedResponse]
+                ['response' => $approvedResponse],
+                'Survey response approved successfully'
             );
         } catch (\InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);
@@ -139,13 +149,44 @@ class SurveyResponseController extends BaseController
             );
 
             return $this->successResponse(
-                'Survey response rejected successfully',
-                ['response' => $rejectedResponse]
+                ['response' => $rejectedResponse],
+                'Survey response rejected successfully'
             );
         } catch (\InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);
         } catch (\Exception $e) {
             return $this->errorResponse('Failed to reject survey response: ' . $e->getMessage());
+        }
+    }
+
+    public function reopen(Request $request, SurveyResponse $response): JsonResponse
+    {
+        try {
+            $user = auth()->user();
+            
+            // Check if user can reopen this response
+            if ($response->respondent_id !== $user->id) {
+                return $this->errorResponse('You can only reopen your own responses', 403);
+            }
+            
+            // Check if response can be reopened
+            if ($response->status !== 'submitted') {
+                return $this->errorResponse('Only submitted responses can be reopened', 422);
+            }
+            
+            // Reopen as draft
+            $response->update([
+                'status' => 'draft',
+                'submitted_at' => null,
+                'is_complete' => false
+            ]);
+
+            return $this->successResponse(
+                ['response' => $response->fresh()],
+                'Survey response reopened as draft'
+            );
+        } catch (\Exception $e) {
+            return $this->errorResponse('Failed to reopen survey response: ' . $e->getMessage());
         }
     }
 
@@ -171,7 +212,7 @@ class SurveyResponseController extends BaseController
 
             $statistics = $this->responseService->getResponseStatistics($response->id);
 
-            return $this->successResponse('Response statistics retrieved', ['statistics' => $statistics]);
+            return $this->successResponse(['statistics' => $statistics], 'Response statistics retrieved');
         } catch (\Exception $e) {
             return $this->errorResponse('Failed to retrieve response statistics: ' . $e->getMessage());
         }
@@ -188,93 +229,41 @@ class SurveyResponseController extends BaseController
                 'auto_submit' => 'nullable|boolean'
             ]);
 
-            $user = auth()->user();
-            
-            // Check if user can modify this response
-            if ($response->respondent_id !== $user->id) {
-                return $this->errorResponse('You can only save your own responses', 403);
-            }
+            $updatedResponse = $this->responseService->saveResponse($response->id, $validated);
 
-            // Update response data
-            $response->update([
-                'responses' => $validated['responses'],
-                'progress_percentage' => $this->calculateProgress($response->survey, $validated['responses']),
-                'status' => $validated['auto_submit'] ? 'submitted' : 'draft',
-                'submitted_at' => $validated['auto_submit'] ? now() : null,
-                'is_complete' => $validated['auto_submit'] ? true : false
-            ]);
+            $message = $updatedResponse->status === 'submitted' ? 
+                'Survey response submitted successfully' : 
+                'Survey response saved successfully';
 
-            $message = $validated['auto_submit'] ? 
-                'Survey response submitted successfully' :
-                'Survey response saved as draft';
-
-            return $this->successResponse(
-                ['response' => $response->fresh()],
-                $message
-            );
+            return $this->successResponse(['response' => $updatedResponse], $message);
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), $e->getMessage() === 'Cannot modify submitted responses' ? 422 : 403);
         } catch (\Exception $e) {
-            return $this->errorResponse('Failed to save survey response: ' . $e->getMessage(), 500);
+            return $this->errorResponse('Failed to save survey response: ' . $e->getMessage());
         }
     }
 
     /**
-     * Calculate progress percentage based on responses
-     */
-    private function calculateProgress($survey, $responses): int
-    {
-        $totalQuestions = $survey->questions()->count();
-        if ($totalQuestions === 0) return 0;
-        
-        $answeredQuestions = count(array_filter($responses, function($value) {
-            return !empty($value) && $value !== null;
-        }));
-        
-        return round(($answeredQuestions / $totalQuestions) * 100);
-    }
-
-    /**
-     * Start a new survey response
+     * Start a new survey response (duplicate method - uses service)
      */
     public function startResponse(Request $request, Survey $survey): JsonResponse
     {
         try {
             $validated = $request->validate([
-                'department_id' => 'nullable|integer|exists:departments,id'
+                'department_id' => 'nullable|exists:departments,id'
             ]);
 
-            $user = auth()->user();
-            
-            // Check if user already has a response for this survey
-            $existingResponse = SurveyResponse::where('survey_id', $survey->id)
-                ->where('respondent_id', $user->id)
-                ->first();
-            
-            if ($existingResponse) {
-                return $this->successResponse(
-                    ['response' => $existingResponse],
-                    'Existing response found'
-                );
-            }
-            
-            // Create new survey response
-            $response = SurveyResponse::create([
-                'survey_id' => $survey->id,
-                'respondent_id' => $user->id,
-                'institution_id' => $user->institution_id ?: 1, // Default to ministry for superadmin
-                'department_id' => $validated['department_id'] ?? $user->department_id,
-                'status' => 'draft',
-                'is_complete' => false,
-                'progress_percentage' => 0,
-                'responses' => [],
-                'started_at' => now()
-            ]);
+            $response = $this->responseService->startSurvey($survey->id, $validated);
 
             return $this->successResponse(
                 ['response' => $response],
-                'Survey response started successfully'
+                $response->wasRecentlyCreated ? 'Survey response started successfully' : 'Continuing existing response',
+                $response->wasRecentlyCreated ? 201 : 200
             );
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
         } catch (\Exception $e) {
-            return $this->errorResponse('Failed to start survey response: ' . $e->getMessage(), 500);
+            return $this->errorResponse('Failed to start survey response: ' . $e->getMessage());
         }
     }
 

@@ -156,19 +156,40 @@ class SurveyResponse extends Model
      */
     public function updateProgress(): void
     {
-        $structure = $this->survey->structure ?? [];
-        $totalQuestions = 0;
+        // Load survey questions if not already loaded
+        $questions = $this->survey->questions ?? $this->survey->load('questions')->questions;
+        $totalQuestions = $questions->count();
         $answeredQuestions = 0;
+        $unansweredRequired = 0;
 
-        foreach ($structure['sections'] ?? [] as $section) {
-            foreach ($section['questions'] ?? [] as $question) {
-                $totalQuestions++;
-                
-                if (isset($this->responses[$question['id']]) && 
-                    $this->responses[$question['id']] !== null && 
-                    $this->responses[$question['id']] !== '') {
-                    $answeredQuestions++;
+        foreach ($questions as $question) {
+            $questionId = (string) $question->id;
+            $response = $this->responses[$questionId] ?? null;
+            
+            // Check if question has a meaningful answer
+            $hasAnswer = false;
+            
+            if ($response !== null && $response !== '') {
+                // For multiple choice, check if array has items
+                if ($question->type === 'multiple_choice' && is_array($response)) {
+                    $hasAnswer = count($response) > 0;
                 }
+                // For other types, check if value exists and is not empty
+                elseif (is_string($response)) {
+                    $hasAnswer = trim($response) !== '';
+                }
+                else {
+                    $hasAnswer = true;
+                }
+            }
+            
+            if ($hasAnswer) {
+                $answeredQuestions++;
+            }
+            
+            // Check if this is a required question that's unanswered
+            if (($question->required || $question->is_required) && !$hasAnswer) {
+                $unansweredRequired++;
             }
         }
 
@@ -176,7 +197,8 @@ class SurveyResponse extends Model
             ? round(($answeredQuestions / $totalQuestions) * 100) 
             : 0;
 
-        $this->is_complete = $this->progress_percentage >= 100;
+        // Survey is complete when all questions answered AND no required questions are missing
+        $this->is_complete = $this->progress_percentage >= 100 && $unansweredRequired === 0;
     }
 
     /**
