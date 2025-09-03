@@ -368,12 +368,12 @@ class UserControllerRefactored extends BaseController
         
         return [
             'id' => $user->id,
-            'username' => $user->username,
-            'email' => $user->email,
+            'username' => $this->cleanUtf8($user->username),
+            'email' => $this->cleanUtf8($user->email),
             'role' => $role ? [
                 'id' => $role->id,
-                'name' => $role->name,
-                'display_name' => $role->display_name,
+                'name' => $this->cleanUtf8($role->name),
+                'display_name' => $this->cleanUtf8($role->display_name),
                 'level' => $role->level
             ] : [
                 'id' => null,
@@ -383,16 +383,39 @@ class UserControllerRefactored extends BaseController
             ],
             'institution' => $user->institution ? [
                 'id' => $user->institution->id,
-                'name' => $user->institution->name,
-                'type' => $user->institution->type
+                'name' => $this->cleanUtf8($user->institution->name),
+                'type' => $this->cleanUtf8($user->institution->type)
             ] : null,
             'is_active' => $user->is_active,
             'last_login_at' => $user->last_login_at,
             'created_at' => $user->created_at,
             'updated_at' => $user->updated_at,
-            'first_name' => $user->profile?->first_name ?? null,
-            'last_name' => $user->profile?->last_name ?? null
+            'first_name' => $this->cleanUtf8($user->profile?->first_name ?? null),
+            'last_name' => $this->cleanUtf8($user->profile?->last_name ?? null)
         ];
+    }
+
+    /**
+     * Clean UTF-8 encoding for safe JSON response
+     */
+    private function cleanUtf8($string): ?string
+    {
+        if ($string === null) {
+            return null;
+        }
+        
+        // Convert to UTF-8 and remove invalid characters
+        $cleaned = mb_convert_encoding($string, 'UTF-8', 'UTF-8');
+        
+        // Remove non-printable characters except newlines/tabs
+        $cleaned = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $cleaned);
+        
+        // Ensure valid UTF-8
+        if (!mb_check_encoding($cleaned, 'UTF-8')) {
+            $cleaned = utf8_encode($cleaned);
+        }
+        
+        return $cleaned;
     }
 
     /**

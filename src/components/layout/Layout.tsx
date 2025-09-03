@@ -47,10 +47,10 @@ const Layout = () => {
     if (!currentUser) return "Dashboard";
     
     switch (currentUser.role) {
-      case "SuperAdmin":
+      case "superadmin":
         return "Sistem İdarəetməsi";
-      case "RegionAdmin":
-        return `${currentUser.region} Regional İdarəetmə`;
+      case "regionadmin":
+        return `${currentUser.region?.name || 'Regional'} İdarəetmə`;
       default:
         return "İdarəetmə Paneli";
     }
@@ -60,10 +60,10 @@ const Layout = () => {
     if (!currentUser) return "";
     
     switch (currentUser.role) {
-      case "SuperAdmin":
+      case "superadmin":
         return "Azərbaycan Təhsil İdarəetmə Sistemi - Ana Panel";
-      case "RegionAdmin":
-        return `${currentUser.region} regional təhsil idarəsi məlumat sistemi`;
+      case "regionadmin":
+        return `${currentUser.region?.name || 'Regional'} təhsil idarəsi məlumat sistemi`;
       default:
         return "Azərbaycan Təhsil İdarəetmə Sistemi";
     }

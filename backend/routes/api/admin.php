@@ -15,6 +15,7 @@ use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\SectorControllerRefactored as SectorController;
 use App\Http\Controllers\PreschoolController;
 use App\Http\Controllers\API\ApprovalApiControllerRefactored;
+use App\Http\Controllers\SettingsController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -381,4 +382,14 @@ Route::prefix('approvals')->group(function () {
     // Bulk operations (SektorAdmin and above)
     Route::post('/bulk-approve', [ApprovalApiControllerRefactored::class, 'bulkApprove'])->middleware('role:sektoradmin|regionadmin|superadmin');
     Route::post('/bulk-reject', [ApprovalApiControllerRefactored::class, 'bulkReject'])->middleware('role:sektoradmin|regionadmin|superadmin');
+});
+
+// Settings Routes - Available to superadmin and regionadmin
+Route::prefix('settings')->middleware(['auth:sanctum', 'role:superadmin|regionadmin'])->group(function () {
+    // Notification settings
+    Route::get('/notifications', [SettingsController::class, 'getNotifications']);
+    Route::post('/notifications', [SettingsController::class, 'updateNotifications']);
+    
+    // System health
+    Route::get('/health', [SettingsController::class, 'getHealth']);
 });

@@ -42,7 +42,9 @@ const getRoleName = (role: any): string => {
 };
 
 const getRoleDisplayName = (role: any) => {
+  console.log('🎭 UserProfile getRoleDisplayName called with role:', role);
   const roleName = getRoleName(role);
+  console.log('🎭 UserProfile roleName from getRoleName:', roleName);
   const roleMap: Record<string, string> = {
     'superadmin': 'Super Administrator',
     'regionadmin': 'Regional Administrator', 
@@ -51,7 +53,9 @@ const getRoleDisplayName = (role: any) => {
     'məktəbadmin': 'School Administrator',
     'müəllim': 'Teacher'
   };
-  return roleMap[roleName.toLowerCase()] || roleName;
+  const result = roleMap[roleName.toLowerCase()] || roleName;
+  console.log('🎭 UserProfile final display result:', result);
+  return result;
 };
 
 const getRoleBadgeVariant = (role: any) => {
@@ -70,6 +74,7 @@ const getRoleBadgeVariant = (role: any) => {
 // Remove getUserInitials function as it's now in profileService
 
 export const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProfileUpdate }) => {
+  console.log('👤 UserProfile RENDERED with user:', user, 'role:', user.role);
   const [profileData, setProfileData] = useState<ProfileResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
@@ -137,7 +142,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProf
               {profileService.getDisplayName(profile, displayData.name) || 'İstifadəçi'}
             </p>
             <p className="text-xs text-muted-foreground truncate">
-              {getRoleDisplayName(displayData.role)}
+              {(() => {
+                console.log('🚨🚨 139 LINE ACTIVE:', displayData.role);
+                console.log('🚨🚨 CURRENT TIME:', new Date().toISOString());
+                alert('🚨 UserProfile 139 line triggered! Role: ' + displayData.role);
+                return getRoleDisplayName(displayData.role);
+              })()}
             </p>
           </div>
           

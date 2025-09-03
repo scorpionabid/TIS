@@ -1,14 +1,12 @@
-import { BaseService } from '../BaseService';
+import { apiClient } from '../api';
 
-export class BaseSettingsService extends BaseService {
-  constructor() {
-    super('/settings');
-  }
+export class BaseSettingsService {
+  protected baseUrl = '/settings';
 
   protected async getSettings<T>(endpoint: string): Promise<{ success: boolean; data: T }> {
     console.log(`🔍 SettingsService.get${endpoint} called`);
     try {
-      const response = await this.get<T>(`${this.baseUrl}${endpoint}`);
+      const response = await apiClient.get<T>(`${this.baseUrl}${endpoint}`);
       console.log(`✅ SettingsService.get${endpoint} successful:`, response);
       return response as { success: boolean; data: T };
     } catch (error) {
@@ -23,7 +21,7 @@ export class BaseSettingsService extends BaseService {
   ): Promise<{ success: boolean; message: string }> {
     console.log(`🔍 SettingsService.update${endpoint} called with:`, data);
     try {
-      const response = await this.put<void>(`${this.baseUrl}${endpoint}`, data);
+      const response = await apiClient.put<void>(`${this.baseUrl}${endpoint}`, data);
       console.log(`✅ SettingsService.update${endpoint} successful:`, response);
       return response as { success: boolean; message: string };
     } catch (error) {
@@ -37,7 +35,7 @@ export class BaseSettingsService extends BaseService {
   ): Promise<{ success: boolean; message: string }> {
     console.log('🔍 SettingsService.resetSettings called for section:', section);
     try {
-      const response = await this.post<void>(`${this.baseUrl}/${section}/reset`, {});
+      const response = await apiClient.post<void>(`${this.baseUrl}/${section}/reset`, {});
       console.log('✅ SettingsService.resetSettings successful:', response);
       return response as { success: boolean; message: string };
     } catch (error) {
@@ -52,7 +50,7 @@ export class BaseSettingsService extends BaseService {
   ): Promise<{ success: boolean; data: T }> {
     console.log(`🔍 SettingsService.test${endpoint} called`);
     try {
-      const response = await this.post<T>(`${this.baseUrl}${endpoint}/test`, payload);
+      const response = await apiClient.post<T>(`${this.baseUrl}${endpoint}/test`, payload);
       console.log(`✅ SettingsService.test${endpoint} successful:`, response);
       return response as { success: boolean; data: T };
     } catch (error) {

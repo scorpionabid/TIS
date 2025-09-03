@@ -100,6 +100,7 @@ export const DashboardHeader = ({
         />
 
         {/* User Profile */}
+        {console.log('🔍 DashboardHeader render check:', {currentUser: !!currentUser, onLogout: !!onLogout, userRole: currentUser?.role})}
         {currentUser && onLogout && (
           <UserProfile user={currentUser} onLogout={onLogout} />
         )}

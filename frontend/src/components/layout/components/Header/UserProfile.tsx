@@ -113,7 +113,13 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProf
   };
 
   // Use profile data if available, otherwise fallback to user data
-  const displayData = profileData?.user || user;
+  // Use profile data but preserve role from user context
+  const displayData = profileData?.user ? {
+    ...profileData.user,
+    role: user.role, // Preserve role from AuthContext
+    name: user.name, // Preserve name from AuthContext
+    username: user.username // Preserve username from AuthContext
+  } : user;
   const avatarUrl = profileData?.avatar_url;
   const profile = profileData?.user?.profile;
   return (

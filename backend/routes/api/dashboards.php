@@ -184,7 +184,7 @@ Route::prefix('teacher')->middleware(['role:müəllim', 'regional.access:school'
 });
 
 // School Admin Dashboard Routes - Unified routing structure
-Route::prefix('schooladmin')->middleware(['auth:sanctum', 'role_or_permission:schooladmin|regionadmin|sektoradmin', 'regional.access:school', 'audit.logging'])->group(function () {
+Route::prefix('schooladmin')->middleware(['auth:sanctum', 'role_or_permission:superadmin|schooladmin|regionadmin|sektoradmin', 'regional.access:school', 'audit.logging'])->group(function () {
     // Dashboard endpoints - using new controllers
     Route::get('dashboard/overview', [SchoolDashboardController::class, 'getOverview']);
     Route::get('dashboard/statistics', [SchoolDashboardController::class, 'getStatistics']);

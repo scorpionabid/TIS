@@ -92,7 +92,7 @@ export function GenericTable<T extends BaseEntity>({
               <TableHead className="w-12">
                 <Checkbox
                   checked={isAllSelected}
-                  indeterminate={isIndeterminate}
+                  {...(isIndeterminate ? { indeterminate: true } : {})}
                   onCheckedChange={onSelectAll}
                   aria-label="Hamısını seç"
                 />

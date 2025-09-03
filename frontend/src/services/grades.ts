@@ -1,4 +1,4 @@
-import { ApiService, ApiResponse } from './api';
+import { apiClient, ApiResponse } from './api';
 import { logger } from '@/utils/logger';
 
 export interface Grade {
@@ -143,7 +143,7 @@ export interface TransferData {
   notes?: string;
 }
 
-class GradeService extends ApiService {
+class GradeService {
   private readonly baseURL = '/grades';
 
   /**
@@ -176,7 +176,7 @@ class GradeService extends ApiService {
     }
 
     const url = params.toString() ? `${this.baseURL}?${params}` : this.baseURL;
-    return this.get<{
+    return apiClient.get<{
       grades: Grade[];
       pagination: any;
     }>(url);
@@ -198,7 +198,7 @@ class GradeService extends ApiService {
     }
 
     const url = params.toString() ? `${this.baseURL}/${id}?${params}` : `${this.baseURL}/${id}`;
-    return this.get<Grade>(url);
+    return apiClient.get<Grade>(url);
   }
 
   /**
@@ -211,7 +211,7 @@ class GradeService extends ApiService {
       data: { name: data.name, class_level: data.class_level, institution_id: data.institution_id }
     });
 
-    return this.post<Grade>(this.baseURL, data);
+    return apiClient.post<Grade>(this.baseURL, data);
   }
 
   /**
@@ -224,7 +224,7 @@ class GradeService extends ApiService {
       data: { id, updates: Object.keys(data) }
     });
 
-    return this.put<Grade>(`${this.baseURL}/${id}`, data);
+    return apiClient.put<Grade>(`${this.baseURL}/${id}`, data);
   }
 
   /**
@@ -237,7 +237,7 @@ class GradeService extends ApiService {
       data: { id }
     });
 
-    return this.delete<void>(`${this.baseURL}/${id}`);
+    return apiClient.delete<void>(`${this.baseURL}/${id}`);
   }
 
   /**
@@ -271,7 +271,7 @@ class GradeService extends ApiService {
       ? `${this.baseURL}/${gradeId}/students?${params}`
       : `${this.baseURL}/${gradeId}/students`;
     
-    return this.get<{
+    return apiClient.get<{
       students: GradeStudent[];
       pagination: any;
     }>(url);
@@ -287,7 +287,7 @@ class GradeService extends ApiService {
       data: { gradeId, student_id: data.student_id }
     });
 
-    return this.post<void>(`${this.baseURL}/${gradeId}/students/enroll`, data);
+    return apiClient.post<void>(`${this.baseURL}/${gradeId}/students/enroll`, data);
   }
 
   /**
@@ -310,7 +310,7 @@ class GradeService extends ApiService {
       data: { gradeId, count: data.student_ids.length }
     });
 
-    return this.post<{
+    return apiClient.post<{
       enrolled: number;
       failed: Array<{
         student_id: number;
@@ -333,7 +333,7 @@ class GradeService extends ApiService {
       data: { gradeId, studentId }
     });
 
-    return this.delete<void>(`${this.baseURL}/${gradeId}/students/${studentId}`, data);
+    return apiClient.delete(`${this.baseURL}/${gradeId}/students/${studentId}`);
   }
 
   /**
@@ -346,7 +346,7 @@ class GradeService extends ApiService {
       data: { gradeId, studentId, targetGradeId: data.target_grade_id }
     });
 
-    return this.post<void>(`${this.baseURL}/${gradeId}/students/${studentId}/transfer`, data);
+    return apiClient.post<void>(`${this.baseURL}/${gradeId}/students/${studentId}/transfer`, data);
   }
 
   /**
@@ -362,7 +362,7 @@ class GradeService extends ApiService {
       data: { gradeId, studentId, status: data.enrollment_status }
     });
 
-    return this.put<void>(`${this.baseURL}/${gradeId}/students/${studentId}/status`, data);
+    return apiClient.put<void>(`${this.baseURL}/${gradeId}/students/${studentId}/status`, data);
   }
 
   /**
@@ -375,7 +375,7 @@ class GradeService extends ApiService {
       data: { gradeId, teacherId }
     });
 
-    return this.post<void>(`${this.baseURL}/${gradeId}/assign-teacher`, { teacher_id: teacherId });
+    return apiClient.post<void>(`${this.baseURL}/${gradeId}/assign-teacher`, { teacher_id: teacherId });
   }
 
   /**
@@ -388,7 +388,7 @@ class GradeService extends ApiService {
       data: { gradeId }
     });
 
-    return this.delete<void>(`${this.baseURL}/${gradeId}/remove-teacher`);
+    return apiClient.delete(`${this.baseURL}/${gradeId}/remove-teacher`);
   }
 
   /**
@@ -417,7 +417,7 @@ class GradeService extends ApiService {
       ? `${this.baseURL}/statistics/overview?${params}`
       : `${this.baseURL}/statistics/overview`;
     
-    return this.get<GradeStatistics>(url);
+    return apiClient.get<GradeStatistics>(url);
   }
 
   /**
@@ -458,7 +458,7 @@ class GradeService extends ApiService {
       ? `${this.baseURL}/reports/capacity?${params}`
       : `${this.baseURL}/reports/capacity`;
     
-    return this.get<{
+    return apiClient.get<{
       grades: Array<Grade & {
         capacity_issues: string[];
         recommendations: string[];
@@ -486,7 +486,7 @@ class GradeService extends ApiService {
       params.append('exclude_grade_id', excludeGradeId.toString());
     }
 
-    return this.get<Array<any>>(`/rooms/available?${params}`);
+    return apiClient.get<Array<any>>(`/rooms/available?${params}`);
   }
 
   /**
@@ -508,7 +508,7 @@ class GradeService extends ApiService {
       params.append('exclude_grade_id', excludeGradeId.toString());
     }
 
-    return this.get<Array<any>>(`/users/teachers/available?${params}`);
+    return apiClient.get<Array<any>>(`/users/teachers/available?${params}`);
   }
 }
 

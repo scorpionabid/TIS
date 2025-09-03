@@ -99,12 +99,13 @@ class DashboardCacheService
      */
     protected function getUserTrends(): array
     {
+        // SQLite compatible query for user trends
         return DB::select("
             SELECT 
                 DATE(created_at) as date,
                 COUNT(*) as registrations
             FROM users 
-            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            WHERE created_at >= datetime('now', '-30 days')
             GROUP BY DATE(created_at)
             ORDER BY date DESC
             LIMIT 30
@@ -116,12 +117,13 @@ class DashboardCacheService
      */
     protected function getActivitySummary(): array
     {
+        // SQLite compatible query for activity summary
         return DB::select("
             SELECT 
-                (SELECT COUNT(*) FROM surveys WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as surveys_this_week,
-                (SELECT COUNT(*) FROM tasks WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as tasks_this_week,
-                (SELECT COUNT(*) FROM documents WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as documents_this_week,
-                (SELECT COUNT(*) FROM users WHERE last_login_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as active_users_this_week
+                (SELECT COUNT(*) FROM surveys WHERE created_at >= datetime('now', '-7 days')) as surveys_this_week,
+                (SELECT COUNT(*) FROM tasks WHERE created_at >= datetime('now', '-7 days')) as tasks_this_week,
+                (SELECT COUNT(*) FROM documents WHERE created_at >= datetime('now', '-7 days')) as documents_this_week,
+                (SELECT COUNT(*) FROM users WHERE last_login_at >= datetime('now', '-7 days')) as active_users_this_week
         ")[0];
     }
     

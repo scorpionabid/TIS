@@ -73,9 +73,12 @@ class AuthService {
       console.log('👤 Login Service: User data:', userData);
       console.log('🎭 Login Service: Roles array:', userData.roles);
       console.log('🎭 Login Service: First role raw:', userData.roles?.[0]);
-      console.log('🎭 Login Service: First role name:', userData.roles?.[0]?.name);
       
-      const extractedRole = userData.roles?.[0]?.name || userData.roles?.[0] || 'user';
+      // Extract role - backend returns roles as string array
+      const extractedRole = Array.isArray(userData.roles) && userData.roles.length > 0 
+        ? userData.roles[0] 
+        : 'user';
+      
       console.log('🎭 Login Service: Extracted role:', extractedRole);
       
       const user: User = {
@@ -128,12 +131,19 @@ class AuthService {
       console.log('🎭 Auth Service: Roles array:', userData.roles);
       console.log('🎭 Auth Service: First role:', userData.roles?.[0]);
       
+      // Extract role - backend returns roles as string array
+      const extractedRole = Array.isArray(userData.roles) && userData.roles.length > 0 
+        ? userData.roles[0] 
+        : 'user';
+      
+      console.log('🎭 Auth Service: Extracted role:', extractedRole);
+      
       const user: User = {
         id: userData.id,
         name: userData.name || userData.username || 'İstifadəçi',
         email: userData.email,
         username: userData.username,
-        role: userData.roles?.[0] || 'user', // Extract role name from first role (roles array contains strings)
+        role: extractedRole,
         permissions: userData.permissions || [],
         institution: userData.institution,
         region: userData.region,

@@ -64,6 +64,7 @@ const Index = () => {
             <p className="text-muted-foreground mt-2">
               Rol: {currentUser?.role || 'Təyin edilməyib'}
             </p>
+            {console.log('🎭 Index.tsx currentUser role:', currentUser?.role)}
           </div>
         </div>
       );

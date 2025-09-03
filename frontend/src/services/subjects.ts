@@ -38,13 +38,13 @@ class SubjectService {
   /**
    * Get all active subjects
    */
-  async getAll(params?: { category?: string; grade?: number }): Promise<Subject[]> {
+  getAll = async (params?: { category?: string; grade?: number }): Promise<Subject[]> => {
     const queryString = params ? new URLSearchParams(
       Object.entries(params).filter(([, value]) => value !== undefined)
         .map(([key, value]) => [key, String(value)])
     ).toString() : '';
     
-    const url = queryString ? `${this.baseUrl}?${queryString}` : this.baseUrl;
+    const url = queryString ? `/subjects?${queryString}` : '/subjects';
     const response = await apiClient.get<Subject[]>(url);
     return response.data;
   }
@@ -52,35 +52,35 @@ class SubjectService {
   /**
    * Get subjects grouped by category
    */
-  async getByCategory(): Promise<SubjectsByCategory> {
-    const response = await apiClient.get<SubjectsByCategory>(`${this.baseUrl}/by-category`);
+  getByCategory = async (): Promise<SubjectsByCategory> => {
+    const response = await apiClient.get<SubjectsByCategory>('/subjects/by-category');
     return response.data;
   }
 
   /**
    * Get subjects for a specific grade
    */
-  async getForGrade(grade: number): Promise<Subject[]> {
-    const response = await apiClient.get<Subject[]>(`${this.baseUrl}/for-grade/${grade}`);
+  getForGrade = async (grade: number): Promise<Subject[]> => {
+    const response = await apiClient.get<Subject[]>(`/subjects/for-grade/${grade}`);
     return response.data;
   }
 
   /**
    * Get a single subject by ID
    */
-  async getById(id: number): Promise<Subject> {
-    const response = await apiClient.get<Subject>(`${this.baseUrl}/${id}`);
+  getById = async (id: number): Promise<Subject> => {
+    const response = await apiClient.get<Subject>(`/subjects/${id}`);
     return response.data;
   }
 
   /**
    * Create a new subject
    */
-  async create(data: CreateSubjectData): Promise<Subject> {
+  create = async (data: CreateSubjectData): Promise<Subject> => {
     console.log('🔥 SubjectService.create called', data);
     
     try {
-      const response = await apiClient.post<Subject>(this.baseUrl, data);
+      const response = await apiClient.post<Subject>('/subjects', data);
       console.log('✅ SubjectService.create success', response);
       return response.data;
     } catch (error) {
@@ -123,11 +123,13 @@ class SubjectService {
   /**
    * Get subjects with detailed data wrapper
    */
-  async getSubjects(): Promise<ApiResponse<Subject[]>> {
+  getSubjects = async (): Promise<ApiResponse<Subject[]>> => {
     console.log('🔍 SubjectService.getSubjects called');
     
     try {
-      const subjects = await this.getAll();
+      // Use direct URL instead of this.baseUrl to avoid binding issues  
+      const response = await apiClient.get<Subject[]>('/subjects');
+      const subjects = response.data || [];
       console.log('✅ SubjectService.getSubjects success', subjects);
       
       return {

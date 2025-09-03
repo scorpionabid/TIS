@@ -21,11 +21,12 @@ class SuperAdminDashboardController extends Controller
     {
         try {
             $analytics = Cache::remember('superadmin_analytics', 300, function () {
+                // Get user stats with SQLite-compatible syntax
                 $userStats = DB::select("
                     SELECT 
                         (SELECT COUNT(*) FROM users) as total,
                         (SELECT COUNT(*) FROM users WHERE is_active = 1) as active,
-                        (SELECT COUNT(*) FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as recent_registrations
+                        (SELECT COUNT(*) FROM users WHERE created_at >= datetime('now', '-7 days')) as recent_registrations
                 ")[0];
                 
                 $roleStats = DB::table('users')

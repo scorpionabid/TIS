@@ -61,7 +61,13 @@ export default function Settings() {
   const mail = mailSettings?.data || settingsService.getMockMailSettings();
   const security = securitySettings?.data || settingsService.getMockSecuritySettings();
   const notifications = notificationSettings?.data || settingsService.getMockNotificationSettings();
-  const health = healthData?.data || settingsService.getMockSystemHealth();
+  const health = healthData?.data || settingsService.getMockSystemHealth() || {
+    database: { status: 'unknown', response_time: 0 },
+    cache: { status: 'unknown', hit_rate: 0 },
+    mail: { status: 'unknown', queue_size: 0, failed_jobs: 0 },
+    storage: { status: 'unknown', disk_usage: { used_gb: 0, total_gb: 0, percentage: 0 }},
+    performance: { avg_response_time: 0, memory_usage_percentage: 0, cpu_usage_percentage: 0, uptime_hours: 0 }
+  };
 
   // Mutations
   const updateSettingsMutation = useMutation({
@@ -151,7 +157,7 @@ export default function Settings() {
           <p className="text-muted-foreground">Sistem ayarları və konfiqurasiya</p>
         </div>
         <div className="flex items-center gap-3">
-          {health && (
+          {health && health.database && (
             <div className="flex items-center gap-2">
               <Activity className="h-4 w-4 text-muted-foreground" />
               {getStatusBadge(health.database.status)}
@@ -330,7 +336,7 @@ export default function Settings() {
                     ) : (
                       getStatusBadge(database.connection_status)
                     )}
-                    {health && (
+                    {health && health.database && health.database.response_time && (
                       <span className="text-sm text-muted-foreground">
                         Cavab vaxtı: {health.database.response_time}ms
                       </span>
