@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, MapPin, Building, Users, Loader2, AlertCircle, AlertTriangle } from "lucide-react";
 import { institutionService } from "@/services/institutions";
 import { useAuth } from "@/contexts/AuthContext";
+import { USER_ROLES } from "@/constants/roles";
 
 interface Region {
   id: number;
@@ -33,7 +34,13 @@ export default function Regions() {
   const [loadingStats, setLoadingStats] = useState<Record<number, boolean>>({});
 
   // Security check - only SuperAdmin and RegionAdmin can access regional management
-  if (!currentUser || !['superadmin', 'regionadmin'].includes(currentUser.role)) {
+  if (!currentUser || ![USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN].includes(currentUser.role)) {
+    console.log('🚫 Regions access denied:', {
+      hasCurrentUser: !!currentUser,
+      currentUserRole: currentUser?.role,
+      allowedRoles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN],
+      roleCheck: currentUser ? [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN].includes(currentUser.role) : false
+    });
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
@@ -41,6 +48,9 @@ export default function Regions() {
           <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
           <p className="text-muted-foreground">
             Bu səhifəyə yalnız SuperAdmin və RegionAdmin istifadəçiləri daxil ola bilər
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Sizin rolunuz: {currentUser?.role || 'Tanınmır'}
           </p>
         </div>
       </div>
@@ -55,11 +65,38 @@ export default function Regions() {
 
   // Filter regions (level 2) from all institutions
   const regions: Region[] = React.useMemo(() => {
-    if (!institutionsResponse?.data?.data) return [];
+    console.log('🔍 Regions filter - Raw response:', institutionsResponse);
     
-    return institutionsResponse.data.data
-      .filter((institution: any) => institution.level === 2)
-      .sort((a: any, b: any) => a.name.localeCompare(b.name));
+    // First, check what structure we have
+    let institutionsData = null;
+    if (institutionsResponse?.data?.data) {
+      // Laravel pagination structure
+      institutionsData = institutionsResponse.data.data;
+      console.log('📊 Using Laravel pagination structure (data.data)');
+    } else if (institutionsResponse?.data && Array.isArray(institutionsResponse.data)) {
+      // Direct array structure
+      institutionsData = institutionsResponse.data;
+      console.log('📊 Using direct array structure (data)');
+    } else if (Array.isArray(institutionsResponse)) {
+      // Response is direct array
+      institutionsData = institutionsResponse;
+      console.log('📊 Using direct response array');
+    } else {
+      console.log('❌ No institutions data found in response');
+      return [];
+    }
+    
+    if (!institutionsData || !Array.isArray(institutionsData)) {
+      console.log('❌ Institutions data is not an array:', typeof institutionsData);
+      return [];
+    }
+    
+    console.log('🏢 All institutions:', institutionsData.length, institutionsData.map(i => ({id: i.id, name: i.name, level: i.level})));
+    
+    const level2Institutions = institutionsData.filter((institution: any) => institution.level === 2);
+    console.log('🏛️ Level 2 institutions (regions):', level2Institutions.length, level2Institutions.map(i => ({id: i.id, name: i.name, level: i.level})));
+    
+    return level2Institutions.sort((a: any, b: any) => a.name.localeCompare(b.name));
   }, [institutionsResponse]);
 
   // Load statistics for each region
@@ -133,11 +170,11 @@ export default function Regions() {
             <h1 className="text-3xl font-bold text-foreground">Regionlar</h1>
             <p className="text-muted-foreground">Regional strukturların idarə edilməsi</p>
           </div>
-          {currentUser?.role === 'superadmin' && (
-            <Button className="flex items-center gap-2" disabled>
-              <Plus className="h-4 w-4" />
-              Yeni Region
-            </Button>
+          {currentUser?.role === USER_ROLES.SUPERADMIN && (
+          <Button className="flex items-center gap-2" disabled>
+          <Plus className="h-4 w-4" />
+          Yeni Region
+          </Button>
           )}
         </div>
 
@@ -174,7 +211,7 @@ export default function Regions() {
             <h1 className="text-3xl font-bold text-foreground">Regionlar</h1>
             <p className="text-muted-foreground">Regional strukturların idarə edilməsi</p>
           </div>
-          {currentUser?.role === 'superadmin' && (
+          {currentUser?.role === USER_ROLES.SUPERADMIN && (
             <Button className="flex items-center gap-2" disabled>
               <Plus className="h-4 w-4" />
               Yeni Region
@@ -269,7 +306,7 @@ export default function Regions() {
           );
         })}
 
-        {currentUser?.role === 'superadmin' && (
+        {currentUser?.role === USER_ROLES.SUPERADMIN && (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center h-48">
               <Plus className="h-8 w-8 text-muted-foreground mb-2" />

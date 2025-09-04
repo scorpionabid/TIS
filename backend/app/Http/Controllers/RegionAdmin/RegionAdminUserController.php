@@ -319,7 +319,7 @@ class RegionAdminUserController extends Controller
             'first_name' => 'nullable|string|max:255',
             'last_name' => 'nullable|string|max:255',
             'password' => 'required|string|min:8|confirmed',
-            'role_name' => ['required', 'string', Rule::in(['regionoperator', 'sektoradmin', 'məktəbadmin', 'müəllim'])],
+            'role_name' => ['required', 'string', Rule::in(['regionoperator', 'sektoradmin', 'schooladmin', 'məktəbadmin', 'müəllim'])],
             'institution_id' => ['required', 'integer', Rule::in($allowedInstitutionIds)],
             'department_id' => 'nullable|integer|exists:departments,id'
         ]);
@@ -346,7 +346,7 @@ class RegionAdminUserController extends Controller
         }
         
         // Validate role permissions
-        $allowedRoles = ['regionoperator', 'sektoradmin', 'məktəbadmin', 'müəllim'];
+        $allowedRoles = ['regionoperator', 'sektoradmin', 'schooladmin', 'məktəbadmin', 'müəllim'];
         if (!in_array($data['role_name'], $allowedRoles)) {
             return response()->json([
                 'message' => 'Invalid role for RegionAdmin'
@@ -438,7 +438,7 @@ class RegionAdminUserController extends Controller
             'first_name' => 'nullable|string|max:255',
             'last_name' => 'nullable|string|max:255',
             'password' => 'sometimes|string|min:8|confirmed',
-            'role_name' => ['sometimes', 'required', 'string', Rule::in(['regionoperator', 'sektoradmin', 'məktəbadmin', 'müəllim'])],
+            'role_name' => ['sometimes', 'required', 'string', Rule::in(['regionoperator', 'sektoradmin', 'schooladmin', 'məktəbadmin', 'müəllim'])],
             'institution_id' => ['sometimes', 'required', 'integer', Rule::in($allowedInstitutionIds)],
             'department_id' => 'nullable|integer|exists:departments,id',
             'is_active' => 'sometimes|boolean'
@@ -624,7 +624,7 @@ class RegionAdminUserController extends Controller
      */
     public function getAvailableRoles(Request $request): JsonResponse
     {
-        $allowedRoles = Role::whereIn('name', ['regionoperator', 'sektoradmin', 'məktəbadmin', 'müəllim'])
+        $allowedRoles = Role::whereIn('name', ['regionoperator', 'sektoradmin', 'schooladmin', 'məktəbadmin', 'müəllim'])
             ->select('id', 'name', 'display_name', 'description', 'level')
             ->orderBy('level')
             ->get();

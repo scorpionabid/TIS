@@ -151,19 +151,25 @@ Route::prefix('students')->middleware('auth:sanctum')->group(function () {
     Route::post('/bulk/import', [StudentController::class, 'importStudents'])->middleware('permission:students.import');
     Route::post('/bulk/export', [StudentController::class, 'exportStudents'])->middleware('permission:students.export');
     Route::get('/bulk/statistics', [StudentController::class, 'getExportStats'])->middleware('permission:students.read');
+    
+    // Available students for grade enrollment
+    Route::get('/available-for-grade/{grade}', [App\Http\Controllers\School\SchoolStudentController::class, 'getAvailableForGrade'])->middleware('permission:students.read');
 });
 
 // Teacher Management Routes (SuperAdmin direct access)
 Route::prefix('teachers')->middleware('permission:teachers.read')->group(function () {
     Route::get('/', [App\Http\Controllers\School\SchoolTeacherController::class, 'index']);
     Route::post('/', [App\Http\Controllers\School\SchoolTeacherController::class, 'store'])->middleware('permission:teachers.write');
+    // Specific routes BEFORE wildcard routes
+    Route::get('/available', [App\Http\Controllers\School\SchoolTeacherController::class, 'getAvailable'])->middleware('permission:teachers.read');
+    Route::post('/bulk-create', [App\Http\Controllers\School\SchoolTeacherController::class, 'bulkCreate'])->middleware('permission:teachers.bulk');
+    Route::get('/analytics/overview', [App\Http\Controllers\School\SchoolTeacherController::class, 'getAnalytics'])->middleware('permission:teachers.analytics');
+    // Wildcard routes AFTER specific routes
     Route::get('/{teacher}', [App\Http\Controllers\School\SchoolTeacherController::class, 'show']);
     Route::put('/{teacher}', [App\Http\Controllers\School\SchoolTeacherController::class, 'update'])->middleware('permission:teachers.write');
     Route::delete('/{teacher}', [App\Http\Controllers\School\SchoolTeacherController::class, 'destroy'])->middleware('permission:teachers.write');
     Route::post('/{teacher}/assign-classes', [App\Http\Controllers\School\SchoolTeacherController::class, 'assignClasses'])->middleware('permission:teachers.assign');
     Route::get('/{teacher}/performance', [App\Http\Controllers\School\SchoolTeacherController::class, 'getPerformance'])->middleware('permission:teachers.performance');
-    Route::post('/bulk-create', [App\Http\Controllers\School\SchoolTeacherController::class, 'bulkCreate'])->middleware('permission:teachers.bulk');
-    Route::get('/analytics/overview', [App\Http\Controllers\School\SchoolTeacherController::class, 'getAnalytics'])->middleware('permission:teachers.analytics');
 });
 
 // Class Management Routes (Legacy - for backward compatibility)
@@ -202,6 +208,15 @@ Route::prefix('grades')->group(function () {
     Route::post('/{grade}/assign-teacher', [GradeUnifiedController::class, 'assignTeacher'])->middleware('permission:grades.assign_teacher');
     Route::delete('/{grade}/remove-teacher', [GradeUnifiedController::class, 'removeTeacher'])->middleware('permission:grades.assign_teacher');
     
+    // Student enrollment management
+    Route::post('/{grade}/students/enroll', [GradeUnifiedController::class, 'enrollStudent'])->middleware('permission:grades.manage_students');
+    Route::post('/{grade}/students/enroll-multiple', [GradeUnifiedController::class, 'enrollMultipleStudents'])->middleware('permission:grades.manage_students');
+    Route::delete('/{grade}/students/{student}', [GradeUnifiedController::class, 'unenrollStudent'])->middleware('permission:grades.manage_students');
+    Route::put('/{grade}/students/{student}/status', [GradeUnifiedController::class, 'updateStudentStatus'])->middleware('permission:grades.manage_students');
+    
+    // Analytics
+    Route::get('/{grade}/analytics', [GradeUnifiedController::class, 'getAnalytics'])->middleware('permission:grades.analytics');
+    
     // Statistics and reporting
     Route::get('/statistics/overview', [GradeUnifiedController::class, 'statistics'])->middleware('permission:grades.statistics');
     Route::get('/reports/capacity', [GradeUnifiedController::class, 'capacityReport'])->middleware('permission:grades.reports');
@@ -218,6 +233,7 @@ Route::prefix('rooms')->group(function () {
     Route::get('/{room}/availability', [RoomController::class, 'checkAvailability'])->middleware('permission:rooms.read');
     Route::post('/{room}/reserve', [RoomController::class, 'reserve'])->middleware('permission:rooms.reserve');
     Route::get('/search/available', [RoomController::class, 'searchAvailable'])->middleware('permission:rooms.read');
+    Route::get('/available', [RoomController::class, 'getAvailable'])->middleware('permission:rooms.read');
     Route::get('/types', [RoomController::class, 'getRoomTypes'])->middleware('permission:rooms.read');
     Route::post('/bulk-create', [RoomController::class, 'bulkCreate'])->middleware('permission:rooms.bulk');
     Route::get('/analytics/utilization', [RoomController::class, 'getUtilizationAnalytics'])->middleware('permission:rooms.analytics');

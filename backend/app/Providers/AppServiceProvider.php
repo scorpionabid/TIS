@@ -14,7 +14,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Register Survey Approval Bridge service
+        $this->app->singleton(\App\Services\SurveyApprovalBridge::class, function ($app) {
+            return new \App\Services\SurveyApprovalBridge();
+        });
     }
 
     /**

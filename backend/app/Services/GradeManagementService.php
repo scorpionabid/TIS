@@ -91,10 +91,11 @@ class GradeManagementService
             $grade = Grade::create($data);
 
             // Log the creation
-            activity()
-                ->performedOn($grade)
-                ->causedBy($user)
-                ->log("Sinif yaradıldı: {$grade->name}");
+            // TODO: Install spatie/laravel-activitylog package for activity logging
+            // activity()
+            //     ->performedOn($grade)
+            //     ->causedBy($user)
+            //     ->log("Sinif yaradıldı: {$grade->name}");
 
             DB::commit();
 
@@ -178,10 +179,11 @@ class GradeManagementService
             ]);
 
             // Log the deactivation
-            activity()
-                ->performedOn($grade)
-                ->causedBy($user)
-                ->log("Sinif deaktiv edildi: {$grade->name}");
+            // TODO: Install spatie/laravel-activitylog package for activity logging
+            // activity()
+            //     ->performedOn($grade)
+            //     ->causedBy($user)
+            //     ->log("Sinif deaktiv edildi: {$grade->name}");
 
             DB::commit();
 
@@ -245,16 +247,17 @@ class GradeManagementService
             ]);
 
             // Log the assignment
-            activity()
-                ->performedOn($grade)
-                ->causedBy($user)
-                ->withProperties([
-                    'teacher_id' => $teacherId,
-                    'teacher_name' => $teacher->name,
-                    'effective_date' => $effectiveDate,
-                    'notes' => $notes,
-                ])
-                ->log("Sinif rəhbəri təyin edildi: {$teacher->name} -> {$grade->name}");
+            // TODO: Install spatie/laravel-activitylog package for activity logging
+            // activity()
+            //     ->performedOn($grade)
+            //     ->causedBy($user)
+            //     ->withProperties([
+            //         'teacher_id' => $teacherId,
+            //         'teacher_name' => $teacher->name,
+            //         'effective_date' => $effectiveDate,
+            //         'notes' => $notes,
+            //     ])
+            //     ->log("Sinif rəhbəri təyin edildi: {$teacher->name} -> {$grade->name}");
 
             DB::commit();
 
@@ -296,16 +299,17 @@ class GradeManagementService
             ]);
 
             // Log the removal
-            activity()
-                ->performedOn($grade)
-                ->causedBy($user)
-                ->withProperties([
-                    'former_teacher_id' => $formerTeacher->id,
-                    'former_teacher_name' => $formerTeacher->name,
-                    'effective_date' => $effectiveDate,
-                    'reason' => $reason,
-                ])
-                ->log("Sinif rəhbəri götürüldü: {$formerTeacher->name} <- {$grade->name}");
+            // TODO: Install spatie/laravel-activitylog package for activity logging  
+            // activity()
+            //     ->performedOn($grade)
+            //     ->causedBy($user)
+            //     ->withProperties([
+            //         'former_teacher_id' => $formerTeacher->id,
+            //         'former_teacher_name' => $formerTeacher->name,
+            //         'effective_date' => $effectiveDate,
+            //         'reason' => $reason,
+            //     ])
+            //     ->log("Sinif rəhbəri götürüldü: {$formerTeacher->name} <- {$grade->name}");
 
             DB::commit();
 
@@ -853,14 +857,24 @@ class GradeManagementService
 
     private function clearGradeCaches(int $institutionId): void
     {
-        $tags = [
+        // For file cache driver that doesn't support tagging, clear individual cache keys
+        $cacheKeys = [
             "grades_institution_{$institutionId}",
             "grades_statistics_{$institutionId}",
             "capacity_report_{$institutionId}",
+            "grades_list_{$institutionId}",
+            "grades_summary_{$institutionId}",
         ];
 
-        foreach ($tags as $tag) {
-            Cache::tags($tag)->flush();
+        foreach ($cacheKeys as $key) {
+            Cache::forget($key);
+        }
+        
+        // Also clear any wildcard patterns by flushing all cache if needed
+        // Note: This is less efficient but ensures all related data is cleared
+        if (config('cache.default') === 'file') {
+            // For file cache, we can't do selective clearing, so we clear specific known keys only
+            // This is a safer approach than flushing everything
         }
     }
 
@@ -885,11 +899,12 @@ class GradeManagementService
         }
 
         if (!empty($changes)) {
-            activity()
-                ->performedOn($grade)
-                ->causedBy($user)
-                ->withProperties(['changes' => $changes])
-                ->log("Sinif yeniləndi: {$grade->name}");
+            // TODO: Install spatie/laravel-activitylog package for activity logging
+            // activity()
+            //     ->performedOn($grade)
+            //     ->causedBy($user)
+            //     ->withProperties(['changes' => $changes])
+            //     ->log("Sinif yeniləndi: {$grade->name}");
         }
     }
 

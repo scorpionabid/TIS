@@ -43,6 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { GradeStudentEnrollmentModal } from './GradeStudentEnrollmentModal';
 
 interface GradeStudentsDialogProps {
   grade: Grade;
@@ -61,6 +62,9 @@ export const GradeStudentsDialog: React.FC<GradeStudentsDialogProps> = ({
   // Search state
   const [searchQuery, setSearchQuery] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<string>('all');
+  
+  // Enrollment modal state
+  const [enrollmentModalOpen, setEnrollmentModalOpen] = React.useState(false);
 
   // Fetch students for this grade
   const { data: studentsResponse, isLoading: studentsLoading } = useQuery({
@@ -276,7 +280,10 @@ export const GradeStudentsDialog: React.FC<GradeStudentsDialogProps> = ({
             </SelectContent>
           </Select>
 
-          <Button className="flex items-center gap-2">
+          <Button 
+            className="flex items-center gap-2"
+            onClick={() => setEnrollmentModalOpen(true)}
+          >
             <Plus className="h-4 w-4" />
             Tələbə Əlavə Et
           </Button>
@@ -414,6 +421,21 @@ export const GradeStudentsDialog: React.FC<GradeStudentsDialogProps> = ({
           </Button>
         </div>
       </DialogContent>
+
+      {/* Student Enrollment Modal */}
+      <GradeStudentEnrollmentModal
+        open={enrollmentModalOpen}
+        onClose={() => setEnrollmentModalOpen(false)}
+        grade={grade}
+        onSuccess={() => {
+          // Refresh students data when enrollment succeeds
+          queryClient.invalidateQueries({ queryKey: ['grade-students', grade.id] });
+          toast({
+            title: "Uğur",
+            description: "Tələbələr sinifə uğurla əlavə edildi",
+          });
+        }}
+      />
     </Dialog>
   );
 };

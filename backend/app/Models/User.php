@@ -237,6 +237,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Alias for homeroomGrades (for backward compatibility)
+     */
+    public function grades(): HasMany
+    {
+        return $this->homeroomGrades();
+    }
+
+    /**
      * Get student enrollment information (for student users).
      */
     public function studentEnrollment(): HasOne

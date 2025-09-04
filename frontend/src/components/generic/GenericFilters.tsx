@@ -26,7 +26,7 @@ export function GenericFilters({
 }: GenericFiltersProps) {
   
   const [isExpanded, setIsExpanded] = React.useState(false);
-  const hasActiveFilters = Object.values(filters).some(value => 
+  const hasActiveFilters = Object.values(filters || {}).some(value => 
     value !== undefined && value !== null && value !== '' && value !== 'all'
   );
 
@@ -43,7 +43,7 @@ export function GenericFilters({
   };
 
   const renderFilterField = (field: FilterFieldConfig) => {
-    const currentValue = filters[field.key];
+    const currentValue = (filters || {})[field.key];
 
     switch (field.type) {
       case 'select':
@@ -141,7 +141,7 @@ export function GenericFilters({
           </div>
           
           {/* Filter Toggle Button */}
-          {filterFields.length > 0 && (
+          {filterFields && filterFields.length > 0 && (
             <Button
               variant="outline"
               size="icon"
@@ -167,10 +167,10 @@ export function GenericFilters({
         </div>
 
         {/* Advanced Filters */}
-        {isExpanded && filterFields.length > 0 && (
+        {isExpanded && filterFields && filterFields.length > 0 && (
           <div className="pt-4 border-t">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filterFields.map(renderFilterField)}
+              {filterFields && filterFields.map(renderFilterField)}
             </div>
           </div>
         )}
@@ -180,10 +180,10 @@ export function GenericFilters({
           <div className="flex items-center gap-2 pt-2 border-t">
             <span className="text-sm text-muted-foreground">Aktiv filtrlər:</span>
             <div className="flex flex-wrap gap-1">
-              {Object.entries(filters).map(([key, value]) => {
+              {Object.entries(filters || {}).map(([key, value]) => {
                 if (!value || value === 'all') return null;
                 
-                const field = filterFields.find(f => f.key === key);
+                const field = filterFields?.find(f => f.key === key);
                 if (!field) return null;
                 
                 const displayValue = field.options?.find(o => String(o.value) === String(value))?.label || String(value);

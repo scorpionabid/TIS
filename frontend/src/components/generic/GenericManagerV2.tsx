@@ -169,7 +169,7 @@ export function GenericManagerV2<
       )}
 
       {/* Tabs */}
-      {features.tabs !== false && config.tabs.length > 1 && (
+      {features.tabs !== false && config.tabs && config.tabs.length > 1 && (
         <Tabs value={manager.selectedTab} onValueChange={manager.setSelectedTab}>
           <TabsList className={"grid w-full " + (config.tabs.length <= 2 ? 'grid-cols-2' : config.tabs.length === 3 ? 'grid-cols-3' : config.tabs.length === 4 ? 'grid-cols-4' : 'grid-cols-5')}>
             {config.tabs.map(tab => (

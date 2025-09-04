@@ -359,6 +359,7 @@ class PermissionSeeder extends Seeder
                 'assessments.create', 'assessments.read', 'assessments.update',
                 'assessment-types.read',
                 'subjects.read',
+                'teachers.read', 'teachers.update', 'teachers.manage', 'teachers.assign',
                 'rooms.create', 'rooms.read', 'rooms.update', 'rooms.manage', 'rooms.assign',
                 'events.create', 'events.read', 'events.update', 'events.manage', 'events.approve', 'events.register', 'events.cancel',
                 'psychology.read', 'psychology.manage',

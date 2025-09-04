@@ -19,8 +19,11 @@ use Illuminate\Support\Facades\Auth;
  */
 class SurveyApprovalController extends BaseController
 {
-    public function __construct()
+    protected $approvalBridge;
+
+    public function __construct(SurveyApprovalBridge $approvalBridge)
     {
+        $this->approvalBridge = $approvalBridge;
         // Middleware is defined in routes
     }
 

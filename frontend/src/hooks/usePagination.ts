@@ -31,7 +31,8 @@ export function usePagination<T>(
   const [itemsPerPage, setItemsPerPage] = useState(initialItemsPerPage);
 
   const result = useMemo(() => {
-    const totalItems = items.length;
+    const safeItems = items || [];
+    const totalItems = safeItems.length;
     const totalPages = Math.ceil(totalItems / itemsPerPage);
     
     // Ensure current page is within bounds
@@ -40,7 +41,7 @@ export function usePagination<T>(
     const startIndex = (validCurrentPage - 1) * itemsPerPage;
     const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
     
-    const paginatedItems = items.slice(startIndex, endIndex);
+    const paginatedItems = safeItems.slice(startIndex, endIndex);
     
     return {
       currentPage: validCurrentPage,

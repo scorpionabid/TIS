@@ -615,4 +615,420 @@ class GradeUnifiedController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Enroll a single student into a grade
+     */
+    public function enrollStudent(Request $request, Grade $grade): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'student_id' => 'required|exists:users,id',
+                'enrollment_date' => 'sometimes|date',
+                'notes' => 'sometimes|string|max:500',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $user = Auth::user();
+            
+            // Check permissions
+            if (!$user->can('grades.manage_students')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tələbə idarə etmək üçün icazəniz yoxdur',
+                ], 403);
+            }
+
+            $studentId = $request->get('student_id');
+            $enrollmentDate = $request->get('enrollment_date', now());
+            $notes = $request->get('notes');
+
+            $result = $this->enrollmentService->enrollStudentInGrade(
+                $studentId,
+                $grade->id,
+                $enrollmentDate,
+                $notes
+            );
+
+            if (!$result['success']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $result['message'],
+                ], 400);
+            }
+
+            Log::info('Student enrolled successfully', [
+                'grade_id' => $grade->id,
+                'student_id' => $studentId,
+                'enrolled_by' => $user->id,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Tələbə uğurla sinifə əlavə edildi',
+                'data' => $result['data']
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Student enrollment error: ' . $e->getMessage(), [
+                'grade_id' => $grade->id,
+                'request' => $request->all(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Tələbə əlavə edilərkən səhv baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Enroll multiple students into a grade
+     */
+    public function enrollMultipleStudents(Request $request, Grade $grade): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'student_ids' => 'required|array|min:1',
+                'student_ids.*' => 'required|exists:users,id',
+                'enrollment_date' => 'sometimes|date',
+                'notes' => 'sometimes|string|max:500',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $user = Auth::user();
+            
+            // Check permissions
+            if (!$user->can('grades.manage_students')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tələbə idarə etmək üçün icazəniz yoxdur',
+                ], 403);
+            }
+
+            $studentIds = $request->get('student_ids');
+            $enrollmentDate = $request->get('enrollment_date', now());
+            $notes = $request->get('notes');
+
+            $results = $this->enrollmentService->enrollMultipleStudentsInGrade(
+                $studentIds,
+                $grade->id,
+                $enrollmentDate,
+                $notes
+            );
+
+            Log::info('Multiple students enrollment completed', [
+                'grade_id' => $grade->id,
+                'student_count' => count($studentIds),
+                'successful' => $results['successful'],
+                'failed' => $results['failed'],
+                'enrolled_by' => $user->id,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => $results['successful'] . ' tələbə uğurla əlavə edildi' .
+                           ($results['failed'] > 0 ? ', ' . $results['failed'] . ' tələbə əlavə edilə bilmədi' : ''),
+                'data' => $results
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Multiple students enrollment error: ' . $e->getMessage(), [
+                'grade_id' => $grade->id,
+                'request' => $request->all(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Tələbələr əlavə edilərkən səhv baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Remove a student from a grade
+     */
+    public function unenrollStudent(Request $request, Grade $grade, $studentId): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            // Check permissions
+            if (!$user->can('grades.manage_students')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tələbə idarə etmək üçün icazəniz yoxdur',
+                ], 403);
+            }
+
+            $validator = Validator::make(['student_id' => $studentId], [
+                'student_id' => 'required|exists:users,id',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Keçərsiz tələbə ID',
+                ], 422);
+            }
+
+            $result = $this->enrollmentService->unenrollStudentFromGrade(
+                $studentId,
+                $grade->id,
+                $request->get('reason', 'Removed by admin')
+            );
+
+            if (!$result['success']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $result['message'],
+                ], 400);
+            }
+
+            Log::info('Student unenrolled successfully', [
+                'grade_id' => $grade->id,
+                'student_id' => $studentId,
+                'removed_by' => $user->id,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Tələbə sinifdən uğurla çıxarıldı',
+                'data' => $result['data']
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Student unenrollment error: ' . $e->getMessage(), [
+                'grade_id' => $grade->id,
+                'student_id' => $studentId,
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Tələbə çıxarılarkən səhv baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Update student enrollment status in a grade
+     */
+    public function updateStudentStatus(Request $request, Grade $grade, $studentId): JsonResponse
+    {
+        try {
+            $validator = Validator::make(array_merge($request->all(), ['student_id' => $studentId]), [
+                'student_id' => 'required|exists:users,id',
+                'status' => 'required|in:active,inactive,transferred,graduated,suspended',
+                'notes' => 'sometimes|string|max:500',
+                'effective_date' => 'sometimes|date',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $user = Auth::user();
+            
+            // Check permissions
+            if (!$user->can('grades.manage_students')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tələbə statusu dəyişmək üçün icazəniz yoxdur',
+                ], 403);
+            }
+
+            $status = $request->get('status');
+            $notes = $request->get('notes');
+            $effectiveDate = $request->get('effective_date', now());
+
+            $result = $this->enrollmentService->updateStudentEnrollmentStatus(
+                $studentId,
+                $grade->id,
+                $status,
+                $effectiveDate,
+                $notes
+            );
+
+            if (!$result['success']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $result['message'],
+                ], 400);
+            }
+
+            Log::info('Student status updated successfully', [
+                'grade_id' => $grade->id,
+                'student_id' => $studentId,
+                'new_status' => $status,
+                'updated_by' => $user->id,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Tələbə statusu uğurla yeniləndi',
+                'data' => $result['data']
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Student status update error: ' . $e->getMessage(), [
+                'grade_id' => $grade->id,
+                'student_id' => $studentId,
+                'request' => $request->all(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Tələbə statusu yenilənərkən səhv baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get comprehensive analytics for a grade
+     */
+    public function getAnalytics(Request $request, Grade $grade): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            // Check permissions
+            if (!$user->can('grades.analytics')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Analitika məlumatlarına baxmaq üçün icazəniz yoxdur',
+                ], 403);
+            }
+
+            // Get student statistics
+            $studentStats = $this->enrollmentService->getGradeStudentStatistics($grade->id);
+            
+            // Calculate capacity analysis
+            $capacityAnalysis = [
+                'current_capacity' => $grade->student_count,
+                'max_capacity' => $grade->room ? $grade->room->capacity : null,
+                'utilization_rate' => $grade->utilization_rate ?? 0,
+                'capacity_status' => $grade->capacity_status,
+                'recommendations' => []
+            ];
+
+            // Add recommendations based on capacity
+            if ($capacityAnalysis['utilization_rate'] > 95) {
+                $capacityAnalysis['recommendations'][] = 'Sinif həddindən çox doludur, yeni otaq tapılmalıdır';
+            } elseif ($capacityAnalysis['utilization_rate'] < 60) {
+                $capacityAnalysis['recommendations'][] = 'Sinif az istifadə olunur, tələbə qeydiyyatını artırmaq olar';
+            }
+
+            if (!$grade->room_id) {
+                $capacityAnalysis['recommendations'][] = 'Sinif üçün otaq təyin edilməyib';
+            }
+
+            if (!$grade->homeroom_teacher_id) {
+                $capacityAnalysis['recommendations'][] = 'Sinif rəhbəri təyin edilməyib';
+            }
+
+            // Performance metrics (mock data for now)
+            $performanceMetrics = [
+                'enrollment_trend' => [
+                    ['month' => 'Sentyabr', 'enrolled' => 25, 'withdrawn' => 2],
+                    ['month' => 'Oktyabr', 'enrolled' => 3, 'withdrawn' => 1],
+                    ['month' => 'Noyabr', 'enrolled' => 1, 'withdrawn' => 0],
+                ],
+                'retention_rate' => 95.5,
+                'average_class_size_comparison' => $grade->student_count
+            ];
+
+            // Resource allocation
+            $resourceAllocation = [
+                'has_room' => !is_null($grade->room_id),
+                'room_capacity' => $grade->room ? $grade->room->capacity : null,
+                'has_teacher' => !is_null($grade->homeroom_teacher_id),
+                'teacher_workload' => $grade->homeroom_teacher ? 85 : null // Mock percentage
+            ];
+
+            // Generate alerts
+            $alerts = [];
+            
+            if ($capacityAnalysis['utilization_rate'] > 100) {
+                $alerts[] = [
+                    'type' => 'error',
+                    'message' => 'Sinif tutumu həddindən çox aşılmışdır',
+                    'action_required' => true
+                ];
+            }
+
+            if (!$grade->room_id) {
+                $alerts[] = [
+                    'type' => 'warning',
+                    'message' => 'Sinif üçün otaq təyin edilməyib',
+                    'action_required' => true
+                ];
+            }
+
+            if (!$grade->homeroom_teacher_id) {
+                $alerts[] = [
+                    'type' => 'warning',
+                    'message' => 'Sinif rəhbəri təyin edilməyib',
+                    'action_required' => true
+                ];
+            }
+
+            $analytics = [
+                'student_statistics' => $studentStats,
+                'capacity_analysis' => $capacityAnalysis,
+                'performance_metrics' => $performanceMetrics,
+                'resource_allocation' => $resourceAllocation,
+                'alerts' => $alerts
+            ];
+
+            Log::info('Grade analytics retrieved', [
+                'grade_id' => $grade->id,
+                'user_id' => $user->id,
+                'analytics_keys' => array_keys($analytics)
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $analytics,
+                'message' => 'Sinif analitikası uğurla alındı'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Grade analytics error: ' . $e->getMessage(), [
+                'grade_id' => $grade->id,
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Analitika məlumatları alınarkən səhv baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
 }

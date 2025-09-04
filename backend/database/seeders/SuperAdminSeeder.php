@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission;
 
 class SuperAdminSeeder extends Seeder
 {
@@ -38,6 +39,14 @@ class SuperAdminSeeder extends Seeder
         if ($superadminRole) {
             // Ensure the user has the role with the correct guard
             $superadmin->syncRoles([$superadminRole]);
+            
+            // Give SuperAdmin role ALL permissions
+            $allPermissions = Permission::where('guard_name', 'web')->get();
+            if ($allPermissions->count() > 0) {
+                $superadminRole->syncPermissions($allPermissions);
+                $this->command->info('✅ SuperAdmin role given ALL permissions (' . $allPermissions->count() . ' permissions)');
+            }
+            
             $this->command->info('✅ Superadmin role assigned with WEB guard');
         } else {
             $this->command->error('❌ Superadmin role not found with WEB guard');

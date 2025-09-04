@@ -1,7 +1,7 @@
 import React from 'react';
 import { Grade, GradeFilters, gradeService } from '@/services/grades';
-import { GradeFilters as GradeFiltersComponent } from './GradeFilters';
-import { EntityConfig } from '@/components/generic/GenericManagerV2';
+// TODO: import { GradeFilters as GradeFiltersComponent } from './GradeFilters';
+import { EntityConfig } from '@/components/generic/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
@@ -47,6 +47,11 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters> = {
   // Display configuration
   title: 'Sinif İdarəetməsi',
   description: 'Məktəb siniflərinin idarə edilməsi və tələbə yazılışları',
+  
+  // Feature configuration - disable default create button
+  features: {
+    create: false  // Disable default create button since we use headerActions
+  },
   
   // Table configuration
   columns: [

@@ -329,7 +329,14 @@ class ApprovalWorkflowService extends BaseService
         $dateFrom = $request->get('date_from', Carbon::now()->subMonth()->format('Y-m-d'));
         $dateTo = $request->get('date_to', Carbon::now()->format('Y-m-d'));
 
-        $query = DataApprovalRequest::whereBetween('created_at', [$dateFrom, $dateTo]);
+        \Log::info('🔍 getAnalytics: Starting analytics query', [
+            'user' => $user->username,
+            'role' => $user->roles->pluck('name')->toArray(),
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo
+        ]);
+
+        $query = DataApprovalRequest::whereBetween('data_approval_requests.created_at', [$dateFrom, $dateTo]);
 
         // Filter by user authority if not superadmin
         if (!$user->hasRole('superadmin')) {
@@ -337,28 +344,45 @@ class ApprovalWorkflowService extends BaseService
         }
 
         // Status distribution
-        $statusStats = $query->selectRaw('current_status, COUNT(*) as count')
-            ->groupBy('current_status')
+        $statusStats = $query->selectRaw('data_approval_requests.current_status, COUNT(*) as count')
+            ->groupBy('data_approval_requests.current_status')
             ->pluck('count', 'current_status')
             ->toArray();
 
         // Processing time analytics
-        $processingTimes = DataApprovalRequest::whereBetween('created_at', [$dateFrom, $dateTo])
+        $processingTimes = DataApprovalRequest::whereBetween('data_approval_requests.created_at', [$dateFrom, $dateTo])
             ->whereNotNull('completed_at')
-            ->selectRaw('AVG((julianday(completed_at) - julianday(created_at)) * 24) as avg_hours')
+            ->selectRaw('AVG((julianday(completed_at) - julianday(data_approval_requests.created_at)) * 24) as avg_hours')
             ->value('avg_hours');
 
         // Approval rate by workflow type
-        $workflowStats = $query->join('approval_workflows', 'data_approval_requests.workflow_id', '=', 'approval_workflows.id')
-            ->selectRaw('approval_workflows.workflow_type, 
-                        COUNT(*) as total,
-                        SUM(CASE WHEN current_status = "approved" THEN 1 ELSE 0 END) as approved')
-            ->groupBy('approval_workflows.workflow_type')
-            ->get()
-            ->map(function ($item) {
-                $item->approval_rate = $item->total > 0 ? round(($item->approved / $item->total) * 100, 2) : 0;
-                return $item;
-            });
+        \Log::info('🔍 getAnalytics: Before workflow stats query');
+        
+        try {
+            // Create fresh query for workflow stats to avoid conflicts
+            $workflowQuery = DataApprovalRequest::whereBetween('data_approval_requests.created_at', [$dateFrom, $dateTo]);
+            
+            // Apply same user filtering
+            if (!$user->hasRole('superadmin')) {
+                $this->filterByApprovalAuthority($workflowQuery, $user);
+            }
+            
+            $workflowStats = $workflowQuery->join('approval_workflows', 'data_approval_requests.workflow_id', '=', 'approval_workflows.id')
+                ->selectRaw('approval_workflows.workflow_type, 
+                            COUNT(*) as total,
+                            SUM(CASE WHEN data_approval_requests.current_status = "approved" THEN 1 ELSE 0 END) as approved')
+                ->groupBy('approval_workflows.workflow_type')
+                ->get()
+                ->map(function ($item) {
+                    $item->approval_rate = $item->total > 0 ? round(($item->approved / $item->total) * 100, 2) : 0;
+                    return $item;
+                });
+                
+            \Log::info('🔍 getAnalytics: Workflow stats query successful');
+        } catch (\Exception $e) {
+            \Log::error('🔍 getAnalytics: Workflow stats query failed', ['error' => $e->getMessage()]);
+            $workflowStats = collect();
+        }
 
         return [
             'status_distribution' => $statusStats,

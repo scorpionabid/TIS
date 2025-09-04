@@ -5,6 +5,7 @@ import { gradeEntityConfig, gradeCustomLogic, GradeFiltersComponent } from './co
 import { GradeCreateDialog } from './GradeCreateDialog';
 import { GradeDetailsDialog } from './GradeDetailsDialog';
 import { GradeStudentsDialog } from './GradeStudentsDialog';
+import { GradeAnalyticsModal } from './GradeAnalyticsModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { institutionService } from '@/services/institutions';
@@ -32,6 +33,8 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
   const [editingGrade, setEditingGrade] = React.useState<Grade | null>(null);
   const [studentsModalOpen, setStudentsModalOpen] = React.useState(false);
   const [studentsGrade, setStudentsGrade] = React.useState<Grade | null>(null);
+  const [analyticsModalOpen, setAnalyticsModalOpen] = React.useState(false);
+  const [analyticsGrade, setAnalyticsGrade] = React.useState<Grade | null>(null);
 
   // Role-based access and filtering
   const { currentUser } = useAuth();
@@ -51,15 +54,15 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
 
   // Process available institutions based on user role
   const availableInstitutions = React.useMemo(() => {
-    if (!institutionsResponse?.data?.data || !currentUser) return [];
+    if (!institutionsResponse?.data || !currentUser) return [];
     
     logger.debug('Processing institutions for grade filtering', {
       component: 'GradeManager',
       action: 'filterInstitutions',
-      data: { userRole: currentUser.role, institutionCount: institutionsResponse.data.data.length }
+      data: { userRole: currentUser.role, institutionCount: institutionsResponse.data.length }
     });
     
-    const institutions = institutionsResponse.data.data;
+    const institutions = institutionsResponse.data;
     
     // Role-based institution filtering logic
     switch (currentUser.role) {
@@ -83,8 +86,8 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
 
   // Process available academic years
   const availableAcademicYears = React.useMemo(() => {
-    if (!academicYearsResponse?.data?.data) return [];
-    return academicYearsResponse.data.data;
+    if (!academicYearsResponse?.data) return [];
+    return academicYearsResponse.data;
   }, [academicYearsResponse]);
 
   // Enhanced configuration with grade-specific modal handlers
@@ -117,8 +120,8 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
             setStudentsModalOpen(true);
             break;
           case 'analytics':
-            // TODO: Implement analytics modal or navigate to analytics page
-            logger.info('Analytics not yet implemented', { gradeId: grade.id });
+            setAnalyticsGrade(grade);
+            setAnalyticsModalOpen(true);
             break;
           default:
             logger.warn('Unknown action', { action: action.key });
@@ -136,6 +139,37 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     setCreateModalOpen(true);
   }, []);
 
+  // Custom logic with create handler
+  const customLogic = React.useMemo(() => ({
+    headerActions: [
+      {
+        key: 'create-grade',
+        label: 'Yeni Sinif',
+        icon: () => React.createElement('svg', { 
+          className: 'h-4 w-4', 
+          fill: 'none', 
+          stroke: 'currentColor', 
+          viewBox: '0 0 24 24' 
+        }, React.createElement('path', { 
+          strokeLinecap: 'round', 
+          strokeLinejoin: 'round', 
+          strokeWidth: 2, 
+          d: 'M12 4v16m8-8H4' 
+        })),
+        onClick: handleCreate,
+        variant: 'default' as const
+      }
+    ],
+    renderCustomFilters: () => (
+      <GradeFiltersComponent
+        filters={{}}
+        onFiltersChange={() => {}}
+        availableInstitutions={availableInstitutions}
+        availableAcademicYears={availableAcademicYears}
+      />
+    )
+  }), [handleCreate, availableInstitutions, availableAcademicYears]);
+
   // Handle close modals
   const handleCloseModals = React.useCallback(() => {
     setCreateModalOpen(false);
@@ -143,28 +177,26 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     setEditingGrade(null);
     setStudentsModalOpen(false);
     setStudentsGrade(null);
+    setAnalyticsModalOpen(false);
+    setAnalyticsGrade(null);
   }, []);
 
+  // TypeScript generic komponent
+  const GenericManager = GenericManagerV2<Grade, GradeFilters>;
+  
   return (
     <>
-      <GenericManagerV2<Grade, GradeFilters>
+      <GenericManager
         config={enhancedConfig}
+        customLogic={customLogic}
         className={className}
-        onCreateClick={handleCreate}
-        customFilters={(filters, onFiltersChange) => (
-          <GradeFiltersComponent
-            filters={filters}
-            onFiltersChange={onFiltersChange}
-            availableInstitutions={availableInstitutions}
-            availableAcademicYears={availableAcademicYears}
-          />
-        )}
       />
 
       {/* Grade Creation Modal */}
       <GradeCreateDialog
         open={createModalOpen}
         onClose={handleCloseModals}
+        currentUser={currentUser}
         availableInstitutions={availableInstitutions}
         availableAcademicYears={availableAcademicYears}
       />
@@ -191,6 +223,7 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
         <GradeCreateDialog
           open={!!editingGrade}
           onClose={handleCloseModals}
+          currentUser={currentUser}
           editingGrade={editingGrade}
           availableInstitutions={availableInstitutions}
           availableAcademicYears={availableAcademicYears}
@@ -202,6 +235,15 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
         <GradeStudentsDialog
           grade={studentsGrade}
           open={studentsModalOpen}
+          onClose={handleCloseModals}
+        />
+      )}
+
+      {/* Analytics Modal */}
+      {analyticsModalOpen && analyticsGrade && (
+        <GradeAnalyticsModal
+          grade={analyticsGrade}
+          open={analyticsModalOpen}
           onClose={handleCloseModals}
         />
       )}

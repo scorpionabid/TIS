@@ -4,6 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -23,12 +24,15 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Grade, gradeService, GradeCreateData, GradeUpdateData } from '@/services/grades';
 import { gradeCustomLogic } from './configurations/gradeConfig';
 import { logger } from '@/utils/logger';
-import { Loader2, AlertCircle, Users, MapPin } from 'lucide-react';
+import { Loader2, AlertCircle, Users, MapPin, School } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { User } from '@/contexts/AuthContext';
+import { USER_ROLES } from '@/constants/roles';
 
 interface GradeCreateDialogProps {
   open: boolean;
   onClose: () => void;
+  currentUser: User | null;
   editingGrade?: Grade | null;
   availableInstitutions: Array<{ id: number; name: string }>;
   availableAcademicYears: Array<{ id: number; name: string; is_active: boolean }>;
@@ -37,6 +41,7 @@ interface GradeCreateDialogProps {
 export const GradeCreateDialog: React.FC<GradeCreateDialogProps> = ({
   open,
   onClose,
+  currentUser,
   editingGrade,
   availableInstitutions,
   availableAcademicYears,
@@ -57,6 +62,10 @@ export const GradeCreateDialog: React.FC<GradeCreateDialogProps> = ({
 
   const [validationErrors, setValidationErrors] = React.useState<Record<string, string>>({});
 
+  // Check if user is school admin
+  const isSchoolAdmin = currentUser?.role === USER_ROLES.SCHOOLADMIN;
+  const userInstitution = currentUser?.institution;
+
   // Initialize form data when editing
   React.useEffect(() => {
     if (editingGrade && open) {
@@ -72,22 +81,28 @@ export const GradeCreateDialog: React.FC<GradeCreateDialogProps> = ({
     } else if (open && !editingGrade) {
       // Reset form for new grade
       const activeYear = availableAcademicYears.find(year => year.is_active);
-      const firstInstitution = availableInstitutions[0];
+      
+      // For school admin, use their institution automatically
+      // For other roles, use first available institution
+      const defaultInstitutionId = isSchoolAdmin && userInstitution?.id 
+        ? userInstitution.id 
+        : availableInstitutions[0]?.id || 0;
       
       setFormData({
         name: '',
         class_level: 1,
         academic_year_id: activeYear?.id || 0,
-        institution_id: firstInstitution?.id || 0,
+        institution_id: defaultInstitutionId,
         specialty: '',
         description: '',
         student_count: 0,
       });
     }
     setValidationErrors({});
-  }, [editingGrade, open, availableAcademicYears, availableInstitutions]);
+  }, [editingGrade, open, availableAcademicYears, availableInstitutions, isSchoolAdmin, userInstitution]);
 
   // Fetch available rooms and teachers when institution is selected
+  // Note: Temporarily disabled until backend endpoints are implemented
   const { data: availableRooms } = useQuery({
     queryKey: ['rooms', 'available', formData.institution_id, formData.academic_year_id],
     queryFn: () => gradeService.getAvailableRooms(
@@ -95,13 +110,13 @@ export const GradeCreateDialog: React.FC<GradeCreateDialogProps> = ({
       formData.academic_year_id, 
       editingGrade?.id
     ),
-    enabled: !!formData.institution_id && !!formData.academic_year_id,
+    enabled: false, // Disabled until backend endpoint exists
   });
 
   const { data: availableTeachers } = useQuery({
     queryKey: ['teachers', 'available', formData.institution_id],
     queryFn: () => gradeService.getAvailableTeachers(formData.institution_id, editingGrade?.id),
-    enabled: !!formData.institution_id,
+    enabled: false, // Disabled until backend endpoint exists
   });
 
   // Create/Update mutations
@@ -228,6 +243,12 @@ export const GradeCreateDialog: React.FC<GradeCreateDialogProps> = ({
           <DialogTitle>
             {editingGrade ? 'Sinif Məlumatlarını Redaktə Et' : 'Yeni Sinif Yarat'}
           </DialogTitle>
+          <DialogDescription>
+            {editingGrade 
+              ? 'Mövcud sinifin məlumatlarını dəyişdirin və yeniləyin.'
+              : 'Yeni sinif yaradın və tələbə qeydiyyatı üçün hazırlayın.'
+            }
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -266,7 +287,7 @@ export const GradeCreateDialog: React.FC<GradeCreateDialogProps> = ({
                 <SelectContent>
                   {Array.from({ length: 12 }, (_, i) => i + 1).map(level => (
                     <SelectItem key={level} value={level.toString()}>
-                      {level}. sinif
+                      {`${level}. sinif`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -277,30 +298,44 @@ export const GradeCreateDialog: React.FC<GradeCreateDialogProps> = ({
             </div>
           </div>
 
+          {/* Institution and Academic Year Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Institution */}
             <div className="space-y-2">
-              <Label htmlFor="institution_id">
-                Məktəb <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={formData.institution_id.toString()}
-                onValueChange={(value) => handleFieldChange('institution_id', parseInt(value))}
-                disabled={isLoading || !!editingGrade} // Cannot change institution when editing
-              >
-                <SelectTrigger className={validationErrors.institution_id ? 'border-red-500' : ''}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableInstitutions.map(institution => (
-                    <SelectItem key={institution.id} value={institution.id.toString()}>
-                      {institution.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {validationErrors.institution_id && (
-                <p className="text-sm text-red-600">{validationErrors.institution_id}</p>
+              {!isSchoolAdmin ? (
+                <>
+                  <Label htmlFor="institution_id">
+                    Məktəb <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={formData.institution_id.toString()}
+                    onValueChange={(value) => handleFieldChange('institution_id', parseInt(value))}
+                    disabled={isLoading || !!editingGrade} // Cannot change institution when editing
+                  >
+                    <SelectTrigger className={validationErrors.institution_id ? 'border-red-500' : ''}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableInstitutions.map(institution => (
+                        <SelectItem key={institution.id} value={institution.id.toString()}>
+                          {institution.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {validationErrors.institution_id && (
+                    <p className="text-sm text-red-600">{validationErrors.institution_id}</p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Label>Məktəb</Label>
+                  <div className="flex items-center gap-2 p-3 border border-input rounded-md bg-muted/50">
+                    <School className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">{userInstitution?.name || 'Məktəb məlumatı yoxdur'}</span>
+                    <Badge variant="outline" className="ml-auto">Avtomatik</Badge>
+                  </div>
+                </>
               )}
             </div>
 
@@ -318,14 +353,17 @@ export const GradeCreateDialog: React.FC<GradeCreateDialogProps> = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableAcademicYears.map(year => (
-                    <SelectItem key={year.id} value={year.id.toString()}>
-                      <div className="flex items-center gap-2">
-                        {year.name}
-                        {year.is_active && <Badge variant="default" className="text-xs">Aktiv</Badge>}
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {availableAcademicYears.map(year => {
+                    // Handle potential array issue with name field and combine text properly
+                    const displayName = Array.isArray(year.name) ? year.name.join(' ') : year.name;
+                    const fullText = `${displayName}${year.is_active ? ' (Aktiv)' : ''}`;
+                    
+                    return (
+                      <SelectItem key={year.id} value={year.id.toString()}>
+                        {fullText}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
               {validationErrors.academic_year_id && (

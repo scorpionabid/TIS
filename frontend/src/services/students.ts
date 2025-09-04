@@ -289,6 +289,27 @@ class StudentService {
       };
     }
   }
+
+  /**
+   * Get students available for enrollment in a specific grade
+   */
+  async getAvailableForEnrollment(gradeId: number, filters?: StudentFilters): Promise<any> {
+    const params = new URLSearchParams();
+    
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, value.toString());
+        }
+      });
+    }
+
+    const url = params.toString() 
+      ? `${this.baseURL}/available-for-grade/${gradeId}?${params}`
+      : `${this.baseURL}/available-for-grade/${gradeId}`;
+    
+    return apiClient.get(url);
+  }
 }
 
 export const studentService = new StudentService();

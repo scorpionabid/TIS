@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { schoolAdminService, schoolAdminKeys } from '@/services/schoolAdmin';
 import { toast } from 'sonner';
 import { logger } from '@/utils/logger';
+import { USER_ROLES } from '@/constants/roles';
 
 export interface RealTimeNotification {
   id: number;
@@ -52,6 +53,16 @@ export const useRealTimeNotifications = (
   const queryClient = useQueryClient();
   const [notifications, setNotifications] = useState<RealTimeNotification[]>([]);
   const [toastCount, setToastCount] = useState(0);
+  
+  // Check if user role supports notifications
+  const supportsNotifications = currentUser?.roles?.some(role => 
+    [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.REGIONADMIN].includes(role.name)
+  );
+  
+  // For SuperAdmin and others without school association, disable schooladmin notifications
+  const canUseSchoolAdminNotifications = currentUser?.roles?.some(role => 
+    role.name === USER_ROLES.SCHOOLADMIN
+  ) && currentUser?.institution_id;
 
   // Fetch initial notifications
   const { 
@@ -59,9 +70,15 @@ export const useRealTimeNotifications = (
     isLoading,
     refetch: refreshNotifications
   } = useQuery({
-    queryKey: schoolAdminKeys.notifications(),
-    queryFn: () => schoolAdminService.getNotifications({ per_page: 50 }),
-    enabled: !!currentUser,
+    queryKey: canUseSchoolAdminNotifications ? schoolAdminKeys.notifications() : ['notifications', 'general'],
+    queryFn: () => {
+      if (canUseSchoolAdminNotifications) {
+        return schoolAdminService.getNotifications({ per_page: 50 });
+      }
+      // For SuperAdmin and others, return empty notifications or use a different service
+      return Promise.resolve([]);
+    },
+    enabled: !!currentUser && supportsNotifications,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 
@@ -78,7 +95,7 @@ export const useRealTimeNotifications = (
 
   // WebSocket simulation (since real WebSocket might not be configured)
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || !canUseSchoolAdminNotifications) return;
 
     // Simulate periodic notification checks (replace with real WebSocket)
     const interval = setInterval(async () => {
@@ -124,7 +141,7 @@ export const useRealTimeNotifications = (
     }, 30000); // Check every 30 seconds
 
     return () => clearInterval(interval);
-  }, [currentUser, notifications, autoToast, toastCount, maxToastNotifications, enableSound]);
+  }, [currentUser, notifications, autoToast, toastCount, maxToastNotifications, enableSound, canUseSchoolAdminNotifications]);
 
   // Reset toast count periodically
   useEffect(() => {
@@ -148,6 +165,8 @@ export const useRealTimeNotifications = (
   }, []);
 
   const markAsRead = useCallback(async (notificationId: number) => {
+    if (!canUseSchoolAdminNotifications) return;
+    
     try {
       await schoolAdminService.markNotificationAsRead(notificationId);
       
@@ -169,9 +188,11 @@ export const useRealTimeNotifications = (
       logger.error(`Failed to mark notification ${notificationId} as read`, error);
       throw error;
     }
-  }, [queryClient]);
+  }, [queryClient, canUseSchoolAdminNotifications]);
 
   const markAllAsRead = useCallback(async () => {
+    if (!canUseSchoolAdminNotifications) return;
+    
     try {
       const unreadNotifications = notifications.filter(n => !n.is_read);
       
@@ -194,7 +215,7 @@ export const useRealTimeNotifications = (
       logger.error('Failed to mark all notifications as read', error);
       throw error;
     }
-  }, [notifications, queryClient]);
+  }, [notifications, queryClient, canUseSchoolAdminNotifications]);
 
   const clearNotifications = useCallback(() => {
     setNotifications([]);

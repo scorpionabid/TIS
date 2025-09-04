@@ -105,8 +105,10 @@ class InstitutionCrudService extends BaseService
             // Create default departments
             $this->createDefaultDepartments($institution);
 
-            // Clear cache
-            Cache::tags(['institutions'])->flush();
+            // Clear cache (compatible with file cache driver)
+            Cache::forget('institutions_list');
+            Cache::forget('institutions_hierarchy');
+            Cache::forget('institutions_types');
 
             return $institution->load(['institutionType', 'parent', 'departments']);
         });
@@ -137,8 +139,10 @@ class InstitutionCrudService extends BaseService
             // Update institution
             $institution->update($data);
 
-            // Clear cache
-            Cache::tags(['institutions'])->flush();
+            // Clear cache (compatible with file cache driver)
+            Cache::forget('institutions_list');
+            Cache::forget('institutions_hierarchy');
+            Cache::forget('institutions_types');
 
             return $institution->load(['institutionType', 'parent', 'children', 'departments']);
         });
@@ -167,8 +171,10 @@ class InstitutionCrudService extends BaseService
             // Soft delete institution
             $institution->delete();
 
-            // Clear cache
-            Cache::tags(['institutions'])->flush();
+            // Clear cache (compatible with file cache driver)
+            Cache::forget('institutions_list');
+            Cache::forget('institutions_hierarchy');
+            Cache::forget('institutions_types');
 
             return true;
         });

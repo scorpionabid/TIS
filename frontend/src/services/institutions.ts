@@ -80,6 +80,18 @@ class InstitutionService extends BaseService<Institution> {
     try {
       const response = await apiClient.get<Institution[]>(this.baseEndpoint, params);
       console.log('✅ InstitutionService.getAll successful:', response);
+      
+      // Debug response structure
+      console.log('📊 Response structure analysis:', {
+        hasResponse: !!response,
+        hasData: !!response?.data,
+        responseKeys: response ? Object.keys(response) : [],
+        dataType: typeof response?.data,
+        dataStructure: response?.data && typeof response.data === 'object' ? Object.keys(response.data as any) : [],
+        firstLevelCheck: (response?.data as any)?.data ? 'data.data exists' : 'data.data missing',
+        actualData: (response?.data as any)?.data || response?.data || response || 'none'
+      });
+      
       return response as any; // PaginatedResponse
     } catch (error) {
       console.error('❌ InstitutionService.getAll failed:', error);

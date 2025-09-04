@@ -468,13 +468,22 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
         data.is_active = data.is_active === 'true';
       }
 
-      // Convert role_id to role_name
+      // Convert role_id to role_name and keep both for backend compatibility
       if (data.role_id && availableRoles.length > 0) {
         const selectedRole = availableRoles.find(role => role.id.toString() === data.role_id.toString());
         if (selectedRole) {
           data.role_name = selectedRole.name;
-          delete data.role_id; // Remove role_id as we now have role_name
+          // Keep role_id as backend requires it
+          data.role_id = parseInt(data.role_id);
         }
+      } else if (!data.role_id) {
+        console.error('❌ Role ID is missing in form data');
+        toast({
+          title: 'Xəta',
+          description: 'Rol seçilməlidir',
+          variant: 'destructive',
+        });
+        return;
       }
 
       // Check email uniqueness before submission
@@ -531,6 +540,7 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
         password: data.password,
         password_confirmation: data.password_confirmation,
         role_name: data.role_name,
+        role_id: data.role_id, // Backend requires role_id
         institution_id: institutionIdToUse,
         department_id: data.department_id ? parseInt(data.department_id) : null,
         is_active: data.is_active !== false, // default to true

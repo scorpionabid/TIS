@@ -354,4 +354,71 @@ class SchoolTeacherController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Show a specific teacher (REST show method)
+     */
+    public function show(Request $request, $teacher): JsonResponse
+    {
+        return $this->getTeacher($request, $teacher);
+    }
+
+    /**
+     * Get available teachers for grade assignment
+     */
+    public function getAvailable(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $institutionId = $request->get('institution_id');
+            $role = $request->get('role', 'müəllim');
+            $excludeGradeId = $request->get('exclude_grade_id');
+
+            // If user is not superadmin, use their institution
+            if (!$user->hasRole('superadmin')) {
+                $institutionId = $user->institution_id;
+            }
+
+            if (!$institutionId) {
+                return response()->json(['error' => 'Institution ID is required'], 400);
+            }
+
+            // Base query for teachers
+            $query = User::query()
+                ->where('institution_id', $institutionId)
+                ->where('is_active', true)
+                ->whereHas('roles', function ($roleQuery) use ($role) {
+                    $roleQuery->where('name', $role);
+                })
+                ->with(['roles', 'profile']);
+
+            // If excluding specific grade, get teachers not assigned to that grade
+            if ($excludeGradeId) {
+                $query->whereDoesntHave('grades', function ($gradeQuery) use ($excludeGradeId) {
+                    $gradeQuery->where('id', $excludeGradeId);
+                });
+            }
+
+            $teachers = $query->get()->map(function ($teacher) {
+                return [
+                    'id' => $teacher->id,
+                    'full_name' => $teacher->profile->full_name ?? $teacher->name,
+                    'email' => $teacher->email,
+                    'is_available' => true, // For now, assume all are available
+                    'current_grade' => $teacher->grades()->first()?->name ?? null,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $teachers->toArray(),
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Available teachers yüklənərkən səhv baş verdi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

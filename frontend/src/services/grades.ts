@@ -147,10 +147,19 @@ class GradeService {
   private readonly baseURL = '/grades';
 
   /**
+   * Get grades - alias for getGrades (for compatibility with EntityManagerV2)
+   */
+  async get(filters?: GradeFilters): Promise<Grade[]> {
+    const response = await this.getGrades(filters);
+    // Backend returns: { success: true, data: { data: [...grades...], pagination: {...} } }
+    return response.data.data || [];
+  }
+
+  /**
    * Get grades with filtering and pagination
    */
   async getGrades(filters?: GradeFilters): Promise<ApiResponse<{
-    grades: Grade[];
+    data: Grade[];
     pagination: {
       current_page: number;
       per_page: number;
@@ -170,14 +179,19 @@ class GradeService {
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
-          params.append(key, value.toString());
+          // Handle boolean values properly
+          if (typeof value === 'boolean') {
+            params.append(key, value ? '1' : '0');
+          } else {
+            params.append(key, value.toString());
+          }
         }
       });
     }
 
     const url = params.toString() ? `${this.baseURL}?${params}` : this.baseURL;
     return apiClient.get<{
-      grades: Grade[];
+      data: Grade[];
       pagination: any;
     }>(url);
   }
@@ -202,6 +216,14 @@ class GradeService {
   }
 
   /**
+   * Create grade - alias for createGrade (for compatibility with EntityManagerV2)
+   */
+  async create(data: GradeCreateData): Promise<Grade> {
+    const response = await this.createGrade(data);
+    return response.data;
+  }
+
+  /**
    * Create a new grade
    */
   async createGrade(data: GradeCreateData): Promise<ApiResponse<Grade>> {
@@ -215,6 +237,14 @@ class GradeService {
   }
 
   /**
+   * Update grade - alias for updateGrade (for compatibility with EntityManagerV2)
+   */
+  async update(id: number, data: GradeUpdateData): Promise<Grade> {
+    const response = await this.updateGrade(id, data);
+    return response.data;
+  }
+
+  /**
    * Update an existing grade
    */
   async updateGrade(id: number, data: GradeUpdateData): Promise<ApiResponse<Grade>> {
@@ -225,6 +255,14 @@ class GradeService {
     });
 
     return apiClient.put<Grade>(`${this.baseURL}/${id}`, data);
+  }
+
+  /**
+   * Delete grade - alias for deleteGrade (for compatibility with EntityManagerV2)
+   */
+  async delete(id: number): Promise<void> {
+    const response = await this.deleteGrade(id);
+    return response.data;
   }
 
   /**
@@ -490,6 +528,19 @@ class GradeService {
   }
 
   /**
+   * Get grade analytics and performance metrics
+   */
+  async getGradeAnalytics(gradeId: number): Promise<ApiResponse<any>> {
+    logger.debug('Fetching grade analytics', {
+      component: 'GradeService',
+      action: 'getGradeAnalytics',
+      data: { gradeId }
+    });
+
+    return apiClient.get<any>(`${this.baseURL}/${gradeId}/analytics`);
+  }
+
+  /**
    * Get available teachers for a grade
    */
   async getAvailableTeachers(institutionId: number, excludeGradeId?: number): Promise<ApiResponse<Array<{
@@ -508,7 +559,7 @@ class GradeService {
       params.append('exclude_grade_id', excludeGradeId.toString());
     }
 
-    return apiClient.get<Array<any>>(`/users/teachers/available?${params}`);
+    return apiClient.get<Array<any>>(`/teachers/available?${params}`);
   }
 }
 
