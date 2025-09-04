@@ -105,17 +105,19 @@ class BasicDataSeeder extends Seeder
         
         // School Admins
         $schoolAdmins = [
+            ['username' => 'testuser', 'email' => 'test@example.com', 'role' => 'schooladmin', 'password' => 'test123'],
             ['username' => 'school1_admin', 'email' => 'school1@edu.az', 'role' => 'schooladmin'],
             ['username' => 'school2_admin', 'email' => 'school2@edu.az', 'role' => 'schooladmin'],
             ['username' => 'school3_admin', 'email' => 'school3@edu.az', 'role' => 'schooladmin'],
         ];
         
         foreach ($schoolAdmins as $admin) {
+            $password = isset($admin['password']) ? $admin['password'] : 'admin123';
             $user = User::firstOrCreate(
                 ['username' => $admin['username']],
                 [
                     'email' => $admin['email'],
-                    'password' => bcrypt('admin123'),
+                    'password' => bcrypt($password),
                     'email_verified_at' => now(),
                     'is_active' => true,
                 ]
@@ -199,6 +201,13 @@ class BasicDataSeeder extends Seeder
         $teachers = User::whereHas('roles', function($q) {
             $q->where('name', 'müəllim');
         })->get();
+        
+        // Assign test user (first school admin) to first school
+        $testUser = User::where('email', 'test@example.com')->first();
+        if ($testUser && $schools->count() > 0) {
+            $testUser->update(['institution_id' => $schools->first()->id]);
+            $this->command->info("✅ Test user assigned to school: {$schools->first()->name}");
+        }
         
         foreach ($schools as $index => $school) {
             if (isset($schoolAdmins[$index])) {

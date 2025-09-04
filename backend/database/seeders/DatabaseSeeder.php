@@ -15,13 +15,7 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        User::firstOrCreate(
-            ['email' => 'test@example.com'],
-            [
-                'username' => 'testuser',
-                'password' => bcrypt('password'), // Set a default password
-            ]
-        );
+        // Test user will be created and configured in BasicDataSeeder
 
         $this->call([ // Call other seeders
             RoleSeeder::class,

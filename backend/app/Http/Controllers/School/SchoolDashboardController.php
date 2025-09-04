@@ -27,11 +27,16 @@ class SchoolDashboardController extends Controller
     {
         $user = Auth::user();
         
-        if (!$user->hasRole('schooladmin')) {
+        if (!$user->hasRole(['superadmin', 'schooladmin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
         
         $school = $user->institution;
+        
+        // If user is SuperAdmin and has no institution, use first available school for demo
+        if (!$school && $user->hasRole('superadmin')) {
+            $school = \App\Models\Institution::where('level', 4)->first();
+        }
 
         if (!$school) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
@@ -52,11 +57,16 @@ class SchoolDashboardController extends Controller
     {
         $user = Auth::user();
         
-        if (!$user->hasRole('schooladmin')) {
+        if (!$user->hasRole(['superadmin', 'schooladmin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
         
         $school = $user->institution;
+        
+        // If user is SuperAdmin and has no institution, use first available school for demo
+        if (!$school && $user->hasRole('superadmin')) {
+            $school = \App\Models\Institution::where('level', 4)->first();
+        }
 
         if (!$school) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
@@ -77,11 +87,16 @@ class SchoolDashboardController extends Controller
     {
         $user = Auth::user();
         
-        if (!$user->hasRole('schooladmin')) {
+        if (!$user->hasRole(['superadmin', 'schooladmin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
         
         $school = $user->institution;
+        
+        // If user is SuperAdmin and has no institution, use first available school for demo
+        if (!$school && $user->hasRole('superadmin')) {
+            $school = \App\Models\Institution::where('level', 4)->first();
+        }
 
         if (!$school) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
@@ -124,6 +139,11 @@ class SchoolDashboardController extends Controller
     {
         $user = Auth::user();
         $school = $user->institution;
+        
+        // If user is SuperAdmin and has no institution, use first available school for demo
+        if (!$school && $user->hasRole('superadmin')) {
+            $school = \App\Models\Institution::where('level', 4)->first();
+        }
 
         if (!$school) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
@@ -144,7 +164,7 @@ class SchoolDashboardController extends Controller
     {
         $user = Auth::user();
         
-        if (!$user->hasRole('schooladmin')) {
+        if (!$user->hasRole(['superadmin', 'schooladmin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
         
@@ -346,7 +366,7 @@ class SchoolDashboardController extends Controller
     {
         $user = Auth::user();
         
-        if (!$user->hasRole('schooladmin')) {
+        if (!$user->hasRole(['superadmin', 'schooladmin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
