@@ -1,5 +1,6 @@
 import React from 'react';
 import { GenericManagerV2 } from '@/components/generic/GenericManagerV2';
+import { GenericFilters } from '@/components/generic/GenericFilters';
 import { SchoolTeacher } from '@/services/schoolAdmin';
 import { TeacherFilters } from './hooks/useSchoolTeacherManagerGeneric';
 import { teacherEntityConfig, teacherCustomLogic } from './configurations/teacherConfig';
@@ -42,6 +43,8 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
   
   // Institution filtering for role-based access
   const [institutionFilter, setInstitutionFilter] = React.useState<string>('all');
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const [filters, setFilters] = React.useState({});
   const { currentUser: user } = useAuth();
   
   // Fetch institutions for role-based filtering
@@ -236,6 +239,48 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
 
   return (
     <div className={cn("space-y-6", className)}>
+      {/* Generic Filters */}
+      <GenericFilters
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        filters={filters}
+        setFilters={setFilters}
+        filterFields={[
+          {
+            key: 'subject',
+            label: 'Fənn',
+            type: 'select',
+            options: [
+              { value: 'math', label: 'Riyaziyyat' },
+              { value: 'physics', label: 'Fizika' },
+              { value: 'chemistry', label: 'Kimya' },
+              { value: 'biology', label: 'Biologiya' },
+              { value: 'literature', label: 'Ədəbiyyat' }
+            ]
+          },
+          {
+            key: 'experience',
+            label: 'Təcrübə',
+            type: 'select',
+            options: [
+              { value: '0-2', label: '0-2 il' },
+              { value: '3-5', label: '3-5 il' },
+              { value: '6-10', label: '6-10 il' },
+              { value: '10+', label: '10+ il' }
+            ]
+          },
+          {
+            key: 'department',
+            label: 'Şöbə',
+            type: 'select',
+            options: [
+              { value: 'academic', label: 'Akademik' },
+              { value: 'administrative', label: 'İnzibati' }
+            ]
+          }
+        ]}
+      />
+      
       {/* Main Generic Manager */}
       <GenericManagerV2
         config={enhancedConfig}

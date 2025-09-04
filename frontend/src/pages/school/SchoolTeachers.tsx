@@ -1,8 +1,8 @@
 import React from 'react';
-import { TeacherManagerWrapper } from '@/components/teachers/TeacherManagerWrapper';
+import { SchoolTeacherManagerStandardized } from '@/components/teachers/SchoolTeacherManagerStandardized';
 
 const SchoolTeachers: React.FC = () => {
-  return <TeacherManagerWrapper />;
+  return <SchoolTeacherManagerStandardized />;
 };
 
 export default SchoolTeachers;

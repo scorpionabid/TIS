@@ -25,6 +25,8 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { StatsCard } from './StatsCard';
+import { NotificationDropdown } from '@/components/layout/components/Header/NotificationDropdown';
+import { SurveyAnalyticsDashboard } from '@/components/analytics/SurveyAnalyticsDashboard';
 import { schoolAdminService, schoolAdminKeys } from '@/services/schoolAdmin';
 import { formatDistanceToNow, format } from 'date-fns';
 import { az } from 'date-fns/locale';
@@ -157,6 +159,7 @@ export const SchoolAdminDashboard: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <NotificationDropdown className="mr-2" />
           <Button 
             variant="outline" 
             onClick={handleRefresh}
@@ -261,6 +264,9 @@ export const SchoolAdminDashboard: React.FC = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
+          {/* Interactive Charts */}
+          <SurveyAnalyticsDashboard className="mt-4" />
+          
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Recent Activities */}
             <Card>

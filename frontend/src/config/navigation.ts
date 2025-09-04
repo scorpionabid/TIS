@@ -299,12 +299,6 @@ export const improvedNavigationConfig: MenuGroup[] = [
             path: '/school/teachers',
             roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]
           },
-          {
-            id: 'teacher-performance',
-            label: 'Performans Qiymətləndirməsi',
-            path: '/school/teachers/performance',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]
-          }
         ]
       },
       {
@@ -319,21 +313,8 @@ export const improvedNavigationConfig: MenuGroup[] = [
             path: '/school/classes',
             roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]
           },
-          {
-            id: 'class-schedules',
-            label: 'Dərs Cədvəlləri',
-            path: '/school/classes/schedules',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]
-          }
         ]
       },
-      {
-        id: 'my-classes',
-        label: 'Mənim Siniflərim',
-        path: '/school/my-classes',
-        icon: BookOpen,
-        roles: [USER_ROLES.MUELLIM]
-      }
     ]
   },
 

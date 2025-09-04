@@ -18,8 +18,13 @@ import {
   Clock,
   Eye,
   EyeOff,
-  Trash2
+  Trash2,
+  CheckCheck,
+  RefreshCw
 } from 'lucide-react';
+import { useRealTimeNotifications } from '@/hooks/useRealTimeNotifications';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface Notification {
   id: number;
@@ -31,11 +36,15 @@ interface Notification {
 }
 
 interface NotificationDropdownProps {
-  notifications: Notification[];
-  unreadCount: number;
-  onMarkAsRead: (id: number) => void;
-  onMarkAllAsRead: () => void;
-  onDelete: (id: number) => void;
+  className?: string;
+  enableRealTime?: boolean;
+  maxNotifications?: number;
+  // Legacy props for backward compatibility
+  notifications?: Notification[];
+  unreadCount?: number;
+  onMarkAsRead?: (id: number) => void;
+  onMarkAllAsRead?: () => void;
+  onDelete?: (id: number) => void;
   onNotificationClick?: (id: number) => void;
 }
 
@@ -75,18 +84,88 @@ const formatTimeAgo = (dateString: string) => {
 };
 
 export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
-  notifications,
-  unreadCount,
-  onMarkAsRead,
-  onMarkAllAsRead,
-  onDelete,
-  onNotificationClick
+  className,
+  enableRealTime = true,
+  maxNotifications = 10,
+  // Legacy props
+  notifications: legacyNotifications,
+  unreadCount: legacyUnreadCount,
+  onMarkAsRead: legacyOnMarkAsRead,
+  onMarkAllAsRead: legacyOnMarkAllAsRead,
+  onDelete: legacyOnDelete,
+  onNotificationClick: legacyOnNotificationClick
 }) => {
+  // Use real-time notifications if enabled, fallback to legacy props
+  const realTimeHook = useRealTimeNotifications({
+    autoToast: enableRealTime,
+    maxToastNotifications: 3,
+    enableSound: false
+  });
+  
+  const notifications = enableRealTime ? realTimeHook.notifications : (legacyNotifications || []);
+  const unreadCount = enableRealTime ? realTimeHook.unreadCount : (legacyUnreadCount || 0);
+  const isLoading = enableRealTime ? realTimeHook.isLoading : false;
+  
+  const handleMarkAsRead = async (id: number) => {
+    try {
+      if (enableRealTime) {
+        await realTimeHook.markAsRead(id);
+        toast.success('Bildiriş oxundu olaraq qeyd edildi');
+      } else if (legacyOnMarkAsRead) {
+        legacyOnMarkAsRead(id);
+      }
+    } catch (error) {
+      toast.error('Xəta baş verdi');
+    }
+  };
+  
+  const handleMarkAllAsRead = async () => {
+    try {
+      if (enableRealTime) {
+        await realTimeHook.markAllAsRead();
+        toast.success('Bütün bildirişlər oxundu olaraq qeyd edildi');
+      } else if (legacyOnMarkAllAsRead) {
+        legacyOnMarkAllAsRead();
+      }
+    } catch (error) {
+      toast.error('Xəta baş verdi');
+    }
+  };
+  
+  const handleDelete = async (id: number) => {
+    try {
+      if (legacyOnDelete) {
+        legacyOnDelete(id);
+      }
+      toast.success('Bildiriş silindi');
+    } catch (error) {
+      toast.error('Silinmə zamanı xəta baş verdi');
+    }
+  };
+  
+  const handleRefresh = async () => {
+    if (enableRealTime && realTimeHook.refreshNotifications) {
+      try {
+        await realTimeHook.refreshNotifications();
+        toast.success('Bildirişlər yeniləndi');
+      } catch (error) {
+        toast.error('Yeniləmə zamanı xəta baş verdi');
+      }
+    }
+  };
+  
+  const displayNotifications = notifications.slice(0, maxNotifications || 10);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0">
-          <Bell className="h-4 w-4" />
+        <Button variant="ghost" size="icon" className={cn(
+          "relative h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0",
+          className
+        )}>
+          <Bell className={cn(
+            "h-4 w-4",
+            unreadCount > 0 && enableRealTime ? "animate-pulse text-primary" : ""
+          )} />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 h-4 w-4 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center text-[10px] font-medium">
               {unreadCount > 9 ? "9+" : unreadCount}
@@ -107,35 +186,63 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
               </Badge>
             )}
           </div>
-          {unreadCount > 0 && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={onMarkAllAsRead}
-              className="text-xs h-6 px-2"
-            >
-              Hamısını oxundu qeyd et
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            {unreadCount > 0 && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={handleMarkAllAsRead}
+                className="text-xs h-6 px-2"
+              >
+                <CheckCheck className="h-3 w-3 mr-1" />
+                Hamısını oxundu qeyd et
+              </Button>
+            )}
+            {enableRealTime && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefresh}
+                className="h-6 px-2"
+                disabled={isLoading}
+              >
+                <RefreshCw className={cn(
+                  "h-3 w-3",
+                  isLoading && "animate-spin"
+                )} />
+              </Button>
+            )}
+          </div>
         </DropdownMenuLabel>
 
         <DropdownMenuSeparator />
 
         {/* Notifications List */}
-        {notifications.length === 0 ? (
+        {displayNotifications.length === 0 ? (
           <div className="p-6 text-center">
             <Bell className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Bildiriş yoxdur</p>
+            <p className="text-sm text-muted-foreground">
+              {isLoading ? 'Bildirişlər yüklənir...' : 'Bildiriş yoxdur'}
+            </p>
           </div>
         ) : (
           <div className="space-y-1 p-1">
-            {notifications.map((notification) => (
+            {displayNotifications.map((notification) => (
               <div
                 key={notification.id}
                 className={`relative p-3 rounded-md cursor-pointer transition-colors hover:bg-accent/50 ${
                   !notification.isRead ? 'bg-accent/30' : ''
                 }`}
-                onClick={() => onNotificationClick?.(notification.id)}
+                onClick={() => {
+                  if (notification.action_url) {
+                    window.location.href = notification.action_url;
+                  } else if (legacyOnNotificationClick) {
+                    legacyOnNotificationClick(notification.id);
+                  }
+                  if (!notification.isRead) {
+                    handleMarkAsRead(notification.id);
+                  }
+                }}
               >
                 <div className="flex items-start space-x-3">
                   {/* Notification Icon */}
@@ -179,24 +286,26 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                             size="icon"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onMarkAsRead(notification.id);
+                              handleMarkAsRead(notification.id);
                             }}
                             className="h-6 w-6"
                           >
                             <Eye className="h-3 w-3" />
                           </Button>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(notification.id);
-                          }}
-                          className="h-6 w-6 text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                        {legacyOnDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(notification.id);
+                            }}
+                            className="h-6 w-6 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -206,12 +315,17 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           </div>
         )}
 
-        {notifications.length > 0 && (
+        {notifications.length > maxNotifications && (
           <>
             <DropdownMenuSeparator />
             <div className="p-2">
-              <Button variant="ghost" size="sm" className="w-full">
-                Bütün bildirişləri gör
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-full"
+                onClick={() => window.location.href = '/notifications'}
+              >
+                Bütün bildirişləri gör ({notifications.length})
               </Button>
             </div>
           </>

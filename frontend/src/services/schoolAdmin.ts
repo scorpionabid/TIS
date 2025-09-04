@@ -139,8 +139,7 @@ export interface SchoolTaskFilters extends PaginationParams {
   due_date_to?: string;
 }
 
-// Legacy interfaces - moved to grades service
-// Note: SchoolClass and ClassSchedule have been migrated to Grade interface in grades.ts
+// Note: Class management has been moved to grades.ts service
 
 // Teacher management interfaces
 export interface SchoolTeacher extends BaseEntity {
@@ -240,23 +239,7 @@ class SchoolAdminService {
     return response.data || response as SchoolDashboardStats;
   }
 
-  async getDashboardOverview(): Promise<any> {
-    const endpoint = `${this.baseEndpoint}/dashboard/overview`;
-    const response = await apiClient.get<any>(endpoint);
-    return response.data || response as any;
-  }
-
-  async getDashboardStatistics(): Promise<any> {
-    const endpoint = `${this.baseEndpoint}/dashboard/statistics`;
-    const response = await apiClient.get<any>(endpoint);
-    return response.data || response as any;
-  }
-
-  async getDashboardAnalytics(): Promise<any> {
-    const endpoint = `${this.baseEndpoint}/dashboard/analytics`;
-    const response = await apiClient.get<any>(endpoint);
-    return response.data || response as any;
-  }
+  // Removed duplicate dashboard methods - only getDashboardStats() is needed
 
   async getRecentActivities(limit: number = 10): Promise<SchoolActivity[]> {
     const response = await apiClient.get<SchoolActivity[]>(`${this.baseEndpoint}/dashboard/recent-activity`, { limit });
@@ -362,9 +345,7 @@ class SchoolAdminService {
     return response.data || response as any;
   }
 
-  // Legacy class management methods - migrated to gradeService
-  // Note: Class management has been moved to gradeService in grades.ts
-  // Use gradeService.getGrades(), gradeService.createGrade(), etc. instead
+  // Note: Class management methods moved to grades.ts service
 
   // Teacher management methods  
   async getTeachers(params?: PaginationParams): Promise<SchoolTeacher[]> {
@@ -601,8 +582,7 @@ export const schoolAdminService = new SchoolAdminService();
 // Debug: Check if binding worked
 console.log('🔍 Testing schoolAdminService binding:', {
   hasBaseEndpoint: !!(schoolAdminService as any)['baseEndpoint'],
-  getTeachersType: typeof schoolAdminService.getTeachers,
-  getClassesType: typeof schoolAdminService.getClasses
+  getTeachersType: typeof schoolAdminService.getTeachers
 });
 
 // Query keys for React Query
