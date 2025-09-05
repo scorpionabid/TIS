@@ -125,7 +125,7 @@ export const ExportForm: React.FC<ExportFormProps> = ({
                   <SelectValue placeholder="Hamısı (ixtiyari)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Hamısı</SelectItem>
+                  <SelectItem value="all">Hamısı</SelectItem>
                   {assessmentTypes.map((type: any) => (
                     <SelectItem key={type.id} value={type.id.toString()}>
                       {type.name}
@@ -146,7 +146,7 @@ export const ExportForm: React.FC<ExportFormProps> = ({
                   <SelectValue placeholder="Hamısı (ixtiyari)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Hamısı</SelectItem>
+                  <SelectItem value="all">Hamısı</SelectItem>
                   {getGradeLevels().map(grade => (
                     <SelectItem key={grade.value} value={grade.value}>
                       {grade.label}

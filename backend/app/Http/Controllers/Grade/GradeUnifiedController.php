@@ -9,6 +9,7 @@ use App\Models\Room;
 use App\Models\AcademicYear;
 use App\Services\GradeManagementService;
 use App\Services\StudentEnrollmentService;
+use App\Services\GradeNamingEngine;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -29,13 +30,16 @@ class GradeUnifiedController extends Controller
 {
     protected GradeManagementService $gradeService;
     protected StudentEnrollmentService $enrollmentService;
+    protected GradeNamingEngine $namingEngine;
 
     public function __construct(
         GradeManagementService $gradeService,
-        StudentEnrollmentService $enrollmentService
+        StudentEnrollmentService $enrollmentService,
+        GradeNamingEngine $namingEngine
     ) {
         $this->gradeService = $gradeService;
         $this->enrollmentService = $enrollmentService;
+        $this->namingEngine = $namingEngine;
     }
 
     /**
@@ -89,7 +93,9 @@ class GradeUnifiedController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $result,
+                'data' => $result['data'], // Direct grades array
+                'pagination' => $result['pagination'] ?? null,
+                'meta' => $result['meta'] ?? null,
                 'message' => count($result['data']) . ' sinif tapıldı',
             ]);
 
@@ -115,7 +121,12 @@ class GradeUnifiedController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'name' => 'required|string|max:10',
+                'name' => [
+                    'required',
+                    'string',
+                    'max:10',
+// Smart validation will handle pattern checking
+                ],
                 'class_level' => 'required|integer|min:0|max:12',
                 'academic_year_id' => 'required|exists:academic_years,id',
                 'institution_id' => 'sometimes|exists:institutions,id',
@@ -123,9 +134,9 @@ class GradeUnifiedController extends Controller
                 'homeroom_teacher_id' => 'nullable|exists:users,id',
                 'specialty' => 'nullable|string|max:100',
                 'student_count' => 'nullable|integer|min:0|max:500',
-                'description' => 'nullable|string|max:500',
                 'is_active' => 'sometimes|boolean',
                 'metadata' => 'nullable|array',
+            ], [
             ]);
 
             if ($validator->fails()) {
@@ -142,6 +153,24 @@ class GradeUnifiedController extends Controller
             // Set institution_id from user if not provided (for school-level users)
             if (!isset($data['institution_id']) && $user->institution_id) {
                 $data['institution_id'] = $user->institution_id;
+            }
+
+            // Use GradeNamingEngine for smart validation
+            $validation = $this->namingEngine->validateName(
+                $data['name'],
+                $data['institution_id'],
+                $data['class_level'],
+                $data['academic_year_id']
+            );
+
+            if (!$validation['valid']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $validation['message'],
+                    'errors' => [
+                        'name' => [$validation['message']]
+                    ],
+                ], 422);
             }
 
             $grade = $this->gradeService->createGrade($user, $data);
@@ -230,15 +259,20 @@ class GradeUnifiedController extends Controller
             }
 
             $validator = Validator::make($request->all(), [
-                'name' => 'sometimes|string|max:10',
+                'name' => [
+                    'sometimes',
+                    'string',
+                    'max:10',
+// Smart validation will handle pattern checking
+                ],
                 'class_level' => 'sometimes|integer|min:0|max:12',
                 'room_id' => 'sometimes|nullable|exists:rooms,id',
                 'homeroom_teacher_id' => 'sometimes|nullable|exists:users,id',
                 'specialty' => 'sometimes|nullable|string|max:100',
                 'student_count' => 'sometimes|nullable|integer|min:0|max:500',
-                'description' => 'sometimes|nullable|string|max:500',
                 'is_active' => 'sometimes|boolean',
                 'metadata' => 'sometimes|nullable|array',
+            ], [
             ]);
 
             if ($validator->fails()) {
@@ -250,6 +284,28 @@ class GradeUnifiedController extends Controller
             }
 
             $data = $validator->validated();
+            
+            // Use GradeNamingEngine for smart validation during update
+            if (isset($data['name']) && $data['name'] !== $grade->name) {
+                $validation = $this->namingEngine->validateName(
+                    $data['name'],
+                    $grade->institution_id,
+                    isset($data['class_level']) ? $data['class_level'] : $grade->class_level,
+                    $grade->academic_year_id,
+                    $grade->id // Exclude current grade
+                );
+
+                if (!$validation['valid']) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $validation['message'],
+                        'errors' => [
+                            'name' => [$validation['message']]
+                        ],
+                    ], 422);
+                }
+            }
+            
             $updatedGrade = $this->gradeService->updateGrade($user, $grade, $data);
 
             return response()->json([
@@ -904,6 +960,105 @@ class GradeUnifiedController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Tələbə statusu yenilənərkən səhv baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get smart grade naming suggestions
+     */
+    public function getNamingSuggestions(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'institution_id' => 'required|exists:institutions,id',
+                'class_level' => 'required|integer|min:0|max:12',
+                'academic_year_id' => 'required|exists:academic_years,id',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $user = Auth::user();
+            $institutionId = $request->get('institution_id');
+            $classLevel = $request->get('class_level');
+            $academicYearId = $request->get('academic_year_id');
+
+            // Get smart suggestions from naming engine
+            $suggestions = $this->namingEngine->suggestNamingPattern(
+                $institutionId,
+                $classLevel,
+                $academicYearId
+            );
+
+            Log::info('Grade naming suggestions generated', [
+                'user_id' => $user->id,
+                'institution_id' => $institutionId,
+                'class_level' => $classLevel,
+                'academic_year_id' => $academicYearId,
+                'pattern' => $suggestions['pattern'] ?? 'unknown'
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $suggestions,
+                'message' => 'Sinif adlandırma tövsiyələri uğurla alındı',
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Grade naming suggestions error: ' . $e->getMessage(), [
+                'user_id' => Auth::id(),
+                'request' => $request->all(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Tövsiyələr alınarkən səhv baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get naming system statistics
+     */
+    public function getNamingSystemStats(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            // Check permissions
+            if (!$user->can('grades.read')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu məlumatlara baxmaq üçün icazəniz yoxdur',
+                ], 403);
+            }
+
+            $stats = $this->namingEngine->getSystemStats();
+
+            return response()->json([
+                'success' => true,
+                'data' => $stats,
+                'message' => 'Adlandırma sistemi statistikaları uğurla alındı',
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Naming system stats error: ' . $e->getMessage(), [
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Statistikalar alınarkən səhv baş verdi',
                 'error' => config('app.debug') ? $e->getMessage() : 'Server error',
             ], 500);
         }

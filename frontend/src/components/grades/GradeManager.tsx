@@ -7,10 +7,12 @@ import { GradeDetailsDialog } from './GradeDetailsDialog';
 import { GradeStudentsDialog } from './GradeStudentsDialog';
 import { GradeAnalyticsModal } from './GradeAnalyticsModal';
 import { useAuth } from '@/contexts/AuthContext';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { institutionService } from '@/services/institutions';
 import { academicYearService } from '@/services/academicYears';
+import { gradeService } from '@/services/grades';
 import { logger } from '@/utils/logger';
+import { toast } from 'sonner';
 
 interface GradeManagerProps {
   className?: string;
@@ -38,6 +40,7 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
 
   // Role-based access and filtering
   const { currentUser } = useAuth();
+  const queryClient = useQueryClient();
 
   // Fetch supporting data for filters
   const { data: institutionsResponse } = useQuery({
@@ -90,6 +93,46 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     return academicYearsResponse.data;
   }, [academicYearsResponse]);
 
+  // Soft delete mutation
+  const softDeleteMutation = useMutation({
+    mutationFn: (gradeId: number) => gradeService.update(gradeId, { is_active: false }),
+    onSuccess: () => {
+      toast.success('Sinif deaktiv edildi');
+      // Invalidate all grade-related queries with more specific patterns
+      queryClient.invalidateQueries({ queryKey: ['grades'] });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === 'grades' || 
+        (Array.isArray(query.queryKey) && query.queryKey.includes('grades'))
+      });
+      // Force refetch to ensure immediate UI update
+      queryClient.refetchQueries({ queryKey: ['grades'] });
+    },
+    onError: (error) => {
+      logger.error('Soft delete failed', { error });
+      toast.error('Sinif deaktiv edilə bilmədi');
+    },
+  });
+
+  // Hard delete mutation
+  const hardDeleteMutation = useMutation({
+    mutationFn: (gradeId: number) => gradeService.delete(gradeId),
+    onSuccess: () => {
+      toast.success('Sinif silindi');
+      // Invalidate all grade-related queries with more specific patterns
+      queryClient.invalidateQueries({ queryKey: ['grades'] });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === 'grades' || 
+        (Array.isArray(query.queryKey) && query.queryKey.includes('grades'))
+      });
+      // Force refetch to ensure immediate UI update
+      queryClient.refetchQueries({ queryKey: ['grades'] });
+    },
+    onError: (error) => {
+      logger.error('Hard delete failed', { error });
+      toast.error('Sinif silinə bilmədi');
+    },
+  });
+
   // Enhanced configuration with grade-specific modal handlers
   const enhancedConfig = React.useMemo(() => ({
     ...gradeEntityConfig,
@@ -123,12 +166,22 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
             setAnalyticsGrade(grade);
             setAnalyticsModalOpen(true);
             break;
+          case 'soft-delete':
+            if (confirm(`"${grade.name}" sinfini deaktiv etmək istədiyinizə əminsiniz?`)) {
+              softDeleteMutation.mutate(grade.id);
+            }
+            break;
+          case 'hard-delete':
+            if (confirm(`"${grade.name}" sinfini tamamilə silmək istədiyinizə əminsiniz? Bu əməliyyat geri qaytarıla bilməz.`)) {
+              hardDeleteMutation.mutate(grade.id);
+            }
+            break;
           default:
             logger.warn('Unknown action', { action: action.key });
         }
       }
     }))
-  }), []);
+  }), [softDeleteMutation, hardDeleteMutation]);
 
   // Handle create action
   const handleCreate = React.useCallback(() => {

@@ -46,7 +46,7 @@ class GradeManagementService
         $grades = $query->paginate($perPage);
         
         return [
-            'data' => $grades->through(function ($grade) use ($options) {
+            'data' => $grades->map(function ($grade) use ($options) {
                 return $this->formatGradeResponse($grade, $options);
             })->toArray(),
             'pagination' => [
@@ -566,7 +566,7 @@ class GradeManagementService
             if ($institutionId) {
                 return in_array($institutionId, $this->getUserAccessibleInstitutions($user));
             }
-            return $user->hasPermission('grades.create');
+            return $user->can('grades.create');
         }
 
         return false;
@@ -574,12 +574,12 @@ class GradeManagementService
 
     public function canUserModifyGrade(User $user, Grade $grade): bool
     {
-        return $this->canUserAccessGrade($user, $grade) && $user->hasPermission('grades.edit');
+        return $this->canUserAccessGrade($user, $grade) && $user->can('grades.update');
     }
 
     public function canUserDeleteGrade(User $user, Grade $grade): bool
     {
-        return $this->canUserAccessGrade($user, $grade) && $user->hasPermission('grades.delete');
+        return $this->canUserAccessGrade($user, $grade) && $user->can('grades.delete');
     }
 
     // Private helper methods

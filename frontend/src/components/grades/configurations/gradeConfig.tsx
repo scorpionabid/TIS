@@ -14,7 +14,9 @@ import {
   Eye,
   Edit,
   UserPlus,
-  BarChart3
+  BarChart3,
+  Trash2,
+  Archive
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -42,7 +44,7 @@ const getCapacityStatusBadge = (status: string, utilizationRate: number) => {
 export const gradeEntityConfig: EntityConfig<Grade, GradeFilters> = {
   // Service configuration
   service: gradeService,
-  queryKey: 'grades',
+  queryKey: ['grades'],
   
   // Display configuration
   title: 'Sinif İdarəetməsi',
@@ -50,8 +52,30 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters> = {
   
   // Feature configuration - disable default create button
   features: {
-    create: false  // Disable default create button since we use headerActions
+    create: false,  // Disable default create button since we use headerActions
+    tabs: true,     // Enable tabs
+    filters: true,  // Enable filters
+    bulk: true     // Enable bulk selection
   },
+
+  // Tab configuration
+  tabs: [
+    {
+      key: 'all',
+      label: 'Bütün Siniflər',
+      filter: (grades: Grade[]) => grades
+    },
+    {
+      key: 'active',
+      label: 'Aktiv Siniflər',
+      filter: (grades: Grade[]) => grades.filter(g => g.is_active)
+    },
+    {
+      key: 'inactive',
+      label: 'Deaktiv Siniflər',
+      filter: (grades: Grade[]) => grades.filter(g => !g.is_active)
+    }
+  ],
   
   // Table configuration
   columns: [
@@ -174,7 +198,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters> = {
     {
       key: 'view',
       label: 'Ətraflı',
-      icon: <Eye className="h-4 w-4" />,
+      icon: Eye,
       variant: 'ghost' as const,
       onClick: (grade: Grade) => {
         // Handle view action - will be overridden in component
@@ -184,7 +208,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters> = {
     {
       key: 'edit',
       label: 'Redaktə Et',
-      icon: <Edit className="h-4 w-4" />,
+      icon: Edit,
       variant: 'ghost' as const,
       onClick: (grade: Grade) => {
         // Handle edit action - will be overridden in component
@@ -194,7 +218,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters> = {
     {
       key: 'students',
       label: 'Tələbələr',
-      icon: <UserPlus className="h-4 w-4" />,
+      icon: UserPlus,
       variant: 'ghost' as const,
       onClick: (grade: Grade) => {
         // Handle students action - will be overridden in component
@@ -204,11 +228,32 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters> = {
     {
       key: 'analytics',
       label: 'Analitika',
-      icon: <BarChart3 className="h-4 w-4" />,
+      icon: BarChart3,
       variant: 'ghost' as const,
       onClick: (grade: Grade) => {
         // Handle analytics action - will be overridden in component
         console.log('View analytics for grade:', grade.id);
+      }
+    },
+    {
+      key: 'soft-delete',
+      label: 'Deaktiv Et',
+      icon: Archive,
+      variant: 'ghost' as const,
+      onClick: (grade: Grade) => {
+        // Handle soft delete action - will be overridden in component
+        console.log('Soft delete grade:', grade.id);
+      },
+      isVisible: (grade: Grade) => grade.is_active
+    },
+    {
+      key: 'hard-delete',
+      label: 'Sil',
+      icon: Trash2,
+      variant: 'destructive' as const,
+      onClick: (grade: Grade) => {
+        // Handle hard delete action - will be overridden in component
+        console.log('Hard delete grade:', grade.id);
       }
     }
   ],
@@ -257,6 +302,8 @@ export const gradeCustomLogic = {
 
     if (!data.name || data.name.trim() === '') {
       errors.name = 'Sinif adı mütləqdir';
+    } else if (!/^[A-Z]$/.test(data.name)) {
+      errors.name = 'Sinif adı yalnız tək böyük hərf ola bilər (A, B, C, və s.)';
     }
 
     if (!data.class_level || data.class_level < 1 || data.class_level > 12) {

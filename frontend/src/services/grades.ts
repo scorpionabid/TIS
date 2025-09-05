@@ -151,24 +151,14 @@ class GradeService {
    */
   async get(filters?: GradeFilters): Promise<Grade[]> {
     const response = await this.getGrades(filters);
-    // Backend returns: { success: true, data: { data: [...grades...], pagination: {...} } }
-    return response.data.data || [];
+    // Backend returns: { success: true, data: [...grades...], pagination: {...}, meta: {...} }
+    return response.data || [];
   }
 
   /**
    * Get grades with filtering and pagination
    */
-  async getGrades(filters?: GradeFilters): Promise<ApiResponse<{
-    data: Grade[];
-    pagination: {
-      current_page: number;
-      per_page: number;
-      total: number;
-      total_pages: number;
-      from: number;
-      to: number;
-    };
-  }>> {
+  async getGrades(filters?: GradeFilters): Promise<ApiResponse<Grade[]>> {
     logger.debug('Fetching grades', { 
       component: 'GradeService',
       action: 'getGrades',
@@ -190,10 +180,7 @@ class GradeService {
     }
 
     const url = params.toString() ? `${this.baseURL}?${params}` : this.baseURL;
-    return apiClient.get<{
-      data: Grade[];
-      pagination: any;
-    }>(url);
+    return apiClient.get<Grade[]>(url);
   }
 
   /**
@@ -560,6 +547,41 @@ class GradeService {
     }
 
     return apiClient.get<Array<any>>(`/teachers/available?${params}`);
+  }
+
+  /**
+   * Get smart naming suggestions for grade creation
+   */
+  async getNamingSuggestions(
+    institutionId: number, 
+    classLevel: number, 
+    academicYearId: number
+  ): Promise<ApiResponse<any>> {
+    logger.debug('Fetching grade naming suggestions', {
+      component: 'GradeService',
+      action: 'getNamingSuggestions',
+      data: { institutionId, classLevel, academicYearId }
+    });
+
+    const params = new URLSearchParams({
+      institution_id: institutionId.toString(),
+      class_level: classLevel.toString(),
+      academic_year_id: academicYearId.toString()
+    });
+
+    return apiClient.get<any>(`${this.baseURL}/naming/suggestions?${params}`);
+  }
+
+  /**
+   * Get naming system statistics
+   */
+  async getNamingSystemStats(): Promise<ApiResponse<any>> {
+    logger.debug('Fetching naming system statistics', {
+      component: 'GradeService',
+      action: 'getNamingSystemStats'
+    });
+
+    return apiClient.get<any>(`${this.baseURL}/naming/system-stats`);
   }
 }
 

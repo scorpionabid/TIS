@@ -44,6 +44,7 @@ export function useEntityManagerV2<
       try {
         const result = await service.get(filters);
         console.log(`✅ EntityManagerV2(${entityType}): Fetched ${Array.isArray(result) ? result.length : 'unknown'} entities`);
+        console.log(`📊 EntityManagerV2(${entityType}): Raw result:`, result);
         return Array.isArray(result) ? result : [];
       } catch (error) {
         console.error(`❌ EntityManagerV2(${entityType}): Failed to fetch entities:`, error);

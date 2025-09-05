@@ -234,9 +234,8 @@ Route::prefix('academic-years')->middleware('permission:institutions.read')->gro
     Route::get('/{academicYear}', [App\Http\Controllers\AcademicYearController::class, 'show']);
     Route::put('/{academicYear}', [App\Http\Controllers\AcademicYearController::class, 'update'])->middleware('permission:institutions.write');
     Route::delete('/{academicYear}', [App\Http\Controllers\AcademicYearController::class, 'destroy'])->middleware('permission:institutions.write');
-    Route::get('/current/active', [App\Http\Controllers\AcademicYearController::class, 'getCurrentAcademicYear']);
+    Route::get('/active', [App\Http\Controllers\AcademicYearController::class, 'active']);
     Route::post('/{academicYear}/activate', [App\Http\Controllers\AcademicYearController::class, 'activate'])->middleware('permission:institutions.write');
-    Route::get('/institution/{institution}', [App\Http\Controllers\AcademicYearController::class, 'getByInstitution']);
 });
 
 // Subjects management  

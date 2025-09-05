@@ -33,6 +33,7 @@ const Documents = lazy(() => import("./pages/Documents"));
 const Links = lazy(() => import("./pages/Links"));
 const Reports = lazy(() => import("./pages/Reports"));
 const InstitutionTypesManagement = lazy(() => import("./pages/InstitutionTypesManagement"));
+const AcademicYearManagement = lazy(() => import("./pages/AcademicYearManagement"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -186,6 +187,7 @@ const App = () => (
                 </LazyWrapper>
               } />
               <Route path="institution-types-management" element={<LazyWrapper><InstitutionTypesManagement /></LazyWrapper>} />
+              <Route path="academic-year-management" element={<LazyWrapper><AcademicYearManagement /></LazyWrapper>} />
               <Route path="notifications" element={<LazyWrapper><Notifications /></LazyWrapper>} />
               <Route path="analytics" element={<LazyWrapper><Analytics /></LazyWrapper>} />
               <Route path="settings" element={<LazyWrapper><Settings /></LazyWrapper>} />

@@ -134,6 +134,14 @@ export const improvedNavigationConfig: MenuGroup[] = [
         path: '/subjects',
         icon: BookOpen,
         roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN]
+      },
+      {
+        id: 'academic-year-management',
+        label: 'Təhsil İlləri',
+        path: '/academic-year-management',
+        icon: Calendar,
+        roles: [USER_ROLES.SUPERADMIN],
+        description: 'Təhsil illərinin idarə edilməsi və tənzimlənməsi'
       }
     ]
   },

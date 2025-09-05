@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\AcademicYear;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class AcademicYearController extends Controller
 {
@@ -102,6 +105,190 @@ class AcademicYearController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve academic year',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Store a newly created academic year.
+     */
+    public function store(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:100|unique:academic_years,name',
+                'start_date' => 'required|date',
+                'end_date' => 'required|date|after:start_date',
+                'is_active' => 'boolean',
+                'metadata' => 'array'
+            ]);
+
+            DB::beginTransaction();
+
+            // If this year is set to active, deactivate others
+            if ($validated['is_active'] ?? false) {
+                AcademicYear::where('is_active', true)->update(['is_active' => false]);
+            }
+
+            $academicYear = AcademicYear::create([
+                'name' => $validated['name'],
+                'start_date' => Carbon::parse($validated['start_date']),
+                'end_date' => Carbon::parse($validated['end_date']),
+                'is_active' => $validated['is_active'] ?? false,
+                'metadata' => $validated['metadata'] ?? []
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'data' => $academicYear->fresh(),
+                'message' => 'Academic year created successfully'
+            ], 201);
+
+        } catch (ValidationException $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create academic year',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update the specified academic year.
+     */
+    public function update(Request $request, AcademicYear $academicYear): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:100|unique:academic_years,name,' . $academicYear->id,
+                'start_date' => 'required|date',
+                'end_date' => 'required|date|after:start_date',
+                'is_active' => 'boolean',
+                'metadata' => 'array'
+            ]);
+
+            DB::beginTransaction();
+
+            // If this year is set to active, deactivate others
+            if ($validated['is_active'] ?? false) {
+                AcademicYear::where('id', '!=', $academicYear->id)
+                    ->where('is_active', true)
+                    ->update(['is_active' => false]);
+            }
+
+            $academicYear->update([
+                'name' => $validated['name'],
+                'start_date' => Carbon::parse($validated['start_date']),
+                'end_date' => Carbon::parse($validated['end_date']),
+                'is_active' => $validated['is_active'] ?? $academicYear->is_active,
+                'metadata' => $validated['metadata'] ?? $academicYear->metadata
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'data' => $academicYear->fresh(),
+                'message' => 'Academic year updated successfully'
+            ]);
+
+        } catch (ValidationException $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update academic year',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Remove the specified academic year.
+     */
+    public function destroy(AcademicYear $academicYear): JsonResponse
+    {
+        try {
+            // Check if there are grades associated with this academic year
+            $gradesCount = $academicYear->grades()->count();
+            if ($gradesCount > 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Bu təhsil ilinə aid {$gradesCount} sinif var. Əvvəlcə sinifləri silməlisiniz."
+                ], 400);
+            }
+
+            // Check if this is the active academic year
+            if ($academicYear->is_active) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aktiv təhsil ili silinə bilməz. Əvvəlcə başqa ili aktiv edin.'
+                ], 400);
+            }
+
+            $name = $academicYear->name;
+            $academicYear->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => "'{$name}' təhsil ili uğurla silindi"
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete academic year',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Activate the specified academic year.
+     */
+    public function activate(AcademicYear $academicYear): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+
+            // Deactivate all other years
+            AcademicYear::where('id', '!=', $academicYear->id)
+                ->where('is_active', true)
+                ->update(['is_active' => false]);
+
+            // Activate this year
+            $academicYear->update(['is_active' => true]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'data' => $academicYear->fresh(),
+                'message' => "'{$academicYear->name}' təhsil ili aktiv edildi"
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to activate academic year',
                 'error' => $e->getMessage()
             ], 500);
         }

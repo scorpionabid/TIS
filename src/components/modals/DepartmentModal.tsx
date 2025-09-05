@@ -246,7 +246,7 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
                       {type.label}
                     </SelectItem>
                   )) : (
-                    <SelectItem value="" disabled>
+                    <SelectItem value="loading" disabled>
                       Departament növləri yüklənir...
                     </SelectItem>
                   )}

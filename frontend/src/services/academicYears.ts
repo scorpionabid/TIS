@@ -29,6 +29,14 @@ class AcademicYearService extends BaseService<AcademicYear> {
     const response = await this.getAll({ per_page: 50, sort_by: 'start_date', sort_direction: 'desc' });
     return response.data;
   }
+
+  /**
+   * Activate a specific academic year
+   */
+  async activate(id: number): Promise<AcademicYear> {
+    const response = await this.apiClient.post(`${this.endpoint}/${id}/activate`);
+    return response.data;
+  }
 }
 
 export const academicYearService = new AcademicYearService();

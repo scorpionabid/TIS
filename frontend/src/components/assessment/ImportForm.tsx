@@ -157,7 +157,7 @@ export const ImportForm: React.FC<ImportFormProps> = ({
                   <SelectValue placeholder="Sinif seçin (ixtiyari)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Hamısı</SelectItem>
+                  <SelectItem value="all">Hamısı</SelectItem>
                   {getGradeLevels().map(grade => (
                     <SelectItem key={grade.value} value={grade.value}>
                       {grade.label}

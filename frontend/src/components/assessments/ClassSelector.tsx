@@ -92,7 +92,7 @@ export const ClassSelector: React.FC<ClassSelectorProps> = ({
                         );
                       })
                     ) : (
-                      <SelectItem value="" disabled>
+                      <SelectItem value="no-classes" disabled>
                         Aktiv sinif yoxdur
                       </SelectItem>
                     )}

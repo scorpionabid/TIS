@@ -118,7 +118,13 @@ export function GenericTable<T extends BaseEntity>({
         </TableHeader>
         
         <TableBody>
-          {(data || []).map((item) => {
+          {(() => {
+            console.log('🔍 GenericTable: Rendering data:', data?.length || 0, 'items');
+            if (data?.length) {
+              console.log('📊 GenericTable: First item:', data[0]);
+            }
+            return (data || []);
+          })().map((item) => {
             const defaultRow = (
               <TableRow key={item.id}>
                 {/* Selection checkbox */}
