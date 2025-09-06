@@ -382,15 +382,23 @@ class InstitutionImportExportService extends BaseService
      */
     private function processTypeSpecificData($row, $institutionType, $rowNum): ?array
     {
+        // Get appropriate default parent_id based on institution type level
+        $defaultParentId = null;
+        if ($institutionType->default_level == 4) {
+            // For level 4 institutions (schools), try to find a default sector parent
+            $defaultSector = Institution::where('level', 3)->first();
+            $defaultParentId = $defaultSector ? $defaultSector->id : null;
+        }
+
         $baseData = [
             'name' => trim($row[1]),
             'short_name' => trim($row[2]) ?: null,
             'type' => $institutionType->key,
-            'parent_id' => !empty(trim($row[3])) ? (int)trim($row[3]) : null,
-            'level' => !empty(trim($row[4])) ? (int)trim($row[4]) : 4,
+            'parent_id' => !empty(trim($row[3])) ? (int)trim($row[3]) : $defaultParentId,
+            'level' => !empty(trim($row[4])) ? (int)trim($row[4]) : $institutionType->default_level,
             'region_code' => trim($row[5]) ?: null,
             'institution_code' => trim($row[6]) ?: null,
-            'is_active' => true
+            'is_active' => true // Default to active
         ];
 
         // Add type-specific fields
@@ -408,7 +416,9 @@ class InstitutionImportExportService extends BaseService
                     'email' => trim($row[12]) ?: null
                 ];
                 $baseData['location'] = ['address' => trim($row[13])];
-                $baseData['is_active'] = trim($row[14]) === 'active';
+                // Set is_active: default to true if empty or 'active'
+                $statusValue = trim($row[14]);
+                $baseData['is_active'] = empty($statusValue) || $statusValue === 'active';
                 break;
 
             case 'kindergarten':
@@ -423,7 +433,9 @@ class InstitutionImportExportService extends BaseService
                     'email' => trim($row[12]) ?: null
                 ];
                 $baseData['location'] = ['address' => trim($row[13])];
-                $baseData['is_active'] = trim($row[14]) === 'active';
+                // Set is_active: default to true if empty or 'active'
+                $statusValue = trim($row[14]);
+                $baseData['is_active'] = empty($statusValue) || $statusValue === 'active';
                 break;
 
             default:
@@ -433,7 +445,9 @@ class InstitutionImportExportService extends BaseService
                 ];
                 $baseData['location'] = ['address' => trim($row[9])];
                 $baseData['metadata'] = ['description' => trim($row[10])];
-                $baseData['is_active'] = trim($row[11]) === 'active';
+                // Set is_active: default to true if empty or 'active'
+                $statusValue = trim($row[11]);
+                $baseData['is_active'] = empty($statusValue) || $statusValue === 'active';
                 break;
         }
 

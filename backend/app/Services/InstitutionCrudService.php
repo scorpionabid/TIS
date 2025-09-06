@@ -33,7 +33,7 @@ class InstitutionCrudService extends BaseService
         }
 
         // Apply filters
-        $query = $this->applyFilters($query, $request);
+        $query = $this->applyRequestFilters($query, $request);
 
         // Apply search
         if ($request->filled('search')) {
@@ -208,9 +208,9 @@ class InstitutionCrudService extends BaseService
     }
 
     /**
-     * Apply filters to query
+     * Apply filters to query from request
      */
-    private function applyFilters($query, Request $request)
+    protected function applyRequestFilters($query, Request $request)
     {
         if ($request->filled('type')) {
             $query->byType($request->type);

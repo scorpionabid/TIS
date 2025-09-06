@@ -56,12 +56,12 @@ export const getFallbackTypesForRole = (userRole?: string): InstitutionType[] =>
       created_at: '', 
       updated_at: '' 
     },
-    school: { 
+    secondary_school: { 
       id: 4, 
-      key: 'school', 
-      label_az: 'Məktəb', 
-      label: 'Məktəb', 
-      label_en: 'School', 
+      key: 'secondary_school', 
+      label_az: 'Tam orta məktəb', 
+      label: 'Tam orta məktəb', 
+      label_en: 'Secondary School', 
       default_level: 4, 
       color: '#F59E0B', 
       icon: 'School', 
@@ -103,15 +103,63 @@ export const getFallbackTypesForRole = (userRole?: string): InstitutionType[] =>
       metadata: {}, 
       created_at: '', 
       updated_at: '' 
+    },
+    kindergarten: { 
+      id: 7, 
+      key: 'kindergarten', 
+      label_az: 'Uşaq bağçası', 
+      label: 'Uşaq bağçası', 
+      label_en: 'Kindergarten', 
+      default_level: 4, 
+      color: '#10B981', 
+      icon: 'School', 
+      allowed_parent_types: [], 
+      is_active: true, 
+      is_system: true, 
+      metadata: {}, 
+      created_at: '', 
+      updated_at: '' 
+    },
+    regional_education_department: { 
+      id: 8, 
+      key: 'regional_education_department', 
+      label_az: 'Regional Təhsil İdarəsi', 
+      label: 'Regional Təhsil İdarəsi', 
+      label_en: 'Regional Education Department', 
+      default_level: 2, 
+      color: '#3B82F6', 
+      icon: 'MapPin', 
+      allowed_parent_types: [], 
+      is_active: true, 
+      is_system: true, 
+      metadata: {}, 
+      created_at: '', 
+      updated_at: '' 
+    },
+    sector_education_office: { 
+      id: 9, 
+      key: 'sector_education_office', 
+      label_az: 'Sektor Təhsil Şöbəsi', 
+      label: 'Sektor Təhsil Şöbəsi', 
+      label_en: 'Sector Education Office', 
+      default_level: 3, 
+      color: '#10B981', 
+      icon: 'Users', 
+      allowed_parent_types: [], 
+      is_active: true, 
+      is_system: true, 
+      metadata: {}, 
+      created_at: '', 
+      updated_at: '' 
     }
   };
 
   // Define role-based access with unique keys
   const roleAccess: Record<string, string[]> = {
-    superadmin: ['ministry', 'regional', 'sector', 'school', 'lyceum', 'gymnasium'],
-    regionadmin: ['regional', 'sector', 'school', 'lyceum', 'gymnasium'],
-    sektoradmin: ['sector', 'school', 'lyceum', 'gymnasium'],
-    schooladmin: ['school', 'lyceum', 'gymnasium'],
+    superadmin: ['ministry', 'regional_education_department', 'sector_education_office', 'secondary_school', 'lyceum', 'gymnasium', 'kindergarten'],
+    regionadmin: ['regional_education_department', 'sector_education_office', 'secondary_school', 'lyceum', 'gymnasium', 'kindergarten'],
+    sektoradmin: ['sector_education_office', 'secondary_school', 'lyceum', 'gymnasium', 'kindergarten'],
+    schooladmin: ['secondary_school', 'lyceum', 'gymnasium', 'kindergarten'],
   };
 
   // Get accessible types for role

@@ -331,3 +331,5 @@ src/components/
 - `/stop.sh` - System shutdown script
 - `/backend/Dockerfile` - Backend container configuration
 - `/frontend/Dockerfile` - Frontend container configuration
+- həmişə projeni start.sh ilə çalışdır. portlar məşğuı olarsa kill et.
+- yeni fayl yaradılacaq olarsa təkrarçılıq olmayacağından əmin ol.

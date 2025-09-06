@@ -275,37 +275,83 @@ class InstitutionService extends BaseService<Institution> {
 
   // Type-based Import/Export methods
   async downloadImportTemplateByType(institutionType: string): Promise<Blob> {
-    console.log('Starting template download for institution type:', institutionType);
+    console.log('🎯 Starting template download for institution type:', {
+        institutionType,
+        typeType: typeof institutionType,
+        stringValue: String(institutionType),
+        jsonValue: JSON.stringify(institutionType)
+      });
     
-    const response = await fetch(`${apiClient['baseURL']}/institutions/import/template-by-type`, {
-      method: 'POST',
-      headers: {
-        ...apiClient['getHeaders'](),
+    try {
+      // Get token from apiClient
+      const token = apiClient.getToken();
+      console.log('🔑 Token check:', { hasToken: !!token, tokenLength: token?.length, tokenStart: token?.substring(0, 20) });
+      
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+      
+      // Get baseURL from apiClient
+      const baseURL = (apiClient as any).baseURL || 'http://localhost:8000/api';
+      const fullURL = `${baseURL}/institutions/import/template-by-type`;
+      
+      console.log('🌐 Request details:', {
+        baseURL,
+        fullURL,
+        institutionType,
+        hasToken: !!token
+      });
+      
+      const requestBody = JSON.stringify({ type: institutionType });
+      console.log('📦 Request body:', requestBody);
+      
+      const headers = {
         'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify({ type: institutionType }),
-    });
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'X-Requested-With': 'XMLHttpRequest',
+      };
+      
+      console.log('📋 Request headers:', headers);
+      
+      const response = await fetch(fullURL, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: requestBody,
+      });
 
-    console.log('Template download response:', {
-      status: response.status,
-      statusText: response.statusText,
-      contentType: response.headers.get('content-type')
-    });
+      console.log('📥 Template download response:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type'),
+        contentLength: response.headers.get('content-length'),
+        url: response.url,
+        ok: response.ok
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Template download error response:', errorText);
-      throw new Error(`Template download failed: ${response.status} - ${errorText}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Template download error response:', errorText);
+        throw new Error(`Template download failed: ${response.status} - ${errorText}`);
+      }
+
+      const blob = await response.blob();
+      console.log('📦 Template blob received:', {
+        size: blob.size,
+        type: blob.type
+      });
+      
+      return blob;
+    } catch (error: any) {
+      console.error('💥 Template download error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        cause: error.cause
+      });
+      throw new Error(`Template download failed: ${error.message}`);
     }
-
-    const blob = await response.blob();
-    console.log('Template blob received:', {
-      size: blob.size,
-      type: blob.type
-    });
-    
-    return blob;
   }
 
   async importFromTemplateByType(file: File, institutionType: string): Promise<any> {
@@ -351,13 +397,22 @@ class InstitutionService extends BaseService<Institution> {
         }))
       });
 
-      // Get headers but remove Content-Type for FormData
-      const headers = apiClient['getHeaders']();
-      delete headers['Content-Type'];
+      // Get token from apiClient
+      const token = apiClient.getToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+      
+      // Get baseURL from apiClient
+      const baseURL = (apiClient as any).baseURL || 'http://localhost:8000/api';
 
-      const response = await fetch(`${apiClient['baseURL']}/institutions/import-by-type`, {
+      const response = await fetch(`${baseURL}/institutions/import-by-type`, {
         method: 'POST',
-        headers: headers,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Requested-With': 'XMLHttpRequest',
+          // Don't set Content-Type for FormData, let browser set it
+        },
         credentials: 'include',
         body: formData,
       });
@@ -390,35 +445,51 @@ class InstitutionService extends BaseService<Institution> {
   async exportInstitutionsByType(institutionType: string): Promise<Blob> {
     console.log('Starting export for institution type:', institutionType);
     
-    const response = await fetch(`${apiClient['baseURL']}/institutions/export-by-type`, {
-      method: 'POST',
-      headers: {
-        ...apiClient['getHeaders'](),
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify({ type: institutionType }),
-    });
+    try {
+      // Get token from apiClient
+      const token = apiClient.getToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+      
+      // Get baseURL from apiClient
+      const baseURL = (apiClient as any).baseURL || 'http://localhost:8000/api';
+      
+      const response = await fetch(`${baseURL}/institutions/export-by-type`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ type: institutionType }),
+      });
 
-    console.log('Export response:', {
-      status: response.status,
-      statusText: response.statusText,
-      contentType: response.headers.get('content-type')
-    });
+      console.log('Export response:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type')
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Export error response:', errorText);
-      throw new Error(`Export failed: ${response.status} - ${errorText}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Export error response:', errorText);
+        throw new Error(`Export failed: ${response.status} - ${errorText}`);
+      }
+
+      const blob = await response.blob();
+      console.log('Export blob received:', {
+        size: blob.size,
+        type: blob.type
+      });
+      
+      return blob;
+    } catch (error: any) {
+      console.error('Export error:', error);
+      throw new Error(`Export failed: ${error.message}`);
     }
-
-    const blob = await response.blob();
-    console.log('Export blob received:', {
-      size: blob.size,
-      type: blob.type
-    });
-    
-    return blob;
   }
 }
 

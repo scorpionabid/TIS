@@ -246,21 +246,19 @@ class InstitutionCRUDControllerRefactored extends BaseController
      */
     public function downloadImportTemplateByType(Request $request): BinaryFileResponse
     {
-        return $this->executeWithErrorHandling(function () use ($request) {
-            $validTypes = InstitutionType::active()->pluck('key')->toArray();
-            $validTypesString = implode(',', $validTypes);
-            
-            $validated = $request->validate([
-                'type' => "required|string|in:{$validTypesString}"
-            ]);
+        $validTypes = InstitutionType::active()->pluck('key')->toArray();
+        $validTypesString = implode(',', $validTypes);
+        
+        $validated = $request->validate([
+            'type' => "required|string|in:{$validTypesString}"
+        ]);
 
-            $institutionType = InstitutionType::where('key', $validated['type'])->firstOrFail();
-            $fileName = "institution_template_{$validated['type']}_" . date('Y-m-d_H-i-s') . '.xlsx';
-            
-            $filePath = $this->importExportService->generateTemplateByType($institutionType, $fileName);
-            
-            return response()->download($filePath, $fileName)->deleteFileAfterSend();
-        }, 'institution.download_template_by_type');
+        $institutionType = InstitutionType::where('key', $validated['type'])->firstOrFail();
+        $fileName = "institution_template_{$validated['type']}_" . date('Y-m-d_H-i-s') . '.xlsx';
+        
+        $filePath = $this->importExportService->generateTemplateByType($institutionType, $fileName);
+        
+        return response()->download($filePath, $fileName)->deleteFileAfterSend();
     }
 
     /**
