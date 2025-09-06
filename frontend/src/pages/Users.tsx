@@ -3,13 +3,14 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, UserIcon, Mail, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter, FileDown, Upload } from "lucide-react";
+import { Plus, Edit, Trash2, UserIcon, Mail, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter, FileDown, Upload, ArchiveRestore } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { User, CreateUserData, UpdateUserData, userService } from "@/services/users";
 import { UserModal } from "@/components/modals/UserModal";
 import { DeleteConfirmationModal } from "@/components/modals/DeleteConfirmationModal";
 import { UserImportExportModal } from "@/components/modals/UserImportExportModal";
+import { TrashedUsersModal } from "@/components/modals/TrashedUsersModal";
 import { useToast } from "@/hooks/use-toast";
 import { usePagination } from "@/hooks/usePagination";
 import { TablePagination } from "@/components/common/TablePagination";
@@ -96,6 +97,7 @@ export default function Users() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [isImportExportModalOpen, setIsImportExportModalOpen] = useState(false);
+  const [isTrashedUsersModalOpen, setIsTrashedUsersModalOpen] = useState(false);
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [searchTerm, setSearchTerm] = useState('');
@@ -292,10 +294,14 @@ export default function Users() {
       
       toast({
         title: "İstifadəçi silindi",
-        description: "İstifadəçi uğurla silindi.",
+        description: "İstifadəçi uğurla silindi və silinmiş istifadəçilər siyahısına əlavə edildi.",
       });
       
+      // Refresh the current users list to reflect the deletion
       await queryClient.invalidateQueries({ queryKey: ['users'] });
+      
+      // Close the delete modal
+      handleDeleteModalClose();
     } catch (error) {
       toast({
         title: "Silinə bilmədi",
@@ -421,6 +427,13 @@ export default function Users() {
             <FileDown className="h-4 w-4" />
             Export
           </Button>
+          {/* Trashed Users Modal - accessible to SuperAdmin and RegionAdmin */}
+          {currentUser?.role && ['superadmin', 'regionadmin'].includes(currentUser.role) && (
+            <Button variant="outline" onClick={() => setIsTrashedUsersModalOpen(true)} className="flex items-center gap-2">
+              <ArchiveRestore className="h-4 w-4" />
+              Silinmiş İstifadəçilər
+            </Button>
+          )}
           {/* Import/Export Modal - accessible to administrative roles */}
           {currentUser?.role && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role) && (
             <Button variant="outline" onClick={() => setIsImportExportModalOpen(true)} className="flex items-center gap-2">
@@ -672,6 +685,12 @@ export default function Users() {
       <UserImportExportModal
         isOpen={isImportExportModalOpen}
         onClose={() => setIsImportExportModalOpen(false)}
+      />
+
+      {/* Trashed Users Modal */}
+      <TrashedUsersModal
+        open={isTrashedUsersModalOpen}
+        onClose={() => setIsTrashedUsersModalOpen(false)}
       />
     </div>
   );

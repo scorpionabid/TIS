@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -14,7 +15,7 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, HasRoles;
+    use HasApiTokens, HasFactory, Notifiable, HasRoles, SoftDeletes;
 
     /**
      * The guard name used for permissions
@@ -308,13 +309,6 @@ class User extends Authenticatable
         return $this->locked_until && $this->locked_until->isFuture();
     }
 
-    /**
-     * Scope to get active users.
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
-    }
 
     /**
      * Scope to get users by role.
@@ -367,5 +361,61 @@ class User extends Authenticatable
         }
         
         return 'Anonim İstifadəçi';
+    }
+
+    /**
+     * Scope query to only active users (not soft deleted and is_active = true)
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    /**
+     * Scope query to inactive users (is_active = false but not soft deleted)
+     */
+    public function scopeInactive($query)
+    {
+        return $query->where('is_active', false);
+    }
+
+    /**
+     * Scope query to include soft deleted users
+     */
+    public function scopeWithDeleted($query)
+    {
+        return $query->withTrashed();
+    }
+
+    /**
+     * Scope query to only soft deleted users
+     */
+    public function scopeOnlyDeleted($query)
+    {
+        return $query->onlyTrashed();
+    }
+
+    /**
+     * Check if user is truly deleted (soft deleted)
+     */
+    public function isDeleted(): bool
+    {
+        return $this->trashed();
+    }
+
+    /**
+     * Check if user is suspended (inactive but not deleted)
+     */
+    public function isSuspended(): bool
+    {
+        return !$this->is_active && !$this->trashed();
+    }
+
+    /**
+     * Check if user is fully active (active and not deleted)
+     */
+    public function isFullyActive(): bool
+    {
+        return $this->is_active && !$this->trashed();
     }
 }

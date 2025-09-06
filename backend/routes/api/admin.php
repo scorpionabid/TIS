@@ -59,6 +59,17 @@ Route::middleware('permission:users.write')->group(function () {
     Route::post('users/bulk-delete', [UserController::class, 'bulkDelete']);
 });
 
+// User trash management (high privilege operations)
+Route::middleware('role:superadmin|regionadmin')->group(function () {
+    Route::get('users/trashed', [App\Http\Controllers\UserControllerRefactored::class, 'trashed']);
+    Route::post('users/{id}/restore', [App\Http\Controllers\UserControllerRefactored::class, 'restore']);
+});
+
+// User force delete (SuperAdmin only)
+Route::middleware('role:superadmin')->group(function () {
+    Route::delete('users/{id}/force', [App\Http\Controllers\UserControllerRefactored::class, 'forceDelete']);
+});
+
 // User bulk import/export operations
 Route::prefix('users/bulk')->middleware('permission:users.write')->group(function () {
     Route::post('activate', [App\Http\Controllers\UserBulkController::class, 'activate']);
@@ -71,6 +82,16 @@ Route::prefix('users/bulk')->middleware('permission:users.write')->group(functio
     // Import/Export routes
     Route::post('import', [App\Http\Controllers\UserBulkController::class, 'importUsers']);
     Route::post('export', [App\Http\Controllers\UserBulkController::class, 'exportUsers']);
+});
+
+// User bulk trash management (high privilege operations)
+Route::prefix('users/bulk')->middleware('role:superadmin|regionadmin')->group(function () {
+    Route::post('restore', [App\Http\Controllers\UserBulkController::class, 'bulkRestore']);
+});
+
+// User bulk force delete (SuperAdmin only)  
+Route::prefix('users/bulk')->middleware('role:superadmin')->group(function () {
+    Route::delete('force', [App\Http\Controllers\UserBulkController::class, 'bulkForceDelete']);
 });
 
 // User bulk read operations (templates and statistics)

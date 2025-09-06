@@ -262,6 +262,110 @@ class UserBulkService
             ];
         });
     }
+
+    /**
+     * Bulk restore users from soft delete
+     */
+    public function bulkRestore(array $userIds, bool $requireConfirmation = true): array
+    {
+        return DB::transaction(function () use ($userIds) {
+            $users = User::onlyTrashed()->whereIn('id', $userIds)->get();
+            $restoredCount = 0;
+
+            foreach ($users as $user) {
+                // Restore user
+                $user->restore();
+                
+                // Reactivate user
+                $user->update([
+                    'is_active' => true,
+                    'locked_until' => null
+                ]);
+
+                // Log security event
+                SecurityEvent::logEvent([
+                    'event_type' => 'bulk_user_restored',
+                    'severity' => 'info',
+                    'user_id' => Auth::id(),
+                    'target_user_id' => $user->id,
+                    'description' => 'User restored from trash via bulk operation',
+                    'event_data' => [
+                        'target_username' => $user->username,
+                        'target_email' => $user->email,
+                        'bulk_operation' => true
+                    ]
+                ]);
+
+                $restoredCount++;
+            }
+
+            // Log bulk activity
+            $this->logBulkActivity('bulk_user_restore', $restoredCount, count($userIds), [
+                'user_ids' => $userIds
+            ]);
+
+            return [
+                'restored_count' => $restoredCount,
+                'total_requested' => count($userIds),
+                'message' => "{$restoredCount} istifadəçi uğurla bərpa edildi"
+            ];
+        });
+    }
+
+    /**
+     * Bulk force delete users permanently
+     */
+    public function bulkForceDelete(array $userIds, bool $requireConfirmation = true): array
+    {
+        // Prevent deleting current user
+        if (in_array(Auth::id(), $userIds)) {
+            throw new Exception('Öz hesabınızı silə bilməzsiniz');
+        }
+
+        return DB::transaction(function () use ($userIds) {
+            $users = User::onlyTrashed()->whereIn('id', $userIds)->get();
+            $deletedCount = 0;
+
+            foreach ($users as $user) {
+                // Log before permanent deletion
+                SecurityEvent::logEvent([
+                    'event_type' => 'bulk_user_force_deleted',
+                    'severity' => 'critical',
+                    'user_id' => Auth::id(),
+                    'target_user_id' => $user->id,
+                    'description' => 'User permanently deleted via bulk operation',
+                    'event_data' => [
+                        'target_username' => $user->username,
+                        'target_email' => $user->email,
+                        'bulk_operation' => true
+                    ]
+                ]);
+
+                // Remove associated data
+                $user->tokens()->delete();
+                
+                if ($user->profile) {
+                    $user->profile->forceDelete();
+                }
+
+                // Permanently delete user
+                $user->forceDelete();
+
+                $deletedCount++;
+            }
+
+            // Log bulk activity
+            $this->logBulkActivity('bulk_user_force_delete', $deletedCount, count($userIds), [
+                'user_ids' => $userIds
+            ]);
+
+            return [
+                'deleted_count' => $deletedCount,
+                'total_requested' => count($userIds),
+                'message' => "{$deletedCount} istifadəçi həmişəlik silindi"
+            ];
+        });
+    }
     
     /**
      * Get bulk operation statistics

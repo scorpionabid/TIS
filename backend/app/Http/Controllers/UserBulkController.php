@@ -146,6 +146,63 @@ class UserBulkController extends BaseController
     }
 
     /**
+     * Bulk restore users from trash
+     */
+    public function bulkRestore(Request $request): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $user = Auth::user();
+            
+            // Check permissions (high privilege operation)
+            if (!$user->hasAnyRole(['superadmin', 'regionadmin'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'İstifadəçiləri bərpa etmək icazəniz yoxdur.'
+                ], 403);
+            }
+            
+            $validated = $request->validate([
+                'user_ids' => 'required|array|min:1|max:50',
+                'user_ids.*' => 'integer|exists:users,id',
+                'confirm' => 'required|boolean|accepted'
+            ]);
+            
+            $result = $this->bulkService->bulkRestore($validated['user_ids'], $validated['confirm']);
+            
+            return $this->success($result, 'İstifadəçilər uğurla bərpa edildi');
+        }, 'user.bulk.restore');
+    }
+
+    /**
+     * Bulk force delete users permanently
+     */
+    public function bulkForceDelete(Request $request): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $user = Auth::user();
+            
+            // Only SuperAdmin can force delete
+            if (!$user->hasRole('superadmin')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'İstifadəçiləri həmişəlik silmək icazəniz yoxdur.'
+                ], 403);
+            }
+            
+            $validated = $request->validate([
+                'user_ids' => 'required|array|min:1|max:20', // Smaller limit for safety
+                'user_ids.*' => 'integer|exists:users,id',
+                'confirm' => 'required|boolean|accepted',
+                'double_confirm' => 'required|boolean|accepted' // Double confirmation for permanent deletion
+            ]);
+            
+            $result = $this->bulkService->bulkForceDelete($validated['user_ids'], $validated['confirm']);
+            
+            return $this->success($result, 'İstifadəçilər həmişəlik silindi');
+        }, 'user.bulk.force_delete');
+    }
+
+    /**
      * Download import template by user type
      */
     public function downloadTemplate(Request $request): \Symfony\Component\HttpFoundation\BinaryFileResponse|\Illuminate\Http\JsonResponse

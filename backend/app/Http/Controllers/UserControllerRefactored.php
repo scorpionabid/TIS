@@ -269,6 +269,99 @@ class UserControllerRefactored extends BaseController
     }
 
     /**
+     * Get trashed users (soft deleted)
+     */
+    public function trashed(Request $request): JsonResponse
+    {
+        try {
+            $currentUser = Auth::user();
+            
+            // Check if user can view deleted users (high privilege)
+            if (!$currentUser->hasAnyRole(['superadmin', 'regionadmin'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Silinmiş istifadəçiləri görmək icazəniz yoxdur.'
+                ], 403);
+            }
+            
+            $validated = $request->validate([
+                'search' => 'nullable|string|max:255',
+                'per_page' => 'nullable|integer|min:1|max:100',
+                'page' => 'nullable|integer|min:1',
+                'role' => 'nullable|string',
+                'institution_id' => 'nullable|integer|exists:institutions,id'
+            ]);
+            
+            $trashedUsers = $this->userService->getTrashed($validated);
+            
+            return $this->success($trashedUsers, 'Silinmiş istifadəçilər uğurla alındı');
+            
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Silinmiş istifadəçilər yüklənərkən xəta baş verdi.');
+        }
+    }
+
+    /**
+     * Restore soft deleted user
+     */
+    public function restore(Request $request, $id): JsonResponse
+    {
+        try {
+            $currentUser = Auth::user();
+            
+            // Find trashed user
+            $user = User::onlyTrashed()->findOrFail($id);
+            
+            // Check restore permission (high privilege)
+            if (!$currentUser->hasAnyRole(['superadmin', 'regionadmin'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'İstifadəçi bərpa etmək icazəniz yoxdur.'
+                ], 403);
+            }
+            
+            $this->userService->restore($user);
+            
+            return $this->success(null, 'İstifadəçi uğurla bərpa edildi');
+            
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'İstifadəçi bərpa edilərkən xəta baş verdi.');
+        }
+    }
+
+    /**
+     * Force delete user permanently
+     */
+    public function forceDelete(Request $request, $id): JsonResponse
+    {
+        try {
+            $currentUser = Auth::user();
+            
+            // Find trashed user
+            $user = User::onlyTrashed()->findOrFail($id);
+            
+            // Only SuperAdmin can permanently delete users
+            if (!$currentUser->hasRole('superadmin')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'İstifadəçini həmişəlik silmək icazəniz yoxdur.'
+                ], 403);
+            }
+            
+            $request->validate([
+                'confirm' => 'required|boolean|accepted'
+            ]);
+            
+            $this->userService->forceDelete($user);
+            
+            return $this->success(null, 'İstifadəçi həmişəlik silindi');
+            
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'İstifadəçi həmişəlik silinərkən xəta baş verdi.');
+        }
+    }
+
+    /**
      * Get available institutions for user creation
      */
     public function getAvailableInstitutions(Request $request): JsonResponse

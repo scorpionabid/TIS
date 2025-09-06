@@ -63,6 +63,35 @@ class UserCrudService
         
         return $user;
     }
+
+    /**
+     * Get paginated list of trashed (soft deleted) users
+     */
+    public function getTrashed(array $params): LengthAwarePaginator
+    {
+        $query = User::onlyTrashed()->with(['roles', 'institution', 'profile']);
+        
+        // Apply filters (similar to active users but for trashed)
+        if (!empty($params['search'])) {
+            $this->applySearch($query, $params['search']);
+        }
+        
+        if (!empty($params['role'])) {
+            $query->whereHas('roles', function ($q) use ($params) {
+                $q->where('name', $params['role']);
+            });
+        }
+        
+        if (!empty($params['institution_id'])) {
+            $query->where('institution_id', $params['institution_id']);
+        }
+        
+        // Sort by deletion date (most recent first)
+        $query->orderBy('deleted_at', 'desc');
+        
+        $perPage = $params['per_page'] ?? 15;
+        return $query->paginate($perPage);
+    }
     
     /**
      * Create new user with profile
@@ -226,31 +255,115 @@ class UserCrudService
                     'event_data' => ['deleted_username' => $username]
                 ]);
             } else {
-                // Soft delete - deactivate user
-                $user->update([
-                    'is_active' => false,
-                    'locked_until' => now()->addYears(10),
-                    'deleted_at' => now()
-                ]);
-
+                // Soft delete - use Laravel's soft delete functionality
                 $user->tokens()->delete();
+                $user->delete(); // This will set deleted_at timestamp
+                
+                // Also set is_active to false for additional business logic
+                $user->withTrashed()->where('id', $user->id)->update(['is_active' => false]);
 
-                $this->logActivity('user_soft_delete', "Deactivated user: {$username}", [
+                $this->logActivity('user_soft_delete', "Soft deleted user: {$username}", [
                     'entity_type' => 'User',
                     'entity_id' => $user->id,
                     'before_state' => $oldData,
-                    'after_state' => $user->toArray()
+                    'after_state' => $user->withTrashed()->find($user->id)->toArray()
                 ]);
 
                 SecurityEvent::logEvent([
-                    'event_type' => 'user_deactivated',
+                    'event_type' => 'user_soft_deleted',
                     'severity' => 'warning',
                     'user_id' => Auth::id(),
                     'target_user_id' => $user->id,
-                    'description' => 'User account deactivated',
-                    'event_data' => ['deactivated_username' => $username]
+                    'description' => 'User account soft deleted',
+                    'event_data' => ['deleted_username' => $username]
                 ]);
             }
+
+            return true;
+        });
+    }
+
+    /**
+     * Restore soft deleted user
+     */
+    public function restore(User $user): bool
+    {
+        if (!$user->trashed()) {
+            throw new Exception('User is not deleted and cannot be restored');
+        }
+
+        return DB::transaction(function () use ($user) {
+            $username = $user->username;
+            $oldData = $user->toArray();
+
+            // Restore the user (removes deleted_at timestamp)
+            $user->restore();
+            
+            // Optionally reactivate the user
+            $user->update([
+                'is_active' => true,
+                'locked_until' => null
+            ]);
+
+            $user->load(['role', 'institution', 'department', 'profile']);
+
+            $this->logActivity('user_restore', "Restored user: {$username}", [
+                'entity_type' => 'User',
+                'entity_id' => $user->id,
+                'before_state' => $oldData,
+                'after_state' => $user->toArray()
+            ]);
+
+            SecurityEvent::logEvent([
+                'event_type' => 'user_restored',
+                'severity' => 'info',
+                'user_id' => Auth::id(),
+                'target_user_id' => $user->id,
+                'description' => 'User account restored from soft delete',
+                'event_data' => ['restored_username' => $username]
+            ]);
+
+            return true;
+        });
+    }
+
+    /**
+     * Force delete user permanently
+     */
+    public function forceDelete(User $user): bool
+    {
+        if (!$user->trashed()) {
+            throw new Exception('User must be soft deleted first before permanent deletion');
+        }
+
+        return DB::transaction(function () use ($user) {
+            $username = $user->username;
+            $oldData = $user->toArray();
+
+            // Remove associated data
+            $user->tokens()->delete();
+            
+            if ($user->profile) {
+                $user->profile->forceDelete();
+            }
+
+            // Permanently delete the user
+            $user->forceDelete();
+
+            $this->logActivity('user_force_delete', "Permanently deleted user: {$username}", [
+                'entity_type' => 'User',
+                'entity_id' => $user->id,
+                'before_state' => $oldData
+            ]);
+
+            SecurityEvent::logEvent([
+                'event_type' => 'user_force_deleted',
+                'severity' => 'critical',
+                'user_id' => Auth::id(),
+                'target_user_id' => $user->id,
+                'description' => 'User account permanently deleted',
+                'event_data' => ['deleted_username' => $username]
+            ]);
 
             return true;
         });
