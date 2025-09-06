@@ -193,31 +193,22 @@ class ImportController extends Controller
                 'user_id' => $user->id
             ]);
 
-            // Validate headers
-            $headings = (new HeadingRowImport)->toArray($file)[0][0] ?? [];
-            $requiredColumns = ['name', 'type'];
-            $missingColumns = array_diff($requiredColumns, $headings);
-
-            if (!empty($missingColumns)) {
-                return response()->json([
-                    'error' => 'Missing required columns',
-                    'missing_columns' => $missingColumns,
-                    'found_columns' => $headings
-                ], 422);
-            }
-
-            // Process import
-            $import = new InstitutionsImport();
-            Excel::import($import, storage_path('app/' . $filePath));
+            // Use the orchestrator service for comprehensive import handling
+            $orchestrator = app(\App\Services\Import\InstitutionImportOrchestrator::class);
+            $results = $orchestrator->importFromFile(storage_path('app/' . $filePath));
 
             // Clean up file
             Storage::delete($filePath);
 
+            // Use error analyzer for detailed reporting
+            $analyzer = app(\App\Services\Import\ImportErrorAnalyzerService::class);
+            $analysis = $analyzer->analyzeImportResults($results);
+
             return response()->json([
-                'message' => 'Institutions imported successfully',
-                'success_count' => $import->getSuccessCount(),
-                'errors' => $import->getErrors(),
-                'total_processed' => $import->getSuccessCount() + count($import->getErrors())
+                'message' => 'Institution import completed',
+                'results' => $results,
+                'analysis' => $analysis,
+                'detailed_report' => $analyzer->generateErrorReport($results)
             ]);
 
         } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {

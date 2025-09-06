@@ -30,6 +30,8 @@ import { useInstitutionTypes } from '@/hooks/useInstitutionTypes';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { InstitutionType } from '@/services/institutions';
+import { ImportResultModal } from './ImportResultModal';
+import { ImportProgress } from '@/components/ui/import-progress';
 
 interface InstitutionImportExportModalProps {
   open: boolean;
@@ -50,6 +52,10 @@ export function InstitutionImportExportModal({
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importStatus, setImportStatus] = useState<'uploading' | 'processing' | 'validating' | 'complete' | 'error'>('uploading');
+  const [importResult, setImportResult] = useState<any>(null);
+  const [showResultModal, setShowResultModal] = useState(false);
 
   // Load institution types for selection
   const { data: institutionTypesResponse, isLoading } = useInstitutionTypes({ 
@@ -64,6 +70,10 @@ export function InstitutionImportExportModal({
       setActiveTab('select');
       setSelectedInstitutionType('');
       setUploadFile(null);
+      setImportProgress(0);
+      setImportStatus('uploading');
+      setImportResult(null);
+      setShowResultModal(false);
     }
   }, [open]);
 
@@ -144,7 +154,7 @@ export function InstitutionImportExportModal({
     }
   };
 
-  // Handle file upload
+  // Enhanced file upload with progress tracking
   const handleFileUpload = async () => {
     if (!uploadFile) {
       toast({
@@ -166,43 +176,50 @@ export function InstitutionImportExportModal({
 
     try {
       setUploading(true);
-      
+      setImportProgress(0);
+      setImportStatus('uploading');
+
+      // Simulate progress updates
+      const progressTimer = setInterval(() => {
+        setImportProgress(prev => {
+          if (prev >= 90) return prev;
+          return prev + Math.random() * 10;
+        });
+      }, 200);
+
+      // Update status steps
+      setTimeout(() => setImportStatus('processing'), 500);
+      setTimeout(() => setImportStatus('validating'), 1500);
+
       const result = await institutionService.importFromTemplateByType(uploadFile, selectedInstitutionType);
 
-      // Show detailed success message
-      let successMessage = 'Müəssisələr uğurla idxal edildi';
-      if (result.data) {
-        if (result.data.created > 0) {
-          successMessage = `${result.data.created} müəssisə uğurla əlavə edildi`;
-        }
-        if (result.data.errors && result.data.errors.length > 0) {
-          successMessage += `, ${result.data.errors.length} xəta ilə`;
-          
-          // Show errors in console for debugging
-          console.warn('Import errors:', result.data.errors);
-        }
-      }
+      clearInterval(progressTimer);
+      setImportProgress(100);
+      setImportStatus('complete');
 
+      // Store result for detailed modal
+      setImportResult(result.data);
+
+      // Brief success toast
+      const hasErrors = result.data?.errors && result.data.errors.length > 0;
       toast({
-        title: 'İdxal tamamlandı',
-        description: result.message || successMessage,
-        variant: result.data && result.data.errors && result.data.errors.length > 0 ? 'default' : 'default',
+        title: hasErrors ? 'İdxal tamamlandı (xətalarla)' : 'Uğurlu idxal',
+        description: hasErrors 
+          ? `${result.data.success || 0} uğurlu, ${result.data.errors.length} xəta`
+          : `${result.data?.success || 0} müəssisə əlavə edildi`,
+        variant: hasErrors ? 'default' : 'default',
       });
 
-      // Show detailed error information if available
-      if (result.data && result.data.errors && result.data.errors.length > 0) {
-        setTimeout(() => {
-          toast({
-            title: 'İdxal xətaları',
-            description: `${result.data.errors.length} sətirdə xəta: ${result.data.errors.slice(0, 3).join('; ')}${result.data.errors.length > 3 ? '...' : ''}`,
-            variant: 'destructive',
-          });
-        }, 1000);
-      }
+      // Show detailed result modal after brief delay
+      setTimeout(() => {
+        setShowResultModal(true);
+      }, 800);
 
       onImportComplete?.();
-      onClose();
     } catch (error: any) {
+      setImportStatus('error');
+      setImportProgress(0);
+      
       console.error('Import error:', error);
       
       // Extract detailed error message
@@ -218,22 +235,31 @@ export function InstitutionImportExportModal({
           : error.response.data.errors;
       }
 
+      // Store error result for modal
+      setImportResult({
+        success: 0,
+        errors: [errorMessage],
+        created_institutions: []
+      });
+
       toast({
         title: 'İdxal xətası',
         description: errorMessage,
         variant: 'destructive',
       });
 
-      // Log detailed error for debugging
-      console.error('Detailed import error:', {
-        error,
-        file: uploadFile?.name,
-        type: selectedInstitutionType,
-        fileSize: uploadFile?.size,
-        fileType: uploadFile?.type,
-      });
+      // Show error result modal
+      setTimeout(() => {
+        setShowResultModal(true);
+      }, 500);
+
     } finally {
       setUploading(false);
+      // Reset progress after delay
+      setTimeout(() => {
+        setImportProgress(0);
+        setImportStatus('uploading');
+      }, 3000);
     }
   };
 
@@ -496,13 +522,23 @@ export function InstitutionImportExportModal({
                 </div>
               )}
 
+              {/* Import Progress */}
+              {uploading && (
+                <ImportProgress
+                  isUploading={uploading}
+                  progress={importProgress}
+                  status={importStatus}
+                  fileName={uploadFile?.name}
+                />
+              )}
+
               <Button 
                 onClick={handleFileUpload}
                 disabled={!uploadFile || !selectedInstitutionType || uploading}
                 className="w-full"
                 size="lg"
               >
-                {uploading ? 'Yüklənir...' : 'İdxal Et'}
+                {uploading ? 'İdxal edilir...' : 'İdxal Et'}
               </Button>
 
               {!selectedInstitutionType && (
@@ -516,6 +552,21 @@ export function InstitutionImportExportModal({
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Import Result Modal */}
+        <ImportResultModal
+          open={showResultModal}
+          onClose={() => {
+            setShowResultModal(false);
+            setImportResult(null);
+            if (importResult && (importResult.success > 0 || (importResult.errors && importResult.errors.length === 0))) {
+              onClose(); // Close main modal on successful import
+            }
+          }}
+          result={importResult}
+          institutionType={availableTypes.find(t => t.key === selectedInstitutionType)?.label}
+          fileName={uploadFile?.name}
+        />
       </DialogContent>
     </Dialog>
   );

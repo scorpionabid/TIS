@@ -122,6 +122,11 @@ Route::middleware('permission:institutions.write')->group(function () {
     Route::post('institutions/import/template-by-type', [InstitutionCRUDControllerRefactored::class, 'downloadImportTemplateByType']);
     Route::post('institutions/import-by-type', [InstitutionCRUDControllerRefactored::class, 'importFromTemplateByType']);
     Route::post('institutions/export-by-type', [InstitutionCRUDControllerRefactored::class, 'exportInstitutionsByType']);
+    
+    // Enterprise import features
+    Route::get('institutions/import/permissions', [InstitutionCRUDControllerRefactored::class, 'getImportPermissions']);
+    Route::get('institutions/import/history', [InstitutionCRUDControllerRefactored::class, 'getImportHistory']);
+    Route::get('institutions/import/analytics', [InstitutionCRUDControllerRefactored::class, 'getImportAnalytics']);
 });
 
 // Institution Types Management (SuperAdmin only)
