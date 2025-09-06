@@ -127,8 +127,14 @@ export function GenericManagerV2<
           {features.create !== false && (
             <Button 
               onClick={() => {
+                console.log('🚀 GenericManagerV2 Create button clicked:', {
+                  entityType: config.entityType,
+                  entityName: config.entityName,
+                  currentCreateModalOpen: manager.createModalOpen
+                });
                 manager.setEditingEntity(null);
                 manager.setCreateModalOpen(true);
+                console.log('✅ GenericManagerV2 Create modal should be open now:', true);
               }}
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -263,10 +269,19 @@ export function GenericManagerV2<
       )}
 
       {/* Custom Modal Rendering */}
-      {customLogic?.renderCustomModal && 
-        customLogic.renderCustomModal({
+      {customLogic?.renderCustomModal && (() => {
+        console.log('🎨 GenericManagerV2 About to render custom modal:', {
+          hasRenderCustomModal: !!customLogic.renderCustomModal,
+          createModalOpen: manager.createModalOpen,
+          editingEntity: manager.editingEntity?.id || 'null',
+          isCreating: manager.isCreating,
+          isUpdating: manager.isUpdating
+        });
+        
+        return customLogic.renderCustomModal({
           open: manager.createModalOpen,
           onClose: () => {
+            console.log('🔄 GenericManagerV2 Modal onClose called');
             manager.setCreateModalOpen(false);
             manager.setEditingEntity(null);
           },
@@ -275,7 +290,8 @@ export function GenericManagerV2<
             manager.handleCreate,
           entity: manager.editingEntity,
           isLoading: manager.isCreating || manager.isUpdating,
-        })
+        });
+      })()
       }
     </div>
   );

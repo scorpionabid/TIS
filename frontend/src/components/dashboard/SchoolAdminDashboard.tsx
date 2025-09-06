@@ -221,18 +221,23 @@ export const SchoolAdminDashboard: React.FC = () => {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card 
+          className="cursor-pointer hover:bg-muted/50 transition-colors" 
+          onClick={() => window.location.href = '/school/assessments'}
+        >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-warning/10 rounded-lg">
-                  <GraduationCap className="h-4 w-4 text-warning" />
+                  <TrendingUp className="h-4 w-4 text-warning" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Gözləyən Qiymətləndirmələr</p>
+                  <p className="text-sm text-muted-foreground">Qiymətləndirmə Hub-ı</p>
                   <p className="text-xl font-semibold">{stats?.pending_assessments || 0}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Gözləyən qiymətləndirmələr</p>
                 </div>
               </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -390,11 +395,15 @@ export const SchoolAdminDashboard: React.FC = () => {
                       </div>
                     </Button>
                     
-                    <Button variant="outline" className="h-auto p-4 flex flex-col items-center gap-2">
-                      <GraduationCap className="h-5 w-5" />
+                    <Button 
+                      variant="outline" 
+                      className="h-auto p-4 flex flex-col items-center gap-2"
+                      onClick={() => window.location.href = '/school/assessments'}
+                    >
+                      <TrendingUp className="h-5 w-5" />
                       <div className="text-center">
-                        <p className="font-medium text-sm">Qiymət Ver</p>
-                        <p className="text-xs text-muted-foreground">Qiymətləndirmələr</p>
+                        <p className="font-medium text-sm">Qiymətləndirmə Hub-ı</p>
+                        <p className="text-xs text-muted-foreground">KSQ, BSQ və adi qiymətləndirmələr</p>
                       </div>
                     </Button>
                     

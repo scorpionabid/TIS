@@ -27,6 +27,7 @@ import {
   Calendar,
   Clock,
   CheckCircle,
+  TrendingUp,
   LucideIcon,
 } from 'lucide-react';
 import { UserRole, USER_ROLES } from '@/constants/roles';
@@ -366,6 +367,14 @@ export const improvedNavigationConfig: MenuGroup[] = [
         roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM],
         children: [
           {
+            id: 'school-assessments-hub',
+            label: 'Məktəb Qiymətləndirmə Hub-ı',
+            path: '/school/assessments',
+            icon: TrendingUp,
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM],
+            description: 'Vahid qiymətləndirmə sistemi - KSQ, BSQ və adi qiymətləndirmələr'
+          },
+          {
             id: 'assessment-types',
             label: 'Qiymətləndirmə Növləri',
             path: '/assessments/types',
@@ -385,7 +394,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
           },
           {
             id: 'assessment-results',
-            label: 'Nəticələr və Analiз',
+            label: 'Nəticələr və Analiz',
             path: '/assessments/results',
             roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]
           }

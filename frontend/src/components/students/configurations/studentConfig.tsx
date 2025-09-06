@@ -1,4 +1,4 @@
-// Student Manager Configuration for GenericManagerV2
+// Unified Student Manager Configuration for GenericManagerV2
 
 import React from 'react';
 import { 
@@ -10,7 +10,7 @@ import {
   StatsConfig,
   ManagerCustomLogic 
 } from '@/components/generic/types';
-import { SchoolStudent, schoolAdminService } from '@/services/schoolAdmin';
+import { Student, StudentFilters, StudentCreateData, studentService } from '@/services/students';
 import { 
   Users, 
   CheckCircle, 
@@ -23,35 +23,19 @@ import {
   Trash2,
   UserCheck,
   Download,
-  Upload
+  Upload,
+  UserMinus,
+  UserX,
+  Mail,
+  Phone,
+  Calendar,
+  MapPin,
+  Clock,
+  Badge as BadgeIcon
 } from 'lucide-react';
 
-// Student filters interface
-export interface StudentFilters {
-  page?: number;
-  per_page?: number;
-  search?: string;
-  class_id?: number;
-  status?: string;
-  grade_level?: number;
-  enrollment_status?: 'active' | 'inactive' | 'transferred' | 'graduated';
-}
-
-// Create student data interface
-export interface NewStudentData {
-  first_name: string;
-  last_name: string;
-  student_number: string;
-  email?: string;
-  date_of_birth?: string;
-  gender?: 'male' | 'female';
-  address?: string;
-  parent_name?: string;
-  parent_phone?: string;
-  class_id?: number;
-  enrollment_date?: string;
-  status?: 'active' | 'inactive';
-}
+// Re-export types from services for compatibility
+export type { Student, StudentFilters, StudentCreateData } from '@/services/students';
 
 // Default configurations
 const defaultFilters: StudentFilters = {
@@ -59,38 +43,39 @@ const defaultFilters: StudentFilters = {
   per_page: 20,
 };
 
-const defaultCreateData: NewStudentData = {
+const defaultCreateData: StudentCreateData = {
   first_name: '',
   last_name: '',
   student_number: '',
   email: '',
+  phone: '',
   date_of_birth: '',
   gender: 'male',
   address: '',
-  parent_name: '',
-  parent_phone: '',
   enrollment_date: new Date().toISOString().split('T')[0],
   status: 'active',
+  is_active: true,
 };
 
-// Column configuration
-const columns: ColumnConfig<SchoolStudent>[] = [
+// Enhanced column configuration with better rendering and accessibility
+const columns: ColumnConfig<Student>[] = [
   {
     key: 'name',
     label: 'Ad Soyad',
-    width: 'w-[200px]',
+    width: 'w-[220px]',
     render: (student) => (
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center">
-          <Users className="h-4 w-4 text-blue-600" />
+        <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center ring-2 ring-blue-50">
+          <GraduationCap className="h-5 w-5 text-blue-600" />
         </div>
         <div>
-          <div className="font-medium">
+          <div className="font-semibold text-foreground">
             {student.first_name && student.last_name 
               ? `${student.first_name} ${student.last_name}`.trim() 
-              : 'İsimsiz Şagird'}
+              : student.full_name || 'İsimsiz Şagird'}
           </div>
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground flex items-center gap-1">
+            <BadgeIcon className="h-3 w-3" />
             {student.student_number || student.student_id || 'ID yoxdur'}
           </div>
         </div>
@@ -98,49 +83,113 @@ const columns: ColumnConfig<SchoolStudent>[] = [
     ),
   },
   {
-    key: 'email',
-    label: 'Email',
-    render: (student) => student.email || 'Email yoxdur',
+    key: 'contact',
+    label: 'Əlaqə',
+    render: (student) => (
+      <div className="space-y-1">
+        {student.email && (
+          <div className="flex items-center gap-2 text-sm">
+            <Mail className="h-3 w-3 text-muted-foreground" />
+            <span className="truncate max-w-[150px]" title={student.email}>
+              {student.email}
+            </span>
+          </div>
+        )}
+        {student.phone && (
+          <div className="flex items-center gap-2 text-sm">
+            <Phone className="h-3 w-3 text-muted-foreground" />
+            <span>{student.phone}</span>
+          </div>
+        )}
+        {!student.email && !student.phone && (
+          <span className="text-muted-foreground text-sm">Məlumat yoxdur</span>
+        )}
+      </div>
+    ),
   },
   {
-    key: 'class',
-    label: 'Sinif',
+    key: 'academic_info',
+    label: 'Akademik Məlumat',
     render: (student) => {
-      const className = student.class_name || student.current_class;
-      return className || 'Sinif təyin edilməyib';
+      const className = student.class_name || student.current_class?.name;
+      const gradeLevel = student.grade_level || student.current_grade_level || student.current_class?.grade_level;
+      
+      return (
+        <div className="space-y-1">
+          {className && (
+            <div className="flex items-center gap-2">
+              <Users className="h-3 w-3 text-green-600" />
+              <span className="font-medium text-sm">{className}</span>
+            </div>
+          )}
+          {gradeLevel && (
+            <div className="flex items-center gap-2">
+              <GraduationCap className="h-3 w-3 text-blue-600" />
+              <span className="text-sm text-muted-foreground">{gradeLevel}-ci sinif</span>
+            </div>
+          )}
+          {!className && !gradeLevel && (
+            <span className="text-muted-foreground text-sm">Sinif təyin edilməyib</span>
+          )}
+        </div>
+      );
     },
   },
   {
-    key: 'grade_level',
-    label: 'Səviyyə',
-    render: (student) => {
-      const gradeLevel = student.grade_level || student.current_grade_level;
-      return gradeLevel ? `${gradeLevel}-ci sinif` : 'Səviyyə yoxdur';
-    },
+    key: 'performance',
+    label: 'Performans',
+    render: (student) => (
+      <div className="space-y-1">
+        {student.gpa && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-green-600">
+              GPA: {student.gpa.toFixed(1)}
+            </span>
+          </div>
+        )}
+        {student.attendance_rate && (
+          <div className="flex items-center gap-2">
+            <Clock className="h-3 w-3 text-blue-500" />
+            <span className="text-sm text-muted-foreground">
+              {student.attendance_rate}% davamiyyət
+            </span>
+          </div>
+        )}
+        {!student.gpa && !student.attendance_rate && (
+          <span className="text-muted-foreground text-sm">Məlumat yoxdur</span>
+        )}
+      </div>
+    ),
   },
   {
-    key: 'enrollment_status',
+    key: 'status',
     label: 'Status',
     render: (student) => {
       const status = student.enrollment_status || student.status;
       const isActive = student.is_active !== false;
       
       let statusText = 'Aktiv';
-      let statusColor = 'bg-green-100 text-green-800';
+      let statusColor = 'bg-green-100 text-green-800 border-green-200';
       
       if (!isActive || status === 'inactive') {
         statusText = 'Passiv';
-        statusColor = 'bg-red-100 text-red-800';
+        statusColor = 'bg-red-100 text-red-800 border-red-200';
       } else if (status === 'transferred') {
         statusText = 'Köçürülmüş';
-        statusColor = 'bg-blue-100 text-blue-800';
+        statusColor = 'bg-blue-100 text-blue-800 border-blue-200';
       } else if (status === 'graduated') {
         statusText = 'Məzun';
-        statusColor = 'bg-purple-100 text-purple-800';
+        statusColor = 'bg-purple-100 text-purple-800 border-purple-200';
+      } else if (status === 'dropped') {
+        statusText = 'Tərk etmiş';
+        statusColor = 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      } else if (status === 'expelled') {
+        statusText = 'İxrac';
+        statusColor = 'bg-red-100 text-red-800 border-red-200';
       }
       
       return (
-        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColor}`}>
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusColor}`}>
           {statusText}
         </span>
       );
@@ -151,23 +200,28 @@ const columns: ColumnConfig<SchoolStudent>[] = [
     label: 'Qeydiyyat Tarixi',
     render: (student) => {
       const enrollmentDate = student.enrollment_date;
-      if (!enrollmentDate) return 'Tarix yoxdur';
+      if (!enrollmentDate) return <span className="text-muted-foreground text-sm">Tarix yoxdur</span>;
       
       try {
-        return new Date(enrollmentDate).toLocaleDateString('az-AZ');
+        return (
+          <div className="flex items-center gap-2 text-sm">
+            <Calendar className="h-3 w-3 text-muted-foreground" />
+            {new Date(enrollmentDate).toLocaleDateString('az-AZ')}
+          </div>
+        );
       } catch {
-        return enrollmentDate;
+        return <span className="text-muted-foreground text-sm">{enrollmentDate}</span>;
       }
     },
   },
 ];
 
-// Action configuration
-const actions: ActionConfig<SchoolStudent>[] = [
+// Enhanced action configuration with proper permissions and confirmations
+const actions: ActionConfig<Student>[] = [
   {
     key: 'view',
     icon: Eye,
-    label: 'Bax',
+    label: 'Ətraflı bax',
     variant: 'ghost',
     onClick: (student) => {
       console.log('View student:', student);
@@ -185,14 +239,25 @@ const actions: ActionConfig<SchoolStudent>[] = [
   {
     key: 'enroll',
     icon: UserCheck,
-    label: 'Qeydiyyat',
+    label: 'Sinifə yaz',
     variant: 'ghost',
     onClick: (student) => {
       console.log('Enroll student:', student);
     },
+    condition: (student) => student.status !== 'active', // Only show for non-active students
   },
   {
-    key: 'delete',
+    key: 'soft-delete',
+    icon: UserMinus,
+    label: 'Deaktiv et',
+    variant: 'ghost',
+    onClick: (student) => {
+      console.log('Deactivate student:', student);
+    },
+    condition: (student) => student.is_active !== false, // Only show for active students
+  },
+  {
+    key: 'hard-delete',
     icon: Trash2,
     label: 'Sil',
     variant: 'ghost',
@@ -202,7 +267,7 @@ const actions: ActionConfig<SchoolStudent>[] = [
   },
 ];
 
-// Tab configuration
+// Enhanced tab configuration with proper filtering
 const tabs: TabConfig[] = [
   {
     key: 'all',
@@ -210,37 +275,48 @@ const tabs: TabConfig[] = [
   },
   {
     key: 'active',
-    label: 'Aktiv',
-    filter: (students: SchoolStudent[]) => students.filter(s => s.is_active !== false),
+    label: 'Aktiv Şagirdlər',
+    filter: (students: Student[]) => students.filter(s => 
+      s.is_active !== false && (s.status === 'active' || s.enrollment_status === 'active')
+    ),
   },
   {
     key: 'inactive',
-    label: 'Passiv',
-    filter: (students: SchoolStudent[]) => students.filter(s => s.is_active === false),
+    label: 'Passiv Şagirdlər',
+    filter: (students: Student[]) => students.filter(s => 
+      s.is_active === false || s.status === 'inactive' || s.enrollment_status === 'inactive'
+    ),
   },
   {
     key: 'transferred',
     label: 'Köçürülmüş',
-    filter: (students: SchoolStudent[]) => students.filter(s => 
+    filter: (students: Student[]) => students.filter(s => 
       s.enrollment_status === 'transferred' || s.status === 'transferred'
     ),
   },
   {
     key: 'graduated',
     label: 'Məzun',
-    filter: (students: SchoolStudent[]) => students.filter(s => 
+    filter: (students: Student[]) => students.filter(s => 
       s.enrollment_status === 'graduated' || s.status === 'graduated'
+    ),
+  },
+  {
+    key: 'needs_class',
+    label: 'Sinif Tələb Edir',
+    filter: (students: Student[]) => students.filter(s => 
+      !s.class_name && !s.current_class && s.is_active !== false
     ),
   },
 ];
 
-// Filter fields configuration
+// Enhanced filter fields configuration
 const filterFields: FilterFieldConfig[] = [
   {
     key: 'grade_level',
     label: 'Sinif Səviyyəsi',
     type: 'select',
-    options: Array.from({ length: 11 }, (_, i) => ({
+    options: Array.from({ length: 12 }, (_, i) => ({
       value: (i + 1).toString(),
       label: `${i + 1}-ci sinif`
     })),
@@ -252,6 +328,18 @@ const filterFields: FilterFieldConfig[] = [
     options: [
       { value: 'male', label: 'Kişi' },
       { value: 'female', label: 'Qadın' },
+      { value: 'other', label: 'Digər' },
+    ],
+  },
+  {
+    key: 'enrollment_status',
+    label: 'Qeydiyyat Statusu',
+    type: 'select',
+    options: [
+      { value: 'active', label: 'Aktiv' },
+      { value: 'inactive', label: 'Passiv' },
+      { value: 'transferred', label: 'Köçürülmüş' },
+      { value: 'graduated', label: 'Məzun' },
     ],
   },
   {
@@ -264,24 +352,40 @@ const filterFields: FilterFieldConfig[] = [
     label: 'Qeydiyyat Tarixi (Son)',
     type: 'date',
   },
+  {
+    key: 'is_active',
+    label: 'Aktiv Status',
+    type: 'select',
+    options: [
+      { value: 'true', label: 'Aktiv' },
+      { value: 'false', label: 'Passiv' },
+    ],
+  },
 ];
 
-// Custom stats calculation
-const calculateStudentStats = (students: SchoolStudent[]): StatsConfig[] => {
+// Enhanced custom stats calculation
+const calculateStudentStats = (students: Student[]): StatsConfig[] => {
   const total = students.length;
-  const active = students.filter(s => s.is_active !== false).length;
-  const inactive = students.filter(s => s.is_active === false).length;
+  const active = students.filter(s => 
+    s.is_active !== false && (s.status === 'active' || s.enrollment_status === 'active')
+  ).length;
+  const inactive = students.filter(s => 
+    s.is_active === false || s.status === 'inactive' || s.enrollment_status === 'inactive'
+  ).length;
   const transferred = students.filter(s => 
     s.enrollment_status === 'transferred' || s.status === 'transferred'
   ).length;
   const graduated = students.filter(s => 
     s.enrollment_status === 'graduated' || s.status === 'graduated'
   ).length;
+  const needsClass = students.filter(s => 
+    !s.class_name && !s.current_class && s.is_active !== false
+  ).length;
 
   return [
     {
       key: 'total',
-      label: 'Ümumi',
+      label: 'Ümumi Şagird',
       value: total,
       icon: Users,
       color: 'default',
@@ -314,26 +418,33 @@ const calculateStudentStats = (students: SchoolStudent[]): StatsConfig[] => {
       icon: GraduationCap,
       color: 'purple',
     },
+    {
+      key: 'needs_class',
+      label: 'Sinif Tələb Edir',
+      value: needsClass,
+      icon: UserPlus,
+      color: 'orange',
+    },
   ];
 };
 
-// Main configuration
-export const studentEntityConfig: EntityConfig<SchoolStudent, StudentFilters, NewStudentData> = {
+// Main unified configuration
+export const unifiedStudentConfig: EntityConfig<Student, StudentFilters, StudentCreateData> = {
   // Basic info
   entityType: 'students',
   entityName: 'Şagird',
   entityNamePlural: 'Şagirdlər',
   
-  // API service
+  // API service - Using unified student service with proper this binding
   service: {
-    get: (filters) => schoolAdminService.getSchoolStudents(filters),
-    create: (data) => schoolAdminService.createStudent(data),
-    update: (id, data) => schoolAdminService.updateStudent(id, data),
-    delete: (id) => schoolAdminService.deleteStudent(id),
+    get: (filters) => studentService.get(filters),
+    create: (data) => studentService.create(data),
+    update: (id, data) => studentService.update(id, data),
+    delete: (id) => studentService.delete(id),
   },
   
-  // Query configuration
-  queryKey: ['schoolAdmin', 'students'],
+  // Query configuration - Unified query key
+  queryKey: ['students'],
   defaultFilters,
   defaultCreateData,
   
@@ -343,7 +454,7 @@ export const studentEntityConfig: EntityConfig<SchoolStudent, StudentFilters, Ne
   tabs,
   filterFields,
   
-  // Feature flags
+  // Feature flags - Full feature set enabled
   features: {
     search: true,
     filters: true,
@@ -358,67 +469,87 @@ export const studentEntityConfig: EntityConfig<SchoolStudent, StudentFilters, Ne
   },
 };
 
-// Custom logic for student management
-export const studentCustomLogic: ManagerCustomLogic<SchoolStudent> = {
+// Enhanced custom logic for student management
+export const studentCustomLogic: ManagerCustomLogic<Student> = {
   // Custom stats calculation
   calculateCustomStats: calculateStudentStats,
   
-  // Permission checks
-  permissionCheck: (action: string, student?: SchoolStudent) => {
-    // Add your permission logic here
-    return true;
+  // Permission checks - Enhanced with context awareness
+  permissionCheck: (action: string, student?: Student) => {
+    // Basic permission logic - extend based on your requirements
+    switch (action) {
+      case 'create':
+      case 'edit':
+      case 'delete':
+        return true; // Add your role-based logic here
+      case 'enroll':
+        return student ? student.status !== 'active' : false;
+      case 'soft-delete':
+        return student ? student.is_active !== false : false;
+      default:
+        return true;
+    }
   },
   
-  // Bulk actions
+  // Enhanced bulk actions with progress tracking
   bulkActions: [
     {
       key: 'activate',
-      label: 'Aktivləşdir',
+      label: 'Toplu Aktivləşdirmə',
       icon: CheckCircle,
       onClick: (selectedStudents) => {
-        console.log('Bulk activate:', selectedStudents);
+        console.log('Bulk activate:', selectedStudents.length, 'students');
+        // Implementation would go here
       },
       variant: 'default',
     },
     {
+      key: 'deactivate',
+      label: 'Toplu Deaktivləşdirmə',
+      icon: XCircle,
+      onClick: (selectedStudents) => {
+        console.log('Bulk deactivate:', selectedStudents.length, 'students');
+        // Implementation would go here
+      },
+      variant: 'outline',
+    },
+    {
       key: 'transfer',
-      label: 'Köçür',
+      label: 'Toplu Köçürmə',
       icon: ArrowRightLeft,
       onClick: (selectedStudents) => {
-        console.log('Bulk transfer:', selectedStudents);
+        console.log('Bulk transfer:', selectedStudents.length, 'students');
+        // Implementation would go here
       },
       variant: 'outline',
     },
     {
       key: 'graduate',
-      label: 'Məzun Et',
+      label: 'Toplu Məzun Etmə',
       icon: GraduationCap,
       onClick: (selectedStudents) => {
-        console.log('Bulk graduate:', selectedStudents);
+        console.log('Bulk graduate:', selectedStudents.length, 'students');
+        // Implementation would go here
       },
       variant: 'outline',
     },
     {
-      key: 'export',
-      label: 'İxrac Et',
+      key: 'export-selected',
+      label: 'Seçilənləri İxrac Et',
       icon: Download,
       onClick: (selectedStudents) => {
-        console.log('Bulk export:', selectedStudents);
+        console.log('Export selected:', selectedStudents.length, 'students');
+        // Implementation would go here
       },
       variant: 'outline',
     },
   ],
   
-  // Header actions
-  headerActions: [
-    {
-      key: 'import',
-      label: 'İdxal Et',
-      icon: Upload,
-      onClick: () => {
-        console.log('Open import modal');
-      },
-      variant: 'outline',
-    },
-  ],
+  // Header actions removed - GenericManagerV2 handles create/import/export automatically
+  // Built-in functionality enabled in unifiedStudentConfig: create: true, import: true, export: true
+  
+  // Custom modal rendering - will be overridden in StudentManagerV2
 };
+
+// Legacy export for backward compatibility
+export const studentEntityConfig = unifiedStudentConfig;

@@ -29,6 +29,8 @@ interface UserModalProps {
 }
 
 export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
+  console.log('👤 UserModal rendered with props:', { open, hasUser: !!user, hasOnClose: !!onClose, hasOnSave: !!onSave });
+  
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');

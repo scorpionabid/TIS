@@ -36,6 +36,7 @@ class DataIsolationHelper
             case 'sektoradmin':
                 return self::applySektorAdminScope($query, $user, $resourceType);
                 
+            case 'schooladmin':
             case 'məktəbadmin':
                 return self::applyMektebAdminScope($query, $user, $resourceType);
                 
@@ -326,6 +327,7 @@ class DataIsolationHelper
                     ->pluck('id')
                     ->prepend($userSector->id);
                 
+            case 'schooladmin':
             case 'məktəbadmin':
             case 'müəllim':
                 return collect([$user->institution_id]);
@@ -396,6 +398,7 @@ class DataIsolationHelper
                 return 'department';
             case 'sektoradmin':
                 return 'sector';
+            case 'schooladmin':
             case 'məktəbadmin':
                 return 'school';
             case 'müəllim':

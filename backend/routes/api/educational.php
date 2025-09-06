@@ -13,6 +13,7 @@ use App\Http\Controllers\SchoolEventController;
 use App\Http\Controllers\TeacherPerformanceController;
 use App\Http\Controllers\AssessmentController;
 use App\Http\Controllers\AssessmentTypeController;
+use App\Http\Controllers\UnifiedAssessmentController;
 use App\Http\Controllers\API\RegionAssessmentController;
 use Illuminate\Support\Facades\Route;
 
@@ -304,6 +305,21 @@ Route::prefix('assessments')->middleware('permission:assessments.read')->group(f
         // Route::put('/{assessment}', [App\Http\Controllers\BSQAssessmentController::class, 'update'])->middleware('permission:assessments.write');
         // Route::delete('/{assessment}', [App\Http\Controllers\BSQAssessmentController::class, 'destroy'])->middleware('permission:assessments.write');
     });
+});
+
+// Unified Assessment Hub Routes (New Implementation)
+Route::prefix('unified-assessments')->middleware('permission:assessments.read')->group(function () {
+    // Dashboard data endpoint for SchoolAssessments.tsx
+    Route::get('/dashboard', [UnifiedAssessmentController::class, 'getDashboardData']);
+    
+    // Assessment overview data (KSQ, BSQ, regular assessments)
+    Route::get('/overview', [UnifiedAssessmentController::class, 'getAssessmentOverview']);
+    
+    // Gradebook data with filtering
+    Route::get('/gradebook', [UnifiedAssessmentController::class, 'getGradebookData']);
+    
+    // Comprehensive analytics for reports
+    Route::get('/analytics', [UnifiedAssessmentController::class, 'getAnalyticsData']);
 });
 
 // Assessment Type Management Routes

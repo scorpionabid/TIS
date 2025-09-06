@@ -1,38 +1,111 @@
 import { apiClient } from './api';
+import { BaseEntity } from '@/components/generic/types';
 
-export interface Student {
+// Enhanced Student interface that extends BaseEntity for GenericManagerV2 compatibility
+export interface Student extends BaseEntity {
   id: number;
   student_number: string;
+  student_id?: string; // For backward compatibility
   first_name: string;
   last_name: string;
-  full_name: string;
+  full_name?: string;
   email: string | null;
   phone?: string;
   date_of_birth?: string;
-  gender?: string;
+  gender?: 'male' | 'female' | 'other';
   address?: string;
   enrollment_date?: string | null;
   current_grade_level?: number | string;
   class_name?: string;
-  status: string;
+  status: 'active' | 'inactive' | 'transferred' | 'graduated' | 'dropped' | 'expelled';
+  enrollment_status?: 'active' | 'inactive' | 'transferred' | 'graduated';
   institution_id: number;
   institution?: {
     id: number;
     name: string;
+    type?: {
+      name: string;
+      key: string;
+    };
   };
+  current_class?: {
+    id: number;
+    name: string;
+    grade_level: number;
+  };
+  grade_level?: number;
   is_active: boolean;
+  
+  // Academic performance fields
+  gpa?: number;
+  attendance_rate?: number;
+  
+  // Guardian information
+  guardian_name?: string;
+  guardian_phone?: string;
+  guardian_email?: string;
+  guardian_relation?: string;
+  
+  // Medical information
+  medical_conditions?: string;
+  allergies?: string;
+  emergency_contact?: string;
+  
+  // Additional notes
+  notes?: string;
+  
+  // Timestamps
   created_at: string;
   updated_at: string;
 }
 
+// Unified StudentFilters interface
 export interface StudentFilters {
   institution_id?: number;
   class_id?: number;
   grade_level?: number;
   status?: string;
+  enrollment_status?: 'active' | 'inactive' | 'transferred' | 'graduated';
+  gender?: 'male' | 'female' | 'other';
   search?: string;
   page?: number;
   per_page?: number;
+  is_active?: boolean;
+  academic_year?: string;
+  enrollment_date_from?: string;
+  enrollment_date_to?: string;
+}
+
+// Unified StudentCreateData interface
+export interface StudentCreateData {
+  first_name: string;
+  last_name: string;
+  student_number: string;
+  email?: string;
+  phone?: string;
+  date_of_birth?: string;
+  gender?: 'male' | 'female' | 'other';
+  address?: string;
+  enrollment_date?: string;
+  current_grade_level?: number;
+  class_id?: number;
+  institution_id?: number;
+  status?: 'active' | 'inactive';
+  is_active?: boolean;
+  
+  // Guardian information
+  guardian_name?: string;
+  guardian_phone?: string;
+  guardian_email?: string;
+  guardian_relation?: string;
+  
+  // Medical information
+  medical_conditions?: string;
+  allergies?: string;
+  emergency_contact?: string;
+  
+  // Additional notes
+  notes?: string;
 }
 
 export interface PaginatedStudents {
@@ -63,30 +136,90 @@ export interface StudentCount {
   institution_name: string;
 }
 
+// Unified response type for GenericManagerV2 compatibility
+export interface StudentServiceResponse {
+  data: Student[];
+  pagination?: {
+    current_page: number;
+    per_page: number;
+    total: number;
+    last_page: number;
+    from: number | null;
+    to: number | null;
+  };
+  success: boolean;
+  message?: string;
+}
+
 class StudentService {
   private baseURL = '/students';
 
   /**
-   * Get all students with role-based filtering
+   * Get all students with role-based filtering - Enhanced for GenericManagerV2
+   */
+  async get(filters: StudentFilters = {}): Promise<Student[]> {
+    try {
+      console.log('🔍 StudentService.get - baseURL:', this.baseURL, 'filters:', filters);
+      
+      // Build query parameters as a plain object for apiClient
+      const params: Record<string, any> = {};
+      
+      // Build query parameters with enhanced filter support
+      if (filters.institution_id) params.institution_id = filters.institution_id;
+      if (filters.class_id) params.class_id = filters.class_id;
+      if (filters.grade_level) params.grade_level = filters.grade_level;
+      if (filters.status) params.status = filters.status;
+      if (filters.enrollment_status) params.enrollment_status = filters.enrollment_status;
+      if (filters.gender) params.gender = filters.gender;
+      if (filters.search) params.search = filters.search;
+      if (filters.page) params.page = filters.page;
+      if (filters.per_page) params.per_page = filters.per_page;
+      if (filters.is_active !== undefined) params.is_active = filters.is_active;
+      if (filters.academic_year) params.academic_year = filters.academic_year;
+      if (filters.enrollment_date_from) params.enrollment_date_from = filters.enrollment_date_from;
+      if (filters.enrollment_date_to) params.enrollment_date_to = filters.enrollment_date_to;
+
+      const response = await apiClient.get<any>(this.baseURL, params);
+      
+      // Handle different response formats for compatibility
+      if (response.data?.students) {
+        return response.data.students;
+      } else if (response.data?.data) {
+        return Array.isArray(response.data.data) ? response.data.data : response.data.data.students || [];
+      } else if (Array.isArray(response.data)) {
+        return response.data;
+      }
+      
+      return [];
+    } catch (error: any) {
+      console.error('StudentService.get error:', error);
+      throw new Error(error.response?.data?.message || 'Şagirdlər yüklənərkən xəta baş verdi');
+    }
+  }
+
+  /**
+   * Legacy getAll method for backward compatibility
    */
   async getAll(filters: StudentFilters = {}): Promise<{ data: { students: Student[]; pagination: any }; success: boolean; message: string }> {
     try {
-      const params = new URLSearchParams();
-      
-      if (filters.institution_id) params.append('institution_id', filters.institution_id.toString());
-      if (filters.class_id) params.append('class_id', filters.class_id.toString());
-      if (filters.grade_level) params.append('grade_level', filters.grade_level.toString());
-      if (filters.status) params.append('status', filters.status);
-      if (filters.search) params.append('search', filters.search);
-      if (filters.page) params.append('page', filters.page.toString());
-      if (filters.per_page) params.append('per_page', filters.per_page.toString());
-
-      const url = `${this.baseURL}${params.toString() ? `?${params.toString()}` : ''}`;
-      
-      const response = await apiClient.get(url);
-      return response.data;
+      const students = await this.get(filters);
+      return {
+        data: { 
+          students, 
+          pagination: { 
+            current_page: 1, 
+            per_page: students.length, 
+            total: students.length, 
+            last_page: 1, 
+            from: 1, 
+            to: students.length 
+          } 
+        },
+        success: true,
+        message: 'Şagirdlər uğurla yükləndi'
+      };
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Şagirdlər yüklənərkən xəta baş verdi');
+      throw error;
     }
   }
 
@@ -142,38 +275,104 @@ class StudentService {
   }
 
   /**
-   * Create new student
+   * Create new student - Enhanced for GenericManagerV2
    */
-  async create(studentData: any): Promise<{ data: Student; success: boolean; message: string }> {
+  async create(studentData: Partial<StudentCreateData>): Promise<Student> {
     try {
       const response = await apiClient.post(this.baseURL, studentData);
+      
+      // Handle different response formats
+      if (response.data?.data) {
+        return response.data.data;
+      } else if (response.data?.student) {
+        return response.data.student;
+      }
+      
       return response.data;
     } catch (error: any) {
+      console.error('StudentService.create error:', error);
       throw new Error(error.response?.data?.message || 'Şagird yaradılarkən xəta baş verdi');
     }
   }
 
   /**
-   * Update student
+   * Update student - Enhanced for GenericManagerV2
    */
-  async update(id: number, studentData: any): Promise<{ data: Student; success: boolean; message: string }> {
+  async update(id: number, studentData: Partial<StudentCreateData>): Promise<Student> {
     try {
       const response = await apiClient.put(`${this.baseURL}/${id}`, studentData);
+      
+      // Handle different response formats
+      if (response.data?.data) {
+        return response.data.data;
+      } else if (response.data?.student) {
+        return response.data.student;
+      }
+      
       return response.data;
     } catch (error: any) {
+      console.error('StudentService.update error:', error);
       throw new Error(error.response?.data?.message || 'Şagird yenilənərkən xəta baş verdi');
     }
   }
 
   /**
-   * Delete student
+   * Delete student - Enhanced for GenericManagerV2
    */
-  async delete(id: number): Promise<{ success: boolean; message: string }> {
+  async delete(id: number): Promise<void> {
     try {
-      const response = await apiClient.delete(`${this.baseURL}/${id}`);
-      return response.data;
+      await apiClient.delete(`${this.baseURL}/${id}`);
     } catch (error: any) {
+      console.error('StudentService.delete error:', error);
       throw new Error(error.response?.data?.message || 'Şagird silinərkən xəta baş verdi');
+    }
+  }
+
+  // Legacy methods for backward compatibility
+  /**
+   * Create new student (legacy)
+   */
+  async createLegacy(studentData: any): Promise<{ data: Student; success: boolean; message: string }> {
+    try {
+      const student = await this.create(studentData);
+      return {
+        data: student,
+        success: true,
+        message: 'Şagird uğurla yaradıldı'
+      };
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  /**
+   * Update student (legacy)
+   */
+  async updateLegacy(id: number, studentData: any): Promise<{ data: Student; success: boolean; message: string }> {
+    try {
+      const student = await this.update(id, studentData);
+      return {
+        data: student,
+        success: true,
+        message: 'Şagird uğurla yeniləndi'
+      };
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  /**
+   * Delete student (legacy)
+   */
+  async deleteLegacy(id: number): Promise<{ success: boolean; message: string }> {
+    try {
+      await this.delete(id);
+      return {
+        success: true,
+        message: 'Şagird uğurla silindi'
+      };
+    } catch (error: any) {
+      throw error;
     }
   }
 

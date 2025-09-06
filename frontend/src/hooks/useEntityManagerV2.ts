@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { 
@@ -29,6 +29,11 @@ export function useEntityManagerV2<
   const [selectedEntity, setSelectedEntity] = useState<T | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editingEntity, setEditingEntity] = useState<T | null>(null);
+  
+  // Debug logging for createModalOpen state changes
+  React.useEffect(() => {
+    console.log(`🎭 useEntityManagerV2(${entityType}) createModalOpen changed:`, createModalOpen);
+  }, [createModalOpen, entityType]);
   const [selectedItems, setSelectedItems] = useState<T[]>([]);
 
   // Data fetching with enhanced logging
@@ -145,7 +150,28 @@ export function useEntityManagerV2<
     return defaultStats;
   }, [entities, customLogic]);
 
-  // Create mutation with enhanced error handling
+  // Enhanced cache invalidation function (learned from grades system)
+  const invalidateEntityCaches = React.useCallback(() => {
+    // Triple invalidation strategy for consistent UI updates
+    queryClient.invalidateQueries({ queryKey });
+    queryClient.invalidateQueries({ predicate: (query) => 
+      query.queryKey[0] === entityType || 
+      (Array.isArray(query.queryKey) && query.queryKey.includes(entityType))
+    });
+    queryClient.refetchQueries({ queryKey });
+    
+    // Cross-entity cache invalidation for related data
+    if (entityType === 'students') {
+      queryClient.invalidateQueries({ queryKey: ['grades'] });
+      queryClient.invalidateQueries({ queryKey: ['classes'] });
+      queryClient.invalidateQueries({ queryKey: ['institutions'] });
+    } else if (entityType === 'grades') {
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      queryClient.invalidateQueries({ queryKey: ['teachers'] });
+    }
+  }, [queryClient, queryKey, entityType]);
+
+  // Create mutation with enhanced cache invalidation
   const createEntityMutation = useMutation({
     mutationFn: (data: Partial<TCreateData>) => {
       console.log(`➕ EntityManagerV2(${entityType}): Creating entity:`, data);
@@ -154,8 +180,10 @@ export function useEntityManagerV2<
     onSuccess: (result) => {
       console.log(`✅ EntityManagerV2(${entityType}): Entity created successfully:`, result);
       toast.success(`${entityName} uğurla yaradıldı`);
-      queryClient.invalidateQueries({ queryKey: [...queryKey, entityType] });
-      refetch();
+      
+      // Enhanced cache invalidation
+      invalidateEntityCaches();
+      
       setCreateModalOpen(false);
       setEditingEntity(null);
     },
@@ -165,7 +193,7 @@ export function useEntityManagerV2<
     },
   });
 
-  // Update mutation with enhanced error handling
+  // Update mutation with enhanced cache invalidation
   const updateEntityMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<TCreateData> }) => {
       console.log(`📝 EntityManagerV2(${entityType}): Updating entity ${id}:`, data);
@@ -174,8 +202,10 @@ export function useEntityManagerV2<
     onSuccess: (result) => {
       console.log(`✅ EntityManagerV2(${entityType}): Entity updated successfully:`, result);
       toast.success(`${entityName} uğurla yeniləndi`);
-      queryClient.invalidateQueries({ queryKey: [...queryKey, entityType] });
-      refetch();
+      
+      // Enhanced cache invalidation
+      invalidateEntityCaches();
+      
       setEditingEntity(null);
       setCreateModalOpen(false);
     },
@@ -185,7 +215,7 @@ export function useEntityManagerV2<
     },
   });
 
-  // Delete mutation with enhanced error handling
+  // Delete mutation with enhanced cache invalidation
   const deleteEntityMutation = useMutation({
     mutationFn: (id: number) => {
       console.log(`🗑️ EntityManagerV2(${entityType}): Deleting entity ${id}`);
@@ -194,8 +224,10 @@ export function useEntityManagerV2<
     onSuccess: () => {
       console.log(`✅ EntityManagerV2(${entityType}): Entity deleted successfully`);
       toast.success(`${entityName} uğurla silindi`);
-      queryClient.invalidateQueries({ queryKey: [...queryKey, entityType] });
-      refetch();
+      
+      // Enhanced cache invalidation
+      invalidateEntityCaches();
+      
       // Clear selection if deleted item was selected
       setSelectedItems(prev => prev.filter(item => !prev.find(p => p.id === (selectedEntity?.id || 0))));
     },

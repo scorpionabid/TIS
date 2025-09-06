@@ -592,4 +592,16 @@ class AssessmentService {
 }
 
 export const assessmentService = new AssessmentService();
+
+// Explicitly export all types for external use
+export type {
+  KSQResult,
+  BSQResult,
+  AssessmentAnalytics,
+  CreateKSQData,
+  CreateBSQData,
+  AssessmentFilters,
+  AssessmentRankings
+};
+
 export default assessmentService;
