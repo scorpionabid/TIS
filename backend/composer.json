@@ -24,6 +24,7 @@
         "laravel/tinker": "^2.10.1",
         "maatwebsite/excel": "^3.1",
         "phpoffice/phpspreadsheet": "^1.30",
+        "psr/clock": "*",
         "spatie/laravel-permission": "^6.20"
     },
     "require-dev": {

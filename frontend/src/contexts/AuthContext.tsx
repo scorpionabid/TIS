@@ -65,10 +65,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const hasToken = authService.isAuthenticated();
         const rawToken = authService.getToken();
         const localStorageToken = localStorage.getItem('auth_token');
+        const savedUser = localStorage.getItem('current_user');
+        
         console.log('🔍 AuthContext: Token status:', {
           hasToken: hasToken,
           authServiceToken: rawToken ? `${rawToken.substring(0, 15)}...` : 'null',
           localStorageToken: localStorageToken ? `${localStorageToken.substring(0, 15)}...` : 'null',
+          hasSavedUser: !!savedUser,
           localStorageKeys: Object.keys(localStorage),
           tokenLengths: {
             authService: rawToken?.length || 0,
@@ -78,8 +81,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         if (hasToken) {
           console.log('🔍 AuthContext: Token found, getting current user');
+          
+          // Try to restore user from localStorage first for faster UX
+          if (savedUser) {
+            try {
+              const parsedUser = JSON.parse(savedUser);
+              console.log('🔄 AuthContext: Temporarily restoring user from localStorage');
+              setCurrentUser(parsedUser);
+              setIsAuthenticated(true);
+            } catch (e) {
+              console.warn('🔍 AuthContext: Failed to parse saved user');
+            }
+          }
+          
           const user = await authService.getCurrentUser();
-          console.log('👤 AuthContext: Got current user:', user);
+          console.log('👤 AuthContext: Got current user from API:', user);
           console.log('🎭 AuthContext: Raw backend role:', user.role);
           
           // Map backend role to frontend role
@@ -92,13 +108,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setCurrentUser(mappedUser);
           setIsAuthenticated(true);
           
-          // Save user to localStorage for debugging
+          // Save user to localStorage for persistence
           localStorage.setItem('current_user', JSON.stringify(mappedUser));
           console.log('✅ AuthContext: Authentication successful');
         } else {
           console.log('🔍 AuthContext: No token found - user not authenticated');
           setIsAuthenticated(false);
           setCurrentUser(null);
+          localStorage.removeItem('current_user');
         }
       } catch (error) {
         console.error('❌ Auth check failed (attempt', retryCount + 1, '):', error);
@@ -110,22 +127,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           error.message.includes('Failed to fetch')
         );
         
-        const is401Error = error instanceof Error && error.message.includes('401');
+        const is401Error = error instanceof Error && (
+          error.message.includes('401') || 
+          error.message.includes('Unauthenticated')
+        );
         
         if (is401Error) {
-          console.log('🔍 AuthContext: 401 error - invalid/expired token');
-          authService.clearAuth();
+          console.log('🔍 AuthContext: 401/Unauthenticated error - checking token validity');
+          const currentToken = authService.getToken();
+          
+          if (currentToken) {
+            console.log('🔍 AuthContext: Token exists but API returned 401 - token is invalid/expired');
+            console.log('🗑️ AuthContext: Clearing invalid token and setting unauthenticated state');
+            authService.clearAuth();
+          } else {
+            console.log('🔍 AuthContext: No token found - user was already logged out');
+          }
+          
           setIsAuthenticated(false);
           setCurrentUser(null);
+          localStorage.removeItem('current_user');
         } else if (isNetworkError && retryCount < 2) {
           console.log('🔄 AuthContext: Network error - retrying in 1 second...');
           setTimeout(() => checkAuth(retryCount + 1), 1000);
           return; // Don't continue to finally block
         } else {
-          console.log('🔍 AuthContext: Other error or max retries reached - assuming not authenticated');
-          // For other errors after retries, assume not authenticated
-          setIsAuthenticated(false);
-          setCurrentUser(null);
+          console.log('🔍 AuthContext: Other error or max retries reached');
+          
+          // For other errors, don't clear token - might be temporary API issue
+          // Only update state if we don't have a token
+          const hasToken = authService.isAuthenticated();
+          if (!hasToken) {
+            console.log('🔍 AuthContext: No token found - setting unauthenticated');
+            setIsAuthenticated(false);
+            setCurrentUser(null);
+          } else {
+            console.log('🔍 AuthContext: Token exists but API call failed - keeping authenticated state');
+            // Keep the current authentication state - don't log out on temporary errors
+          }
         }
       } finally {
         // Only set loading to false if we're not retrying

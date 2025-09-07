@@ -14,14 +14,53 @@ export type {
   ChangePasswordData 
 };
 
+// Helper function to extract role from API response
+const extractUserRole = (roles: any[]): string => {
+  if (!roles || !Array.isArray(roles) || roles.length === 0) {
+    return 'user';
+  }
+  
+  const firstRole = roles[0];
+  return typeof firstRole === 'object' ? firstRole?.name : firstRole || 'user';
+};
+
+// Helper function to transform API user data to User type
+const transformUserData = (userData: any): User => {
+  if (!userData || !userData.id) {
+    throw new Error('Invalid user data received from API');
+  }
+
+  return {
+    id: userData.id,
+    name: userData.name || userData.username || 'İstifadəçi',
+    first_name: userData.first_name || '',
+    last_name: userData.last_name || '',
+    email: userData.email,
+    username: userData.username,
+    role: extractUserRole(userData.roles),
+    permissions: userData.permissions || [],
+    institution: userData.institution,
+    region: userData.region,
+    department: userData.department,
+    is_active: userData.is_active !== undefined ? userData.is_active : true,
+    created_at: userData.created_at,
+    updated_at: userData.updated_at,
+  };
+};
+
 class AuthService {
+  private readonly DEBUG_MODE = process.env.NODE_ENV === 'development';
+
+  private log(...args: any[]): void {
+    if (this.DEBUG_MODE) {
+      console.log(...args);
+    }
+  }
+
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
-    // CSRF token disabled for API-only authentication
-    // Laravel Sanctum with token authentication doesn't require CSRF for API endpoints
-    console.log('🔐 Auth Service: Using token-based authentication, skipping CSRF cookie');
+    this.log('🔐 Auth Service: Starting login process');
     
     // Clear any existing auth data before login
-    console.log('🧹 Auth Service: Clearing existing auth data before login');
     this.clearAuth();
     
     // Backend expects 'login' field instead of 'email'
@@ -31,42 +70,20 @@ class AuthService {
       device_name: 'web-browser',
     };
     
-    console.log('🔍 Auth Service: Sending login data:', {
-      login: loginData.login,
-      password: '[' + loginData.password.length + ' chars]',
-      device_name: loginData.device_name,
-      credentialsSource: credentials
-    });
+    this.log('🔍 Auth Service: Sending login request');
     
-    const response = await apiClient.post<any>('/login', loginData);
-    
-    console.log('🔍 Login Service: Full response:', response);
-    console.log('📦 Login Service: Response data:', response.data);
-    
-    if (response.data) {
-      // Backend returns {token, user, requires_password_change} structure inside data
-      const userData = response.data.user;
-      console.log('👤 Login Service: User data:', userData);
-      console.log('🎭 Login Service: Roles array:', userData.roles);
-      console.log('🎭 Login Service: First role raw:', userData.roles?.[0]);
-      console.log('🎭 Login Service: First role name:', userData.roles?.[0]?.name);
+    try {
+      const response = await apiClient.post<{
+        token: string;
+        user: any;
+        expires_at?: string;
+      }>('/login', loginData);
       
-      const extractedRole = userData.roles?.[0]?.name || userData.roles?.[0] || 'user';
-      console.log('🎭 Login Service: Extracted role:', extractedRole);
-      
-      const user: User = {
-        id: userData.id,
-        name: userData.name || userData.username || 'İstifadəçi',
-        email: userData.email,
-        username: userData.username,
-        role: extractedRole, // Extract role name from first role
-        permissions: userData.permissions || [],
-        institution: userData.institution,
-        region: userData.region,
-        department: userData.department,
-        created_at: userData.created_at,
-        updated_at: userData.updated_at,
-      };
+      if (!response.data || !response.data.token || !response.data.user) {
+        throw new Error('Invalid login response structure');
+      }
+
+      const user = transformUserData(response.data.user);
       
       const loginResponse: LoginResponse = {
         token: response.data.token,
@@ -75,21 +92,13 @@ class AuthService {
       };
       
       apiClient.setToken(loginResponse.token);
-      
-      // Debug: Verify token was saved immediately after login
-      console.log('🔐 Auth Service: Login successful, verifying token save:', {
-        tokenLength: loginResponse.token.length,
-        tokenStart: loginResponse.token.substring(0, 20),
-        apiClientHasToken: !!apiClient.getToken(),
-        localStorageHasToken: !!localStorage.getItem('auth_token'),
-        localStorageToken: localStorage.getItem('auth_token')?.substring(0, 20),
-        allLocalStorageKeys: Object.keys(localStorage)
-      });
+      this.log('✅ Auth Service: Login successful');
       
       return loginResponse;
+    } catch (error) {
+      this.log('❌ Auth Service: Login failed:', error);
+      throw new Error('Login failed. Please check your credentials.');
     }
-    
-    throw new Error('Login failed');
   }
 
   async logout(): Promise<void> {
@@ -101,64 +110,65 @@ class AuthService {
   }
 
   async getCurrentUser(): Promise<User> {
-    console.log('🔍 Auth Service: Calling /me endpoint');
-    console.log('🔍 Auth Service: Current token before /me call:', apiClient.getToken());
-    const response = await apiClient.get<any>('/me');
+    this.log('🔍 Auth Service: Calling /me endpoint');
     
-    console.log('📥 Auth Service: /me response:', response);
-    console.log('📥 Auth Service: /me response.data:', response.data);
-    console.log('📥 Auth Service: /me response.user exists:', !!response.user);
-    
-    // Backend might return response.user directly or response.data
-    const userData = response.user || response.data || response;
-    console.log('👤 Auth Service: Extracted user data:', userData);
-    
-    if (userData && userData.id) {
-      console.log('🎭 Auth Service: Roles array:', userData.roles);
-      console.log('🎭 Auth Service: First role:', userData.roles?.[0]);
+    try {
+      const response = await apiClient.get<any>('/me');
       
-      const user: User = {
-        id: userData.id,
-        name: userData.name || userData.username || 'İstifadəçi',
-        email: userData.email,
-        username: userData.username,
-        role: userData.roles?.[0] || 'user', // Extract role name from first role (roles array contains strings)
-        permissions: userData.permissions || [],
-        institution: userData.institution,
-        region: userData.region,
-        department: userData.department,
-        created_at: userData.created_at,
-        updated_at: userData.updated_at,
-      };
+      // Backend might return user data directly or in response.data
+      const userData = response.data || response;
+      this.log('👤 Auth Service: Extracted user data:', userData);
       
-      console.log('✅ Auth Service: Final user object:', user);
-      return user;
+      return transformUserData(userData);
+    } catch (error) {
+      this.log('❌ Auth Service: Failed to get current user:', error);
+      throw new Error('Failed to get current user. Please login again.');
     }
-    
-    console.error('❌ Auth Service: No user data in response');
-    console.error('❌ Auth Service: Full response structure:', JSON.stringify(response, null, 2));
-    throw new Error('Failed to get current user');
   }
 
   async refreshToken(): Promise<LoginResponse> {
-    const response = await apiClient.post<LoginResponse>('/refresh-token');
-    
-    if (response.data) {
-      apiClient.setToken(response.data.token);
-      return response.data;
+    try {
+      const response = await apiClient.post<{
+        token: string;
+        user: any;
+        expires_at?: string;
+      }>('/refresh-token');
+      
+      if (!response.data || !response.data.token || !response.data.user) {
+        throw new Error('Invalid refresh token response structure');
+      }
+
+      const user = transformUserData(response.data.user);
+      
+      const loginResponse: LoginResponse = {
+        token: response.data.token,
+        user: user,
+        expires_at: response.data.expires_at || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      };
+
+      apiClient.setToken(loginResponse.token);
+      this.log('✅ Auth Service: Token refreshed successfully');
+      
+      return loginResponse;
+    } catch (error) {
+      this.log('❌ Auth Service: Token refresh failed:', error);
+      throw new Error('Token refresh failed. Please login again.');
     }
-    
-    throw new Error('Token refresh failed');
   }
 
   async changePassword(data: ChangePasswordData): Promise<void> {
-    await apiClient.post('/change-password', data);
+    try {
+      await apiClient.post('/change-password', data);
+      this.log('✅ Auth Service: Password changed successfully');
+    } catch (error) {
+      this.log('❌ Auth Service: Password change failed:', error);
+      throw new Error('Failed to change password. Please try again.');
+    }
   }
 
   isAuthenticated(): boolean {
     const hasToken = apiClient.isAuthenticated();
-    const token = apiClient.getToken();
-    console.log('🔍 Auth Service: isAuthenticated check - hasToken:', hasToken, 'token exists:', !!token);
+    this.log('🔍 Auth Service: isAuthenticated check:', hasToken);
     return hasToken;
   }
 
@@ -167,6 +177,7 @@ class AuthService {
   }
 
   clearAuth(): void {
+    this.log('🧹 Auth Service: Clearing authentication data');
     apiClient.clearToken();
   }
 }

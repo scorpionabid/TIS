@@ -13,7 +13,14 @@
     "url": "https://github.com/scorpionabid/TIS/issues"
   },
   "author": "ATİS Development Team",
-  "keywords": ["education", "management", "azerbaijan", "react", "typescript", "vite"],
+  "keywords": [
+    "education",
+    "management",
+    "azerbaijan",
+    "react",
+    "typescript",
+    "vite"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -56,6 +63,8 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
+    "d3-format": "^3.1.0",
+    "d3-time-format": "^4.1.0",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.3.0",
     "input-otp": "^1.2.4",

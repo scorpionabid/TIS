@@ -254,8 +254,9 @@ class ApiClient {
           }
           
           // Only auto-logout if this isn't the initial auth check
-          // Let AuthContext handle the initial authentication properly
-          const isInitialAuthCheck = response.url.includes('/me') && !window.location.pathname.includes('/login');
+          // Let AuthContext handle the initial authentication properly  
+          const isInitialAuthCheck = response.url.includes('/me');
+          const isLoginPath = window.location.pathname.includes('/login');
           
           // Additional checks to prevent unnecessary logouts
           const isAssessmentContext = response.url.includes('/assessment');
@@ -263,20 +264,26 @@ class ApiClient {
           
           console.warn('🚪 401 Analysis:', {
             isInitialAuthCheck,
+            isLoginPath,
             isAssessmentContext, 
             hasToken,
             currentPath: window.location.pathname,
             endpoint: response.url.replace(this.baseURL, '')
           });
           
-          // Don't auto-logout for assessment-related permission errors or initial auth check
-          if (!isInitialAuthCheck && !isAssessmentContext && hasToken) {
+          // Handle 401 based on context:
+          // 1. If it's /me endpoint (initial auth check), DON'T clear token - let AuthContext decide
+          // 2. If it's login page, don't auto-redirect  
+          // 3. For other endpoints, clear token and redirect
+          if (isInitialAuthCheck) {
+            console.warn('🚪 Initial auth check (/me) failed - NOT clearing token, letting AuthContext handle gracefully');
+            // Don't remove token here - AuthContext will handle it properly
+          } else if (isLoginPath) {
+            console.warn('🚪 Already on login page - not redirecting');
+          } else if (!isAssessmentContext && hasToken) {
             console.warn('🚪 Auto-logout: Removing token and redirecting to login');
             this.removeToken();
             window.location.href = '/login';
-          } else if (isInitialAuthCheck) {
-            console.warn('🚪 Initial auth check failed - letting AuthContext handle it');
-            this.removeToken(); // Still remove invalid token
           } else {
             console.warn('🚪 Skipping auto-logout for assessment context - letting component handle 401 gracefully');
           }
