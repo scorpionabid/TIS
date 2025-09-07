@@ -1,6 +1,7 @@
-import { useEntityManager, BaseFilters } from '@/hooks/useEntityManager';
+import { useEntityManagerV2 } from '@/hooks/useEntityManagerV2';
 import { schoolAdminService, SchoolTeacher } from '@/services/schoolAdmin';
 import { useRoleBasedService } from '@/hooks/useRoleBasedService';
+import { EntityConfig, BaseFilters } from '@/components/generic/types';
 
 export interface TeacherFilters extends BaseFilters {
   subject_id?: number;
@@ -57,19 +58,30 @@ const defaultCreateData: NewTeacherData = {
 export const useSchoolTeacherManager = () => {
   const { getTeachers, createTeacher, updateTeacher, deleteTeacher } = useRoleBasedService();
   
-  return useEntityManager<SchoolTeacher, TeacherFilters, NewTeacherData>({
+  const config: EntityConfig<SchoolTeacher, TeacherFilters, NewTeacherData> = {
     entityType: 'teachers',
     entityName: 'Müəllim',
+    entityNamePlural: 'Müəllimlər',
     service: {
       get: (filters) => getTeachers(filters),
       create: (data) => createTeacher(data),
       update: (id, data) => updateTeacher(id, data),
       delete: (id) => deleteTeacher(id),
     },
+    queryKey: ['schoolAdmin'],
     defaultFilters,
     defaultCreateData,
-    queryKey: ['schoolAdmin'],
-  });
+    columns: [], // TODO: Define columns for generic table
+    actions: [], // TODO: Define actions for generic table
+    tabs: [
+      { key: 'all', label: 'Bütün Müəllimlər' },
+      { key: 'active', label: 'Aktiv' },
+      { key: 'inactive', label: 'Passiv' }
+    ],
+    filterFields: [], // TODO: Define filter fields
+  };
+  
+  return useEntityManagerV2<SchoolTeacher, TeacherFilters, NewTeacherData>(config);
 };
 
 // Re-export types for backward compatibility

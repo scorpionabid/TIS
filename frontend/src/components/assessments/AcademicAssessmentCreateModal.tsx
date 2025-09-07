@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { subjectService } from '@/services/subjects';
 import type { NewAssessmentData } from './hooks/useAssessmentGradebook';
 
-interface AssessmentCreateModalProps {
+interface AcademicAssessmentCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
   newAssessment: NewAssessmentData;
@@ -20,7 +20,7 @@ interface AssessmentCreateModalProps {
   selectedClassId: number | null;
 }
 
-export const AssessmentCreateModal: React.FC<AssessmentCreateModalProps> = ({
+export const AcademicAssessmentCreateModal: React.FC<AcademicAssessmentCreateModalProps> = ({
   isOpen,
   onClose,
   newAssessment,

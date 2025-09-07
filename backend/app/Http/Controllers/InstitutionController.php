@@ -156,6 +156,14 @@ class InstitutionController extends Controller
     }
 
     /**
+     * Proxy to InstitutionBulkController@bulkExport (alias for backward compatibility)
+     */
+    public function exportInstitutions(Request $request): JsonResponse
+    {
+        return $this->bulkController->bulkExport($request);
+    }
+
+    /**
      * Proxy to InstitutionHierarchyController@hierarchy
      */
     public function hierarchy(Request $request): JsonResponse

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authService, User as AuthUser, LoginCredentials } from '@/services/auth';
+import { authService, LoginCredentials } from '@/services/auth';
+import { User } from '@/types/user';
 import { useToast } from '@/hooks/use-toast';
 import { USER_ROLES, UserRole, isValidRole } from '@/constants/roles';
 
@@ -22,30 +23,7 @@ const mapBackendRoleToFrontend = (backendRole: string): UserRole => {
   return mappedRole && isValidRole(mappedRole) ? mappedRole : USER_ROLES.MUELLIM;
 };
 
-export interface User {
-  id: number;
-  name: string;
-  email: string;
-  username: string;
-  role: UserRole;
-  permissions: string[];
-  institution?: {
-    id: number;
-    name: string;
-    type: string;
-    level: number;
-  };
-  region?: {
-    id: number;
-    name: string;
-  };
-  department?: {
-    id: number;
-    name: string;
-  };
-  created_at: string;
-  updated_at: string;
-}
+// User interface now imported from centralized types
 
 interface AuthContextType {
   isAuthenticated: boolean;

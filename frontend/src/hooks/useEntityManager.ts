@@ -1,8 +1,17 @@
+/**
+ * @deprecated This hook has been replaced by useEntityManagerV2
+ * Please use useEntityManagerV2 for new development and migrate existing code
+ * BaseFilters has been moved to @/components/generic/types
+ */
+
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PaginationParams } from '@/services/BaseService';
 import { toast } from 'sonner';
 
+/**
+ * @deprecated Use BaseFilters from @/components/generic/types instead
+ */
 export interface BaseFilters extends PaginationParams {
   [key: string]: any;
 }
@@ -21,6 +30,9 @@ export interface EntityManagerConfig<TEntity, TFilters extends BaseFilters, TCre
   queryKey: string[];
 }
 
+/**
+ * @deprecated Use useEntityManagerV2 instead for better features and consistency
+ */
 export function useEntityManager<
   TEntity extends { id: number },
   TFilters extends BaseFilters,

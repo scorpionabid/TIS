@@ -1,89 +1,24 @@
 import { apiClient, ApiResponse, PaginatedResponse } from './api';
 
-export interface User {
-  id: number;
-  first_name: string;
-  last_name: string;
-  name?: string; // computed field (first_name + last_name)
-  email: string;
-  username: string;
-  utis_code?: string;
-  role_id: string;
-  role?: string;
-  permissions: string[];
-  contact_phone?: string;
-  phone?: string; // alias for contact_phone
-  is_active: boolean;
-  status?: 'active' | 'inactive'; // computed from is_active
-  institution?: {
-    id: number;
-    name: string;
-    type: string;
-    level: number;
-  };
-  region?: {
-    id: number;
-    name: string;
-  };
-  department?: {
-    id: number;
-    name: string;
-  };
-  created_at: string;
-  updated_at: string;
-}
+// Import centralized User types
+import { 
+  User, 
+  CreateUserData, 
+  UpdateUserData, 
+  UserFilters, 
+  BulkUserAction, 
+  UserStatistics 
+} from '@/types/user';
 
-export interface CreateUserData {
-  first_name: string;
-  last_name: string;
-  email: string;
-  username: string;
-  utis_code?: string;
-  password: string;
-  role_id: string;
-  contact_phone?: string;
-  institution_id?: number;
-  department_id?: number;
-  is_active?: boolean;
-}
-
-export interface UpdateUserData {
-  first_name?: string;
-  last_name?: string;
-  email?: string;
-  username?: string;
-  utis_code?: string;
-  role_id?: string;
-  contact_phone?: string;
-  is_active?: boolean;
-  institution_id?: number;
-  department_id?: number;
-}
-
-export interface UserFilters {
-  search?: string;
-  role?: string;
-  status?: 'active' | 'inactive';
-  institution_id?: number;
-  department_id?: number;
-  page?: number;
-  per_page?: number;
-}
-
-export interface BulkUserAction {
-  user_ids: number[];
-  action: 'activate' | 'deactivate' | 'assign_role' | 'assign_institution' | 'delete';
-  value?: string | number;
-}
-
-export interface UserStatistics {
-  total: number;
-  active: number;
-  inactive: number;
-  by_role: Record<string, number>;
-  by_institution: Record<string, number>;
-  recent_registrations: number;
-}
+// Re-export for backward compatibility
+export type { 
+  User, 
+  CreateUserData, 
+  UpdateUserData, 
+  UserFilters, 
+  BulkUserAction, 
+  UserStatistics 
+};
 
 class UserService {
   async getUsers(filters?: UserFilters): Promise<PaginatedResponse<User>> {

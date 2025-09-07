@@ -22,7 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 
 // Import existing components we'll integrate
 import { AssessmentGradebook } from '@/components/assessments/AssessmentGradebook';
-import { AssessmentCreateModal } from '@/components/assessments/AssessmentCreateModal';
+import { AcademicAssessmentCreateModal } from '@/components/assessments/AcademicAssessmentCreateModal';
 
 // Import services
 import { unifiedAssessmentService } from '@/services/unifiedAssessments';
@@ -584,7 +584,7 @@ const SchoolAssessments: React.FC = () => {
       </Tabs>
 
       {/* Create Assessment Modal */}
-      <AssessmentCreateModal
+      <AcademicAssessmentCreateModal
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         onSuccess={() => {

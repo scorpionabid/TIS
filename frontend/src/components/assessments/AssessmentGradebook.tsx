@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 // Import modular components
 import { useAssessmentGradebook } from './hooks/useAssessmentGradebook';
 import { ClassSelector } from './ClassSelector';
-import { AssessmentCreateModal } from './AssessmentCreateModal';
+import { AcademicAssessmentCreateModal } from './AcademicAssessmentCreateModal';
 import { AssessmentCard } from './AssessmentCard';
 import { GradingInterface } from './GradingInterface';
 import { GradebookStats } from './GradebookStats';
@@ -260,7 +260,7 @@ export const AssessmentGradebook: React.FC<AssessmentGradebookProps> = ({
       )}
 
       {/* Create Assessment Modal */}
-      <AssessmentCreateModal
+      <AcademicAssessmentCreateModal
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         newAssessment={newAssessment}

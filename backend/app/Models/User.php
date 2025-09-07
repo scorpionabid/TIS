@@ -418,4 +418,75 @@ class User extends Authenticatable
     {
         return $this->is_active && !$this->trashed();
     }
+
+    // ========================================
+    // DEPARTMENTS HELPER METHODS
+    // ========================================
+
+    /**
+     * Get primary department ID (for backward compatibility)
+     */
+    public function getPrimaryDepartmentId(): ?int
+    {
+        // Use department_id if set, otherwise first from departments array
+        return $this->department_id ?: ($this->departments[0] ?? null);
+    }
+
+    /**
+     * Add department to user's departments list
+     */
+    public function addDepartment(int $departmentId): void
+    {
+        $departments = $this->departments ?? [];
+        if (!in_array($departmentId, $departments)) {
+            $departments[] = $departmentId;
+            $this->departments = $departments;
+            
+            // Set as primary if no primary department
+            if (!$this->department_id) {
+                $this->department_id = $departmentId;
+            }
+        }
+    }
+
+    /**
+     * Remove department from user's departments list
+     */
+    public function removeDepartment(int $departmentId): void
+    {
+        $departments = array_filter($this->departments ?? [], fn($id) => $id !== $departmentId);
+        $this->departments = array_values($departments);
+        
+        // Update primary if it was removed
+        if ($this->department_id === $departmentId) {
+            $this->department_id = $departments[0] ?? null;
+        }
+    }
+
+    /**
+     * Set primary department
+     */
+    public function setPrimaryDepartment(int $departmentId): void
+    {
+        $this->department_id = $departmentId;
+        
+        // Ensure it's in departments array
+        if (!$this->inDepartment((string)$departmentId)) {
+            $this->addDepartment($departmentId);
+        }
+    }
+
+    /**
+     * Get all department names (for display purposes)
+     */
+    public function getDepartmentNames(): array
+    {
+        if (empty($this->departments)) {
+            return [];
+        }
+
+        return \App\Models\Department::whereIn('id', $this->departments)
+            ->pluck('name')
+            ->toArray();
+    }
 }

@@ -277,6 +277,14 @@ export const improvedNavigationConfig: MenuGroup[] = [
     roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM],
     items: [
       {
+        id: 'my-classes',
+        label: 'Mənim Siniflərim',
+        path: '/teacher/my-classes',
+        icon: School,
+        roles: [USER_ROLES.MUELLIM],
+        description: 'Müəllimin təyin edildiyi siniflər'
+      },
+      {
         id: 'students',
         label: 'Şagirdlər',
         icon: Users,

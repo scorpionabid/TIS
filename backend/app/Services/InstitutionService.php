@@ -8,6 +8,24 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
+/**
+ * DEPRECATED: InstitutionService functionality has been migrated to InstitutionCrudService
+ * 
+ * This service is deprecated and will be removed in future versions.
+ * Please use InstitutionCrudService instead for institution-related CRUD operations.
+ * 
+ * Available in InstitutionCrudService:
+ * - getInstitutions() - with user-based access control
+ * - createInstitution() - with validation
+ * - updateInstitution() - with audit logging
+ * - deleteInstitution() - with soft delete support
+ * 
+ * For specialized operations, use:
+ * - RegionAdminInstitutionService - for region-specific statistics
+ * - InstitutionImportExportService - for import/export operations
+ * 
+ * @deprecated Use InstitutionCrudService instead
+ */
 class InstitutionService
 {
     /**

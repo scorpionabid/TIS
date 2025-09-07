@@ -10,6 +10,23 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Exception;
 
+/**
+ * DEPRECATED: UserService methods have been consolidated into UserCrudService
+ * 
+ * This service is deprecated and will be removed in future versions.
+ * Please use UserCrudService instead for all user-related operations.
+ * 
+ * Methods available in UserCrudService:
+ * - createUserWithProfile()
+ * - resetUserPassword() 
+ * - toggleUserStatus()
+ * - getUsersByRole()
+ * - getUsersByInstitution()
+ * - findByUsername()
+ * - findByEmail()
+ * 
+ * @deprecated Use UserCrudService instead
+ */
 class UserService extends BaseService
 {
     protected string $modelClass = User::class;

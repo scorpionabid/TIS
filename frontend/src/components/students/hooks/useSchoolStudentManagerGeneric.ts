@@ -1,5 +1,6 @@
-import { useEntityManager, BaseFilters } from '@/hooks/useEntityManager';
+import { useEntityManagerV2 } from '@/hooks/useEntityManagerV2';
 import { schoolAdminService, SchoolStudent } from '@/services/schoolAdmin';
+import { EntityConfig, BaseFilters } from '@/components/generic/types';
 
 export interface StudentFilters extends BaseFilters {
   grade_level?: number;
@@ -52,19 +53,30 @@ const defaultCreateData: NewStudentData = {
 };
 
 export const useSchoolStudentManager = () => {
-  return useEntityManager<SchoolStudent, StudentFilters, NewStudentData>({
+  const config: EntityConfig<SchoolStudent, StudentFilters, NewStudentData> = {
     entityType: 'students',
     entityName: 'Şagird',
+    entityNamePlural: 'Şagirdlər',
     service: {
       get: schoolAdminService.getSchoolStudents,
       create: schoolAdminService.createStudent,
       update: schoolAdminService.updateStudent,
       delete: schoolAdminService.deleteStudent,
     },
+    queryKey: ['schoolAdmin'],
     defaultFilters,
     defaultCreateData,
-    queryKey: ['schoolAdmin'],
-  });
+    columns: [], // TODO: Define columns for generic table
+    actions: [], // TODO: Define actions for generic table
+    tabs: [
+      { key: 'all', label: 'Bütün Şagirdlər' },
+      { key: 'active', label: 'Aktiv' },
+      { key: 'inactive', label: 'Passiv' }
+    ],
+    filterFields: [], // TODO: Define filter fields
+  };
+  
+  return useEntityManagerV2<SchoolStudent, StudentFilters, NewStudentData>(config);
 };
 
 // Re-export types for backward compatibility

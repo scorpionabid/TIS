@@ -137,12 +137,13 @@ Route::middleware('permission:institutions.write')->group(function () {
     // Import/Export routes
     Route::post('institutions/import/template', [InstitutionController::class, 'downloadImportTemplate']);
     Route::post('institutions/import', [InstitutionController::class, 'importFromTemplate']);
+    // Export operations - unified under single pattern
     Route::post('institutions/export', [InstitutionController::class, 'exportInstitutions']);
+    Route::post('institutions/export-by-type', [InstitutionCRUDControllerRefactored::class, 'exportInstitutionsByType']);
     
-    // Type-based Import/Export routes
+    // Type-based Import/Export templates
     Route::post('institutions/import/template-by-type', [InstitutionCRUDControllerRefactored::class, 'downloadImportTemplateByType']);
     Route::post('institutions/import-by-type', [InstitutionCRUDControllerRefactored::class, 'importFromTemplateByType']);
-    Route::post('institutions/export-by-type', [InstitutionCRUDControllerRefactored::class, 'exportInstitutionsByType']);
     
     // Enterprise import features
     Route::get('institutions/import/permissions', [InstitutionCRUDControllerRefactored::class, 'getImportPermissions']);
@@ -320,8 +321,8 @@ Route::prefix('import')->group(function () {
     // UTIS code generation (SuperAdmin only)
     Route::post('/generate-utis-codes', [App\Http\Controllers\ImportController::class, 'generateMissingUtisCode'])->middleware('role:superadmin');
     
-    // Export operations (SuperAdmin only)
-    Route::get('/export/institutions', [App\Http\Controllers\ImportController::class, 'exportInstitutions'])->middleware('role:superadmin');
+    // Legacy Export operations (SuperAdmin only) - DEPRECATED: Use institutions/export instead
+    // Route::get('/export/institutions', [App\Http\Controllers\ImportController::class, 'exportInstitutions'])->middleware('role:superadmin');
     Route::get('/export/stats', [App\Http\Controllers\ImportController::class, 'getExportStats'])->middleware('role:superadmin');
 });
 

@@ -6,9 +6,9 @@ import {
   EntityConfig, 
   ManagerCustomLogic, 
   EnhancedEntityManager,
-  StatsConfig 
+  StatsConfig,
+  BaseFilters
 } from '@/components/generic/types';
-import { BaseFilters } from './useEntityManager';
 import { Users, CheckCircle, XCircle } from 'lucide-react';
 
 export function useEntityManagerV2<

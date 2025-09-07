@@ -1,46 +1,18 @@
 import { apiClient, ApiResponse } from './api';
+import { 
+  User, 
+  LoginCredentials, 
+  LoginResponse, 
+  ChangePasswordData 
+} from '@/types/user';
 
-export interface LoginCredentials {
-  email: string;
-  password: string;
-}
-
-export interface User {
-  id: number;
-  name: string;
-  email: string;
-  username: string;
-  role: string;
-  permissions: string[];
-  institution?: {
-    id: number;
-    name: string;
-    type: string;
-    level: number;
-  };
-  region?: {
-    id: number;
-    name: string;
-  };
-  department?: {
-    id: number;
-    name: string;
-  };
-  created_at: string;
-  updated_at: string;
-}
-
-export interface LoginResponse {
-  token: string;
-  user: User;
-  expires_at: string;
-}
-
-export interface ChangePasswordData {
-  current_password: string;
-  new_password: string;
-  new_password_confirmation: string;
-}
+// Re-export for backward compatibility
+export type { 
+  User, 
+  LoginCredentials, 
+  LoginResponse, 
+  ChangePasswordData 
+};
 
 class AuthService {
   async login(credentials: LoginCredentials): Promise<LoginResponse> {

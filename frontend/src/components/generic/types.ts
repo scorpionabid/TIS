@@ -2,7 +2,12 @@
 
 import { ReactNode, ComponentType } from 'react';
 import { LucideIcon } from 'lucide-react';
-import { BaseFilters } from '@/hooks/useEntityManager';
+import { PaginationParams } from '@/services/BaseService';
+
+// Base filters interface for all entity managers
+export interface BaseFilters extends PaginationParams {
+  [key: string]: any;
+}
 
 // Base entity interface
 export interface BaseEntity {

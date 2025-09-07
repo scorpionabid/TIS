@@ -12,13 +12,13 @@ import { useAssessmentCreate } from '../assessments/hooks/useAssessmentCreate';
 import { KSQAssessmentForm } from '../assessments/KSQAssessmentForm';
 import { BSQAssessmentForm } from '../assessments/BSQAssessmentForm';
 
-interface AssessmentCreateModalProps {
+interface PsychologyAssessmentCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAssessmentCreated?: () => void;
 }
 
-export const AssessmentCreateModal: React.FC<AssessmentCreateModalProps> = ({
+export const PsychologyAssessmentCreateModal: React.FC<PsychologyAssessmentCreateModalProps> = ({
   isOpen,
   onClose,
   onAssessmentCreated

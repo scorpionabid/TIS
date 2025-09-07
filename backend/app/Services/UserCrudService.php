@@ -576,4 +576,102 @@ class UserCrudService
         
         ActivityLog::logActivity($data);
     }
+
+    // ========================================
+    // HELPER METHODS (consolidated from UserService)
+    // ========================================
+
+    /**
+     * Create user with profile
+     */
+    public function createUserWithProfile(array $userData, array $profileData = []): User
+    {
+        return DB::transaction(function () use ($userData, $profileData) {
+            $user = $this->create([
+                'username' => $userData['username'],
+                'email' => $userData['email'],
+                'password' => Hash::make($userData['password']),
+                'role_id' => $userData['role_id'],
+                'institution_id' => $userData['institution_id'],
+                'department_id' => $userData['department_id'] ?? null,
+                'is_active' => $userData['is_active'] ?? true,
+            ]);
+
+            if (!empty($profileData)) {
+                UserProfile::create(array_merge($profileData, ['user_id' => $user->id]));
+            }
+
+            return $user->fresh(['roles', 'institution', 'profile', 'department']);
+        });
+    }
+
+    /**
+     * Reset user password
+     */
+    public function resetUserPassword(int $userId, string $newPassword): User
+    {
+        return DB::transaction(function () use ($userId, $newPassword) {
+            $user = User::findOrFail($userId);
+            $user->update([
+                'password' => Hash::make($newPassword),
+                'password_changed_at' => now(),
+                'failed_login_attempts' => 0,
+                'locked_until' => null
+            ]);
+
+            return $user->fresh(['roles', 'institution', 'profile']);
+        });
+    }
+
+    /**
+     * Toggle user status
+     */
+    public function toggleUserStatus(int $userId, bool $isActive): User
+    {
+        if (!$isActive && $userId === Auth::id()) {
+            throw new Exception('Cannot deactivate your own account');
+        }
+
+        $user = User::findOrFail($userId);
+        $user->update(['is_active' => $isActive]);
+
+        return $user->fresh(['roles', 'institution', 'profile']);
+    }
+
+    /**
+     * Get users by role
+     */
+    public function getUsersByRole(string $roleName): \Illuminate\Database\Eloquent\Collection
+    {
+        return User::whereHas('roles', function ($q) use ($roleName) {
+            $q->where('name', $roleName);
+        })->with(['roles', 'institution', 'profile', 'department'])->get();
+    }
+
+    /**
+     * Get users by institution
+     */
+    public function getUsersByInstitution(int $institutionId): \Illuminate\Database\Eloquent\Collection
+    {
+        return User::where('institution_id', $institutionId)
+            ->with(['roles', 'institution', 'profile', 'department'])->get();
+    }
+
+    /**
+     * Find user by username
+     */
+    public function findByUsername(string $username): ?User
+    {
+        return User::where('username', $username)
+            ->with(['roles', 'institution', 'profile', 'department'])->first();
+    }
+
+    /**
+     * Find user by email
+     */
+    public function findByEmail(string $email): ?User
+    {
+        return User::where('email', $email)
+            ->with(['roles', 'institution', 'profile', 'department'])->first();
+    }
 }
