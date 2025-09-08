@@ -1,4 +1,6 @@
 import { BaseService } from './BaseService';
+import { schoolAdminService } from './schoolAdmin';
+import { studentService } from './students';
 
 export interface AttendanceRecord {
   id: number;
@@ -306,7 +308,6 @@ class AttendanceService extends BaseService {
       console.log('🏫 AttendanceService: Fetching classes for institution:', institutionId);
       
       // Try to get classes from schoolAdmin service for the institution
-      const { schoolAdminService } = await import('./schoolAdmin');
       
       // For now, we'll use the existing getClasses method
       // This should be enhanced to filter by institution on the backend
@@ -327,8 +328,7 @@ class AttendanceService extends BaseService {
     try {
       console.log('👥 AttendanceService: Fetching students for class:', classId, 'institution:', institutionId);
       
-      // Import student service dynamically to avoid circular imports
-      const { studentService } = await import('./students');
+      // Use student service to get students
       
       if (institutionId) {
         // Get students by institution and filter by class

@@ -130,7 +130,31 @@ class DashboardService {
     return response.data;
   }
 
-  // Role-specific dashboard data
+  // Optimized batched dashboard data
+  async getSuperAdminDashboardBatched() {
+    try {
+      // Single API call for all dashboard data
+      const response = await apiClient.post('/dashboard/batch', {
+        queries: ['superadmin-stats', 'recent-activity', 'system-health']
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Batched dashboard call failed, falling back to individual calls');
+      // Fallback to individual calls if batching fails
+      const [statsResponse, activityResponse] = await Promise.all([
+        apiClient.get('/dashboard/superadmin-analytics'),
+        apiClient.get('/dashboard/recent-activity?limit=5')
+      ]);
+      
+      return {
+        stats: statsResponse.data,
+        recentActivity: activityResponse.data,
+        systemHealth: { status: 'ok' } // Default fallback
+      };
+    }
+  }
+
+  // Legacy method for backward compatibility
   async getSuperAdminDashboard() {
     const response = await apiClient.get('/dashboard/superadmin-analytics');
     return response.data;

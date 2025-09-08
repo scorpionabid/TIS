@@ -30,6 +30,15 @@ export default defineConfig(({ mode }) => ({
     port: 3000,
   },
   build: {
+    minify: mode === 'production' ? 'terser' : 'esbuild',
+    // Remove console statements in production using Terser
+    terserOptions: mode === 'production' ? {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+        pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.warn']
+      }
+    } : {},
     rollupOptions: {
       output: {
         manualChunks: (id) => {
@@ -89,9 +98,21 @@ export default defineConfig(({ mode }) => ({
               return 'dashboard';
             }
             
-            // User management
-            if (id.includes('/users/') || id.includes('User') || id.includes('users.ts')) {
-              return 'users';
+            // User management - split into smaller chunks
+            if (id.includes('/pages/Users/') || id.includes('/users/') || id.includes('users.ts')) {
+              if (id.includes('UserManagement') || id.includes('pages/Users/index')) {
+                return 'users-core';
+              }
+              if (id.includes('UserTable') || id.includes('UserFilters')) {
+                return 'users-components';
+              }
+              if (id.includes('UserActions') || id.includes('useUserFilters')) {
+                return 'users-utils';
+              }
+              if (id.includes('UserModal') || id.includes('UserImport') || id.includes('TrashedUsers')) {
+                return 'users-modals';
+              }
+              return 'users-misc';
             }
             
             // Institution management
@@ -165,7 +186,6 @@ export default defineConfig(({ mode }) => ({
     },
     chunkSizeWarningLimit: 500, // Lower threshold for better optimization
     target: 'esnext',
-    minify: 'esbuild', // Use esbuild instead of terser
     reportCompressedSize: false, // Disable gzip size reporting for faster builds
   },
   plugins: [
