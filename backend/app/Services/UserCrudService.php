@@ -558,6 +558,7 @@ class UserCrudService
                 'name' => $user->department?->name,
                 'department_type' => $user->department?->department_type
             ],
+            'profile' => $user->profile,
             'permissions' => $user->role?->permissions->pluck('name') ?? []
         ];
     }

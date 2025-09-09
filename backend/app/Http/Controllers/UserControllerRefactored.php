@@ -463,6 +463,7 @@ class UserControllerRefactored extends BaseController
             'id' => $user->id,
             'username' => $this->cleanUtf8($user->username),
             'email' => $this->cleanUtf8($user->email),
+            'role_id' => $role?->id,
             'role' => $role ? [
                 'id' => $role->id,
                 'name' => $this->cleanUtf8($role->name),
