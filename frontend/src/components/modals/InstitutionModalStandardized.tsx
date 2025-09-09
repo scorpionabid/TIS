@@ -269,17 +269,22 @@ export const InstitutionModalStandardized: React.FC<InstitutionModalStandardized
 
   // Set selected type when modal opens or institution changes
   React.useEffect(() => {
-    console.log('🔄 Modal useEffect triggered:', { open, institution, institutionTypes: institutionTypes.length });
+    if (!open) {
+      // Reset state when modal closes
+      setSelectedType('');
+      return;
+    }
     
-    if (open) {
+    // Small delay to ensure all async data has loaded
+    const timer = setTimeout(() => {
       if (institution) {
         // Map backend types to frontend types
         const typeMap = {
           'ministry': 'ministry',
-          'regional_education_department': 'region',
+          'regional_education_department': 'region',  
           'sector_education_office': 'sektor',
           'region': 'region',
-          'sektor': 'sektor',
+          'sektor': 'sektor', 
           'school': 'school',
           'secondary_school': 'school',
           'lyceum': 'school',
@@ -288,32 +293,28 @@ export const InstitutionModalStandardized: React.FC<InstitutionModalStandardized
           'vocational': 'school',
           'university': 'school'
         };
-        const normalizedType = typeMap[institution.type] || 'school';
-        console.log('📝 Setting selected type for editing:', normalizedType);
+        const backendType = typeof institution.type === 'object' ? institution.type.key : institution.type;
+        const normalizedType = typeMap[backendType] || 'school';
         setSelectedType(normalizedType);
       } else {
-        // For new institutions, set default type only if we have types available
+        // For new institutions, set default type
         if (institutionTypes.length > 0) {
           const defaultType = institutionTypes.find(type => type.value === 'school')?.value || institutionTypes[0].value;
-          console.log('📝 Setting default type for new institution:', defaultType);
           setSelectedType(defaultType);
         } else {
-          console.log('⚠️ No institution types available, setting fallback default');
           setSelectedType('school');
         }
       }
-    }
+    }, 100); // 100ms delay
+    
+    return () => clearTimeout(timer);
   }, [open, institution, institutionTypes]);
 
-  const prepareDefaultValues = React.useCallback(() => {
-    console.log('📋 Preparing default values:', { institution, selectedType, institutionTypesLength: institutionTypes.length });
-    
+  const defaultValues = React.useMemo(() => {
     if (!institution) {
       const defaultType = selectedType || (institutionTypes.length > 0 ? institutionTypes[0].value : 'school');
       const typeData = institutionTypes.find(type => type.value === defaultType);
       const defaultLevel = typeData?.level || 4;
-      
-      console.log('📋 New institution defaults:', { defaultType, defaultLevel, typeData });
       
       return {
         name: '',
@@ -326,7 +327,7 @@ export const InstitutionModalStandardized: React.FC<InstitutionModalStandardized
         email: '',
         manager_name: '',
         manager_phone: '',
-        parent_id: defaultLevel === 1 ? null : undefined, // Level 1 has no parent
+        parent_id: defaultLevel === 1 ? '' : '', // Ensure always string
         utis_code: '',
       };
     }
@@ -385,7 +386,7 @@ export const InstitutionModalStandardized: React.FC<InstitutionModalStandardized
       parent_id: institution.parent_id?.toString() || '',
       utis_code: institution.utis_code || '',
     };
-  }, [institution]);
+  }, [institution, selectedType, institutionTypes]);
 
   const handleSubmit = React.useCallback(async (data: any) => {
     try {
@@ -458,6 +459,14 @@ export const InstitutionModalStandardized: React.FC<InstitutionModalStandardized
 
   const isLoading = typesLoading || parentsLoading;
 
+  console.log('🎭 InstitutionModalStandardized render:', {
+    open,
+    isLoading,
+    institutionTypesLength: institutionTypes.length,
+    selectedType,
+    hasInstitution: !!institution
+  });
+
   return (
     <BaseModal
       open={open}
@@ -469,7 +478,7 @@ export const InstitutionModalStandardized: React.FC<InstitutionModalStandardized
       entityBadge={institution?.utis_code ? `UTIS: ${institution.utis_code}` : undefined}
       entity={institution}
       tabs={modalTabs}
-      defaultValues={prepareDefaultValues()}
+      defaultValues={defaultValues}
       onSubmit={handleSubmit}
       submitLabel={isEditMode ? 'Yenilə' : 'Əlavə et'}
       maxWidth="3xl"

@@ -41,9 +41,25 @@ const InstitutionRow: React.FC<{
   canEdit: boolean;
   canDelete: boolean;
 }> = React.memo(({ institution, admin, onEdit, onDelete, onViewDetails, canEdit, canDelete }) => {
-  const handleEdit = React.useCallback(() => onEdit(institution), [onEdit, institution]);
-  const handleDelete = React.useCallback(() => onDelete(institution), [onDelete, institution]);
-  const handleViewDetails = React.useCallback(() => onViewDetails(institution), [onViewDetails, institution]);
+  const [dropdownOpen, setDropdownOpen] = React.useState(false);
+  
+  const handleEdit = React.useCallback(() => {
+    setDropdownOpen(false);
+    // Longer delay to ensure dropdown fully closes and focus is released
+    setTimeout(() => onEdit(institution), 300);
+  }, [onEdit, institution]);
+  
+  const handleDelete = React.useCallback(() => {
+    setDropdownOpen(false);
+    // Longer delay to ensure dropdown fully closes and focus is released
+    setTimeout(() => onDelete(institution), 300);
+  }, [onDelete, institution]);
+  
+  const handleViewDetails = React.useCallback(() => {
+    setDropdownOpen(false);
+    // Longer delay to ensure dropdown fully closes and focus is released
+    setTimeout(() => onViewDetails(institution), 300);
+  }, [onViewDetails, institution]);
 
   return (
     <TableRow 
@@ -115,26 +131,26 @@ const InstitutionRow: React.FC<{
       </TableCell>
       
       <TableCell onClick={(e) => e.stopPropagation()}>
-        <DropdownMenu>
+        <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-8 w-8 p-0">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleViewDetails}>
+          <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
+            <DropdownMenuItem onSelect={() => handleViewDetails()}>
               <Settings className="mr-2 h-4 w-4" />
               Detallar
             </DropdownMenuItem>
             {canEdit && (
-              <DropdownMenuItem onClick={handleEdit}>
+              <DropdownMenuItem onSelect={() => handleEdit()}>
                 <Edit className="mr-2 h-4 w-4" />
                 Redaktə et
               </DropdownMenuItem>
             )}
             {canDelete && (
               <DropdownMenuItem 
-                onClick={handleDelete}
+                onSelect={() => handleDelete()}
                 className="text-destructive focus:text-destructive"
               >
                 <Trash2 className="mr-2 h-4 w-4" />

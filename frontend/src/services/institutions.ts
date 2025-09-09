@@ -76,22 +76,8 @@ class InstitutionService extends BaseService<Institution> {
   }
 
   async getAll(params?: PaginationParams) {
-    console.log('🔍 InstitutionService.getAll called with params:', params);
     try {
       const response = await apiClient.get<Institution[]>(this.baseEndpoint, params);
-      console.log('✅ InstitutionService.getAll successful:', response);
-      
-      // Debug response structure
-      console.log('📊 Response structure analysis:', {
-        hasResponse: !!response,
-        hasData: !!response?.data,
-        responseKeys: response ? Object.keys(response) : [],
-        dataType: typeof response?.data,
-        dataStructure: response?.data && typeof response.data === 'object' ? Object.keys(response.data as any) : [],
-        firstLevelCheck: (response?.data as any)?.data ? 'data.data exists' : 'data.data missing',
-        actualData: (response?.data as any)?.data || response?.data || response || 'none'
-      });
-      
       return response as any; // PaginatedResponse
     } catch (error) {
       console.error('❌ InstitutionService.getAll failed:', error);
@@ -106,14 +92,12 @@ class InstitutionService extends BaseService<Institution> {
 
   // Get only level 4 institutions (schools and preschools)
   async getStudentInstitutions(params?: PaginationParams) {
-    console.log('🏫 InstitutionService.getStudentInstitutions called with params:', params);
     try {
       // Filter for level 4 institutions only (schools and preschools)
       const response = await apiClient.get<Institution[]>(this.baseEndpoint, {
         ...params,
         level: 4 // Only level 4 institutions (schools and preschools)
       });
-      console.log('✅ InstitutionService.getStudentInstitutions successful:', response);
       return response as any;
     } catch (error) {
       console.error('❌ InstitutionService.getStudentInstitutions failed:', error);
@@ -161,11 +145,8 @@ class InstitutionService extends BaseService<Institution> {
   }
 
   async delete(id: number, type: 'soft' | 'hard' = 'soft'): Promise<void> {
-    console.log('🌐 InstitutionService.delete called:', { id, type, endpoint: `${this.baseEndpoint}/${id}?type=${type}` });
-    
     try {
       const result = await apiClient.delete(`${this.baseEndpoint}/${id}?type=${type}`);
-      console.log('✅ InstitutionService.delete successful:', result);
       return result;
     } catch (error) {
       console.error('❌ InstitutionService.delete failed:', error);

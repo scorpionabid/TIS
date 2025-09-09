@@ -4,6 +4,7 @@ import { Plus, Upload, Download } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRoleCheck } from "@/hooks/useRoleCheck";
 import { canAccessInstitutionType } from "@/utils/institutionUtils";
+import { institutionService } from "@/services/institutions";
 
 // Modular components
 import { InstitutionFilters } from './InstitutionFilters';
@@ -91,20 +92,48 @@ const InstitutionsPage: React.FC = () => {
 
   // Handle save action
   const onSave = async (data: any) => {
-    await handleSave(data, selectedInstitution);
-    closeModal();
+    try {
+      await handleSave(data, selectedInstitution);
+      closeModal();
+      
+      // Force page refresh to ensure clean state
+      window.location.reload();
+    } catch (error) {
+      console.error('Save failed:', error);
+      // Don't close modal if save fails
+    }
   };
 
   // Handle delete action
-  const handleDelete = async () => {
+  const handleDelete = async (deleteType: 'soft' | 'hard') => {
     if (!institutionToDelete) return;
     
     try {
-      // Delete logic would go here
-      console.log('Deleting institution:', institutionToDelete.id);
+      // Call the institution service delete method
+      await institutionService.delete(institutionToDelete.id, deleteType);
+      
+      // Close the modal
       closeDeleteModal();
-    } catch (error) {
-      console.error('Delete failed:', error);
+      
+      // Trigger a data refresh using the query client
+      // This ensures the list updates after deletion
+      window.location.reload();
+      
+    } catch (error: any) {
+      console.error('❌ Delete failed:', error);
+      
+      // Handle different error types and show user-friendly messages
+      let errorMessage = 'Müəssisə silinərkən xəta baş verdi.';
+      
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      // You might want to show this error to the user via a toast or alert
+      // For now, we'll log it - in the future you can add toast notification
+      alert(errorMessage);
     }
   };
 
@@ -216,6 +245,7 @@ const InstitutionsPage: React.FC = () => {
       {/* Modals */}
       {isModalOpen && (
         <InstitutionModalStandardized
+          key={`institution-modal-${selectedInstitution?.id || 'new'}-${Date.now()}`}
           open={isModalOpen}
           onClose={closeModal}
           institution={selectedInstitution}
@@ -228,12 +258,13 @@ const InstitutionsPage: React.FC = () => {
           open={isDeleteModalOpen}
           onClose={closeDeleteModal}
           institution={institutionToDelete}
-          onConfirm={handleDelete}
+          onDelete={handleDelete}
         />
       )}
 
       {isDetailsModalOpen && selectedInstitution && (
         <InstitutionDetailsModal
+          key={`details-modal-${selectedInstitution.id}-${Date.now()}`}
           open={isDetailsModalOpen}
           onClose={closeDetailsModal}
           institution={selectedInstitution}

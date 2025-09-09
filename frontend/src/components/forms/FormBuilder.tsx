@@ -126,13 +126,18 @@ export function FormBuilder({
   );
 
   const formDefaultValues = useMemo(() => {
-    return {
-      ...fields.reduce((acc, field) => {
-        acc[field.name] = field.defaultValue || '';
-        return acc;
-      }, {} as Record<string, any>),
-      ...defaultValues,
-    };
+    const fieldDefaults = fields.reduce((acc, field) => {
+      acc[field.name] = field.defaultValue || '';
+      return acc;
+    }, {} as Record<string, any>);
+    
+    // Ensure all values are defined (no undefined values)
+    const cleanedDefaults = { ...fieldDefaults };
+    Object.keys(defaultValues || {}).forEach(key => {
+      cleanedDefaults[key] = defaultValues[key] ?? '';
+    });
+    
+    return cleanedDefaults;
   }, [fields, defaultValues]);
   
 
@@ -141,12 +146,8 @@ export function FormBuilder({
     defaultValues: formDefaultValues,
   });
 
-  // Update form when defaultValues change
-  useEffect(() => {
-    if (defaultValues && Object.keys(defaultValues).length > 0) {
-      form.reset(formDefaultValues);
-    }
-  }, [defaultValues, form.reset, formDefaultValues]);
+  // Remove the problematic useEffect that causes controlled/uncontrolled warnings
+  // The form will use the initial defaultValues and won't reset during renders
 
   const renderField = (field: FormField) => {
     return (

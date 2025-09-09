@@ -167,12 +167,18 @@ export const BaseModal: React.FC<BaseModalProps> = ({
     />
   );
 
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen && !isSubmitting && !loading) {
+      onClose();
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleOpenChange} modal={true}>
       <DialogContent 
         className={cn(
           getMaxWidthClass(),
-          "max-h-[90vh] overflow-y-auto"
+          "max-h-[90vh] overflow-y-auto z-[9999]"
         )}
         onEscapeKeyDown={onClose}
         onPointerDownOutside={onClose}

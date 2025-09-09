@@ -191,31 +191,110 @@ class InstitutionCRUDController extends Controller
     {
         $user = Auth::user();
         
-        // Check permissions - only SuperAdmin can delete institutions
-        if (!$user->hasRole('superadmin')) {
+        // Check permissions - align with frontend UI permissions
+        if (!$user->hasRole('superadmin') && !$user->hasRole('regionadmin') && !$user->hasRole('sektoradmin')) {
             return response()->json([
                 'success' => false,
-                'message' => 'User does not have the right permissions.'
+                'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'
             ], 403);
         }
         
-        // Check if institution has children
+        // RegionAdmin can only delete institutions within their hierarchy (level 3 and 4)
+        if ($user->hasRole('regionadmin')) {
+            $userInstitution = $user->institution;
+            
+            if (!$userInstitution || $userInstitution->level !== 2) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'RegionAdmin regional müəssisə ilə əlaqələndirilməlidir.'
+                ], 403);
+            }
+            
+            // Check if institution is within their hierarchy
+            $canDelete = $institution->parent_id === $userInstitution->id || // Direct child (sector)
+                        ($institution->parent && $institution->parent->parent_id === $userInstitution->id); // Grandchild (school under sector)
+                        
+            if (!$canDelete || $institution->level < 3) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'RegionAdmin yalnız öz regionu altındakı müəssisələri silə bilər.'
+                ], 403);
+            }
+        }
+        
+        // SektorAdmin can only delete level 4 institutions (schools) under their sector
+        if ($user->hasRole('sektoradmin')) {
+            $userInstitution = $user->institution;
+            
+            if (!$userInstitution || $userInstitution->level !== 3) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'SektorAdmin sektor müəssisəsi ilə əlaqələndirilməlidir.'
+                ], 403);
+            }
+            
+            // Can only delete level 4 institutions directly under their sector
+            if ($institution->parent_id !== $userInstitution->id || $institution->level !== 4) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'SektorAdmin yalnız öz sektoru altındakı məktəbləri silə bilər.'
+                ], 403);
+            }
+        }
+        
+        // Get delete type from request parameter (soft or hard)
+        $deleteType = $request->input('type', 'soft');
+        
+        // Validate delete type
+        if (!in_array($deleteType, ['soft', 'hard'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Yanlış silmə növü. "soft" və ya "hard" olmalıdır.'
+            ], 422);
+        }
+        
+        // Check if institution has children (for both soft and hard delete)
         if ($institution->children()->exists()) {
             return response()->json([
-                'message' => 'Cannot delete institution with child institutions. Please delete or move the children first.'
+                'success' => false,
+                'message' => 'Alt müəssisələri olan müəssisə silinə bilməz. Əvvəlcə alt müəssisələri silin və ya köçürün.'
             ], 422);
         }
 
-        // Check if institution has users
+        // Check if institution has active users (for hard delete or if soft deleting with users)
         if ($institution->users()->exists()) {
-            return response()->json([
-                'message' => 'Cannot delete institution with associated users. Please reassign or delete the users first.'
-            ], 422);
+            if ($deleteType === 'hard') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'İstifadəçiləri olan müəssisə həmişəlik silinə bilməz. Əvvəlcə istifadəçiləri köçürün və ya silin.'
+                ], 422);
+            }
+            // For soft delete, we allow it but warn about users
         }
 
-        $institution->delete();
+        try {
+            if ($deleteType === 'soft') {
+                // Soft delete - just marks as deleted
+                $institution->delete();
+                $message = 'Müəssisə arxivə köçürüldü və lazım olduqda bərpa edilə bilər.';
+            } else {
+                // Hard delete - permanently remove
+                $institution->forceDelete();
+                $message = 'Müəssisə həmişəlik silindi.';
+            }
 
-        return response()->json(null, 204);
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'delete_type' => $deleteType
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Müəssisə silinərkən xəta baş verdi: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
