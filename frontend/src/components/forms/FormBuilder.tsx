@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useForm, Controller, FieldValues, Path } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -125,16 +125,28 @@ export function FormBuilder({
     }, {} as Record<string, z.ZodType<any>>)
   );
 
-  const form = useForm({
-    resolver: zodResolver(schema),
-    defaultValues: {
+  const formDefaultValues = useMemo(() => {
+    return {
       ...fields.reduce((acc, field) => {
         acc[field.name] = field.defaultValue || '';
         return acc;
       }, {} as Record<string, any>),
       ...defaultValues,
-    },
+    };
+  }, [fields, defaultValues]);
+  
+
+  const form = useForm({
+    resolver: zodResolver(schema),
+    defaultValues: formDefaultValues,
   });
+
+  // Update form when defaultValues change
+  useEffect(() => {
+    if (defaultValues && Object.keys(defaultValues).length > 0) {
+      form.reset(formDefaultValues);
+    }
+  }, [defaultValues, form.reset, formDefaultValues]);
 
   const renderField = (field: FormField) => {
     return (

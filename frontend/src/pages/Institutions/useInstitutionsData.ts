@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { institutionService, CreateInstitutionData } from '@/services/institutions';
 import { userService, UserFilters, User } from '@/services/users';
 import { useAuth } from '@/contexts/AuthContext';
@@ -102,7 +102,15 @@ export const useInstitutionsData = ({
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
 
-  // Fetch institution admin helper
+  // Store updateInstitutionAdmin in ref to prevent recreation loop
+  const updateInstitutionAdminRef = useRef(updateInstitutionAdmin);
+  
+  // Update ref when function changes
+  useEffect(() => {
+    updateInstitutionAdminRef.current = updateInstitutionAdmin;
+  });
+
+  // Fetch institution admin helper with stable dependencies
   const fetchInstitutionAdmin = useCallback(async (institutionId: number) => {
     try {
       const adminRoles = ['schooladmin', 'schooladmin', 'regionadmin', 'sektoradmin'];
@@ -126,13 +134,13 @@ export const useInstitutionsData = ({
         if (admin) break;
       }
       
-      updateInstitutionAdmin(institutionId, admin);
+      updateInstitutionAdminRef.current(institutionId, admin);
       return admin;
     } catch (error) {
       console.error('Error fetching institution admin:', error);
       return null;
     }
-  }, [updateInstitutionAdmin]);
+  }, []); // Empty dependency array to prevent recreation
 
   // Main institutions query
   const { data: institutionsResponse, isLoading, error } = useQuery<InstitutionsResponse>({
@@ -239,16 +247,22 @@ export const useInstitutionsData = ({
     retry: false
   });
 
-  // Fetch admins when institutions are loaded
+  // Store institutionAdmins in ref to check without causing re-renders
+  const institutionAdminsRef = useRef(institutionAdmins);
+  useEffect(() => {
+    institutionAdminsRef.current = institutionAdmins;
+  });
+
+  // Fetch admins when institutions are loaded - prevent infinite loop
   useEffect(() => {
     if (institutionsResponse?.institutions) {
       institutionsResponse.institutions.forEach(institution => {
-        if (!institutionAdmins[institution.id]) {
+        if (!institutionAdminsRef.current[institution.id]) {
           fetchInstitutionAdmin(institution.id);
         }
       });
     }
-  }, [institutionsResponse?.institutions, institutionAdmins, fetchInstitutionAdmin]);
+  }, [institutionsResponse?.institutions]); // Remove institutionAdmins and fetchInstitutionAdmin dependencies
 
   // Save institution handler
   const handleSave = useCallback(async (data: CreateInstitutionData, selectedInstitution: any) => {

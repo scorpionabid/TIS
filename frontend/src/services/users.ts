@@ -29,20 +29,37 @@ class UserService {
       if (response && typeof response === 'object' && 'data' in response) {
         const backendData = response.data;
         
+        // Transform backend data to match frontend expectations
+        const transformedData = Array.isArray(backendData) ? backendData.map(user => {
+          const transformed = {
+            ...user,
+            // Transform role object to string for UserTable compatibility
+            role: (user.role && typeof user.role === 'object' && user.role.name) ? user.role.name : user.role,
+            // Ensure name field exists for compatibility
+            name: user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username || user.email
+          };
+          
+          
+          return transformed;
+        }) : [];
+        
+        // Use meta from backend response or create default
+        const meta = response.meta || {};
+        
         // Return in the expected format
         return {
-          data: backendData || [],
-          current_page: 1,
-          last_page: 1,
-          per_page: 100,
-          total: Array.isArray(backendData) ? backendData.length : 0,
-          first_page_url: '',
-          last_page_url: '',
-          next_page_url: null,
-          prev_page_url: null,
-          path: '',
-          from: 1,
-          to: Array.isArray(backendData) ? backendData.length : 0
+          data: transformedData,
+          current_page: meta.current_page || 1,
+          last_page: meta.last_page || 1,
+          per_page: meta.per_page || transformedData.length,
+          total: meta.total || transformedData.length,
+          first_page_url: meta.first_page_url || '',
+          last_page_url: meta.last_page_url || '',
+          next_page_url: meta.next_page_url || null,
+          prev_page_url: meta.prev_page_url || null,
+          path: meta.path || '',
+          from: meta.from || 1,
+          to: meta.to || transformedData.length
         } as PaginatedResponse<User>;
       }
       
@@ -52,6 +69,23 @@ class UserService {
       console.error('UserService.getUsers error:', error);
       throw error;
     }
+  }
+
+  // Add alias methods for backward compatibility with UserManagement component
+  async getAll(filters?: UserFilters): Promise<PaginatedResponse<User>> {
+    return this.getUsers(filters);
+  }
+
+  async create(data: CreateUserData): Promise<User> {
+    return this.createUser(data);
+  }
+
+  async update(id: number, data: UpdateUserData): Promise<User> {
+    return this.updateUser(id, data);
+  }
+
+  async delete(id: number, currentUserRole?: string, deleteType: 'soft' | 'hard' = 'soft'): Promise<void> {
+    return this.deleteUser(id, currentUserRole, deleteType);
   }
 
   async getUser(id: number): Promise<User> {
@@ -109,7 +143,7 @@ class UserService {
     throw new Error('Failed to update user');
   }
 
-  async deleteUser(id: number, currentUserRole?: string): Promise<void> {
+  async deleteUser(id: number, currentUserRole?: string, deleteType: 'soft' | 'hard' = 'soft'): Promise<void> {
     // Use passed role or fallback to localStorage
     let role = currentUserRole;
     if (!role) {
@@ -132,8 +166,9 @@ class UserService {
         break;
     }
     
-    console.log(`🗑️ Deleting user with role ${role} using endpoint ${endpoint}`);
-    await apiClient.delete(endpoint);
+    // Add delete type as query parameter
+    const queryParam = deleteType === 'hard' ? '?type=hard' : '?type=soft';
+    await apiClient.delete(endpoint + queryParam);
   }
 
   async toggleUserStatus(id: number): Promise<User> {

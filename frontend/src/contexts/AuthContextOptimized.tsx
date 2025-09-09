@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { authService, LoginCredentials } from '@/services/auth';
+import { apiClient } from '@/services/apiOptimized';
 import { User } from '@/types/user';
 import { useToast } from '@/hooks/use-toast';
 import { USER_ROLES, UserRole, isValidRole } from '@/constants/roles';
@@ -31,16 +32,26 @@ const mapBackendRoleToFrontend = (backendRole: string): UserRole => {
   return mappedRole && isValidRole(mappedRole) ? mappedRole : USER_ROLES.MUELLIM;
 };
 
-// Debounce utility to prevent excessive auth checks
+// Optimized debounce utility with faster response
 const debounce = <T extends (...args: any[]) => any>(
   func: T,
   delay: number
-): ((...args: Parameters<T>) => void) => {
-  let timeoutId: NodeJS.Timeout;
-  return (...args: Parameters<T>) => {
-    clearTimeout(timeoutId);
+): ((...args: Parameters<T>) => void) & { cancel?: () => void } => {
+  let timeoutId: NodeJS.Timeout | null = null;
+  
+  const debounced = (...args: Parameters<T>) => {
+    if (timeoutId) clearTimeout(timeoutId);
     timeoutId = setTimeout(() => func(...args), delay);
   };
+  
+  debounced.cancel = () => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+  };
+  
+  return debounced;
 };
 
 // Production-safe logging
@@ -91,20 +102,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const retryTimeoutRef = useRef<NodeJS.Timeout>();
   const isMountedRef = useRef(true);
 
-  // Optimized token management
+  // Optimized token management using API client directly
   const getToken = useCallback(() => {
-    return localStorage.getItem(AUTH_STORAGE_KEY);
+    return apiClient.getToken();
   }, []);
 
   const setToken = useCallback((token: string) => {
-    localStorage.setItem(AUTH_STORAGE_KEY, token);
-    authService.setAuthToken(token);
+    apiClient.setToken(token);
+    log('info', 'Token set successfully');
   }, []);
 
   const clearAuth = useCallback(() => {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
+    apiClient.clearToken();
     localStorage.removeItem(USER_STORAGE_KEY);
-    authService.clearAuth();
     
     if (isMountedRef.current) {
       setIsAuthenticated(false);
@@ -114,13 +124,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     log('info', 'Authentication cleared');
   }, []);
 
-  // Debounced auth check to prevent excessive calls
+  // Store auth functions in refs to avoid recreating debouncedAuthCheck
+  const getTokenRef = useRef(getToken);
+  const clearAuthRef = useRef(clearAuth);
+  
+  // Update refs when functions change
+  useEffect(() => {
+    getTokenRef.current = getToken;
+    clearAuthRef.current = clearAuth;
+  });
+
+  // Optimized auth check with stable dependencies
   const debouncedAuthCheck = useCallback(
     debounce(async (retryCount = 0) => {
       if (!isMountedRef.current) return;
       
+      const startTime = performance.now();
+      
       try {
-        const token = getToken();
+        const token = getTokenRef.current();
         log('info', `Checking authentication (attempt ${retryCount + 1})`, {
           hasToken: !!token,
           tokenLength: token?.length || 0
@@ -144,35 +166,54 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setCurrentUser(parsedUser);
             setIsAuthenticated(true);
             log('info', 'User temporarily restored from cache');
+            
+            // Return early if cache is fresh (less than 5 minutes)
+            const cacheTime = parsedUser.cacheTimestamp || 0;
+            const now = Date.now();
+            if (now - cacheTime < 5 * 60 * 1000) {
+              log('info', 'Using fresh cached user data, skipping API call');
+              return;
+            }
           } catch (e) {
             log('warn', 'Failed to parse cached user data');
             localStorage.removeItem(USER_STORAGE_KEY);
           }
         }
 
-        // Get fresh user data from API
-        const user = await authService.getCurrentUser();
+        // Get fresh user data from API with timeout
+        const user = await Promise.race([
+          authService.getCurrentUser(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Auth check timeout')), 8000)
+          )
+        ]) as any;
         
         if (!isMountedRef.current) return;
 
         const mappedUser = {
           ...user,
-          role: mapBackendRoleToFrontend(user.role)
+          role: mapBackendRoleToFrontend(user.role),
+          cacheTimestamp: Date.now()
         };
 
         setCurrentUser(mappedUser);
         setIsAuthenticated(true);
         
-        // Update localStorage cache
+        // Update localStorage cache with timestamp
         localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(mappedUser));
+        
+        const duration = performance.now() - startTime;
         log('info', 'Authentication successful', { 
           username: mappedUser.username, 
-          role: mappedUser.role 
+          role: mappedUser.role,
+          duration: `${duration.toFixed(2)}ms`
         });
 
       } catch (error: any) {
-        log('error', `Auth check failed (attempt ${retryCount + 1})`, error.message);
+        const duration = performance.now() - startTime;
+        log('error', `Auth check failed (attempt ${retryCount + 1}) after ${duration.toFixed(2)}ms`, error.message);
 
+        const isTimeoutError = error.message?.includes('timeout');
         const isNetworkError = error.message?.includes('fetch') || 
                               error.message?.includes('NetworkError') ||
                               error.message?.includes('Failed to fetch');
@@ -182,16 +223,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         if (is401Error) {
           log('warn', 'Token is invalid/expired, clearing auth');
-          clearAuth();
-        } else if (isNetworkError && retryCount < 2 && isMountedRef.current) {
-          log('info', `Network error - retrying in ${(retryCount + 1) * 1000}ms`);
+          clearAuthRef.current();
+        } else if ((isNetworkError || isTimeoutError) && retryCount < 1 && isMountedRef.current) {
+          log('info', `Network/timeout error - retrying in ${(retryCount + 1) * 2000}ms`);
           retryTimeoutRef.current = setTimeout(() => {
             if (isMountedRef.current) {
               debouncedAuthCheck(retryCount + 1);
             }
-          }, (retryCount + 1) * 1000);
+          }, (retryCount + 1) * 2000);
           return;
-        } else if (!getToken()) {
+        } else if (!getTokenRef.current()) {
           // No token exists, safe to set unauthenticated
           if (isMountedRef.current) {
             setIsAuthenticated(false);
@@ -200,8 +241,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
         // For other errors with valid token, keep current state
       }
-    }, 300),
-    [getToken, clearAuth]
+    }, 100), // Reduced from 300ms to 100ms for faster response
+    [] // Empty dependency array to prevent recreation
   );
 
   // Initial auth check on mount
@@ -228,7 +269,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
       debouncedAuthCheck.cancel?.(); // Cancel debounced function
     };
-  }, [debouncedAuthCheck]);
+  }, []); // Remove debouncedAuthCheck from dependencies to prevent loop
 
   const login = useCallback(async (credentials: LoginCredentials): Promise<boolean> => {
     try {

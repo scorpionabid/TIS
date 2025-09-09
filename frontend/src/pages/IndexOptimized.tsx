@@ -3,7 +3,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { SCHOOL_ROLES } from "@/types/schoolRoles";
 import { Loader2 } from "lucide-react";
 import { DashboardSkeleton } from "@/components/dashboard/skeletons";
-import { useNavigationTracker, usePerformanceMonitor } from "@/utils/performance/hooks";
+import { useNavigate, useLocation } from "react-router-dom";
+// Performance monitoring imports removed for speed
 
 // Lazy load dashboard components for better performance
 const SuperAdminDashboardOptimized = lazy(() => 
@@ -68,11 +69,11 @@ const DashboardError = ({ error, retry }: { error: Error; retry: () => void }) =
 );
 
 const IndexOptimized = () => {
-  // Performance monitoring
-  usePerformanceMonitor('DashboardIndex');
-  const { startNavigation, endNavigation } = useNavigationTracker();
+  // Performance monitoring removed for speed
 
   const { currentUser, loading } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Memoize dashboard component selection
   const DashboardComponent = useMemo(() => {
@@ -134,27 +135,29 @@ const IndexOptimized = () => {
     );
   }
 
-  // Handle RegionAdmin redirect  
-  if (['regionadmin', 'regionoperator'].includes(currentUser.role)) {
-    // Redirect to regionadmin routes instead of showing dashboard
-    if (typeof window !== 'undefined') {
-      window.location.href = '/regionadmin';
+  // Handle RegionAdmin redirect - only redirect when on exact index page
+  useEffect(() => {
+    if (currentUser && ['regionadmin', 'regionoperator'].includes(currentUser.role)) {
+      // Only redirect if we're on the exact root path "/"
+      if (location.pathname === '/') {
+        navigate('/regionadmin', { replace: true });
+      }
     }
+  }, [currentUser?.role, location.pathname, navigate]);
+
+  // Don't show dashboard for regionadmin on root path, let the redirect happen
+  if (currentUser && ['regionadmin', 'regionoperator'].includes(currentUser.role) && location.pathname === '/') {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Yönləndirilir...</p>
+          <p className="text-sm text-muted-foreground">Regional İdarəçiliyi yüklənir...</p>
         </div>
       </div>
     );
   }
 
-  // Track navigation performance
-  useEffect(() => {
-    startNavigation();
-    return () => endNavigation('dashboard');
-  }, [startNavigation, endNavigation]);
+  // Navigation tracking removed for speed
 
   return (
     <div className="p-6">

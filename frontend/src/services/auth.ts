@@ -15,36 +15,84 @@ export type {
 };
 
 // Helper function to extract role from API response
-const extractUserRole = (roles: any[]): string => {
-  if (!roles || !Array.isArray(roles) || roles.length === 0) {
+const extractUserRole = (roles: any): string => {
+  // Handle different role formats
+  if (!roles) {
     return 'user';
   }
+
+  // If roles is a string directly
+  if (typeof roles === 'string') {
+    return roles;
+  }
+
+  // If roles is an array
+  if (Array.isArray(roles)) {
+    if (roles.length === 0) {
+      return 'user';
+    }
+    
+    const firstRole = roles[0];
+    return typeof firstRole === 'object' ? firstRole?.name || firstRole?.role : firstRole || 'user';
+  }
+
+  // If roles is an object (single role)
+  if (typeof roles === 'object') {
+    return roles?.name || roles?.role || 'user';
+  }
   
-  const firstRole = roles[0];
-  return typeof firstRole === 'object' ? firstRole?.name : firstRole || 'user';
+  return 'user';
 };
 
 // Helper function to transform API user data to User type
 const transformUserData = (userData: any): User => {
-  if (!userData || !userData.id) {
-    throw new Error('Invalid user data received from API');
+  // Debug logging to understand API response structure
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 Transform User Data - Input:', JSON.stringify(userData, null, 2));
+  }
+
+  // Handle different possible API response structures
+  let user = userData;
+  
+  // If data is nested in a 'user' property
+  if (userData?.user && typeof userData.user === 'object') {
+    user = userData.user;
+  }
+  
+  // If data is nested in a 'data' property  
+  if (userData?.data && typeof userData.data === 'object' && userData.data.id) {
+    user = userData.data;
+  }
+
+  // Final validation with better error message
+  if (!user || (!user.id && !user.user_id)) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ Invalid user data structure:', {
+        original: userData,
+        processed: user,
+        hasId: !!user?.id,
+        hasUserId: !!user?.user_id,
+        keys: user ? Object.keys(user) : 'no user object'
+      });
+    }
+    throw new Error('Invalid user data received from API - missing user ID');
   }
 
   return {
-    id: userData.id,
-    name: userData.name || userData.username || 'İstifadəçi',
-    first_name: userData.first_name || '',
-    last_name: userData.last_name || '',
-    email: userData.email,
-    username: userData.username,
-    role: extractUserRole(userData.roles),
-    permissions: userData.permissions || [],
-    institution: userData.institution,
-    region: userData.region,
-    department: userData.department,
-    is_active: userData.is_active !== undefined ? userData.is_active : true,
-    created_at: userData.created_at,
-    updated_at: userData.updated_at,
+    id: user.id || user.user_id,
+    name: user.name || user.username || user.full_name || 'İstifadəçi',
+    first_name: user.first_name || user.firstName || '',
+    last_name: user.last_name || user.lastName || '',
+    email: user.email,
+    username: user.username || user.login,
+    role: extractUserRole(user.roles || user.role),
+    permissions: user.permissions || [],
+    institution: user.institution,
+    region: user.region,
+    department: user.department,
+    is_active: user.is_active !== undefined ? user.is_active : true,
+    created_at: user.created_at || user.createdAt,
+    updated_at: user.updated_at || user.updatedAt,
   };
 };
 

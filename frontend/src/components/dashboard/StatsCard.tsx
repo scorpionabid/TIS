@@ -5,20 +5,24 @@ import { cn } from "@/lib/utils";
 interface StatsCardProps {
   title: string;
   value: string | number;
+  description?: string;
   change?: {
     value: number;
     type: "increase" | "decrease";
   };
   icon: LucideIcon;
   variant?: "default" | "primary" | "success" | "warning" | "destructive";
+  trend?: "up" | "down" | "stable" | "warning";
 }
 
 export const StatsCard = ({ 
   title, 
   value, 
+  description,
   change, 
   icon: Icon, 
-  variant = "default" 
+  variant = "default",
+  trend = "stable"
 }: StatsCardProps) => {
   const getVariantStyles = () => {
     switch (variant) {
@@ -73,9 +77,17 @@ export const StatsCard = ({
                 <span className="text-muted-foreground ml-1">öncəki aya nisbətən</span>
               </p>
             )}
+            {description && !change && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {description}
+              </p>
+            )}
           </div>
         </div>
       </CardContent>
     </Card>
   );
 };
+
+// Default export for lazy loading compatibility
+export default StatsCard;

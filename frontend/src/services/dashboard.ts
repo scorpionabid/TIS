@@ -130,20 +130,13 @@ class DashboardService {
     return response.data;
   }
 
-  // Optimized batched dashboard data
+  // Optimized dashboard data with parallel requests
   async getSuperAdminDashboardBatched() {
     try {
-      // Single API call for all dashboard data
-      const response = await apiClient.post('/dashboard/batch', {
-        queries: ['superadmin-stats', 'recent-activity', 'system-health']
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Batched dashboard call failed, falling back to individual calls');
-      // Fallback to individual calls if batching fails
+      // Use parallel individual calls for reliability and performance
       const [statsResponse, activityResponse] = await Promise.all([
-        apiClient.get('/dashboard/superadmin-analytics'),
-        apiClient.get('/dashboard/recent-activity?limit=5')
+        apiClient.get('/dashboard/superadmin-analytics', {}, { cache: true, cacheTtl: 5 * 60 * 1000 }),
+        apiClient.get('/dashboard/recent-activity', { limit: 5 }, { cache: true, cacheTtl: 2 * 60 * 1000 })
       ]);
       
       return {
@@ -151,6 +144,9 @@ class DashboardService {
         recentActivity: activityResponse.data,
         systemHealth: { status: 'ok' } // Default fallback
       };
+    } catch (error) {
+      console.error('Dashboard data fetch failed:', error);
+      throw error; // Let React Query handle retries
     }
   }
 

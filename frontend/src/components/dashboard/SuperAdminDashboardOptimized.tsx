@@ -1,4 +1,3 @@
-import { StatsCard } from "./StatsCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
@@ -12,14 +11,23 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { dashboardService } from "@/services/dashboard";
-import { useMemo, Suspense, lazy } from "react";
-import { DashboardSkeleton, StatsSkeleton } from "./skeletons";
-import { usePerformanceMonitor } from "@/utils/performance/hooks";
+import { memo } from "react";
+import { StatsSkeleton, DashboardSkeleton } from "./skeletons";
 
-// Lazy load heavy components
-const Charts = lazy(() => import("./Charts"));
-const RecentActivityWidget = lazy(() => import("./RecentActivityWidget"));
-const SystemHealthWidget = lazy(() => import("./SystemHealthWidget"));
+// Direct imports for faster rendering - lazy loading was causing delays
+import { StatsCard } from "./StatsCard";
+import Charts from "./Charts";
+import RecentActivityWidget from "./RecentActivityWidget";
+import SystemHealthWidget from "./SystemHealthWidget";
+
+// Pre-calculate query options for performance
+const QUERY_OPTIONS = {
+  staleTime: 2 * 60 * 1000, // 2 minutes
+  gcTime: 5 * 60 * 1000, // 5 minutes cache
+  refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes
+  refetchOnWindowFocus: false, // Don't refetch on window focus
+  retry: 2, // Reduce retry attempts
+};
 
 // Widget skeleton fallbacks
 const ChartsSkeleton = () => (
@@ -54,11 +62,10 @@ const ActivitySkeleton = () => (
   </Card>
 );
 
-export const SuperAdminDashboardOptimized = () => {
-  // Performance monitoring
-  usePerformanceMonitor('SuperAdminDashboard');
+export const SuperAdminDashboardOptimized = memo(() => {
+  // Performance monitoring removed for production speed
 
-  // Single optimized API call with batching
+  // Single optimized API call with pre-configured options
   const { 
     data: dashboardData, 
     isLoading, 
@@ -67,38 +74,22 @@ export const SuperAdminDashboardOptimized = () => {
   } = useQuery({
     queryKey: ['dashboard-batched'],
     queryFn: () => dashboardService.getSuperAdminDashboardBatched(),
-    staleTime: 2 * 60 * 1000, // 2 minutes - reduced from 30s
-    gcTime: 5 * 60 * 1000, // 5 minutes cache
-    refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes instead of 30s
-    refetchOnWindowFocus: false, // Don't refetch on window focus
-    retry: 2, // Reduce retry attempts
+    ...QUERY_OPTIONS
   });
 
-  // Memoized stats to prevent unnecessary re-renders
-  const stats = useMemo(() => {
-    if (!dashboardData?.stats) return null;
-    
-    const data = dashboardData.stats;
-    return {
-      users: data.users || { total: 0, active: 0, new_this_month: 0 },
-      institutions: data.institutions || { total: 0, active: 0 },
-      surveys: data.surveys || { total: 0, active: 0, completed: 0, total_responses: 0 },
-      tasks: data.tasks || { total: 0, pending: 0, in_progress: 0, completed: 0, overdue: 0 }
-    };
-  }, [dashboardData?.stats]);
+  // Simplified data processing without excessive memoization
+  const stats = dashboardData?.stats ? {
+    users: dashboardData.stats.users || { total: 0, active: 0, new_this_month: 0 },
+    institutions: dashboardData.stats.institutions || { total: 0, active: 0 },
+    surveys: dashboardData.stats.surveys || { total: 0, active: 0, completed: 0, total_responses: 0 },
+    tasks: dashboardData.stats.tasks || { total: 0, pending: 0, in_progress: 0, completed: 0, overdue: 0 }
+  } : null;
 
-  const recentActivity = useMemo(() => 
-    dashboardData?.recentActivity || [], 
-    [dashboardData?.recentActivity]
-  );
+  const recentActivity = dashboardData?.recentActivity || [];
+  const systemHealth = dashboardData?.systemHealth || { status: 'ok' };
 
-  const systemHealth = useMemo(() => 
-    dashboardData?.systemHealth || { status: 'ok' }, 
-    [dashboardData?.systemHealth]
-  );
-
-  // Memoized system stats to prevent re-calculation
-  const systemStats = useMemo(() => [
+  // Simplified system stats - computed directly for speed
+  const systemStats = [
     {
       title: "Sistem Statusu", 
       value: systemHealth.status === 'ok' ? "Stabil" : "Problem",
@@ -120,7 +111,7 @@ export const SuperAdminDashboardOptimized = () => {
       icon: ClockIcon,
       trend: isStale ? "warning" : "stable"
     }
-  ], [systemHealth, isStale]);
+  ];
 
   // Show full skeleton during initial loading
   if (isLoading && !dashboardData) {
@@ -155,26 +146,26 @@ export const SuperAdminDashboardOptimized = () => {
         </p>
       </div>
 
-      {/* Stats Cards with fallback */}
+      {/* Stats Cards with direct rendering */}
       {stats ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <StatsCard 
-            title="Ümumi İstifadəçi"
-            value={stats.users.total}
-            description={`${stats.users.active} aktiv istifadəçi`}
-            icon={UsersIcon}
-            trend={stats.users.new_this_month > 0 ? "up" : "stable"}
-          />
-          <StatsCard 
-            title="Müəssisələr"
-            value={stats.institutions.total}
-            description={`${stats.institutions.active} aktiv`}
-            icon={SchoolIcon}
-            trend="stable"
-          />
-          <StatsCard 
-            title="Sorğular"
-            value={stats.surveys.total}
+            <StatsCard 
+              title="Ümumi İstifadəçi"
+              value={stats.users.total}
+              description={`${stats.users.active} aktiv istifadəçi`}
+              icon={UsersIcon}
+              trend={stats.users.new_this_month > 0 ? "up" : "stable"}
+            />
+            <StatsCard 
+              title="Müəssisələr"
+              value={stats.institutions.total}
+              description={`${stats.institutions.active} aktiv`}
+              icon={SchoolIcon}
+              trend="stable"
+            />
+            <StatsCard 
+              title="Sorğular"
+              value={stats.surveys.total}
             description={`${stats.surveys.total_responses} cavab`}
             icon={BarChart3Icon}
             trend={stats.surveys.active > 0 ? "up" : "stable"}
@@ -191,11 +182,11 @@ export const SuperAdminDashboardOptimized = () => {
         <StatsSkeleton />
       )}
 
-      {/* System Stats */}
+      {/* System Stats with direct rendering */}
       <div className="grid gap-4 md:grid-cols-3">
-        {systemStats.map((stat, index) => (
-          <StatsCard
-            key={index}
+          {systemStats.map((stat, index) => (
+            <StatsCard
+              key={`system-${index}`}
             title={stat.title}
             value={stat.value}
             description={stat.description}
@@ -205,27 +196,21 @@ export const SuperAdminDashboardOptimized = () => {
         ))}
       </div>
 
-      {/* Charts and Activity - Lazy loaded */}
+      {/* Charts and Activity - Direct rendering */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <div className="col-span-4">
-          <Suspense fallback={<ChartsSkeleton />}>
-            <Charts />
-          </Suspense>
+          <Charts />
         </div>
 
         <div className="col-span-3">
-          <Suspense fallback={<ActivitySkeleton />}>
-            <RecentActivityWidget activities={recentActivity} />
-          </Suspense>
+          <RecentActivityWidget activities={recentActivity} />
         </div>
       </div>
 
       {/* System Health Widget */}
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <Suspense fallback={<ActivitySkeleton />}>
-            <SystemHealthWidget health={systemHealth} />
-          </Suspense>
+          <SystemHealthWidget health={systemHealth} />
         </div>
         
         <Card>
@@ -255,4 +240,6 @@ export const SuperAdminDashboardOptimized = () => {
       </div>
     </div>
   );
-};
+});
+
+SuperAdminDashboardOptimized.displayName = 'SuperAdminDashboardOptimized';

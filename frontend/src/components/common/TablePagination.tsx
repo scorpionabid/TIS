@@ -19,16 +19,21 @@ import {
 interface TablePaginationProps {
   currentPage: number;
   totalPages: number;
-  totalItems: number;
-  itemsPerPage: number;
-  startIndex: number;
-  endIndex: number;
+  totalItems?: number;
+  itemsPerPage?: number;
+  startIndex?: number;
+  endIndex?: number;
   onPageChange: (page: number) => void;
-  onItemsPerPageChange: (itemsPerPage: number) => void;
-  onPrevious: () => void;
-  onNext: () => void;
-  canGoPrevious: boolean;
-  canGoNext: boolean;
+  onItemsPerPageChange?: (itemsPerPage: number) => void;
+  onPrevious?: () => void;
+  onNext?: () => void;
+  canGoPrevious?: boolean;
+  canGoNext?: boolean;
+  
+  // Alternative prop names for backward compatibility
+  total?: number;
+  perPage?: number;
+  onPerPageChange?: (perPage: number) => void;
 }
 
 export const TablePagination: React.FC<TablePaginationProps> = ({
@@ -44,7 +49,35 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
   onNext,
   canGoPrevious,
   canGoNext,
+  // Alternative props
+  total,
+  perPage,
+  onPerPageChange,
 }) => {
+  // Use alternative prop names if provided
+  const actualTotalItems = totalItems ?? total ?? 0;
+  const actualItemsPerPage = itemsPerPage ?? perPage ?? 20;
+  const actualOnItemsPerPageChange = onItemsPerPageChange ?? onPerPageChange;
+  
+  // Calculate derived values if not provided
+  const actualStartIndex = startIndex ?? ((currentPage - 1) * actualItemsPerPage);
+  const actualEndIndex = endIndex ?? Math.min(actualStartIndex + actualItemsPerPage, actualTotalItems);
+  
+  // Default navigation functions
+  const actualOnPrevious = onPrevious ?? (() => {
+    if (currentPage > 1) {
+      onPageChange(currentPage - 1);
+    }
+  });
+  
+  const actualOnNext = onNext ?? (() => {
+    if (currentPage < totalPages) {
+      onPageChange(currentPage + 1);
+    }
+  });
+  
+  const actualCanGoPrevious = canGoPrevious ?? (currentPage > 1);
+  const actualCanGoNext = canGoNext ?? (currentPage < totalPages);
   // Generate page numbers to show
   const getPageNumbers = () => {
     const pages: (number | 'ellipsis')[] = [];
@@ -93,8 +126,8 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
       <div className="flex items-center space-x-2">
         <p className="text-sm font-medium">Səhifə başına</p>
         <Select
-          value={itemsPerPage.toString()}
-          onValueChange={(value) => onItemsPerPageChange(Number(value))}
+          value={actualItemsPerPage.toString()}
+          onValueChange={(value) => actualOnItemsPerPageChange?.(Number(value))}
         >
           <SelectTrigger className="h-8 w-[70px]">
             <SelectValue />
@@ -111,15 +144,15 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
 
       <div className="flex items-center space-x-6 lg:space-x-8">
         <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-          {startIndex + 1}-{endIndex} / {totalItems}
+          {actualStartIndex + 1}-{actualEndIndex} / {actualTotalItems}
         </div>
         
         <Pagination>
           <PaginationContent>
             <PaginationItem>
               <PaginationPrevious 
-                onClick={onPrevious}
-                className={!canGoPrevious ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                onClick={actualOnPrevious}
+                className={!actualCanGoPrevious ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
               />
             </PaginationItem>
             
@@ -141,8 +174,8 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
             
             <PaginationItem>
               <PaginationNext 
-                onClick={onNext}
-                className={!canGoNext ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                onClick={actualOnNext}
+                className={!actualCanGoNext ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
               />
             </PaginationItem>
           </PaginationContent>

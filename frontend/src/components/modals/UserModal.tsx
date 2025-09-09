@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -29,7 +30,6 @@ interface UserModalProps {
 }
 
 export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
-  console.log('👤 UserModal rendered with props:', { open, hasUser: !!user, hasOnClose: !!onClose, hasOnSave: !!onSave });
   
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -599,13 +599,69 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
   const prepareDefaultValues = () => {
     if (!user) return {};
     
-    const values = { ...user };
+    console.log('🔍 UserModal prepareDefaultValues - user data:', user);
+    console.log('🔍 UserModal prepareDefaultValues - user.role_id:', user.role_id);
     
-    // Set selected role from user data
+    const values: any = {
+      // Basic user fields
+      username: user.username || '',
+      email: user.email || '',
+      is_active: user.is_active !== undefined ? user.is_active : true,
+      role_id: user.role_id || '',
+      institution_id: user.institution_id || '',
+      department_id: user.department_id || '',
+      utis_code: user.utis_code || '',
+      
+      // Profile fields - flatten profile data to match form fields
+      first_name: user.profile?.first_name || user.first_name || '',
+      last_name: user.profile?.last_name || user.last_name || '',
+      patronymic: user.profile?.patronymic || user.patronymic || '',
+      birth_date: user.profile?.birth_date || user.birth_date || '',
+      gender: user.profile?.gender || user.gender || '',
+      national_id: user.profile?.national_id || user.national_id || '',
+      contact_phone: user.profile?.contact_phone || user.contact_phone || '',
+      emergency_contact: user.profile?.emergency_contact || user.emergency_contact || '',
+      address: user.profile?.address || user.address || '',
+      
+      // Teacher-specific fields
+      subjects: user.profile?.subjects || user.subjects || [],
+      specialty: user.profile?.specialty || user.specialty || '',
+      experience_years: user.profile?.experience_years || user.experience_years || '',
+      miq_score: user.profile?.miq_score || user.miq_score || '',
+      certification_score: user.profile?.certification_score || user.certification_score || '',
+      last_certification_date: user.profile?.last_certification_date || user.last_certification_date || '',
+      qualifications: user.profile?.qualifications || user.qualifications || '',
+      training_courses: user.profile?.training_courses || user.training_courses || '',
+      degree_level: user.profile?.degree_level || user.degree_level || '',
+      graduation_university: user.profile?.graduation_university || user.graduation_university || '',
+      graduation_year: user.profile?.graduation_year || user.graduation_year || '',
+      university_gpa: user.profile?.university_gpa || user.university_gpa || '',
+      
+      // Student-specific fields
+      student_miq_score: user.profile?.student_miq_score || user.student_miq_score || '',
+      academic_achievements: user.profile?.academic_achievements || user.academic_achievements || '',
+      extracurricular_activities: user.profile?.extracurricular_activities || user.extracurricular_activities || '',
+      health_info: user.profile?.health_info || user.health_info || '',
+      previous_school: user.profile?.previous_school || user.previous_school || '',
+      parent_occupation: user.profile?.parent_occupation || user.parent_occupation || '',
+      family_income: user.profile?.family_income || user.family_income || '',
+      special_needs: user.profile?.special_needs || user.special_needs || '',
+      notes: user.profile?.notes || user.notes || '',
+    };
+    
+    // Set selected role from user data for dropdown
     if (user.role_id) {
       setSelectedRole(user.role_id.toString());
     }
-
+    
+    // Set birth date for date picker
+    if (values.birth_date) {
+      setSelectedBirthDate(values.birth_date);
+    }
+    
+    console.log('✅ UserModal prepareDefaultValues - prepared values:', values);
+    console.log('✅ UserModal prepareDefaultValues - role_id in values:', values.role_id);
+    
     return values;
   };
 
@@ -640,6 +696,12 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
               </Badge>
             )}
           </DialogTitle>
+          <DialogDescription className="text-muted-foreground">
+            {user 
+              ? 'Mövcud istifadəçinin məlumatlarını dəyişdirin və yadda saxlayın.'
+              : 'Yeni istifadəçinin məlumatlarını daxil edin və əlavə edin.'
+            }
+          </DialogDescription>
         </DialogHeader>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

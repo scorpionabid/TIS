@@ -12,7 +12,7 @@ import { NavigationProvider } from "@/contexts/NavigationContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const Layout = () => {
-  const { isAuthenticated, currentUser, login, logout } = useAuth();
+  const { isAuthenticated, currentUser, login, logout, loading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -68,6 +68,15 @@ const Layout = () => {
         return "Azərbaycan Təhsil İdarəetmə Sistemi";
     }
   };
+
+  // Show loading spinner while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   // Show login form if not authenticated
   if (!isAuthenticated || !currentUser) {

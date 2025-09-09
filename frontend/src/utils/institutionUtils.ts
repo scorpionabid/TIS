@@ -1,3 +1,4 @@
+import React from 'react';
 import { InstitutionType } from '@/services/institutions';
 import { Building, MapPin, Users, School } from 'lucide-react';
 
@@ -173,7 +174,7 @@ export const getFallbackTypesForRole = (userRole?: string): InstitutionType[] =>
 /**
  * Get appropriate icon component for institution type
  */
-export const getInstitutionIcon = (type: string | { id: number; name: string; key: string; level: number } | null) => {
+export const getInstitutionIcon = (type: string | { id: number; name: string; key: string; level: number } | null): React.ReactElement => {
   let typeKey = '';
   
   // If type is an object (from API), use its key
@@ -183,15 +184,15 @@ export const getInstitutionIcon = (type: string | { id: number; name: string; ke
     typeKey = type;
   }
   
-  // Map icon names to actual components
+  // Map icon names to actual JSX elements
   switch (typeKey) {
-    case 'ministry': return Building;
+    case 'ministry': return React.createElement(Building, { size: 16 });
     case 'region':
     case 'regional_education_department':
-    case 'regional': return MapPin;
+    case 'regional': return React.createElement(MapPin, { size: 16 });
     case 'sektor':
     case 'sector':
-    case 'sector_education_office': return Users;
+    case 'sector_education_office': return React.createElement(Users, { size: 16 });
     case 'school': 
     case 'secondary_school':
     case 'lyceum':
@@ -204,8 +205,8 @@ export const getInstitutionIcon = (type: string | { id: number; name: string; ke
     case 'primary_school':
     case 'vocational':
     case 'university':
-      return School;
-    default: return School;
+      return React.createElement(School, { size: 16 });
+    default: return React.createElement(School, { size: 16 });
   }
 };
 

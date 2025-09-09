@@ -1,9 +1,9 @@
-import { lazy, Suspense, useState } from "react";
+import React, { lazy, Suspense, useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import WebSocketProvider from "@/contexts/WebSocketContext";
 import { LoginForm } from "@/components/auth/LoginForm";
@@ -70,11 +70,31 @@ const BulkAttendanceEntry = lazy(() => import("./pages/school/BulkAttendanceEntr
 // Teacher pages
 const TeacherSchedule = lazy(() => import("./pages/teacher/TeacherSchedule"));
 
-const queryClient = new QueryClient();
+// Memory-optimized QueryClient configuration
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Reduce memory usage with shorter cache times
+      staleTime: 2 * 60 * 1000, // 2 minutes
+      gcTime: 5 * 60 * 1000, // 5 minutes (was cacheTime)
+      // Reduce network requests
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchInterval: false,
+      // Error handling
+      retry: 1, // Reduce retry attempts
+      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+    },
+    mutations: {
+      retry: 1, // Reduce retry attempts for mutations
+    },
+  },
+});
 
-// Protected Route Component
+// Protected Route Component  
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
   
   if (loading) {
     return (
@@ -85,7 +105,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
   
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    // Pass the current location as state so LoginPage can redirect back
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
   
   return <>{children}</>;
@@ -95,9 +116,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const LoginPage = () => {
   const { login, loading, isAuthenticated } = useAuth();
   const [loginError, setLoginError] = useState<string | undefined>();
+  const location = useLocation();
   
   if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+    // Get the intended URL from state, or default to "/"
+    const intendedUrl = (location.state as any)?.from?.pathname || "/";
+    return <Navigate to={intendedUrl} replace />;
   }
   
   const handleLogin = async (email: string, password: string) => {
@@ -121,14 +145,16 @@ const LoginPage = () => {
   );
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <WebSocketProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
+const App = () => {
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <WebSocketProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route
@@ -316,11 +342,12 @@ const App = () => (
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
-        </TooltipProvider>
-      </WebSocketProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+            </BrowserRouter>
+          </TooltipProvider>
+        </WebSocketProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

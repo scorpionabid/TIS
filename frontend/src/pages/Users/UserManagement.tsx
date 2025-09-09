@@ -1,6 +1,7 @@
 import { useState, Suspense, lazy, memo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { User, CreateUserData, UpdateUserData, userService } from "@/services/users";
+import { apiClient } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 import { usePagination } from "@/hooks/usePagination";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,7 +10,7 @@ import { UserActions } from "./components/UserActions";
 import { UserFilters } from "./components/UserFilters";
 import { UserTable } from "./components/UserTable";
 import { TablePagination } from "@/components/common/TablePagination";
-import { usePerformanceMonitor } from "@/utils/performance/hooks";
+// Performance monitoring import removed for speed
 
 // Lazy load modals for better performance
 const UserModal = lazy(() => import("@/components/modals/UserModal").then(module => ({
@@ -45,8 +46,7 @@ const ModalSkeleton = () => (
 );
 
 export const UserManagement = memo(() => {
-  // Performance monitoring
-  usePerformanceMonitor('UserManagement');
+  // Performance monitoring removed for speed
   
   const { currentUser } = useAuth();
   const { toast } = useToast();
@@ -67,13 +67,16 @@ export const UserManagement = memo(() => {
     error,
     refetch 
   } = useQuery({
-    queryKey: ['users'],
+    queryKey: ['users'], // Fixed - removed Date.now() to prevent infinite loop
     queryFn: () => userService.getAll({ per_page: 1000 }), // Load more users for better filtering
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    retry: 1,
+    enabled: !!currentUser, // Only run when user is authenticated
   });
 
   const users = usersResponse?.data || [];
-  const totalUsers = usersResponse?.pagination?.total || 0;
+  const totalUsers = usersResponse?.total || usersResponse?.pagination?.total || 0;
+
 
   // Filtering and sorting
   const {
@@ -99,13 +102,13 @@ export const UserManagement = memo(() => {
   const {
     currentPage,
     totalPages,
-    paginatedData: paginatedUsers,
+    paginatedItems: paginatedUsers,
     goToPage,
-    nextPage,
-    prevPage,
+    goToNextPage: nextPage,
+    goToPreviousPage: prevPage,
     itemsPerPage,
     setItemsPerPage
-  } = usePagination(filteredAndSortedUsers, 20);
+  } = usePagination(filteredAndSortedUsers || [], { initialItemsPerPage: 20 });
 
   // Handlers
   const handleOpenModal = (user?: User) => {
@@ -151,14 +154,17 @@ export const UserManagement = memo(() => {
     setIsDeleteModalOpen(true);
   };
 
-  const handleConfirmDelete = async () => {
-    if (!userToDelete) return;
-
+  const handleConfirmDelete = async (user: User, deleteType: 'soft' | 'hard') => {
     try {
-      await userService.delete(userToDelete.id);
+      await userService.delete(user.id, currentUser?.role, deleteType);
+      
+      const message = deleteType === 'hard' 
+        ? "İstifadəçi həmişəlik silindi" 
+        : "İstifadəçi arxivə köçürüldü";
+        
       toast({
         title: "Uğur",
-        description: "İstifadəçi silindi",
+        description: message,
       });
       
       queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -209,23 +215,31 @@ export const UserManagement = memo(() => {
           onImportExport={() => {}}
           onTrashedUsers={() => {}}
         />
-        <UserTable
-          users={[]}
-          onEditUser={() => {}}
-          onDeleteUser={() => {}}
-          currentUserRole={currentUser?.role || ''}
-          isLoading={true}
-        />
       </div>
     );
   }
 
-  // Error state
+  // Error state - check if it's authentication error
   if (error) {
+    const errorMessage = error instanceof Error ? error.message : 'İstifadəçilər yüklənərkən problem yarandı.';
+    
+    // If authentication error, force login
+    if (errorMessage.includes('Unauthenticated') || errorMessage.includes('401')) {
+      // Clear auth and redirect to login
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('atis_auth_token');
+        localStorage.removeItem('atis_current_user');
+        window.location.href = '/login';
+      }
+    }
+    
     return (
       <div className="p-6 text-center">
         <h1 className="text-2xl font-bold text-destructive mb-2">Xəta baş verdi</h1>
-        <p className="text-muted-foreground">İstifadəçilər yüklənərkən problem yarandı.</p>
+        <p className="text-muted-foreground">{errorMessage}</p>
+        {errorMessage.includes('Unauthenticated') && (
+          <p className="text-sm text-orange-600 mt-2">Zəhmət olmasa yenidən daxil olun.</p>
+        )}
       </div>
     );
   }
@@ -265,6 +279,7 @@ export const UserManagement = memo(() => {
         currentUserRole={currentUser?.role || ''}
       />
 
+
       {totalPages > 1 && (
         <TablePagination
           currentPage={currentPage}
@@ -282,9 +297,9 @@ export const UserManagement = memo(() => {
       {isModalOpen && (
         <Suspense fallback={<ModalSkeleton />}>
           <UserModal
-            isOpen={isModalOpen}
+            open={isModalOpen}
             onClose={handleCloseModal}
-            onSubmit={handleUserSubmit}
+            onSave={handleUserSubmit}
             user={selectedUser}
           />
         </Suspense>
@@ -293,14 +308,14 @@ export const UserManagement = memo(() => {
       {isDeleteModalOpen && userToDelete && (
         <Suspense fallback={<ModalSkeleton />}>
           <DeleteConfirmationModal
-            isOpen={isDeleteModalOpen}
+            open={isDeleteModalOpen}
             onClose={() => {
               setIsDeleteModalOpen(false);
               setUserToDelete(null);
             }}
+            item={userToDelete}
             onConfirm={handleConfirmDelete}
-            title="İstifadəçini sil"
-            description={`"${userToDelete.username}" istifadəçisini silmək istədiyinizə əminsiniz? Bu əməliyyat geri qaytarıla bilməz.`}
+            itemType="İstifadəçi"
           />
         </Suspense>
       )}

@@ -89,13 +89,13 @@ export const RecentActivityWidget = memo(({ activities }: RecentActivityWidgetPr
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {activities.slice(0, 5).map((activity) => {
+          {activities.slice(0, 5).map((activity, index) => {
             const Icon = getActivityIcon(activity.type);
             const colorClass = getActivityColor(activity.type);
             const typeLabel = getActivityTypeLabel(activity.type);
             
             return (
-              <div key={activity.id} className="flex items-start space-x-3">
+              <div key={activity.id || `activity-${index}-${activity.created_at}`} className="flex items-start space-x-3">
                 <div className={`p-2 rounded-full ${colorClass} flex-shrink-0`}>
                   <Icon className="h-4 w-4 text-white" />
                 </div>

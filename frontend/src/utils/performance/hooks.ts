@@ -1,28 +1,9 @@
 import { useEffect, useRef, useCallback } from 'react';
 import PerformanceTracker from './PerformanceTracker';
 
-// Hook to track component render performance
+// Hook to track component render performance - DISABLED FOR SPEED
 export const usePerformanceMonitor = (componentName: string) => {
-  const tracker = PerformanceTracker.getInstance();
-  const renderStartTime = useRef<number>(0);
-
-  useEffect(() => {
-    renderStartTime.current = performance.now();
-    
-    return () => {
-      const endTime = performance.now();
-      const renderTime = endTime - renderStartTime.current;
-      tracker.trackRender(componentName, renderTime);
-    };
-  });
-
-  // Track memory usage when component mounts
-  useEffect(() => {
-    if ('memory' in performance && (performance as any).memory) {
-      const memoryMB = (performance as any).memory.usedJSHeapSize / 1024 / 1024;
-      tracker.trackMemoryUsage(componentName, memoryMB);
-    }
-  }, [componentName, tracker]);
+  // No-op for performance - tracking disabled
 };
 
 // Hook to track API call performance
@@ -36,22 +17,11 @@ export const useAPIPerformanceTracker = () => {
   return { trackAPICall };
 };
 
-// Hook to track navigation performance
+// Hook to track navigation performance - DISABLED FOR SPEED
 export const useNavigationTracker = () => {
-  const tracker = PerformanceTracker.getInstance();
-  const navigationStartTime = useRef<number>(0);
-
-  const startNavigation = useCallback(() => {
-    navigationStartTime.current = performance.now();
-  }, []);
-
-  const endNavigation = useCallback((routeName: string) => {
-    if (navigationStartTime.current > 0) {
-      const navigationTime = performance.now() - navigationStartTime.current;
-      tracker.trackNavigation(routeName, navigationTime);
-      navigationStartTime.current = 0;
-    }
-  }, [tracker]);
+  // No-op functions for performance - tracking disabled
+  const startNavigation = useCallback(() => {}, []);
+  const endNavigation = useCallback((routeName: string) => {}, []);
 
   return { startNavigation, endNavigation };
 };
