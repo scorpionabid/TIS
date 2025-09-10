@@ -60,8 +60,10 @@ export const SektorAdminDashboard = () => {
   const { data: stats, isLoading, error, refetch, isFetching } = useQuery<SektorDashboardStats>({
     queryKey: ['sektor-dashboard-stats'],
     queryFn: () => dashboardService.getSektorAdminStats(),
-    refetchInterval: 30000, // Refresh every 30 seconds
-    refetchIntervalInBackground: true,
+    refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes
+    refetchIntervalInBackground: false, // Don't refresh in background
+    staleTime: 3 * 60 * 1000, // 3 minutes - data stays fresh
+    gcTime: 10 * 60 * 1000, // 10 minutes cache
   });
 
   const handleManualRefresh = () => {

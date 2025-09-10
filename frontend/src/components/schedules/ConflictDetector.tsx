@@ -63,8 +63,10 @@ export const ConflictDetector: React.FC<ConflictDetectorProps> = ({
     queryKey: ['schedule-conflicts', scheduleId],
     queryFn: () => scheduleId ? scheduleService.getScheduleConflicts(scheduleId) : Promise.resolve([]),
     enabled: !!scheduleId,
-    refetchInterval: autoDetect ? 30000 : false, // Auto-refresh every 30 seconds
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    refetchInterval: autoDetect ? 5 * 60 * 1000 : false, // Auto-refresh every 5 minutes
+    refetchIntervalInBackground: false, // Don't refresh in background
+    staleTime: 3 * 60 * 1000, // 3 minutes - conflicts stay fresh longer
+    gcTime: 10 * 60 * 1000, // 10 minutes cache
   });
 
   // Run real-time detection

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Dialog,
@@ -41,6 +41,13 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [emailValidation, setEmailValidation] = useState<{isChecking: boolean, isUnique?: boolean, message?: string}>({isChecking: false});
   const [selectedBirthDate, setSelectedBirthDate] = useState<string>('');
+  
+  // Use ref to track roles loading state and prevent infinite loops
+  const rolesLoadedRef = useRef(false);
+  const currentRoleRef = useRef<string>('');
+  
+  // Keep form data across tabs to maintain state
+  const [formData, setFormData] = useState<any>({});
 
   // Load subjects for teacher professional fields
   const { data: subjects } = useQuery({
@@ -49,41 +56,7 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
     enabled: open,
   });
 
-  // Load available roles and institutions when modal opens
-  useEffect(() => {
-    if (open) {
-      loadOptions();
-      // Reset to first tab when modal opens to ensure proper focus management
-      setActiveTab('basic');
-    } else {
-      // Reset form state when modal closes
-      setSelectedRole('');
-      setAvailableInstitutions([]);
-      setAvailableDepartments([]);
-      setLoadingOptions(true);
-      setSelectedBirthDate('');
-      setEmailValidation({isChecking: false});
-    }
-  }, [open]);
-
-  // Load institutions or departments when selected role changes
-  useEffect(() => {
-    if (selectedRole && availableRoles.length > 0) {
-      const selectedRoleData = availableRoles.find(r => r.id.toString() === selectedRole);
-      
-      // Reset previous state
-      setAvailableInstitutions([]);
-      setAvailableDepartments([]);
-      
-      if (selectedRoleData?.name === 'regionoperator') {
-        loadDepartmentsForRole();
-      } else {
-        loadInstitutionsForRole();
-      }
-    }
-  }, [selectedRole, availableRoles]);
-
-  const loadOptions = async () => {
+  const loadOptions = useCallback(async () => {
     try {
       setLoadingOptions(true);
       // Only load roles initially
@@ -103,45 +76,69 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
     } finally {
       setLoadingOptions(false);
     }
-  };
+  }, [toast]);
 
-  const loadInstitutionsForRole = async () => {
-    try {
-      const selectedRoleData = availableRoles.find(r => r.id.toString() === selectedRole);
-      if (!selectedRoleData) return;
-
-      console.log('🔄 Loading institutions for role:', selectedRoleData.name);
-      const institutions = await userService.getAvailableInstitutions(selectedRoleData.name);
-      console.log('🏢 Filtered institutions:', institutions);
-      setAvailableInstitutions(institutions);
-    } catch (error) {
-      console.error('Failed to load institutions for role:', error);
-      toast({
-        title: 'Xəta',
-        description: 'Seçilmiş rol üçün müəssisələr yüklənə bilmədi',
-        variant: 'destructive',
-      });
+  // Load available roles and institutions when modal opens
+  useEffect(() => {
+    if (open) {
+      if (!rolesLoadedRef.current) {
+        loadOptions();
+        rolesLoadedRef.current = true;
+      }
+      // Reset to first tab when modal opens to ensure proper focus management
+      setActiveTab('basic');
+    } else {
+      // Reset form state when modal closes
+      setSelectedRole('');
+      setAvailableInstitutions([]);
+      setAvailableDepartments([]);
+      setLoadingOptions(true);
+      setSelectedBirthDate('');
+      setEmailValidation({isChecking: false});
+      setFormData({}); // Clear cross-tab form data
+      rolesLoadedRef.current = false; // Reset for next time
+      currentRoleRef.current = '';
     }
-  };
+  }, [open, loadOptions]);
 
-  const loadDepartmentsForRole = async () => {
-    try {
-      const selectedRoleData = availableRoles.find(r => r.id.toString() === selectedRole);
-      if (!selectedRoleData) return;
+  // Load institutions or departments when selected role changes
+  useEffect(() => {
+    if (!selectedRole || availableRoles.length === 0) return;
+    
+    // Prevent unnecessary re-runs for the same role
+    if (currentRoleRef.current === selectedRole) return;
+    currentRoleRef.current = selectedRole;
+    
+    const selectedRoleData = availableRoles.find(r => r.id.toString() === selectedRole);
+    if (!selectedRoleData) return;
+    
+    // Reset previous state
+    setAvailableInstitutions([]);
+    setAvailableDepartments([]);
+    
+    // Load data directly without toast dependencies to prevent re-render loops
+    const loadData = async () => {
+      try {
+        if (selectedRoleData.name === 'regionoperator') {
+          console.log('🔄 Loading departments for role:', selectedRoleData.name);
+          const departments = await userService.getAvailableDepartments(selectedRoleData.name);
+          console.log('🏢 Filtered departments:', departments);
+          setAvailableDepartments(departments);
+        } else {
+          console.log('🔄 Loading institutions for role:', selectedRoleData.name);
+          const institutions = await userService.getAvailableInstitutions(selectedRoleData.name);
+          console.log('🏢 Filtered institutions:', institutions);
+          setAvailableInstitutions(institutions);
+        }
+      } catch (error) {
+        console.error('Failed to load data for role:', selectedRoleData.name, error);
+        // Avoid toast in useEffect to prevent re-render loops
+      }
+    };
+    
+    loadData();
+  }, [selectedRole]); // Only depend on selectedRole
 
-      console.log('🔄 Loading departments for role:', selectedRoleData.name);
-      const departments = await userService.getAvailableDepartments(selectedRoleData.name);
-      console.log('🏢 Filtered departments:', departments);
-      setAvailableDepartments(departments);
-    } catch (error) {
-      console.error('Failed to load departments for role:', error);
-      toast({
-        title: 'Xəta',
-        description: 'Seçilmiş rol üçün departamentlər yüklənə bilmədi',
-        variant: 'destructive',
-      });
-    }
-  };
 
   // Calculate age from birth date
   const calculateAgeFromDate = (birthDate: string): string => {
@@ -200,28 +197,28 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
     [user?.id]
   );
 
-  // Check if selected role is teacher or student
-  const isTeacherRole = (roleId: string) => {
+  // Memoized role checking functions for performance
+  const isTeacherRole = useCallback((roleId: string) => {
     const role = availableRoles.find(r => r.id.toString() === roleId);
     return role && (role.name.toLowerCase().includes('teacher') || 
                    role.name.toLowerCase().includes('müəllim') ||
                    role.display_name.toLowerCase().includes('müəllim'));
-  };
+  }, [availableRoles]);
 
-  const isStudentRole = (roleId: string) => {
+  const isStudentRole = useCallback((roleId: string) => {
     const role = availableRoles.find(r => r.id.toString() === roleId);
     return role && (role.name.toLowerCase().includes('student') || 
                    role.name.toLowerCase().includes('şagird') ||
                    role.display_name.toLowerCase().includes('şagird'));
-  };
+  }, [availableRoles]);
 
-  const isRegionalOperatorRole = (roleId: string) => {
+  const isRegionalOperatorRole = useCallback((roleId: string) => {
     const role = availableRoles.find(r => r.id.toString() === roleId);
     return role && role.name === 'regionoperator';
-  };
+  }, [availableRoles]);
 
-  // Basic Information Fields
-  const getBasicFields = () => [
+  // Memoized Basic Information Fields
+  const getBasicFields = useCallback(() => [
     createField('first_name', 'Ad', 'text', {
       required: true,
       placeholder: 'İstifadəçinin adı',
@@ -355,10 +352,10 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
       defaultValue: 'true',
       validation: commonValidations.required,
     }),
-  ];
+  ], [availableRoles, availableDepartments, availableInstitutions, loadingOptions, selectedRole, selectedBirthDate, emailValidation, debouncedEmailCheck, user, isTeacherRole, isStudentRole, isRegionalOperatorRole, setSelectedRole, setActiveTab, setSelectedBirthDate]);
 
-  // Teacher Professional Fields
-  const getTeacherFields = () => [
+  // Memoized Teacher Professional Fields
+  const getTeacherFields = useCallback(() => [
     createField('subjects', 'Dərs verdiyi fənlər', 'multiselect', {
       options: subjects || [],
       placeholder: 'Fənləri seçin',
@@ -416,10 +413,10 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
       step: 0.01,
       description: '4.0 şkalası üzrə orta bal',
     }),
-  ];
+  ], [subjects]);
 
-  // Student Academic Fields  
-  const getStudentFields = () => [
+  // Memoized Student Academic Fields  
+  const getStudentFields = useCallback(() => [
     createField('student_miq_score', 'Şagird MİQ balı', 'number', {
       placeholder: '0.00',
       min: 0,
@@ -436,10 +433,10 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
       step: 0.01,
       description: 'Ailənin aylıq gəliri',
     }),
-  ];
+  ], []);
 
-  // Additional fields
-  const getAdditionalFields = () => [
+  // Memoized Additional fields
+  const getAdditionalFields = useCallback(() => [
     createField('emergency_contact_name', 'Təcili əlaqə şəxsi', 'text', {
       placeholder: 'Təcili hallarda əlaqə saxlanılacaq şəxsin adı',
     }),
@@ -455,9 +452,143 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
       placeholder: 'Digər mühüm məlumatlar',
       rows: 3,
     }),
-  ];
+  ], []);
 
+  // Config-driven fields configuration
+  const fieldConfig = useMemo(() => ({
+    basic: {
+      fields: () => getBasicFields(),
+      always: true,
+      dependencies: [availableRoles, availableInstitutions, availableDepartments, loadingOptions, selectedRole, selectedBirthDate, emailValidation]
+    },
+    teacher: {
+      fields: () => getTeacherFields(),
+      condition: () => selectedRole && isTeacherRole(selectedRole),
+      includeBasic: true,
+      dependencies: [subjects]
+    },
+    student: {
+      fields: () => getStudentFields(),
+      condition: () => selectedRole && isStudentRole(selectedRole),
+      includeBasic: true,
+      dependencies: []
+    },
+    additional: {
+      fields: () => getAdditionalFields(),
+      includeBasic: true,
+      dependencies: []
+    }
+  }), [selectedRole, availableRoles, availableInstitutions, availableDepartments, subjects, loadingOptions, selectedBirthDate, emailValidation, getBasicFields, getTeacherFields, getStudentFields, getAdditionalFields, isTeacherRole, isStudentRole]);
+
+  // Get all fields conditionally using config-driven approach
+  const getAllFields = useMemo(() => {
+    const config = fieldConfig[activeTab as keyof typeof fieldConfig];
+    if (!config) return [];
+    
+    const allFields = [];
+    
+    // Always include basic fields if specified
+    if (config.includeBasic && activeTab !== 'basic') {
+      allFields.push(...getBasicFields());
+    }
+    
+    // Add tab-specific fields if condition is met
+    if (config.always || !config.condition || config.condition()) {
+      allFields.push(...config.fields());
+    }
+    
+    return allFields;
+  }, [activeTab, fieldConfig, getBasicFields, getTeacherFields, getStudentFields, getAdditionalFields]);
+
+
+  // Enhanced form data persistence across tabs
+  const handleFormChange = useCallback((newData: any) => {
+    console.log('📅 Form change:', { activeTab, newData });
+    
+    setFormData(prev => {
+      const updated = { ...prev, ...newData };
+      console.log('📋 Updated form data:', updated);
+      return updated;
+    });
+    
+    // Handle role change and automatic tab switching
+    if (newData.role_id && newData.role_id !== selectedRole) {
+      setSelectedRole(newData.role_id);
+      
+      // Auto-switch to relevant tab when role changes
+      if (isTeacherRole(newData.role_id) && activeTab === 'basic') {
+        setTimeout(() => setActiveTab('teacher'), 100);
+      } else if (isStudentRole(newData.role_id) && activeTab === 'basic') {
+        setTimeout(() => setActiveTab('student'), 100);
+      }
+    }
+    
+    // Handle email validation
+    if (newData.email && newData.email !== formData.email) {
+      debouncedEmailCheck(newData.email);
+    }
+    
+    // Handle birth date change
+    if (newData.birth_date && newData.birth_date !== selectedBirthDate) {
+      setSelectedBirthDate(newData.birth_date);
+    }
+  }, [activeTab, selectedRole, formData.email, selectedBirthDate, debouncedEmailCheck]);
+
+  // Enhanced validation before submit
+  const validateFormData = useCallback((data: any) => {
+    const errors: string[] = [];
+    
+    // Required field validation
+    if (!data.first_name?.trim()) errors.push('Ad məcburi sahədir');
+    if (!data.last_name?.trim()) errors.push('Soyad məcburi sahədir');
+    if (!data.username?.trim()) errors.push('İstifadəçi adı məcburi sahədir');
+    if (!data.email?.trim()) errors.push('Email məcburi sahədir');
+    if (!data.role_id) errors.push('Rol seçilməlidir');
+    
+    // Email validation
+    if (data.email && !/\S+@\S+\.\S+/.test(data.email)) {
+      errors.push('Email formatı düz deyil');
+    }
+    
+    if (emailValidation.isUnique === false) {
+      errors.push('Bu email artıq istifadə olunur');
+    }
+    
+    // Password validation for new users
+    if (!user && (!data.password || data.password.length < 8)) {
+      errors.push('Şifrə minimum 8 simvol olmalıdır');
+    }
+    
+    if (data.password && data.password !== data.password_confirmation) {
+      errors.push('Şifrə və şifrə təkrarı uyğun gəlmir');
+    }
+    
+    // Role-based validation
+    if (selectedRole) {
+      if (isTeacherRole(selectedRole) && data.subjects && data.subjects.length === 0) {
+        errors.push('Müəllim rolü üçün ən azı bir fən seçilməlidir');
+      }
+    }
+    
+    return errors;
+  }, [user, emailValidation.isUnique, selectedRole, isTeacherRole]);
+  
   const handleSubmit = async (data: any) => {
+    // Merge current tab data with stored form data - ensure all tabs' data is included
+    const finalData = { ...formData, ...data };
+    console.log('📈 Final submit data:', finalData);
+    
+    // Enhanced validation
+    const validationErrors = validateFormData(finalData);
+    if (validationErrors.length > 0) {
+      toast({
+        title: 'Validation Xətası',
+        description: validationErrors.join('\n'),
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     setLoading(true);
     try {
       // Process subjects field if it exists
@@ -562,41 +693,60 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
     } catch (error: any) {
       console.error('User creation error:', error);
       
-      // Handle validation errors specifically
+      // Enhanced error handling with better UX
+      let errorTitle = 'Xəta';
+      let errorDescription = 'Əməliyyat zamanı xəta baş verdi';
+      
       if (error.message === 'Validation failed' && error.errors) {
+        errorTitle = 'Məlumat Xətası';
         const errorMessages = Object.entries(error.errors)
           .map(([field, messages]: [string, any]) => {
-            const fieldName = field === 'username' ? 'İstifadəçi adı' :
-                            field === 'email' ? 'E-poçt' :
-                            field === 'institution_id' ? 'Müəssisə' :
-                            field === 'department_id' ? 'Departament' :
-                            field === 'role_name' ? 'Rol' :
-                            field === 'password' ? 'Parol' : field;
+            const fieldName = {
+              'username': 'İstifadəçi adı',
+              'email': 'E-poçt',
+              'institution_id': 'Müəssisə',
+              'department_id': 'Departament',
+              'role_name': 'Rol',
+              'password': 'Şifrə',
+              'first_name': 'Ad',
+              'last_name': 'Soyad',
+              'contact_phone': 'Telefon'
+            }[field] || field;
             
             const messageList = Array.isArray(messages) ? messages : [messages];
             return `${fieldName}: ${messageList.join(', ')}`;
           })
           .join('\n');
           
-        toast({
-          title: 'Validation Xətası',
-          description: errorMessages,
-          variant: 'destructive',
-        });
+        errorDescription = errorMessages;
+      } else if (error.status === 422) {
+        errorTitle = 'Məlumat Xətası';
+        errorDescription = 'Daxil edilmiş məlumatlar düz deyil. Zəhmət olmasa yoxlayın.';
+      } else if (error.status === 409) {
+        errorTitle = 'Dublikat Məlumat';
+        errorDescription = 'Bu məlumatlarla istifadəçi artıq mövcuddur.';
+      } else if (error.status === 500) {
+        errorTitle = 'Server Xətası';
+        errorDescription = 'Server tərəfində xəta baş verdi. Bir qədər sonra cəhd edin.';
+      } else if (!error.message || error.message.includes('fetch')) {
+        errorTitle = 'Əlaqə Xətası';
+        errorDescription = 'İnternet bağlantınızı yoxlayın və yenidən cəhd edin.';
       } else {
-        // Generic error message
-        toast({
-          title: 'Xəta',
-          description: error.message || 'Əməliyyat zamanı xəta baş verdi',
-          variant: 'destructive',
-        });
+        errorDescription = error.message;
       }
+      
+      toast({
+        title: errorTitle,
+        description: errorDescription,
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const prepareDefaultValues = () => {
+  // Memoize default values to prevent re-calculation on each render
+  const defaultValues = useMemo(() => {
     if (!user) return {};
     
     console.log('🔍 UserModal prepareDefaultValues - user data:', user);
@@ -606,10 +756,12 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
       // Basic user fields
       username: user.username || '',
       email: user.email || '',
-      is_active: user.is_active !== undefined ? user.is_active : true,
-      role_id: user.role_id || '',
-      institution_id: user.institution_id || '',
-      department_id: user.department_id || '',
+      // Fix: Convert boolean to string for select field
+      is_active: user.is_active !== undefined ? user.is_active.toString() : 'true',
+      // Fix: Ensure role_id is string
+      role_id: user.role_id ? user.role_id.toString() : '',
+      institution_id: user.institution_id ? user.institution_id.toString() : '',
+      department_id: user.department_id ? user.department_id.toString() : '',
       utis_code: user.utis_code || '',
       
       // Profile fields - flatten profile data to match form fields
@@ -620,7 +772,9 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
       gender: user.profile?.gender || user.gender || '',
       national_id: user.profile?.national_id || user.national_id || '',
       contact_phone: user.profile?.contact_phone || user.contact_phone || '',
-      emergency_contact: user.profile?.emergency_contact || user.emergency_contact || '',
+      emergency_contact_name: user.profile?.emergency_contact_name || user.emergency_contact_name || '',
+      emergency_contact_phone: user.profile?.emergency_contact_phone || user.emergency_contact_phone || '',
+      emergency_contact_email: user.profile?.emergency_contact_email || user.emergency_contact_email || '',
       address: user.profile?.address || user.address || '',
       
       // Teacher-specific fields
@@ -649,42 +803,73 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
       notes: user.profile?.notes || user.notes || '',
     };
     
+    console.log('✅ UserModal prepareDefaultValues - prepared values:', values);
+    console.log('✅ UserModal prepareDefaultValues - role_id in values:', values.role_id);
+    console.log('✅ UserModal prepareDefaultValues - is_active in values:', values.is_active);
+    
+    return values;
+  }, [user]);
+
+  // Handle side effects when user data changes (separate from defaultValues calculation)
+  useEffect(() => {
+    if (!user) {
+      // Clear form data when no user (new user mode)
+      setFormData({});
+      return;
+    }
+
     // Set selected role from user data for dropdown
-    if (user.role_id) {
+    if (user.role_id && user.role_id.toString() !== currentRoleRef.current) {
       setSelectedRole(user.role_id.toString());
     }
     
     // Set birth date for date picker
-    if (values.birth_date) {
-      setSelectedBirthDate(values.birth_date);
+    const birthDate = user.profile?.birth_date || user.birth_date || '';
+    if (birthDate && birthDate !== selectedBirthDate) {
+      setSelectedBirthDate(birthDate);
     }
-    
-    console.log('✅ UserModal prepareDefaultValues - prepared values:', values);
-    console.log('✅ UserModal prepareDefaultValues - role_id in values:', values.role_id);
-    
-    return values;
-  };
+
+    // Initialize form data with user data for cross-tab persistence
+    // Ensure critical fields are properly set
+    const initialFormData = {
+      ...defaultValues,
+      role_id: user.role_id ? user.role_id.toString() : '',
+      is_active: user.is_active !== undefined ? user.is_active.toString() : 'true',
+      institution_id: user.institution_id ? user.institution_id.toString() : '',
+      department_id: user.department_id ? user.department_id.toString() : ''
+    };
+    setFormData(initialFormData);
+    console.log('🔄 Form data initialized:', initialFormData);
+  }, [user, selectedBirthDate, defaultValues]);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent 
         className="max-w-4xl max-h-[90vh] overflow-y-auto"
         onEscapeKeyDown={(e) => {
-          // Allow default escape behavior, just ensure clean close
-          onClose();
-        }}
-        onPointerDownOutside={(e) => {
-          // Allow default outside click behavior, just ensure clean close  
-          onClose();
-        }}
-        onInteractOutside={(e) => {
-          // Handle all outside interactions consistently
           if (loading) {
             e.preventDefault();
             return;
           }
           onClose();
         }}
+        onPointerDownOutside={(e) => {
+          if (loading) {
+            e.preventDefault();
+            return;
+          }
+          onClose();
+        }}
+        onInteractOutside={(e) => {
+          if (loading) {
+            e.preventDefault();
+            return;
+          }
+          onClose();
+        }}
+        aria-describedby="user-modal-description"
+        role="dialog"
+        aria-modal="true"
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -696,7 +881,7 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
               </Badge>
             )}
           </DialogTitle>
-          <DialogDescription className="text-muted-foreground">
+          <DialogDescription id="user-modal-description" className="text-muted-foreground">
             {user 
               ? 'Mövcud istifadəçinin məlumatlarını dəyişdirin və yadda saxlayın.'
               : 'Yeni istifadəçinin məlumatlarını daxil edin və əlavə edin.'
@@ -704,7 +889,15 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
           </DialogDescription>
         </DialogHeader>
         
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs 
+          value={activeTab} 
+          onValueChange={(newTab) => {
+            console.log('🔄 Tab switching from', activeTab, 'to', newTab);
+            console.log('📋 Current form data before switch:', formData);
+            setActiveTab(newTab);
+          }} 
+          className="w-full"
+        >
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="basic" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
@@ -738,76 +931,55 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="basic" className="mt-6">
-            <FormBuilder
-              fields={getBasicFields()}
-              onSubmit={handleSubmit}
-              submitLabel={user ? 'Yenilə' : 'Əlavə et'}
-              loading={loading || loadingOptions}
-              defaultValues={prepareDefaultValues()}
-              columns={2}
-            />
-          </TabsContent>
-
-          <TabsContent value="teacher" className="mt-6">
-            <div className="mb-4 p-4 bg-blue-50 rounded-lg border">
-              <div className="flex items-center gap-2 text-blue-700 font-medium">
-                <GraduationCap className="h-5 w-5" />
-                Müəllim üçün peşə məlumatları
+          <div className="mt-6">
+            {/* Context indicator based on active tab */}
+            {activeTab === 'teacher' && selectedRole && isTeacherRole(selectedRole) && (
+              <div className="mb-4 p-4 bg-blue-50 rounded-lg border">
+                <div className="flex items-center gap-2 text-blue-700 font-medium">
+                  <GraduationCap className="h-5 w-5" />
+                  Müəllim üçün peşə məlumatları
+                </div>
+                <p className="text-sm text-blue-600 mt-1">
+                  Bu bölmə yalnız müəllim rolunda olan istifadəçilər üçün doldurulmalıdır.
+                </p>
               </div>
-              <p className="text-sm text-blue-600 mt-1">
-                Bu bölmə yalnız müəllim rolunda olan istifadəçilər üçün doldurulmalıdır.
-              </p>
-            </div>
-            <FormBuilder
-              fields={getTeacherFields()}
-              onSubmit={handleSubmit}
-              submitLabel={user ? 'Yenilə' : 'Əlavə et'}
-              loading={loading || loadingOptions}
-              defaultValues={prepareDefaultValues()}
-              columns={2}
-            />
-          </TabsContent>
-
-          <TabsContent value="student" className="mt-6">
-            <div className="mb-4 p-4 bg-green-50 rounded-lg border">
-              <div className="flex items-center gap-2 text-green-700 font-medium">
-                <BookOpen className="h-5 w-5" />
-                Şagird üçün akademik məlumatlar
+            )}
+            {activeTab === 'student' && selectedRole && isStudentRole(selectedRole) && (
+              <div className="mb-4 p-4 bg-green-50 rounded-lg border">
+                <div className="flex items-center gap-2 text-green-700 font-medium">
+                  <BookOpen className="h-5 w-5" />
+                  Şagird üçün akademik məlumatlar
+                </div>
+                <p className="text-sm text-green-600 mt-1">
+                  Bu bölmə yalnız şagird rolunda olan istifadəçilər üçün doldurulmalıdır.
+                </p>
               </div>
-              <p className="text-sm text-green-600 mt-1">
-                Bu bölmə yalnız şagird rolunda olan istifadəçilər üçün doldurulmalıdır.
-              </p>
-            </div>
-            <FormBuilder
-              fields={getStudentFields()}
-              onSubmit={handleSubmit}
-              submitLabel={user ? 'Yenilə' : 'Əlavə et'}
-              loading={loading || loadingOptions}
-              defaultValues={prepareDefaultValues()}
-              columns={2}
-            />
-          </TabsContent>
-
-          <TabsContent value="additional" className="mt-6">
-            <div className="mb-4 p-4 bg-purple-50 rounded-lg border">
-              <div className="flex items-center gap-2 text-purple-700 font-medium">
-                <FileText className="h-5 w-5" />
-                Əlavə və təcili əlaqə məlumatları
+            )}
+            {activeTab === 'additional' && (
+              <div className="mb-4 p-4 bg-purple-50 rounded-lg border">
+                <div className="flex items-center gap-2 text-purple-700 font-medium">
+                  <FileText className="h-5 w-5" />
+                  Əlavə və təcili əlaqə məlumatları
+                </div>
+                <p className="text-sm text-purple-600 mt-1">
+                  Təcili hallarda əlaqə və digər əlavə məlumatlar.
+                </p>
               </div>
-              <p className="text-sm text-purple-600 mt-1">
-                Təcili hallarda əlaqə və digər əlavə məlumatlar.
-              </p>
-            </div>
+            )}
+
+            {/* Single FormBuilder with conditional fields */}
             <FormBuilder
-              fields={getAdditionalFields()}
+              fields={getAllFields}
               onSubmit={handleSubmit}
+              onChange={handleFormChange}
               submitLabel={user ? 'Yenilə' : 'Əlavə et'}
               loading={loading || loadingOptions}
-              defaultValues={prepareDefaultValues()}
+              defaultValues={{...defaultValues, ...formData}} // Always merge latest form data
               columns={2}
+              preserveValues={true} // Keep form values when fields change
+              autoFocus={false} // Prevent auto focus to avoid aria-hidden issues
             />
-          </TabsContent>
+          </div>
         </Tabs>
       </DialogContent>
     </Dialog>

@@ -21,13 +21,19 @@ export const SuperAdminDashboard = () => {
   const { data: dashboardData, isLoading } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: () => dashboardService.getSuperAdminDashboard(),
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes
+    refetchIntervalInBackground: false, // Don't refresh in background
+    staleTime: 5 * 60 * 1000, // 5 minutes - data stays fresh
+    gcTime: 15 * 60 * 1000, // 15 minutes cache
   });
 
   const { data: activityData } = useQuery({
     queryKey: ['recent-activity'],
     queryFn: () => dashboardService.getRecentActivity(5),
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 10 * 60 * 1000, // Refresh every 10 minutes
+    refetchIntervalInBackground: false, // Don't refresh in background
+    staleTime: 5 * 60 * 1000, // 5 minutes - activity stays fresh
+    gcTime: 20 * 60 * 1000, // 20 minutes cache for activity
   });
 
   useEffect(() => {

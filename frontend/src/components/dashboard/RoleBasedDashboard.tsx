@@ -1,16 +1,36 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { SchoolAdminDashboard } from './SchoolAdminDashboard';
-import { MuavinDashboard } from './MuavinDashboard';
-import { UBRDashboard } from './UBRDashboard';
-import { TesarrufatDashboard } from './TesarrufatDashboard';
-import { PsixoloquDashboard } from './PsixoloquDashboard';
-// Note: Teacher dashboard functionality is handled through role-based permissions
-// within the SchoolAdminDashboard component
 import { SCHOOL_ROLES } from '@/types/schoolRoles';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+
+// Lazy load dashboard components for better performance
+const SchoolAdminDashboard = lazy(() => 
+  import('./SchoolAdminDashboard').then(module => ({
+    default: module.SchoolAdminDashboard
+  }))
+);
+const MuavinDashboard = lazy(() => 
+  import('./MuavinDashboard').then(module => ({
+    default: module.MuavinDashboard
+  }))
+);
+const UBRDashboard = lazy(() => 
+  import('./UBRDashboard').then(module => ({
+    default: module.UBRDashboard
+  }))
+);
+const TesarrufatDashboard = lazy(() => 
+  import('./TesarrufatDashboard').then(module => ({
+    default: module.TesarrufatDashboard
+  }))
+);
+const PsixoloquDashboard = lazy(() => 
+  import('./PsixoloquDashboard').then(module => ({
+    default: module.PsixoloquDashboard
+  }))
+);
 
 interface RoleBasedDashboardProps {
   className?: string;
@@ -72,26 +92,59 @@ export const RoleBasedDashboard: React.FC<RoleBasedDashboardProps> = ({ classNam
   const schoolRole = getSchoolRole(userRole);
 
   // Route to appropriate dashboard based on user role
+  const DashboardLoader = () => (
+    <div className="flex items-center justify-center p-8">
+      <div className="flex flex-col items-center space-y-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Dashboard yüklənir...</p>
+      </div>
+    </div>
+  );
+
   switch (schoolRole) {
     case SCHOOL_ROLES.SCHOOL_ADMIN:
-      return <SchoolAdminDashboard className={className} />;
+      return (
+        <Suspense fallback={<DashboardLoader />}>
+          <SchoolAdminDashboard className={className} />
+        </Suspense>
+      );
     
     case SCHOOL_ROLES.MUAVIN:
-      return <MuavinDashboard className={className} />;
+      return (
+        <Suspense fallback={<DashboardLoader />}>
+          <MuavinDashboard className={className} />
+        </Suspense>
+      );
     
     case SCHOOL_ROLES.UBR:
-      return <UBRDashboard className={className} />;
+      return (
+        <Suspense fallback={<DashboardLoader />}>
+          <UBRDashboard className={className} />
+        </Suspense>
+      );
     
     case SCHOOL_ROLES.TESARRUFAT:
-      return <TesarrufatDashboard className={className} />;
+      return (
+        <Suspense fallback={<DashboardLoader />}>
+          <TesarrufatDashboard className={className} />
+        </Suspense>
+      );
     
     case SCHOOL_ROLES.PSIXOLOQ:
-      return <PsixoloquDashboard className={className} />;
+      return (
+        <Suspense fallback={<DashboardLoader />}>
+          <PsixoloquDashboard className={className} />
+        </Suspense>
+      );
     
     case SCHOOL_ROLES.MUELLIM:
       // Teachers use a simplified version of the school admin dashboard
       // with limited functionality based on their permissions
-      return <SchoolAdminDashboard className={className} />;
+      return (
+        <Suspense fallback={<DashboardLoader />}>
+          <SchoolAdminDashboard className={className} />
+        </Suspense>
+      );
     
     default:
       return (

@@ -20,13 +20,13 @@ import {
 } from 'lucide-react';
 
 interface InstitutionDetailsModalProps {
-  isOpen: boolean;
+  open: boolean;
   onClose: () => void;
   institution: Institution | null;
 }
 
 export const InstitutionDetailsModal: React.FC<InstitutionDetailsModalProps> = ({
-  isOpen,
+  open,
   onClose,
   institution,
 }) => {
@@ -35,7 +35,7 @@ export const InstitutionDetailsModal: React.FC<InstitutionDetailsModalProps> = (
 
   useEffect(() => {
     const fetchAdmin = async () => {
-      if (!institution || !isOpen) return;
+      if (!institution || !open) return;
       
       setLoading(true);
       try {
@@ -52,21 +52,9 @@ export const InstitutionDetailsModal: React.FC<InstitutionDetailsModalProps> = (
                               user.role === 'institution_admin' && 
                               user.institution?.id === institution.id;
           
-          console.log('User check:', {
-            userId: user.id,
-            userName: `${user.first_name} ${user.last_name}`,
-            userRole: user.role,
-            userInstitutionId: user.institution?.id,
-            isActive: user.is_active,
-            isAdmin: user.role === 'institution_admin',
-            isForThisInstitution: user.institution?.id === institution.id,
-            matchesAllConditions: isActiveAdmin
-          });
-          
           return isActiveAdmin;
         });
         
-        console.log('Found admin for institution', institution.id, ':', adminUser);
         setAdmin(adminUser || null);
       } catch (error) {
         console.error('Xəta baş verdi (admin məlumatları yüklənərkən):', error);
@@ -76,10 +64,10 @@ export const InstitutionDetailsModal: React.FC<InstitutionDetailsModalProps> = (
       }
     };
 
-    if (isOpen) {
+    if (open) {
       fetchAdmin();
     }
-  }, [institution, isOpen]);
+  }, [institution, open]);
 
   if (!institution) return null;
 
@@ -95,7 +83,7 @@ export const InstitutionDetailsModal: React.FC<InstitutionDetailsModalProps> = (
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

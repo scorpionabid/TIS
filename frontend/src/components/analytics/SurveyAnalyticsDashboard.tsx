@@ -34,7 +34,11 @@ export function SurveyAnalyticsDashboard({ className }: SurveyAnalyticsDashboard
       institution_id: selectedInstitution || undefined,
       include_details: true
     }),
-    refetchInterval: 30000 // Refresh every 30 seconds for real-time data
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    refetchInterval: 10 * 60 * 1000, // Refresh every 10 minutes
+    refetchIntervalInBackground: false, // Don't poll in background
+    refetchOnWindowFocus: false
   });
 
   const { data: trends, isLoading: trendsLoading } = useQuery({
@@ -43,7 +47,11 @@ export function SurveyAnalyticsDashboard({ className }: SurveyAnalyticsDashboard
       period: selectedPeriod,
       group_by: selectedPeriod === '7' ? 'day' : selectedPeriod === '30' ? 'week' : 'month'
     }),
-    refetchInterval: 60000 // Refresh every minute
+    staleTime: 8 * 60 * 1000, // 8 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes
+    refetchInterval: 8 * 60 * 1000, // Refresh every 8 minutes
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false
   });
 
   const { data: institutionPerformance, isLoading: performanceLoading } = useQuery({
@@ -51,7 +59,11 @@ export function SurveyAnalyticsDashboard({ className }: SurveyAnalyticsDashboard
     queryFn: () => surveyApprovalService.getInstitutionPerformance({
       period: selectedPeriod
     }),
-    refetchInterval: 120000 // Refresh every 2 minutes
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 20 * 60 * 1000, // 20 minutes
+    refetchInterval: 12 * 60 * 1000, // Refresh every 12 minutes
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false
   });
 
   if (analyticsLoading || trendsLoading || performanceLoading) {

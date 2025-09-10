@@ -15,7 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function Analytics() {
   const { currentUser } = useAuth();
   const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d' | '90d' | '1y'>('7d');
-  const [refreshInterval, setRefreshInterval] = useState<number>(30); // seconds
+  const [refreshInterval, setRefreshInterval] = useState<number>(300); // 5 minutes
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
