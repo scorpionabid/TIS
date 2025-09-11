@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
-class SchoolAttendanceController extends Controller
+class SchoolAttendanceController extends BaseController
 {
     public function __construct()
     {

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\SektorAdmin;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Institution;
 use App\Models\Grade;
 use App\Models\Student;
@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
 
-class SektorAttendanceController extends Controller
+class SektorAttendanceController extends BaseController
 {
     /**
      * Get sector attendance reports

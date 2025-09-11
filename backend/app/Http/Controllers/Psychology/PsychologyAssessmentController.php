@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Psychology;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\PsychologySession;
 use App\Models\PsychologyAssessment;
 use Illuminate\Http\Request;
@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
-class PsychologyAssessmentController extends Controller
+class PsychologyAssessmentController extends BaseController
 {
     /**
      * Store a new assessment for a psychology session.

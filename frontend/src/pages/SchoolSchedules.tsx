@@ -48,7 +48,9 @@ export default function SchoolSchedules() {
     staleTime: 1000 * 60 * 5,
   });
 
-  const schedules = schedulesResponse?.data || [];
+  const schedules = schedulesResponse?.data?.schedules?.data || [];
+  const scheduleMeta = schedulesResponse?.data?.schedules || null;
+  const scheduleSummary = schedulesResponse?.data?.summary || null;
   const stats = statsResponse?.data || {
     total_schedules: 0,
     active_schedules: 0,
@@ -363,7 +365,12 @@ export default function SchoolSchedules() {
         <CardHeader>
           <CardTitle>Cədvəl Siyahısı</CardTitle>
           <CardDescription>
-            {schedules.length} cədvəl tapıldı
+            {scheduleMeta?.total || schedules.length} cədvəl tapıldı
+            {scheduleMeta?.total && scheduleMeta.total > schedules.length && (
+              <span className="text-muted-foreground"> 
+                (Səhifədə {schedules.length} göstərilir)
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>

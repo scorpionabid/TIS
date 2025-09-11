@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
 
-class ClassAttendanceController extends Controller
+class ClassAttendanceController extends BaseController
 {
     public function __construct()
     {

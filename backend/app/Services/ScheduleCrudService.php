@@ -499,4 +499,156 @@ class ScheduleCrudService extends BaseService
 
         return $utilization;
     }
+
+    /**
+     * Get weekly schedules
+     */
+    public function getWeeklySchedules(array $params): array
+    {
+        $query = ScheduleSession::with(['schedule', 'teacher', 'class', 'subject', 'room']);
+
+        // Apply date filter
+        if (isset($params['week_start']) && isset($params['week_end'])) {
+            $query->whereHas('schedule', function ($q) use ($params) {
+                $q->where('effective_from', '<=', $params['week_end'])
+                  ->where('effective_to', '>=', $params['week_start']);
+            });
+        }
+
+        // Apply filters
+        if (isset($params['institution_id'])) {
+            $query->whereHas('schedule', function ($q) use ($params) {
+                $q->where('institution_id', $params['institution_id']);
+            });
+        }
+
+        if (isset($params['class_id'])) {
+            $query->where('class_id', $params['class_id']);
+        }
+
+        if (isset($params['teacher_id'])) {
+            $query->where('teacher_id', $params['teacher_id']);
+        }
+
+        if (isset($params['room_id'])) {
+            $query->where('room_id', $params['room_id']);
+        }
+
+        // Apply user permissions - basic filtering by user's institution
+        if (isset($params['user'])) {
+            $user = $params['user'];
+            if ($user->institution_id) {
+                $query->whereHas('schedule', function ($q) use ($user) {
+                    $q->where('institution_id', $user->institution_id);
+                });
+            }
+        }
+
+        // Order by day and time
+        $query->orderBy('day_of_week')->orderBy('start_time');
+
+        $sessions = $query->get();
+
+        // Transform to weekly schedule format
+        return $sessions->map(function ($session) {
+            return [
+                'id' => $session->id,
+                'schedule_id' => $session->schedule_id,
+                'class_id' => $session->class_id,
+                'subject_id' => $session->subject_id,
+                'teacher_id' => $session->teacher_id,
+                'room_id' => $session->room_id,
+                'day_of_week' => $session->day_of_week,
+                'start_time' => $session->start_time,
+                'end_time' => $session->end_time,
+                'duration' => $session->duration ?? 45, // default 45 minutes
+                'class' => $session->class ? [
+                    'id' => $session->class->id,
+                    'name' => $session->class->name,
+                ] : null,
+                'subject' => $session->subject ? [
+                    'id' => $session->subject->id,
+                    'name' => $session->subject->name,
+                ] : null,
+                'teacher' => $session->teacher ? [
+                    'id' => $session->teacher->id,
+                    'first_name' => $session->teacher->first_name,
+                    'last_name' => $session->teacher->last_name,
+                ] : null,
+                'room' => $session->room ? [
+                    'id' => $session->room->id,
+                    'name' => $session->room->name,
+                ] : null,
+            ];
+        })->toArray();
+    }
+
+    /**
+     * Get system-wide schedule statistics
+     */
+    public function getSystemScheduleStatistics(Request $request, $user): array
+    {
+        $baseQuery = Schedule::query();
+        
+        // Apply authority-based filtering
+        $baseQuery = $this->permissionService->applyAuthorityFilter($baseQuery, $user);
+
+        // Apply filters if provided
+        if ($request->filled('institution_id')) {
+            $baseQuery->where('institution_id', $request->institution_id);
+        }
+
+        if ($request->filled('academic_year')) {
+            $baseQuery->where('academic_year', $request->academic_year);
+        }
+
+        if ($request->filled('semester')) {
+            $baseQuery->where('semester', $request->semester);
+        }
+
+        if ($request->filled('date_from')) {
+            $baseQuery->where('start_date', '>=', $request->date_from);
+        }
+
+        if ($request->filled('date_to')) {
+            $baseQuery->where('end_date', '<=', $request->date_to);
+        }
+
+        // Get basic statistics
+        $totalSchedules = $baseQuery->count();
+        $activeSchedules = $baseQuery->where('status', 'approved')->count();
+        $pendingApproval = $baseQuery->where('status', 'pending')->count();
+
+        // Get schedule sessions statistics
+        $sessionQuery = ScheduleSession::query()
+            ->whereHas('schedule', function($q) use ($baseQuery) {
+                $q->whereIn('id', $baseQuery->pluck('id'));
+            });
+
+        $totalSlots = $sessionQuery->count();
+        $teachersWithSchedules = $sessionQuery->distinct('teacher_id')->count('teacher_id');
+        $classesWithSchedules = $sessionQuery->distinct('class_id')->count('class_id');
+
+        // Get status breakdown
+        $statusBreakdown = $baseQuery->selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->pluck('count', 'status')
+            ->toArray();
+
+        return [
+            'total_schedules' => $totalSchedules,
+            'active_schedules' => $activeSchedules,
+            'pending_approval' => $pendingApproval,
+            'total_slots' => $totalSlots,
+            'teachers_with_schedules' => $teachersWithSchedules,
+            'classes_with_schedules' => $classesWithSchedules,
+            'status_breakdown' => [
+                'draft' => $statusBreakdown['draft'] ?? 0,
+                'pending' => $statusBreakdown['pending'] ?? 0,
+                'approved' => $statusBreakdown['approved'] ?? 0,
+                'rejected' => $statusBreakdown['rejected'] ?? 0,
+                'archived' => $statusBreakdown['archived'] ?? 0,
+            ]
+        ];
+    }
 }

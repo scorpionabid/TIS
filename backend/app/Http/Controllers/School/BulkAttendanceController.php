@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\School;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\ClassBulkAttendance;
 use App\Models\Grade;
 use App\Models\AcademicYear;
@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
 
-class BulkAttendanceController extends Controller
+class BulkAttendanceController extends BaseController
 {
     /**
      * Get all classes for bulk attendance entry

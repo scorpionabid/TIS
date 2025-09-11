@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Psychology;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\PsychologySession;
 use App\Models\User;
 use App\Models\Institution;
@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
-class PsychologySessionController extends Controller
+class PsychologySessionController extends BaseController
 {
     /**
      * Display a listing of psychology sessions with filtering and pagination.

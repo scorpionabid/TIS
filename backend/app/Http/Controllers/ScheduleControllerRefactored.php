@@ -507,4 +507,64 @@ class ScheduleControllerRefactored extends BaseController
             ], 'İxrac hazırlanır');
         }, 'schedule.export');
     }
+
+    /**
+     * Get weekly schedule view
+     */
+    public function getWeeklySchedule(Request $request): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $validated = $request->validate([
+                'week_start' => 'nullable|date',
+                'institution_id' => 'nullable|exists:institutions,id',
+                'class_id' => 'nullable|exists:classes,id',
+                'teacher_id' => 'nullable|exists:users,id',
+                'room_id' => 'nullable|exists:rooms,id',
+            ]);
+
+            $user = Auth::user();
+            
+            // Default to current week if not specified
+            $weekStart = $validated['week_start'] ?? now()->startOfWeek()->toDateString();
+            $weekEnd = now()->parse($weekStart)->endOfWeek()->toDateString();
+            
+            // Get schedules for the week
+            $schedules = $this->crudService->getWeeklySchedules([
+                'week_start' => $weekStart,
+                'week_end' => $weekEnd,
+                'institution_id' => $validated['institution_id'] ?? null,
+                'class_id' => $validated['class_id'] ?? null,
+                'teacher_id' => $validated['teacher_id'] ?? null,
+                'room_id' => $validated['room_id'] ?? null,
+                'user' => $user
+            ]);
+
+            return $this->successResponse([
+                'week_start' => $weekStart,
+                'week_end' => $weekEnd,
+                'slots' => $schedules
+            ], 'Həftəlik dərs cədvəli');
+        }, 'schedule.weekly');
+    }
+
+    /**
+     * Get schedule statistics
+     */
+    public function getStatistics(Request $request): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $request->validate([
+                'institution_id' => 'nullable|exists:institutions,id',
+                'academic_year' => 'nullable|string|max:20',
+                'semester' => 'nullable|string|in:1,2',
+                'date_from' => 'nullable|date',
+                'date_to' => 'nullable|date|after_or_equal:date_from'
+            ]);
+
+            $user = Auth::user();
+            $statistics = $this->crudService->getSystemScheduleStatistics($request, $user);
+            
+            return $this->successResponse($statistics, 'Statistika məlumatları alındı');
+        }, 'schedule.statistics');
+    }
 }

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Psychology;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\PsychologySession;
 use App\Models\PsychologyNote;
 use Illuminate\Http\Request;
@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
 
-class PsychologyNotesController extends Controller
+class PsychologyNotesController extends BaseController
 {
     /**
      * Store a new note for a psychology session.

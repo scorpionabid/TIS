@@ -202,12 +202,51 @@ class ScheduleService extends BaseService {
     super('/schedules');
   }
 
-  async getSchedules(filters?: ScheduleFilters): Promise<{ success: boolean; data: Schedule[] }> {
+  async getSchedules(filters?: ScheduleFilters): Promise<{ 
+    success: boolean; 
+    data: {
+      schedules: {
+        data: Schedule[];
+        current_page: number;
+        per_page: number;
+        total: number;
+        last_page: number;
+        from: number;
+        to: number;
+      };
+      summary: any;
+    }
+  }> {
     console.log('🔍 ScheduleService.getSchedules called with filters:', filters);
     try {
-      const response = await this.get<Schedule[]>(this.baseUrl, filters);
+      const response = await this.get<{
+        schedules: {
+          data: Schedule[];
+          current_page: number;
+          per_page: number;
+          total: number;
+          last_page: number;
+          from: number;
+          to: number;
+        };
+        summary: any;
+      }>(this.baseEndpoint, filters);
       console.log('✅ ScheduleService.getSchedules successful:', response);
-      return response as { success: boolean; data: Schedule[] };
+      return response as { 
+        success: boolean; 
+        data: {
+          schedules: {
+            data: Schedule[];
+            current_page: number;
+            per_page: number;
+            total: number;
+            last_page: number;
+            from: number;
+            to: number;
+          };
+          summary: any;
+        }
+      };
     } catch (error) {
       console.error('❌ ScheduleService.getSchedules failed:', error);
       throw error;
@@ -217,7 +256,7 @@ class ScheduleService extends BaseService {
   async getSchedule(id: number): Promise<{ success: boolean; data: Schedule }> {
     console.log('🔍 ScheduleService.getSchedule called for ID:', id);
     try {
-      const response = await this.get<Schedule>(`${this.baseUrl}/${id}`);
+      const response = await this.get<Schedule>(`${this.baseEndpoint}/${id}`);
       console.log('✅ ScheduleService.getSchedule successful:', response);
       return response as { success: boolean; data: Schedule };
     } catch (error) {
@@ -229,7 +268,7 @@ class ScheduleService extends BaseService {
   async createSchedule(data: CreateScheduleData): Promise<{ success: boolean; message: string; data: Schedule }> {
     console.log('🔍 ScheduleService.createSchedule called with:', data);
     try {
-      const response = await this.post<Schedule>(this.baseUrl, data);
+      const response = await this.post<Schedule>(this.baseEndpoint, data);
       console.log('✅ ScheduleService.createSchedule successful:', response);
       return response as { success: boolean; message: string; data: Schedule };
     } catch (error) {
@@ -241,7 +280,7 @@ class ScheduleService extends BaseService {
   async updateSchedule(id: number, data: UpdateScheduleData): Promise<{ success: boolean; message: string; data: Schedule }> {
     console.log('🔍 ScheduleService.updateSchedule called for ID:', id, 'with data:', data);
     try {
-      const response = await this.put<Schedule>(`${this.baseUrl}/${id}`, data);
+      const response = await this.put<Schedule>(`${this.baseEndpoint}/${id}`, data);
       console.log('✅ ScheduleService.updateSchedule successful:', response);
       return response as { success: boolean; message: string; data: Schedule };
     } catch (error) {
@@ -253,7 +292,7 @@ class ScheduleService extends BaseService {
   async deleteSchedule(id: number): Promise<{ success: boolean; message: string }> {
     console.log('🔍 ScheduleService.deleteSchedule called for ID:', id);
     try {
-      const response = await this.delete<void>(`${this.baseUrl}/${id}`);
+      const response = await this.delete<void>(`${this.baseEndpoint}/${id}`);
       console.log('✅ ScheduleService.deleteSchedule successful:', response);
       return response as { success: boolean; message: string };
     } catch (error) {
@@ -280,7 +319,7 @@ class ScheduleService extends BaseService {
   }): Promise<{ success: boolean; message: string; data: any }> {
     console.log('🔍 ScheduleService.generateSchedule called with:', data);
     try {
-      const response = await this.post<any>(`${this.baseUrl}/generate`, data);
+      const response = await this.post<any>(`${this.baseEndpoint}/generate`, data);
       console.log('✅ ScheduleService.generateSchedule successful:', response);
       return response as { success: boolean; message: string; data: any };
     } catch (error) {
@@ -293,7 +332,7 @@ class ScheduleService extends BaseService {
   async getTeacherSchedule(teacherId: number): Promise<{ success: boolean; data: ScheduleSlot[] }> {
     console.log('🔍 ScheduleService.getTeacherSchedule called for teacher:', teacherId);
     try {
-      const response = await this.get<ScheduleSlot[]>(`${this.baseUrl}/teacher/${teacherId}`);
+      const response = await this.get<ScheduleSlot[]>(`${this.baseEndpoint}/teacher/${teacherId}`);
       console.log('✅ ScheduleService.getTeacherSchedule successful:', response);
       return response as { success: boolean; data: ScheduleSlot[] };
     } catch (error) {
@@ -305,7 +344,7 @@ class ScheduleService extends BaseService {
   async getClassSchedule(classId: number): Promise<{ success: boolean; data: ScheduleSlot[] }> {
     console.log('🔍 ScheduleService.getClassSchedule called for class:', classId);
     try {
-      const response = await this.get<ScheduleSlot[]>(`${this.baseUrl}/class/${classId}`);
+      const response = await this.get<ScheduleSlot[]>(`${this.baseEndpoint}/class/${classId}`);
       console.log('✅ ScheduleService.getClassSchedule successful:', response);
       return response as { success: boolean; data: ScheduleSlot[] };
     } catch (error) {
@@ -317,7 +356,7 @@ class ScheduleService extends BaseService {
   async getRoomSchedule(roomId: string): Promise<{ success: boolean; data: ScheduleSlot[] }> {
     console.log('🔍 ScheduleService.getRoomSchedule called for room:', roomId);
     try {
-      const response = await this.get<ScheduleSlot[]>(`${this.baseUrl}/room/${roomId}`);
+      const response = await this.get<ScheduleSlot[]>(`${this.baseEndpoint}/room/${roomId}`);
       console.log('✅ ScheduleService.getRoomSchedule successful:', response);
       return response as { success: boolean; data: ScheduleSlot[] };
     } catch (error) {
@@ -345,7 +384,7 @@ class ScheduleService extends BaseService {
         conflicts: any[];
         warnings: any[];
         suggestions: any[];
-      }>(`${this.baseUrl}/validate`, data);
+      }>(`${this.baseEndpoint}/validate`, data);
       console.log('✅ ScheduleService.validateSchedule successful:', response);
       return response as { 
         success: boolean; 
@@ -365,7 +404,7 @@ class ScheduleService extends BaseService {
   async approveSchedule(id: number, comments?: string): Promise<{ success: boolean; message: string }> {
     console.log('🔍 ScheduleService.approveSchedule called for ID:', id);
     try {
-      const response = await this.post<void>(`${this.baseUrl}/${id}/approve`, { comments });
+      const response = await this.post<void>(`${this.baseEndpoint}/${id}/approve`, { comments });
       console.log('✅ ScheduleService.approveSchedule successful:', response);
       return response as { success: boolean; message: string };
     } catch (error) {
@@ -381,7 +420,7 @@ class ScheduleService extends BaseService {
   }): Promise<{ success: boolean; data: { download_url: string } }> {
     console.log('🔍 ScheduleService.exportSchedule called with:', data);
     try {
-      const response = await this.post<{ download_url: string }>(`${this.baseUrl}/export`, data);
+      const response = await this.post<{ download_url: string }>(`${this.baseEndpoint}/export`, data);
       console.log('✅ ScheduleService.exportSchedule successful:', response);
       return response as { success: boolean; data: { download_url: string } };
     } catch (error) {
@@ -396,7 +435,7 @@ class ScheduleService extends BaseService {
   }> {
     console.log('🔍 ScheduleService.getScheduleStatistics called');
     try {
-      const response = await this.get<ScheduleStatistics>(`${this.baseUrl}/statistics`);
+      const response = await this.get<ScheduleStatistics>(`${this.baseEndpoint}/statistics`);
       console.log('✅ ScheduleService.getScheduleStatistics successful:', response);
       return response as { 
         success: boolean; 
@@ -437,7 +476,7 @@ class ScheduleService extends BaseService {
         week_start: string;
         week_end: string;
         slots: ScheduleSlot[];
-      }>(`${this.baseUrl}/weekly`, params);
+      }>(`${this.baseEndpoint}/weekly`, params);
       console.log('✅ ScheduleService.getWeeklySchedule successful:', response);
       return response as { 
         success: boolean; 
@@ -467,7 +506,7 @@ class ScheduleService extends BaseService {
   }): Promise<{ success: boolean; message: string; data: ScheduleSlot }> {
     console.log('🔍 ScheduleService.createScheduleSlot called with:', data);
     try {
-      const response = await this.post<ScheduleSlot>(`${this.baseUrl}/slots`, data);
+      const response = await this.post<ScheduleSlot>(`${this.baseEndpoint}/slots`, data);
       console.log('✅ ScheduleService.createScheduleSlot successful:', response);
       return response as { success: boolean; message: string; data: ScheduleSlot };
     } catch (error) {
@@ -479,7 +518,7 @@ class ScheduleService extends BaseService {
   async updateScheduleSlot(id: number, data: Partial<ScheduleSlot>): Promise<{ success: boolean; message: string; data: ScheduleSlot }> {
     console.log('🔍 ScheduleService.updateScheduleSlot called for ID:', id, 'with data:', data);
     try {
-      const response = await this.put<ScheduleSlot>(`${this.baseUrl}/slots/${id}`, data);
+      const response = await this.put<ScheduleSlot>(`${this.baseEndpoint}/slots/${id}`, data);
       console.log('✅ ScheduleService.updateScheduleSlot successful:', response);
       return response as { success: boolean; message: string; data: ScheduleSlot };
     } catch (error) {
@@ -491,7 +530,7 @@ class ScheduleService extends BaseService {
   async deleteScheduleSlot(id: number): Promise<{ success: boolean; message: string }> {
     console.log('🔍 ScheduleService.deleteScheduleSlot called for ID:', id);
     try {
-      const response = await this.delete<void>(`${this.baseUrl}/slots/${id}`);
+      const response = await this.delete<void>(`${this.baseEndpoint}/slots/${id}`);
       console.log('✅ ScheduleService.deleteScheduleSlot successful:', response);
       return response as { success: boolean; message: string };
     } catch (error) {
@@ -519,7 +558,7 @@ class ScheduleService extends BaseService {
         conflicts: ScheduleConflict[];
         warnings: ScheduleConflict[];
         is_valid: boolean;
-      }>(`${this.baseUrl}/conflicts/detect`, data);
+      }>(`${this.baseEndpoint}/conflicts/detect`, data);
       console.log('✅ ScheduleService.detectConflicts successful:', response);
       return response as { 
         success: boolean; 
@@ -550,7 +589,7 @@ class ScheduleService extends BaseService {
   }> {
     console.log('🔍 ScheduleService.resolveConflict called for conflict:', conflictId);
     try {
-      const response = await this.post<ScheduleSlot[]>(`${this.baseUrl}/conflicts/${conflictId}/resolve`, {
+      const response = await this.post<ScheduleSlot[]>(`${this.baseEndpoint}/conflicts/${conflictId}/resolve`, {
         resolution,
         data
       });
@@ -608,7 +647,7 @@ class ScheduleService extends BaseService {
   async getScheduleTemplates(): Promise<{ success: boolean; data: ScheduleTemplate[] }> {
     console.log('🔍 ScheduleService.getScheduleTemplates called');
     try {
-      const response = await this.get<ScheduleTemplate[]>(`${this.baseUrl}/templates`);
+      const response = await this.get<ScheduleTemplate[]>(`${this.baseEndpoint}/templates`);
       console.log('✅ ScheduleService.getScheduleTemplates successful:', response);
       return response as { success: boolean; data: ScheduleTemplate[] };
     } catch (error) {
@@ -629,7 +668,7 @@ class ScheduleService extends BaseService {
   }): Promise<{ success: boolean; message: string; data: Schedule }> {
     console.log('🔍 ScheduleService.createFromTemplate called with templateId:', templateId, 'data:', data);
     try {
-      const response = await this.post<Schedule>(`${this.baseUrl}/templates/${templateId}/create`, data);
+      const response = await this.post<Schedule>(`${this.baseEndpoint}/templates/${templateId}/create`, data);
       console.log('✅ ScheduleService.createFromTemplate successful:', response);
       return response as { success: boolean; message: string; data: Schedule };
     } catch (error) {

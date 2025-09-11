@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\AttendanceRecord;
 use App\Models\DailyAttendanceSummary;
 use App\Models\User;
@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
-class AttendanceRecordApiController extends Controller
+class AttendanceRecordApiController extends BaseController
 {
     public function __construct()
     {
