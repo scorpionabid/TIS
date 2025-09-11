@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useState } from "react";
+import React, { lazy, Suspense, useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,6 +12,7 @@ import { LazyWrapper } from "@/components/common/LazyWrapper";
 import { USER_ROLES } from "@/constants/roles";
 import Layout from "./components/layout/Layout";
 import NotFound from "./pages/NotFound";
+import { accessibilityChecker } from "@/utils/accessibility-checker";
 
 // Lazy load pages for better performance
 const Index = lazy(() => import("./pages/Index"));
@@ -69,6 +70,11 @@ const BulkAttendanceEntry = lazy(() => import("./pages/school/BulkAttendanceEntr
 
 // Teacher pages
 const TeacherSchedule = lazy(() => import("./pages/teacher/TeacherSchedule"));
+
+// Advanced Schedule Management pages
+const ScheduleBuilderPage = lazy(() => import("./components/schedules/ScheduleBuilderPage"));
+const RegionalSchedulesDashboard = lazy(() => import("./components/schedules/RegionalSchedulesDashboard"));
+const ScheduleComparisonTool = lazy(() => import("./components/schedules/ScheduleComparisonTool"));
 
 // Memory-optimized QueryClient configuration
 const queryClient = new QueryClient({
@@ -146,6 +152,38 @@ const LoginPage = () => {
 };
 
 const App = () => {
+  // Development accessibility monitoring
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      // Check accessibility on major DOM changes
+      const observer = new MutationObserver((mutations) => {
+        const hasSignificantChanges = mutations.some(mutation => 
+          mutation.type === 'childList' && mutation.addedNodes.length > 0
+        );
+        
+        if (hasSignificantChanges) {
+          // Debounce accessibility checks
+          setTimeout(() => {
+            const issues = accessibilityChecker.runAllChecks();
+            const criticalIssues = issues.filter(issue => issue.severity === 'critical');
+            
+            if (criticalIssues.length > 0) {
+              console.warn('🚨 Critical Accessibility Issues Found:', criticalIssues);
+            }
+          }, 500);
+        }
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['aria-hidden', 'tabindex', 'role']
+      });
+
+      return () => observer.disconnect();
+    }
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -326,6 +364,34 @@ const App = () => {
                 <LazyWrapper>
                   <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
                     <SchoolScheduleManagement />
+                  </RoleProtectedRoute>
+                </LazyWrapper>
+              } />
+              <Route path="school/schedule-builder" element={
+                <LazyWrapper>
+                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
+                    <ScheduleBuilderPage />
+                  </RoleProtectedRoute>
+                </LazyWrapper>
+              } />
+              <Route path="school/schedule-comparison" element={
+                <LazyWrapper>
+                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
+                    <ScheduleComparisonTool />
+                  </RoleProtectedRoute>
+                </LazyWrapper>
+              } />
+              <Route path="regionadmin/schedule-dashboard" element={
+                <LazyWrapper>
+                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}>
+                    <RegionalSchedulesDashboard />
+                  </RoleProtectedRoute>
+                </LazyWrapper>
+              } />
+              <Route path="regionadmin/schedule-comparison" element={
+                <LazyWrapper>
+                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}>
+                    <ScheduleComparisonTool />
                   </RoleProtectedRoute>
                 </LazyWrapper>
               } />

@@ -37,7 +37,8 @@ export type FieldType =
   | 'checkbox' 
   | 'radio' 
   | 'switch'
-  | 'date';
+  | 'date'
+  | 'custom';
 
 export interface FormField {
   name: string;
@@ -51,11 +52,14 @@ export interface FormField {
   defaultValue?: any;
   disabled?: boolean;
   className?: string;
-  onChange?: (value: any) => void;
+  onChange?: (value: any, formControl?: any) => void;
   min?: number;
   max?: number;
   step?: number;
   rows?: number;
+  // Custom component support
+  component?: React.ReactNode;
+  render?: (props: any) => React.ReactNode;
 }
 
 export interface FormBuilderProps {
@@ -226,7 +230,7 @@ export function FormBuilder({
                         value={formField.value}
                         onValueChange={(value) => {
                           formField.onChange(value);
-                          field.onChange?.(value);
+                          field.onChange?.(value, form);
                         }}
                         disabled={field.disabled || loading}
                       >
@@ -318,6 +322,15 @@ export function FormBuilder({
                         <span className="text-sm">{field.placeholder}</span>
                       </div>
                     );
+                  
+                  case 'custom':
+                    if (field.component) {
+                      return field.component;
+                    }
+                    if (field.render) {
+                      return field.render({ field: formField, formControl: form.control });
+                    }
+                    return null;
                   
                   default:
                     return null;

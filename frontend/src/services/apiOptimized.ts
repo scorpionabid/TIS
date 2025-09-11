@@ -125,6 +125,31 @@ class ApiClientOptimized {
     }
   }
 
+  // CSRF cookie initialization for Laravel Sanctum SPA authentication
+  private csrfInitialized = false;
+  
+  private async ensureCSRFCookie(): Promise<void> {
+    if (this.csrfInitialized) {
+      return;
+    }
+
+    try {
+      const sanctumUrl = this.baseURL.replace('/api', '/sanctum/csrf-cookie');
+      await fetch(sanctumUrl, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+      this.csrfInitialized = true;
+      log('info', 'CSRF cookie initialized for Sanctum SPA');
+    } catch (error) {
+      log('error', 'Failed to initialize CSRF cookie:', error);
+      throw new Error('Unable to initialize secure session');
+    }
+  }
+
   // Cache and pending request cleanup
   private cleanup(): void {
     const now = Date.now();
@@ -373,6 +398,12 @@ class ApiClientOptimized {
       this.baseURL = 'http://localhost:8000/api';
     }
 
+    // Ensure CSRF cookie is initialized for Laravel Sanctum SPA authentication
+    // Skip for public endpoints like /login (handled in auth service)
+    if (!endpoint.startsWith('/login') && !endpoint.startsWith('/register')) {
+      await this.ensureCSRFCookie();
+    }
+
     // Handle special Sanctum endpoints
     let requestUrl: string;
     if (endpoint.startsWith('/sanctum/')) {
@@ -406,9 +437,36 @@ class ApiClientOptimized {
 
     if (isDevelopment) {
       log('info', `${method} request`, { endpoint, hasData: !!data });
+      log('info', 'Fetch details', { 
+        requestUrl, 
+        method, 
+        headers: requestInit.headers,
+        credentials: requestInit.credentials,
+        hasBody: !!requestInit.body 
+      });
     }
 
-    const response = await fetch(requestUrl, requestInit);
+    let response;
+    try {
+      response = await fetch(requestUrl, requestInit);
+      if (isDevelopment) {
+        log('info', 'Fetch successful', { 
+          status: response.status, 
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+      }
+    } catch (fetchError) {
+      if (isDevelopment) {
+        log('error', 'Fetch failed', { 
+          error: fetchError, 
+          requestUrl, 
+          method,
+          headers: requestInit.headers 
+        });
+      }
+      throw fetchError;
+    }
 
     // Handle blob responses
     if (options?.responseType === 'blob') {

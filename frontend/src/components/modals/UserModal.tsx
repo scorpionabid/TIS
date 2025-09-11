@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FormBuilder, createField, commonValidations } from '@/components/forms/FormBuilder';
+import { userFields, teacherFields, studentFields, emergencyContactFields } from '@/components/modals/configurations/modalFieldConfig';
 import { z } from 'zod';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -217,26 +218,12 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
     return role && role.name === 'regionoperator';
   }, [availableRoles]);
 
-  // Memoized Basic Information Fields
+  // Memoized Basic Information Fields - Using modalFieldConfig
   const getBasicFields = useCallback(() => [
-    createField('first_name', 'Ad', 'text', {
-      required: true,
-      placeholder: 'İstifadəçinin adı',
-      validation: commonValidations.required,
-    }),
-    createField('last_name', 'Soyad', 'text', {
-      required: true,
-      placeholder: 'İstifadəçinin soyadı',
-      validation: commonValidations.required,
-    }),
-    createField('patronymic', 'Ata adı', 'text', {
-      placeholder: 'Ata adı (məcburi deyil)',
-    }),
-    createField('username', 'İstifadəçi adı', 'text', {
-      required: true,
-      placeholder: 'istifadeci_adi',
-      validation: commonValidations.required,
-    }),
+    userFields.firstName,
+    userFields.lastName,
+    userFields.patronymic,
+    userFields.username,
     createField('email', 'Email', 'email', {
       required: true, // Email məcburi sahədir
       placeholder: 'ornek@edu.gov.az',
@@ -273,10 +260,7 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
       placeholder: 'Şifrəni təkrar daxil edin',
       validation: !user ? z.string().min(8, 'Şifrə təkrarı minimum 8 simvol olmalıdır') : z.string().min(8, 'Şifrə təkrarı minimum 8 simvol olmalıdır').optional().or(z.literal('')),
     }),
-    createField('contact_phone', 'Telefon', 'text', {
-      placeholder: '+994 XX XXX XX XX',
-      validation: commonValidations.phone.optional(),
-    }),
+    userFields.contactPhone,
     createField('birth_date', 'Doğum tarixi', 'date', {
       placeholder: 'Tarix seçin (ixtiyari)',
       required: false,
@@ -287,16 +271,8 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
         ? `Seçilmiş tarix${calculateAgeFromDate(selectedBirthDate)}`
         : 'Doğum tarixini seçin (məcburi deyil)',
     }),
-    createField('gender', 'Cins', 'select', {
-      options: [
-        { label: 'Kişi', value: 'male' },
-        { label: 'Qadın', value: 'female' }
-      ],
-      placeholder: 'Cinsi seçin',
-    }),
-    createField('national_id', 'Şəxsiyyət vəsiqəsi', 'text', {
-      placeholder: 'AZE1234567',
-    }),
+    userFields.gender,
+    userFields.nationalId,
     createField('utis_code', 'UTIS Kodu', 'text', {
       placeholder: '12 rəqəmə qədər',
       description: 'Yalnız rəqəmlər daxil edin (maksimum 12 rəqəm, məcburi deyil)',
@@ -361,93 +337,29 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
       placeholder: 'Fənləri seçin',
       description: 'Müəllimin dərs verə biləcəyi fənlər',
     }),
-    createField('specialty', 'İxtisas', 'text', {
-      placeholder: 'Məsələn: Riyaziyyat müəllimi',
-      description: 'Müəllimin peşə ixtisası',
-    }),
-    createField('experience_years', 'İş təcrübəsi (il)', 'number', {
-      placeholder: '0',
-      min: 0,
-      max: 50,
-      description: 'Təhsil sahəsindəki iş təcrübəsi',
-    }),
-    createField('miq_score', 'MİQ balı', 'number', {
-      placeholder: '0.00',
-      min: 0,
-      max: 999.99,
-      step: 0.01,
-      description: 'Müəllimin peşə inkişafı üzrə MİQ balı',
-    }),
-    createField('certification_score', 'Sertifikasiya balı', 'number', {
-      placeholder: '0.00',
-      min: 0,
-      max: 999.99,
-      step: 0.01,
-      description: 'Müəllimin sertifikasiya balı',
-    }),
-    createField('last_certification_date', 'Son sertifikasiya tarixi', 'date', {
-      description: 'Ən son sertifikasiya alınma tarixi',
-    }),
-    createField('degree_level', 'Təhsil səviyyəsi', 'select', {
-      options: [
-        { label: 'Orta təhsil', value: 'secondary' },
-        { label: 'Orta peşə təhsili', value: 'vocational' },
-        { label: 'Bakalavr', value: 'bachelor' },
-        { label: 'Magistr', value: 'master' },
-        { label: 'Doktorantura', value: 'phd' }
-      ],
-      placeholder: 'Təhsil səviyyəsini seçin',
-    }),
-    createField('graduation_university', 'Bitirdiyi universitet', 'text', {
-      placeholder: 'Universitet adı',
-    }),
-    createField('graduation_year', 'Bitirmə ili', 'number', {
-      placeholder: '2020',
-      min: 1950,
-      max: new Date().getFullYear(),
-    }),
-    createField('university_gpa', 'Universitet GPA', 'number', {
-      placeholder: '3.50',
-      min: 0,
-      max: 4.00,
-      step: 0.01,
-      description: '4.0 şkalası üzrə orta bal',
-    }),
+    teacherFields.specialty,
+    teacherFields.experienceYears,
+    teacherFields.miqScore,
+    teacherFields.certificationScore,
+    teacherFields.lastCertificationDate,
+    teacherFields.degreeLevel,
+    teacherFields.graduationUniversity,
+    teacherFields.graduationYear,
+    teacherFields.universityGpa,
   ], [subjects]);
 
-  // Memoized Student Academic Fields  
+  // Memoized Student Academic Fields - Using modalFieldConfig
   const getStudentFields = useCallback(() => [
-    createField('student_miq_score', 'Şagird MİQ balı', 'number', {
-      placeholder: '0.00',
-      min: 0,
-      max: 999.99,
-      step: 0.01,
-      description: 'Şagirdin akademik uğur göstəricisi',
-    }),
-    createField('previous_school', 'Əvvəlki məktəb', 'text', {
-      placeholder: 'Əvvəl oxuduğu təhsil müəssisəsi',
-    }),
-    createField('family_income', 'Ailə gəliri (AZN)', 'number', {
-      placeholder: '500.00',
-      min: 0,
-      step: 0.01,
-      description: 'Ailənin aylıq gəliri',
-    }),
+    studentFields.miqScore,
+    studentFields.previousSchool,
+    studentFields.familyIncome,
   ], []);
 
   // Memoized Additional fields
   const getAdditionalFields = useCallback(() => [
-    createField('emergency_contact_name', 'Təcili əlaqə şəxsi', 'text', {
-      placeholder: 'Təcili hallarda əlaqə saxlanılacaq şəxsin adı',
-    }),
-    createField('emergency_contact_phone', 'Təcili əlaqə telefonu', 'text', {
-      placeholder: '+994 XX XXX XX XX',
-      validation: commonValidations.phone.optional(),
-    }),
-    createField('emergency_contact_email', 'Təcili əlaqə e-poçtu', 'email', {
-      placeholder: 'emergency@example.com',
-      validation: commonValidations.email.optional(),
-    }),
+    emergencyContactFields.name,
+    emergencyContactFields.phone,
+    emergencyContactFields.email,
     createField('notes', 'Əlavə qeydlər', 'textarea', {
       placeholder: 'Digər mühüm məlumatlar',
       rows: 3,

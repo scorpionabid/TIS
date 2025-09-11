@@ -187,6 +187,74 @@ class InstitutionService extends BaseService<Institution> {
     return response;
   }
 
+  // Validation and duplicate checking methods
+  async checkCodeExists(code: string, excludeId?: number): Promise<boolean> {
+    try {
+      const response = await apiClient.get('/institutions/check-code', {
+        code,
+        exclude_id: excludeId
+      });
+      return response.data?.exists || false;
+    } catch (error) {
+      console.warn('Code existence check failed:', error);
+      return false; // Assume doesn't exist if check fails
+    }
+  }
+
+  async checkUtisCodeExists(utisCode: string, excludeId?: number): Promise<boolean> {
+    try {
+      const response = await apiClient.get('/institutions/check-utis-code', {
+        utis_code: utisCode,
+        exclude_id: excludeId
+      });
+      return response.data?.exists || false;
+    } catch (error) {
+      console.warn('UTIS code existence check failed:', error);
+      return false; // Assume doesn't exist if check fails
+    }
+  }
+
+  async findSimilar(searchData: {
+    name?: string;
+    code?: string;
+    type?: string;
+    parent_id?: number;
+  }): Promise<Institution[]> {
+    try {
+      const response = await apiClient.get('/institutions/find-similar', searchData);
+      return response.data || [];
+    } catch (error) {
+      console.warn('Similar institutions search failed:', error);
+      return [];
+    }
+  }
+
+  async getParentCandidates(typeKey: string): Promise<Institution[]> {
+    try {
+      const response = await apiClient.get('/institutions/parent-candidates', {
+        type: typeKey
+      });
+      return response.data || [];
+    } catch (error) {
+      console.warn('Parent candidates fetch failed:', error);
+      return [];
+    }
+  }
+
+  async generateCode(data: {
+    type: string;
+    name: string;
+    parent_id?: number;
+  }): Promise<string> {
+    try {
+      const response = await apiClient.post('/institutions/generate-code', data);
+      return response.data?.code || '';
+    } catch (error) {
+      console.warn('Code generation failed:', error);
+      return '';
+    }
+  }
+
   async updateInstitutionType(id: number, data: Partial<InstitutionType>) {
     const response = await apiClient.put<InstitutionType>(`/institution-types/${id}`, data);
     return response;

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { institutionService, InstitutionType } from '@/services/institutions';
 import { getFallbackTypesForRole } from '@/utils/institutionUtils';
+import { logger } from '@/utils/logger';
 
 interface UseInstitutionTypesOptions {
   userRole?: string;
@@ -8,55 +9,91 @@ interface UseInstitutionTypesOptions {
 }
 
 /**
- * Custom hook for loading institution types with role-based fallback
- * Avoids API calls for non-superadmin users
+ * Normalize different API response formats for institution types
  */
-export const useInstitutionTypes = ({ userRole, enabled = true }: UseInstitutionTypesOptions) => {
+const normalizeInstitutionTypesResponse = (response: any): InstitutionType[] => {
+  if (Array.isArray(response)) {
+    return response;
+  }
+  
+  if (response?.data && Array.isArray(response.data)) {
+    return response.data;
+  }
+  
+  if (response?.institution_types && Array.isArray(response.institution_types)) {
+    return response.institution_types;
+  }
+  
+  logger.warn('Unexpected institution types response format', null, {
+    component: 'useInstitutionTypes',
+    data: { responseStructure: typeof response, hasData: !!response?.data }
+  });
+  
+  return [];
+};
+
+/**
+ * Simplified custom hook for loading institution types with role-based fallback
+ * Handles multiple response formats gracefully
+ */
+export const useInstitutionTypes = ({ userRole, enabled = true }: UseInstitutionTypesOptions = {}) => {
   return useQuery<{ success: boolean; institution_types: InstitutionType[] }>({
     queryKey: ['institution-types', userRole],
     queryFn: async () => {
-      console.log('🚀 useInstitutionTypes hook called:', { userRole, enabled });
-      
-      // Get fallback types - use 'superadmin' as default if userRole is undefined
       const effectiveRole = userRole || 'superadmin';
       const fallbackTypes = getFallbackTypesForRole(effectiveRole);
-      console.log('📋 Fallback types for role:', { userRole, effectiveRole, fallbackTypesCount: fallbackTypes.length });
       
-      // If superadmin or role undefined, try API first, otherwise use fallback
+      logger.debug('Loading institution types', {
+        component: 'useInstitutionTypes',
+        data: { userRole: effectiveRole, fallbackCount: fallbackTypes.length }
+      });
+      
+      // For superadmin, try API first, then fallback
       if (effectiveRole === 'superadmin') {
         try {
-          console.log('🔗 Attempting API call for superadmin...');
           const apiResponse = await institutionService.getInstitutionTypes();
-          console.log('✅ API response received:', apiResponse);
+          const normalizedTypes = normalizeInstitutionTypesResponse(apiResponse);
           
-          // Handle different API response formats
-          let institution_types: InstitutionType[] = [];
-          
-          if (Array.isArray(apiResponse)) {
-            // Direct array response
-            institution_types = apiResponse;
-          } else if (apiResponse?.data && Array.isArray(apiResponse.data)) {
-            // Data property contains array (most common case)
-            institution_types = apiResponse.data;
+          if (normalizedTypes.length > 0) {
+            logger.info('Institution types loaded from API', {
+              component: 'useInstitutionTypes',
+              data: { count: normalizedTypes.length }
+            });
+            return { success: true, institution_types: normalizedTypes };
           } else {
-            console.warn('🔄 API response format unexpected, using fallback types');
-            console.warn('Response structure:', apiResponse);
-            institution_types = fallbackTypes;
+            logger.warn('API returned empty types, using fallback', null, {
+              component: 'useInstitutionTypes'
+            });
+            return { success: true, institution_types: fallbackTypes };
           }
-          
-          console.log('📋 Processed institution types:', institution_types.length, 'types');
-          return { success: true, institution_types };
         } catch (error) {
-          console.warn('❌ Failed to load institution types from API, using fallback:', error);
+          logger.error('Failed to load institution types from API', error, {
+            component: 'useInstitutionTypes',
+            action: 'api-fallback'
+          });
           return { success: true, institution_types: fallbackTypes };
         }
-      } else {
-        // For non-superadmin users, always return fallback types
-        console.log('👤 Non-superadmin user, returning fallback types');
-        return { success: true, institution_types: fallbackTypes };
       }
+      
+      // For non-superadmin users, always use fallback types
+      return { success: true, institution_types: fallbackTypes };
     },
-    enabled: enabled, // Always enabled when requested, don't depend on userRole
+    enabled: enabled,
     staleTime: 1000 * 60 * 10, // Cache for 10 minutes
+    retry: 1, // Only retry once on failure
   });
+};
+
+/**
+ * Simplified hook for components that just need the types array
+ */
+export const useInstitutionTypesSimple = (userRole?: string) => {
+  const query = useInstitutionTypes({ userRole });
+  
+  return {
+    institutionTypes: query.data?.institution_types || [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+  };
 };

@@ -111,6 +111,22 @@ class AuthService {
     // Clear any existing auth data before login
     this.clearAuth();
     
+    // STEP 1: Get CSRF cookie first (required for Laravel Sanctum SPA)
+    this.log('🍪 Auth Service: Fetching CSRF cookie');
+    try {
+      await fetch('http://localhost:8000/sanctum/csrf-cookie', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+      this.log('✅ Auth Service: CSRF cookie obtained');
+    } catch (csrfError) {
+      this.log('❌ Auth Service: Failed to get CSRF cookie:', csrfError);
+      throw new Error('Unable to initialize authentication. Please try again.');
+    }
+    
     // Backend expects 'login' field instead of 'email'
     const loginData = {
       login: credentials.email,

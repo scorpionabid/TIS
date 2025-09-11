@@ -171,6 +171,138 @@ export const taskFields = {
   }),
 };
 
+// Department-related fields
+export const departmentFields = {
+  name: createField('name', 'Ad', 'text', {
+    required: true,
+    placeholder: 'Departamentin adı',
+    validation: commonValidations.required,
+  }),
+  
+  shortName: createField('short_name', 'Qısa Ad', 'text', {
+    placeholder: 'Qısa ad və ya abbreviasiya',
+  }),
+  
+  description: createField('description', 'Təsvir', 'textarea', {
+    placeholder: 'Departamentin təsviri',
+    rows: 3,
+  }),
+  
+  capacity: createField('capacity', 'Tutum', 'number', {
+    placeholder: '0',
+    min: 0,
+    description: 'Departamentin maksimum tutumu',
+  }),
+  
+  budgetAllocation: createField('budget_allocation', 'Büdcə (AZN)', 'number', {
+    placeholder: '0.00',
+    min: 0,
+    step: 0.01,
+    description: 'Departamentin büdcə ayırması',
+  }),
+  
+  functionalScope: createField('functional_scope', 'Funksional sahə', 'textarea', {
+    placeholder: 'Departamentin məsuliyyət sahəsi',
+    rows: 2,
+  }),
+  
+  isActive: createField('is_active', 'Aktiv', 'checkbox', {
+    defaultValue: true,
+    placeholder: 'Departament aktivdir',
+  }),
+};
+
+// Profile-specific fields  
+export const profileFields = {
+  address: createField('address', 'Ünvan', 'textarea', {
+    placeholder: 'Tam ünvan daxil edin',
+    rows: 2,
+  }),
+  
+  avatar: createField('avatar', 'Avatar', 'custom', {
+    placeholder: 'Profil şəklini yükləyin',
+    description: 'JPG, PNG formatında maksimum 2MB',
+  }),
+};
+
+// Institution type fields
+export const institutionTypeFields = {
+  key: createField('key', 'Açar (Key)', 'text', {
+    required: true,
+    placeholder: 'school, kindergarten, etc.',
+    validation: commonValidations.required,
+    description: 'Unique identifier (lowercase, no spaces)',
+  }),
+  
+  label: createField('label', 'Ad', 'text', {
+    required: true,
+    placeholder: 'Məktəb',
+    validation: commonValidations.required,
+  }),
+  
+  labelAz: createField('label_az', 'Azərbaycan dilində ad', 'text', {
+    placeholder: 'Məktəb',
+  }),
+  
+  labelEn: createField('label_en', 'İngilis dilində ad', 'text', {
+    placeholder: 'School',
+  }),
+  
+  defaultLevel: createField('default_level', 'Standart səviyyə', 'select', {
+    required: true,
+    options: [
+      { label: 'Səviyyə 1 (Nazirlik)', value: '1' },
+      { label: 'Səviyyə 2 (Regional)', value: '2' },
+      { label: 'Səviyyə 3 (Sektor)', value: '3' },
+      { label: 'Səviyyə 4 (Müəssisə)', value: '4' },
+    ],
+    placeholder: 'Səviyyə seçin',
+    validation: commonValidations.required,
+  }),
+  
+  description: createField('description', 'Təsvir', 'textarea', {
+    placeholder: 'Müəssisə növünün təsviri',
+    rows: 3,
+  }),
+  
+  icon: createField('icon', 'İkon', 'select', {
+    options: [
+      { label: '🏢 Building', value: 'Building' },
+      { label: '📍 MapPin', value: 'MapPin' },
+      { label: '👥 Users', value: 'Users' },
+      { label: '🏫 School', value: 'School' },
+      { label: '👶 Baby', value: 'Baby' },
+      { label: '🎓 GraduationCap', value: 'GraduationCap' },
+      { label: '💚 Heart', value: 'Heart' },
+      { label: '🔧 Wrench', value: 'Wrench' },
+      { label: '✅ UserCheck', value: 'UserCheck' },
+      { label: '📖 BookOpen', value: 'BookOpen' },
+      { label: '🏠 Home', value: 'Home' },
+      { label: '⭐ Star', value: 'Star' },
+    ],
+    placeholder: 'İkon seçin',
+  }),
+  
+  color: createField('color', 'Rəng', 'select', {
+    options: [
+      { label: '🔵 Blue', value: '#3B82F6' },
+      { label: '🟢 Green', value: '#10B981' },
+      { label: '🟡 Yellow', value: '#F59E0B' },
+      { label: '🔴 Red', value: '#EF4444' },
+      { label: '🟣 Purple', value: '#8B5CF6' },
+      { label: '🟠 Orange', value: '#F97316' },
+      { label: '🩷 Pink', value: '#EC4899' },
+      { label: '🤎 Brown', value: '#A3A3A3' },
+    ],
+    placeholder: 'Rəng seçin',
+  }),
+  
+  isActive: createField('is_active', 'Aktiv', 'checkbox', {
+    defaultValue: true,
+    placeholder: 'Müəssisə növü aktivdir',
+  }),
+};
+
 // Emergency contact fields
 export const emergencyContactFields = {
   name: createField('emergency_contact_name', 'Təcili əlaqə şəxsi', 'text', {

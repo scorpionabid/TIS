@@ -28,6 +28,13 @@ export abstract class BaseService<T extends BaseEntity> {
   }
 
   /**
+   * Getter for backward compatibility with baseUrl
+   */
+  protected get baseUrl(): string {
+    return this.baseEndpoint;
+  }
+
+  /**
    * Generate cache key for requests
    */
   protected getCacheKey(method: string, suffix: string = '', params?: any): string {
@@ -203,6 +210,63 @@ export abstract class BaseService<T extends BaseEntity> {
   async search(query: string, params?: Partial<PaginationParams>): Promise<PaginatedResponse<T>> {
     const searchParams = { ...params, search: query };
     return this.getAll(searchParams);
+  }
+
+  /**
+   * Generic GET method for custom endpoints
+   */
+  async get<R = any>(endpoint: string, params?: any): Promise<ApiResponse<R>> {
+    logger.debug(`Making GET request to ${endpoint}`, {
+      component: 'BaseService',
+      action: 'get',
+      data: { endpoint, params }
+    });
+    
+    try {
+      const response = await apiClient.get<R>(endpoint, params);
+      return response;
+    } catch (error) {
+      logger.error(`Failed to GET ${endpoint}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generic POST method for custom endpoints
+   */
+  async post<R = any>(endpoint: string, data?: any): Promise<ApiResponse<R>> {
+    logger.debug(`Making POST request to ${endpoint}`, {
+      component: 'BaseService',
+      action: 'post',
+      data: { endpoint, payload: data }
+    });
+    
+    try {
+      const response = await apiClient.post<R>(endpoint, data);
+      return response;
+    } catch (error) {
+      logger.error(`Failed to POST ${endpoint}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generic PUT method for custom endpoints
+   */
+  async put<R = any>(endpoint: string, data?: any): Promise<ApiResponse<R>> {
+    logger.debug(`Making PUT request to ${endpoint}`, {
+      component: 'BaseService',
+      action: 'put',
+      data: { endpoint, payload: data }
+    });
+    
+    try {
+      const response = await apiClient.put<R>(endpoint, data);
+      return response;
+    } catch (error) {
+      logger.error(`Failed to PUT ${endpoint}`, error);
+      throw error;
+    }
   }
 
   /**

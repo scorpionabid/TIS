@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FormBuilder, createField, commonValidations } from '@/components/forms/FormBuilder';
+import { userFields, studentFields } from '@/components/modals/configurations/modalFieldConfig';
 import { z } from 'zod';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -136,33 +137,18 @@ export function StudentModal({ open, onClose, student, onSave }: StudentModalPro
     }
   }, [student, onSave, onClose, toast]);
 
-  // Form fields configuration
+  // Form fields configuration - Using modalFieldConfig
   const basicFields = [
-    createField('first_name', 'Ad', 'text', {
-      required: true,
-      placeholder: 'Şagirdin adı',
-      validation: commonValidations.required,
-    }),
-    createField('last_name', 'Soyad', 'text', {
-      required: true,
-      placeholder: 'Şagirdin soyadı',
-      validation: commonValidations.required,
-    }),
+    userFields.firstName,
+    userFields.lastName,
     createField('student_number', 'Şagird Nömrəsi', 'text', {
       required: true,
       placeholder: 'Məs: ST2024001',
       validation: commonValidations.required,
     }),
-    createField('email', 'Email', 'email', {
-      placeholder: 'email@example.com',
-      validation: commonValidations.email.optional(),
-    }),
-    createField('phone', 'Telefon', 'text', {
-      placeholder: '+994501234567',
-    }),
-    createField('date_of_birth', 'Doğum Tarixi', 'date', {
-      placeholder: 'Doğum tarixini seçin',
-    }),
+    userFields.email,
+    userFields.contactPhone,
+    userFields.birthDate,
     createField('gender', 'Cins', 'select', {
       options: [
         { value: 'male', label: 'Kişi' },
