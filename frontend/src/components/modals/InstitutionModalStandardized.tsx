@@ -785,20 +785,67 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
       placeholder: 'Müəssisənin qısa adı (ixtiyari)',
       description: 'Müəssisə üçün qısa ad. Məsələn: TM, REİ, HTŞ',
     }),
-    createField('type', 'Növ', 'select', {
+    createField('type', 'Növ', 'custom', {
       required: true,
-      options: institutionTypes,
-      placeholder: typesLoading ? 'Yüklənir...' : 'Müəssisə növünü seçin',
-      disabled: typesLoading,
       validation: commonValidations.required,
-      onChange: (value: string, formControl: any) => {
-        setSelectedType(value);
-        // Update form completeness when type changes
-        const formValues = formControl?.getValues();
-        if (formValues) {
-          updateFormCompleteness({ ...formValues, type: value });
-        }
-      },
+      render: ({ field, formControl }: any) => (
+        <div className="space-y-2">
+          <div className="relative">
+            <select
+              {...field}
+              aria-label="Müəssisə növü"
+              aria-describedby="type-help-text"
+              disabled={typesLoading}
+              className={cn(
+                "flex h-12 sm:h-10 w-full rounded-md border border-input bg-background px-4 sm:px-3 py-3 sm:py-2 text-base sm:text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 touch-manipulation",
+                "appearance-none cursor-pointer"
+              )}
+              onChange={(e) => {
+                const value = e.target.value;
+                field.onChange(value);
+                setSelectedType(value);
+                // Update form completeness when type changes
+                const formValues = formControl?.getValues();
+                if (formValues) {
+                  updateFormCompleteness({ ...formValues, type: value });
+                }
+              }}
+            >
+              <option value="" disabled>
+                {typesLoading ? 'Növlər yüklənir...' : 'Müəssisə növünü seçin'}
+              </option>
+              {institutionTypes.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              ))}
+            </select>
+            {/* Custom dropdown arrow */}
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+              {typesLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              ) : (
+                <svg 
+                  className="h-4 w-4 text-muted-foreground" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              )}
+            </div>
+          </div>
+          <p id="type-help-text" className="text-xs text-muted-foreground">
+            Müəssisənin növünü seçin. Növ ana təşkilat seçimlərini müəyyənləşdirir.
+          </p>
+          {typesError && (
+            <p className="text-xs text-red-600" role="alert">
+              Növlər yükləmədə xəta: Yenidən cəhd edin
+            </p>
+          )}
+        </div>
+      ),
     }),
     // Add info field for level 1 institutions (ministry) - show disabled placeholder
     ...(selectedType && getCurrentSelectedLevel() === 1 ? [
@@ -810,18 +857,68 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
       })
     ] : []),
     ...(selectedType && selectedType !== 'ministry' && getCurrentSelectedLevel() > 1 ? [
-      createField('parent_id', 'Ana Təşkilat', 'select', {
+      createField('parent_id', 'Ana Təşkilat', 'custom', {
         required: true,
-        options: parentInstitutionOptions,
-        placeholder: parentsLoading ? 'Yüklənir...' : 
-                   selectedType === 'region' || selectedType === 'regional' ? 'Nazirliyi seçin' :
-                   selectedType === 'sektor' || selectedType === 'sector' ? 'Regional idarəni seçin' :
-                   selectedType === 'school' ? 'Sektoru seçin' :
-                   'Ana təşkilatı seçin',
-        disabled: parentsLoading,
         validation: commonValidations.required,
         className: 'md:col-span-2',
-        description: `Səviyyə ${getCurrentSelectedLevel()} müəssisələrinin ana təşkilatı seçilməlidir`
+        render: ({ field, formControl }: any) => (
+          <div className="space-y-2">
+            <div className="relative">
+              <select
+                {...field}
+                aria-label="Ana təşkilat"
+                aria-describedby="parent-help-text"
+                disabled={parentsLoading}
+                className={cn(
+                  "flex h-12 sm:h-10 w-full rounded-md border border-input bg-background px-4 sm:px-3 py-3 sm:py-2 text-base sm:text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 touch-manipulation",
+                  "appearance-none cursor-pointer"
+                )}
+              >
+                <option value="" disabled>
+                  {parentsLoading ? 'Ana təşkilatlar yüklənir...' : 
+                   selectedType === 'regional_education_department' ? 'Nazirliyi seçin' :
+                   selectedType === 'sector_education_office' ? 'Regional idarəni seçin' :
+                   selectedType === 'secondary_school' || selectedType === 'lyceum' || selectedType === 'gymnasium' ? 'Sektoru seçin' :
+                   'Ana təşkilatı seçin'}
+                </option>
+                {parentInstitutionOptions.map((parent) => (
+                  <option key={parent.value} value={parent.value}>
+                    {parent.label}
+                  </option>
+                ))}
+              </select>
+              {/* Custom dropdown arrow */}
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                {parentsLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                ) : (
+                  <svg 
+                    className="h-4 w-4 text-muted-foreground" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                )}
+              </div>
+            </div>
+            <p id="parent-help-text" className="text-xs text-muted-foreground">
+              {`Səviyyə ${getCurrentSelectedLevel()} müəssisələrinin ana təşkilatı seçilməlidir. ${parentInstitutionOptions.length} seçim mövcuddur.`}
+            </p>
+            {parentsLoading && (
+              <div className="flex items-center gap-2 text-xs text-blue-600">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Ana təşkilatlar yüklənir...</span>
+              </div>
+            )}
+            {!parentsLoading && parentInstitutionOptions.length === 0 && selectedType && (
+              <p className="text-xs text-amber-600" role="alert">
+                Bu növ üçün uyğun ana təşkilat tapılmadı
+              </p>
+            )}
+          </div>
+        ),
       })
     ] : []),
     createField('code', 'Müəssisə Kodu', 'custom', {
@@ -1271,15 +1368,6 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
     };
   }, []);
 
-  // Helper to track and cleanup timeouts
-  const setTrackedTimeout = React.useCallback((callback: () => void, delay: number) => {
-    const timerId = setTimeout(callback, delay);
-    (globalThis as any).__institutionModalTimers = [
-      ...((globalThis as any).__institutionModalTimers || []),
-      timerId
-    ];
-    return timerId;
-  }, []);
 
   // Compute default values first
   const defaultValues = React.useMemo(() => {
@@ -1339,42 +1427,40 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
       manager_name: contactInfo.manager_name || institution.manager_name || '',
       manager_phone: contactInfo.manager_phone || institution.manager_phone || '',
       parent_id: institution.parent_id?.toString() || '',
-      utis_code: institution.utis_code || '',
+      utis_code: (institution as any).utis_code || '',
     };
   }, [institution, selectedType, institutionTypes]);
 
-  // Set selected type when modal opens or institution changes
+  // Set selected type when modal opens or institution changes - optimized
   React.useEffect(() => {
     if (!open) {
-      // Reset state when modal closes
+      // Reset state when modal closes - batch state updates
       setSelectedType('');
       setFormCompleteness({ percentage: 0, missingFields: [], validFields: [] });
+      setCodeValidation({ status: 'idle' });
+      setUtisCodeValidation({ status: 'idle' });
+      setSimilarInstitutions([]);
+      setShowSimilarWarning(false);
       return;
     }
     
-    // Small delay to ensure all async data has loaded
-    const timer = setTimeout(() => {
-      if (institution) {
-        // Simple type extraction from institution
-        const backendType = typeof institution.type === 'object' ? institution.type.key : institution.type;
-        setSelectedType(backendType);
-        // Update form completeness with existing institution data
-        updateFormCompleteness(defaultValues);
-      } else {
-        // For new institutions, default to secondary_school if available
-        if (institutionTypes.length > 0) {
-          const defaultType = institutionTypes.find(type => type.value === 'secondary_school')?.value || 
-                             institutionTypes.find(type => type.level === 4)?.value ||
-                             institutionTypes[0].value;
-          setSelectedType(defaultType);
-          // Initialize form completeness for new institution
-          updateFormCompleteness({ ...defaultValues, type: defaultType });
-        }
-      }
-    }, 50); // Reduced delay
-    
-    return () => clearTimeout(timer);
-  }, [open, institution, institutionTypes, defaultValues, updateFormCompleteness]);
+    // Immediate sync without delay for better UX
+    if (institution) {
+      // Simple type extraction from institution
+      const backendType = typeof institution.type === 'object' ? institution.type.key : institution.type;
+      setSelectedType(backendType);
+      // Update form completeness with existing institution data
+      updateFormCompleteness(defaultValues);
+    } else if (institutionTypes.length > 0) {
+      // For new institutions, default to secondary_school if available
+      const defaultType = institutionTypes.find(type => type.value === 'secondary_school')?.value || 
+                         institutionTypes.find(type => type.level === 4)?.value ||
+                         institutionTypes[0].value;
+      setSelectedType(defaultType);
+      // Initialize form completeness for new institution
+      updateFormCompleteness({ ...defaultValues, type: defaultType });
+    }
+  }, [open, institution, institutionTypes.length, defaultValues, updateFormCompleteness]);
 
   const handleSubmit = React.useCallback(async (data: any) => {
     try {
@@ -1405,7 +1491,7 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
         region_code: generateRegionCode(), // Generate required region_code
         parent_id: data.parent_id ? parseInt(data.parent_id) : null,
         level: selectedTypeData?.level || 4,
-        utis_code: data.utis_code || '',
+        utis_code: data.utis_code || null,
         contact_info: {
           phone: data.phone || '',
           email: data.email || '',
@@ -1585,7 +1671,7 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
         description="Müəssisə məlumatlarını daxil edin. İyerarxiya: Nazirlik → Regional İdarə → Sektor → Məktəb"
         loading={isLoading}
         loadingText="Müəssisə növləri yüklənir..."
-        entityBadge={institution?.utis_code ? `UTIS: ${institution.utis_code}` : undefined}
+        entityBadge={(institution as any)?.utis_code ? `UTIS: ${(institution as any).utis_code}` : undefined}
         entity={institution}
         tabs={modalTabs}
         defaultValues={defaultValues}
@@ -1593,7 +1679,6 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
         submitLabel={isEditMode ? 'Yenilə' : 'Əlavə et'}
         maxWidth="4xl"
         columns={1}
-        className="mobile-optimized"
       />
       
       {/* Network Error Notification - Mobile Optimized */}
