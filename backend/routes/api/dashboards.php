@@ -47,27 +47,27 @@ Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|supera
     Route::get('dashboard/activities', [RegionAdminDashboardController::class, 'getDashboardActivities']);
     Route::get('dashboard/analytics', [RegionAdminDashboardController::class, 'getAnalytics']);
     
-    // Institution management endpoints - READ operations
-    Route::get('institutions', [RegionAdminInstitutionController::class, 'getRegionInstitutions']);
-    Route::get('institutions/{institution}', [RegionAdminInstitutionController::class, 'getInstitutionDetails']);
-    Route::get('institutions/{institution}/stats', [RegionAdminInstitutionController::class, 'getInstitutionStats']);
-    Route::get('institutions/{institution}/hierarchy', [RegionAdminInstitutionController::class, 'getInstitutionHierarchy']);
+    // Institution management endpoints - READ operations (RegionAdmin-specific)
+    Route::get('region-institutions', [RegionAdminInstitutionController::class, 'getRegionInstitutions']);
+    Route::get('region-institutions/{institution}', [RegionAdminInstitutionController::class, 'getInstitutionDetails']);
+    Route::get('region-institutions/{institution}/stats', [RegionAdminInstitutionController::class, 'getInstitutionStats']);
+    Route::get('region-institutions/{institution}/hierarchy', [RegionAdminInstitutionController::class, 'getInstitutionHierarchy']);
+
+    // Institution management endpoints - WRITE operations (RegionAdmin-specific)
+    Route::post('region-institutions', [RegionAdminInstitutionController::class, 'createInstitution']);
+    Route::put('region-institutions/{institution}', [RegionAdminInstitutionController::class, 'updateInstitution']);
+    Route::delete('region-institutions/{institution}', [RegionAdminInstitutionController::class, 'deleteInstitution']);
     
-    // Institution management endpoints - WRITE operations
-    Route::post('institutions', [RegionAdminInstitutionController::class, 'createInstitution']);
-    Route::put('institutions/{institution}', [RegionAdminInstitutionController::class, 'updateInstitution']);
-    Route::delete('institutions/{institution}', [RegionAdminInstitutionController::class, 'deleteInstitution']);
-    
-    // Department management endpoints
-    Route::get('institutions/{institution}/departments', [RegionAdminInstitutionController::class, 'getDepartments']);
-    Route::post('institutions/{institution}/departments', [RegionAdminInstitutionController::class, 'createDepartment']);
-    Route::put('departments/{department}', [RegionAdminInstitutionController::class, 'updateDepartment']);
-    Route::delete('departments/{department}', [RegionAdminInstitutionController::class, 'deleteDepartment']);
-    
+    // Department management endpoints (RegionAdmin-specific)
+    Route::get('region-institutions/{institution}/departments', [RegionAdminInstitutionController::class, 'getDepartments']);
+    Route::post('region-institutions/{institution}/departments', [RegionAdminInstitutionController::class, 'createDepartment']);
+    Route::put('region-departments/{department}', [RegionAdminInstitutionController::class, 'updateDepartment']);
+    Route::delete('region-departments/{department}', [RegionAdminInstitutionController::class, 'deleteDepartment']);
+
     // Classes management endpoints for RegionAdmin - Updated to use GradeUnifiedController
     Route::get('grades', [GradeUnifiedController::class, 'index']);
     Route::get('grades/{grade}', [GradeUnifiedController::class, 'show']);
-    Route::get('institutions/{institution}/grades', [RegionAdminInstitutionController::class, 'getInstitutionClasses']);
+    Route::get('region-institutions/{institution}/grades', [RegionAdminInstitutionController::class, 'getInstitutionClasses']);
     
     // User management endpoints - READ operations
     Route::get('users', [RegionAdminUserController::class, 'index']);

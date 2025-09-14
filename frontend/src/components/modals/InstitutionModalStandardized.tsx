@@ -151,8 +151,8 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
       });
       return [];
     }
-    
-    return rawInstitutionTypes.map((type) => ({
+
+    const mappedTypes = rawInstitutionTypes.map((type) => ({
       label: `${type.label_az || type.label} (Səviyyə ${type.default_level})`,
       value: type.key,
       level: type.default_level,
@@ -161,6 +161,18 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
       color: type.color,
       originalType: type
     }));
+
+    // Debug logging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Available institution types:', {
+        total: mappedTypes.length,
+        ministryExists: mappedTypes.some(t => t.value === 'ministry'),
+        level1Types: mappedTypes.filter(t => t.level === 1),
+        allTypes: mappedTypes.map(t => ({ key: t.value, level: t.level, label: t.label }))
+      });
+    }
+
+    return mappedTypes;
   }, [rawInstitutionTypes, typesError, currentUser?.role]);
 
   // Get potential parent institutions based on selected type
@@ -188,8 +200,21 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
       const parentTypes = institutionTypes
         .filter(type => type.level === parentLevel)
         .map(type => type.value);
-        
+
+      // Debug logging for parent loading
+      if (process.env.NODE_ENV === 'development') {
+        console.log('👥 Parent institutions loading:', {
+          selectedType,
+          currentLevel,
+          parentLevel,
+          availableTypes: institutionTypes.map(t => ({ key: t.value, level: t.level })),
+          foundParentTypes: parentTypes,
+          willLoadParents: parentTypes.length > 0
+        });
+      }
+
       if (parentTypes.length === 0) {
+        console.warn('❌ No parent types found for level', currentLevel);
         return { data: [] };
       }
       
@@ -198,12 +223,18 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
         const allParents = [];
         for (const parentType of parentTypes) {
           try {
+            console.log(`🔍 Loading institutions for parent type: ${parentType}`);
             const result = await institutionService.getAll({ type: parentType });
             const institutions = result?.data?.data || result?.data;
+
             if (institutions && Array.isArray(institutions)) {
+              console.log(`✅ Found ${institutions.length} institutions for type: ${parentType}`);
               allParents.push(...institutions);
+            } else {
+              console.warn(`⚠️ No institutions found for type: ${parentType}`, { result });
             }
           } catch (err) {
+            console.error(`❌ Failed to load institutions for parent type: ${parentType}`, err);
             logger.warn('Failed to load institutions for parent type', err, {
               component: 'InstitutionModalStandardized',
               action: 'loadParents',
@@ -211,6 +242,8 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
             });
           }
         }
+
+        console.log('🏢 Total parent institutions loaded:', allParents.length);
         
         return { data: allParents };
       } catch (error) {
@@ -470,11 +503,11 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
   }, [institution?.id, withRetry, retryCount.utisValidation, isNetworkError, updateValidationProgress, clearValidationProgress]);
 
   // Similar institutions detection handler
-  const handleSimilarInstitutionsCheck = React.useCallback(async (data: { 
-    name?: string; 
-    code?: string; 
-    type?: string; 
-    parent_id?: number; 
+  const handleSimilarInstitutionsCheck = React.useCallback(async (data: {
+    name?: string;
+    code?: string;
+    type?: string;
+    parent_id?: number;
   }) => {
     if (!data.name || data.name.length < 3) {
       setSimilarInstitutions([]);
@@ -493,12 +526,12 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
         }),
         data
       );
-      
+
       // Filter out current institution if editing
-      const filteredSimilar = similar.filter(inst => 
+      const filteredSimilar = similar.filter(inst =>
         !institution || inst.id !== institution.id
       );
-      
+
       setSimilarInstitutions(filteredSimilar);
       setShowSimilarWarning(filteredSimilar.length > 0);
     } catch (error) {
@@ -507,12 +540,10 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
         action: 'findSimilar',
         retryCount: retryCount.similarCheck || 0
       });
-      
-      // Don't show warning on network errors - just silently fail
-      if (!isNetworkError(error)) {
-        setSimilarInstitutions([]);
-        setShowSimilarWarning(false);
-      }
+
+      // Silently handle all errors - don't show warnings to user
+      setSimilarInstitutions([]);
+      setShowSimilarWarning(false);
     }
   }, [institution?.id, withRetry, retryCount.similarCheck, isNetworkError]);
 
@@ -643,6 +674,18 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
     
     // Add parent_id as required if not level 1
     const selectedTypeData = institutionTypes.find(type => type.value === formData.type);
+
+    // Debug logging for form completeness
+    if (process.env.NODE_ENV === 'development' && formData.type) {
+      console.log('📋 Form completeness check:', {
+        selectedType: formData.type,
+        selectedTypeData: selectedTypeData?.label,
+        level: selectedTypeData?.level,
+        shouldRequireParent: selectedTypeData && selectedTypeData.level > 1,
+        currentRequiredFields: requiredFields.map(f => f.key)
+      });
+    }
+
     if (selectedTypeData && selectedTypeData.level > 1) {
       requiredFields.push({ key: 'parent_id', label: 'Ana təşkilat' });
     }
@@ -699,7 +742,21 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
   const getCurrentSelectedLevel = React.useCallback(() => {
     if (!selectedType || institutionTypes.length === 0) return 1;
     const selectedTypeData = institutionTypes.find(type => type.value === selectedType);
-    return selectedTypeData?.level || 1;
+    const level = selectedTypeData?.level || 1;
+
+    // Debug logging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🏛️ Level calculation:', {
+        selectedType,
+        selectedTypeData: selectedTypeData?.label,
+        calculatedLevel: level,
+        shouldShowParent: level > 1,
+        isMinistry: selectedType === 'ministry',
+        allInstitutionTypes: institutionTypes.map(t => ({ key: t.value, level: t.level, label: t.label }))
+      });
+    }
+
+    return level;
   }, [selectedType, institutionTypes]);
 
   // Basic institution information fields
@@ -722,16 +779,16 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
               // Update form completeness
               const formValues = formControl.getValues();
               updateFormCompleteness({ ...formValues, name: e.target.value });
-              // Debounced similar institutions check
-              const timer = setTimeout(() => {
-                handleSimilarInstitutionsCheck({
-                  name: e.target.value,
-                  code: formValues.code,
-                  type: formValues.type,
-                  parent_id: formValues.parent_id ? parseInt(formValues.parent_id) : undefined
-                });
-              }, 1000);
-              return () => clearTimeout(timer);
+              // Debounced similar institutions check - temporarily disabled
+              // const timer = setTimeout(() => {
+              //   handleSimilarInstitutionsCheck({
+              //     name: e.target.value,
+              //     code: formValues.code,
+              //     type: formValues.type,
+              //     parent_id: formValues.parent_id ? parseInt(formValues.parent_id) : undefined
+              //   });
+              // }, 1000);
+              // return () => clearTimeout(timer);
             }}
           />
           <p id="name-help-text" className="text-xs text-muted-foreground">
@@ -856,10 +913,26 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
         className: 'md:col-span-2'
       })
     ] : []),
-    ...(selectedType && selectedType !== 'ministry' && getCurrentSelectedLevel() > 1 ? [
+    ...((() => {
+      const level = getCurrentSelectedLevel();
+      const shouldShow = selectedType && level > 1;
+
+      // Debug logging
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🎯 Parent field condition:', {
+          selectedType,
+          level,
+          shouldShowParent: shouldShow,
+          reasoning: `Level ${level} ${level > 1 ? '> 1, showing parent field' : '<= 1, hiding parent field'}`,
+          fieldsBeingRendered: shouldShow ? 'PARENT FIELD WILL BE ADDED' : 'PARENT FIELD WILL NOT BE ADDED'
+        });
+      }
+
+      return shouldShow;
+    })() ? [
       createField('parent_id', 'Ana Təşkilat', 'custom', {
-        required: true,
-        validation: commonValidations.required,
+        required: getCurrentSelectedLevel() > 1,
+        validation: getCurrentSelectedLevel() > 1 ? commonValidations.required : undefined,
         className: 'md:col-span-2',
         render: ({ field, formControl }: any) => (
           <div className="space-y-2">

@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Institution\InstitutionCRUDController;
 use App\Http\Controllers\Institution\InstitutionBulkController;
-use App\Http\Controllers\Institution\InstitutionHierarchyController;
 use App\Models\Institution;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -23,12 +22,12 @@ class InstitutionController extends Controller
 {
     protected InstitutionCRUDController $crudController;
     protected InstitutionBulkController $bulkController;
-    protected InstitutionHierarchyController $hierarchyController;
+    protected \App\Http\Controllers\InstitutionHierarchyController $hierarchyController;
 
     public function __construct(
         InstitutionCRUDController $crudController,
         InstitutionBulkController $bulkController,
-        InstitutionHierarchyController $hierarchyController
+        \App\Http\Controllers\InstitutionHierarchyController $hierarchyController
     ) {
         $this->crudController = $crudController;
         $this->bulkController = $bulkController;
@@ -164,19 +163,223 @@ class InstitutionController extends Controller
     }
 
     /**
-     * Proxy to InstitutionHierarchyController@hierarchy
+     * Proxy to InstitutionHierarchyController@getHierarchy
      */
     public function hierarchy(Request $request): JsonResponse
     {
-        return $this->hierarchyController->hierarchy($request);
+        return $this->hierarchyController->getHierarchy($request);
     }
 
     /**
-     * Proxy to InstitutionHierarchyController@children
+     * Proxy to InstitutionHierarchyController@getHierarchy (alias)
+     */
+    public function getHierarchy(Request $request): JsonResponse
+    {
+        return $this->hierarchyController->getHierarchy($request);
+    }
+
+    /**
+     * Proxy to InstitutionHierarchyController@getSubTree
      */
     public function getChildren(Institution $institution, Request $request): JsonResponse
     {
-        return $this->hierarchyController->children($request, $institution);
+        return $this->hierarchyController->getSubTree($institution, $request);
+    }
+
+    /**
+     * Find similar institutions based on name, code, type, and parent
+     */
+    public function findSimilar(Request $request): JsonResponse
+    {
+        try {
+            $name = $request->query('name');
+            $code = $request->query('code');
+            $type = $request->query('type');
+            $parentId = $request->query('parent_id');
+
+            if (!$name || strlen($name) < 3) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [],
+                    'message' => 'Name must be at least 3 characters'
+                ]);
+            }
+
+            $query = Institution::query();
+
+            // Search by name similarity
+            $query->where('name', 'like', "%{$name}%");
+
+            // Optional filters
+            if ($code) {
+                $query->orWhere('institution_code', 'like', "%{$code}%");
+            }
+
+            if ($type) {
+                $query->orWhere('type', $type);
+            }
+
+            if ($parentId) {
+                $query->orWhere('parent_id', $parentId);
+            }
+
+            // Limit results to prevent overload
+            $similar = $query->limit(10)->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $similar,
+                'message' => 'Similar institutions found'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error finding similar institutions: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Check if institution code already exists
+     */
+    public function checkCodeExists(Request $request): JsonResponse
+    {
+        try {
+            $code = $request->query('code');
+            $excludeId = $request->query('exclude_id');
+
+            if (!$code) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Code parameter is required'
+                ], 422);
+            }
+
+            $query = Institution::where('institution_code', $code);
+
+            if ($excludeId) {
+                $query->where('id', '!=', $excludeId);
+            }
+
+            $exists = $query->exists();
+
+            return response()->json([
+                'success' => true,
+                'exists' => $exists,
+                'message' => $exists ? 'Code already exists' : 'Code is available'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error checking code: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Check if UTIS code already exists
+     */
+    public function checkUtisCodeExists(Request $request): JsonResponse
+    {
+        try {
+            $utisCode = $request->query('utis_code');
+            $excludeId = $request->query('exclude_id');
+
+            if (!$utisCode) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'UTIS code parameter is required'
+                ], 422);
+            }
+
+            $query = Institution::where('utis_code', $utisCode);
+
+            if ($excludeId) {
+                $query->where('id', '!=', $excludeId);
+            }
+
+            $exists = $query->exists();
+
+            return response()->json([
+                'success' => true,
+                'exists' => $exists,
+                'message' => $exists ? 'UTIS code already exists' : 'UTIS code is available'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error checking UTIS code: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Generate unique institution code
+     */
+    public function generateCode(Request $request): JsonResponse
+    {
+        try {
+            $type = $request->input('type');
+            $name = $request->input('name');
+            $parentId = $request->input('parent_id');
+
+            if (!$type || !$name) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Type and name are required'
+                ], 422);
+            }
+
+            // Generate code based on type
+            $prefix = match($type) {
+                'ministry' => 'M',
+                'regional_education_department' => 'REG',
+                'sector_education_office' => 'SEC',
+                'secondary_school' => 'SCH',
+                'lyceum' => 'LYC',
+                'gymnasium' => 'GYM',
+                'kindergarten' => 'KG',
+                'preschool_center' => 'PC',
+                default => 'GEN'
+            };
+
+            // Generate sequential number
+            $lastInstitution = Institution::where('type', $type)
+                ->where('institution_code', 'like', $prefix . '%')
+                ->orderBy('institution_code', 'desc')
+                ->first();
+
+            $nextNumber = 1;
+            if ($lastInstitution) {
+                $lastCode = $lastInstitution->institution_code;
+                $lastNumber = (int) preg_replace('/[^0-9]/', '', $lastCode);
+                $nextNumber = $lastNumber + 1;
+            }
+
+            // Format with leading zeros
+            $generatedCode = $prefix . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+
+            // Ensure uniqueness
+            while (Institution::where('institution_code', $generatedCode)->exists()) {
+                $nextNumber++;
+                $generatedCode = $prefix . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+            }
+
+            return response()->json([
+                'success' => true,
+                'code' => $generatedCode,
+                'message' => 'Code generated successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error generating code: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -221,6 +424,54 @@ class InstitutionController extends Controller
                 'message' => 'Error retrieving users: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Export institutions by type
+     */
+    public function exportInstitutionsByType(Request $request): JsonResponse
+    {
+        return $this->bulkController->exportInstitutionsByType($request);
+    }
+
+    /**
+     * Download import template by type
+     */
+    public function downloadImportTemplateByType(Request $request)
+    {
+        return $this->bulkController->downloadImportTemplateByType($request);
+    }
+
+    /**
+     * Import institutions from template by type
+     */
+    public function importFromTemplateByType(Request $request): JsonResponse
+    {
+        return $this->bulkController->importFromTemplateByType($request);
+    }
+
+    /**
+     * Get user import permissions and statistics
+     */
+    public function getImportPermissions(Request $request): JsonResponse
+    {
+        return $this->bulkController->getImportPermissions($request);
+    }
+
+    /**
+     * Get user import history
+     */
+    public function getImportHistory(Request $request): JsonResponse
+    {
+        return $this->bulkController->getImportHistory($request);
+    }
+
+    /**
+     * Get import analytics
+     */
+    public function getImportAnalytics(Request $request): JsonResponse
+    {
+        return $this->bulkController->getImportAnalytics($request);
     }
 
     /**

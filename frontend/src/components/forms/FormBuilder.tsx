@@ -328,7 +328,7 @@ export function FormBuilder({
                       return field.component;
                     }
                     if (field.render) {
-                      return field.render({ field: formField, formControl: form.control });
+                      return field.render({ field: formField, formControl: form });
                     }
                     return null;
                   

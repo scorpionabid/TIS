@@ -5,8 +5,6 @@ namespace App\Http\Controllers\Institution;
 use App\Http\Controllers\BaseController;
 use App\Services\InstitutionCrudService;
 use App\Services\InstitutionImportExportService;
-use App\Services\InstitutionImportPermissionService;
-use App\Services\InstitutionImportHistoryService;
 use App\Models\Institution;
 use App\Models\InstitutionType;
 use Illuminate\Http\Request;
@@ -18,19 +16,13 @@ class InstitutionCRUDControllerRefactored extends BaseController
 {
     protected $institutionCrudService;
     protected $importExportService;
-    protected $importPermissionService;
-    protected $importHistoryService;
 
     public function __construct(
         InstitutionCrudService $institutionCrudService,
-        InstitutionImportExportService $importExportService,
-        InstitutionImportPermissionService $importPermissionService,
-        InstitutionImportHistoryService $importHistoryService
+        InstitutionImportExportService $importExportService
     ) {
         $this->institutionCrudService = $institutionCrudService;
         $this->importExportService = $importExportService;
-        $this->importPermissionService = $importPermissionService;
-        $this->importHistoryService = $importHistoryService;
     }
 
     /**
@@ -206,33 +198,13 @@ class InstitutionCRUDControllerRefactored extends BaseController
     public function importFromTemplate(Request $request): JsonResponse
     {
         return $this->executeWithErrorHandling(function () use ($request) {
-            $user = Auth::user();
-            
-            // Check import permissions
-            $permissionCheck = $this->importPermissionService->canImport($user);
-            if (!$permissionCheck['allowed']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $permissionCheck['reason']
-                ], 403);
-            }
-
             $validated = $request->validate([
                 'file' => 'required|file|mimes:xlsx,xls|max:10240',
                 'institution_ids' => 'nullable|array',
                 'institution_ids.*' => 'integer|exists:institutions,id'
             ]);
 
-            // Check file size
-            $fileSize = $validated['file']->getSize();
-            $fileSizeCheck = $this->importPermissionService->validateFileSize($user, $fileSize);
-            if (!$fileSizeCheck['valid']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $fileSizeCheck['reason']
-                ], 413);
-            }
-
+            $user = Auth::user();
             $institutionIds = $validated['institution_ids'] ?? [];
             
             $results = $this->importExportService->processImportFile($validated['file'], $institutionIds);
@@ -274,19 +246,21 @@ class InstitutionCRUDControllerRefactored extends BaseController
      */
     public function downloadImportTemplateByType(Request $request): BinaryFileResponse
     {
-        $validTypes = InstitutionType::active()->pluck('key')->toArray();
-        $validTypesString = implode(',', $validTypes);
-        
-        $validated = $request->validate([
-            'type' => "required|string|in:{$validTypesString}"
-        ]);
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $validTypes = InstitutionType::active()->pluck('key')->toArray();
+            $validTypesString = implode(',', $validTypes);
+            
+            $validated = $request->validate([
+                'type' => "required|string|in:{$validTypesString}"
+            ]);
 
-        $institutionType = InstitutionType::where('key', $validated['type'])->firstOrFail();
-        $fileName = "institution_template_{$validated['type']}_" . date('Y-m-d_H-i-s') . '.xlsx';
-        
-        $filePath = $this->importExportService->generateTemplateByType($institutionType, $fileName);
-        
-        return response()->download($filePath, $fileName)->deleteFileAfterSend();
+            $institutionType = InstitutionType::where('key', $validated['type'])->firstOrFail();
+            $fileName = "institution_template_{$validated['type']}_" . date('Y-m-d_H-i-s') . '.xlsx';
+            
+            $filePath = $this->importExportService->generateTemplateByType($institutionType, $fileName);
+            
+            return response()->download($filePath, $fileName)->deleteFileAfterSend();
+        }, 'institution.download_template_by_type');
     }
 
     /**
@@ -295,17 +269,6 @@ class InstitutionCRUDControllerRefactored extends BaseController
     public function importFromTemplateByType(Request $request): JsonResponse
     {
         return $this->executeWithErrorHandling(function () use ($request) {
-            $user = Auth::user();
-            
-            // Check import permissions
-            $permissionCheck = $this->importPermissionService->canImport($user);
-            if (!$permissionCheck['allowed']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $permissionCheck['reason']
-                ], 403);
-            }
-
             $validTypes = InstitutionType::active()->pluck('key')->toArray();
             $validTypesString = implode(',', $validTypes);
             
@@ -314,28 +277,9 @@ class InstitutionCRUDControllerRefactored extends BaseController
                 'type' => "required|string|in:{$validTypesString}"
             ]);
 
-            // Check file size
-            $fileSize = $validated['file']->getSize();
-            $fileSizeCheck = $this->importPermissionService->validateFileSize($user, $fileSize);
-            if (!$fileSizeCheck['valid']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $fileSizeCheck['reason']
-                ], 413);
-            }
-
             $institutionType = InstitutionType::where('key', $validated['type'])->firstOrFail();
             
-            // Check institution type permissions
-            $typePermissionCheck = $this->importPermissionService->canImportInstitutionType($user, $institutionType);
-            if (!$typePermissionCheck['allowed']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $typePermissionCheck['reason']
-                ], 403);
-            }
-            
-            $results = $this->importExportService->processImportFileByType($validated['file'], $institutionType, [], $request);
+            $results = $this->importExportService->processImportFileByType($validated['file'], $institutionType);
             
             $message = "İdxal tamamlandı: {$results['success']} {$institutionType->name} əlavə edildi";
             if (!empty($results['errors'])) {
@@ -375,59 +319,5 @@ class InstitutionCRUDControllerRefactored extends BaseController
             
             return response()->download($filePath, $fileName)->deleteFileAfterSend();
         }, 'institution.export_by_type');
-    }
-
-    /**
-     * Get user import permissions and statistics
-     */
-    public function getImportPermissions(Request $request): JsonResponse
-    {
-        return $this->executeWithErrorHandling(function () use ($request) {
-            $user = Auth::user();
-            $permissions = $this->importPermissionService->getUserPermissions($user);
-            
-            return $this->successResponse($permissions, 'İdxal icazələri uğurla alındı');
-        }, 'institution.import_permissions');
-    }
-
-    /**
-     * Get user import history
-     */
-    public function getImportHistory(Request $request): JsonResponse
-    {
-        return $this->executeWithErrorHandling(function () use ($request) {
-            $validated = $request->validate([
-                'institution_type' => 'nullable|string',
-                'status' => 'nullable|string|in:pending,completed,failed',
-                'date_from' => 'nullable|date',
-                'date_to' => 'nullable|date'
-            ]);
-
-            $user = Auth::user();
-            $history = $this->importHistoryService->getUserImportHistory($user->id, $validated);
-            
-            return $this->successResponse($history, 'İdxal tarixçəsi uğurla alındı');
-        }, 'institution.import_history');
-    }
-
-    /**
-     * Get import analytics
-     */
-    public function getImportAnalytics(Request $request): JsonResponse
-    {
-        return $this->executeWithErrorHandling(function () use ($request) {
-            $validated = $request->validate([
-                'days' => 'nullable|integer|min:1|max:365'
-            ]);
-
-            $user = Auth::user();
-            $days = $validated['days'] ?? 30;
-            
-            // SuperAdmin can see all analytics, others only their own
-            $userId = $user->hasRole('superadmin') ? null : $user->id;
-            $analytics = $this->importHistoryService->getImportAnalytics($userId, $days);
-            
-            return $this->successResponse($analytics, 'İdxal analitikası uğurla alındı');
-        }, 'institution.import_analytics');
     }
 }

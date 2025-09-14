@@ -335,34 +335,34 @@ class StudentManagementService extends BaseService
     }
 
     /**
-     * Apply filters to query
+     * Apply request filters to query
      */
-    private function applyFilters($query, Request $request)
+    protected function applyRequestFilters($query, $request)
     {
-        if ($request->filled('institution_id')) {
-            $query->where('institution_id', $request->institution_id);
+        if (!empty($filters['institution_id'])) {
+            $query->where('institution_id', $filters['institution_id']);
         }
 
-        if ($request->filled('class_id')) {
-            $query->whereHas('studentEnrollments', function ($q) use ($request) {
-                $q->where('grade_id', $request->class_id)->where('is_active', true);
+        if (!empty($filters['class_id'])) {
+            $query->whereHas('studentEnrollments', function ($q) use ($filters) {
+                $q->where('grade_id', $filters['class_id'])->where('is_active', true);
             });
         }
 
-        if ($request->filled('grade_level')) {
-            $query->whereHas('studentEnrollments.grade', function ($q) use ($request) {
-                $q->where('grade_level', $request->grade_level);
+        if (!empty($filters['grade_level'])) {
+            $query->whereHas('studentEnrollments.grade', function ($q) use ($filters) {
+                $q->where('grade_level', $filters['grade_level']);
             });
         }
 
-        if ($request->filled('academic_year_id')) {
-            $query->whereHas('studentEnrollments', function ($q) use ($request) {
-                $q->where('academic_year_id', $request->academic_year_id);
+        if (!empty($filters['academic_year_id'])) {
+            $query->whereHas('studentEnrollments', function ($q) use ($filters) {
+                $q->where('academic_year_id', $filters['academic_year_id']);
             });
         }
 
-        if ($request->filled('enrollment_status')) {
-            $isActive = $request->enrollment_status === 'active';
+        if (!empty($filters['enrollment_status'])) {
+            $isActive = $filters['enrollment_status'] === 'active';
             $query->whereHas('studentEnrollments', function ($q) use ($isActive) {
                 $q->where('is_active', $isActive);
             });

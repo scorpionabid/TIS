@@ -91,12 +91,16 @@ class InstitutionCRUDController extends Controller
             }
         }
         
+        // Dynamic validation rules - parent_id required for levels > 1
+        $level = $request->input('level', 1);
+        $parentIdRule = $level > 1 ? 'required|exists:institutions,id' : 'nullable|exists:institutions,id';
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'short_name' => 'nullable|string|max:50',
             'type' => 'required|string|max:50',
             'institution_code' => 'required|string|max:50|unique:institutions',
-            'parent_id' => 'nullable|exists:institutions,id',
+            'parent_id' => $parentIdRule,
             'level' => 'required|integer|min:1',
             'region_code' => 'required|string|max:50',
             'contact_info' => 'nullable|array',
@@ -158,6 +162,10 @@ class InstitutionCRUDController extends Controller
             }
         }
         
+        // Dynamic validation rules - parent_id required for levels > 1
+        $level = $request->input('level', $institution->level);
+        $parentIdRule = $level > 1 ? 'required|exists:institutions,id' : 'nullable|exists:institutions,id';
+
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'short_name' => 'nullable|string|max:50',
@@ -169,7 +177,7 @@ class InstitutionCRUDController extends Controller
                 'max:50',
                 Rule::unique('institutions')->ignore($institution->id)
             ],
-            'parent_id' => 'nullable|exists:institutions,id',
+            'parent_id' => $parentIdRule,
             'level' => 'sometimes|required|integer|min:1',
             'region_code' => 'sometimes|required|string|max:50',
             'contact_info' => 'nullable|array',

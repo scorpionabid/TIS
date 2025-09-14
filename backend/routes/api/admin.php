@@ -3,7 +3,6 @@
 use App\Http\Controllers\UserControllerRefactored as UserController;
 use App\Http\Controllers\UserUtilityController;
 use App\Http\Controllers\InstitutionController;
-use App\Http\Controllers\Institution\InstitutionCRUDControllerRefactored as InstitutionCRUDControllerRefactored;
 use App\Http\Controllers\InstitutionTypeController;
 use App\Http\Controllers\InstitutionHierarchyController;
 use App\Http\Controllers\InstitutionDepartmentController;
@@ -126,6 +125,10 @@ Route::middleware('permission:institutions.read')->group(function () {
     Route::get('institutions/{institution}/children', [InstitutionController::class, 'getChildren']);
     Route::get('institutions/{institution}/hierarchy', [InstitutionController::class, 'getHierarchy']);
     Route::get('institutions/search/{query}', [InstitutionController::class, 'search']);
+    Route::get('institutions/find-similar', [InstitutionController::class, 'findSimilar']);
+    Route::get('institutions/check-code-exists', [InstitutionController::class, 'checkCodeExists']);
+    Route::get('institutions/check-utis-code-exists', [InstitutionController::class, 'checkUtisCodeExists']);
+    Route::post('institutions/generate-code', [InstitutionController::class, 'generateCode']);
     Route::get('institutions/{institution}/stats', [InstitutionController::class, 'getStats']);
 });
 
@@ -139,16 +142,16 @@ Route::middleware('permission:institutions.write')->group(function () {
     Route::post('institutions/import', [InstitutionController::class, 'importFromTemplate']);
     // Export operations - unified under single pattern
     Route::post('institutions/export', [InstitutionController::class, 'exportInstitutions']);
-    Route::post('institutions/export-by-type', [InstitutionCRUDControllerRefactored::class, 'exportInstitutionsByType']);
+    Route::post('institutions/export-by-type', [InstitutionController::class, 'exportInstitutionsByType']);
     
     // Type-based Import/Export templates
-    Route::post('institutions/import/template-by-type', [InstitutionCRUDControllerRefactored::class, 'downloadImportTemplateByType']);
-    Route::post('institutions/import-by-type', [InstitutionCRUDControllerRefactored::class, 'importFromTemplateByType']);
+    Route::post('institutions/import/template-by-type', [InstitutionController::class, 'downloadImportTemplateByType']);
+    Route::post('institutions/import-by-type', [InstitutionController::class, 'importFromTemplateByType']);
     
     // Enterprise import features
-    Route::get('institutions/import/permissions', [InstitutionCRUDControllerRefactored::class, 'getImportPermissions']);
-    Route::get('institutions/import/history', [InstitutionCRUDControllerRefactored::class, 'getImportHistory']);
-    Route::get('institutions/import/analytics', [InstitutionCRUDControllerRefactored::class, 'getImportAnalytics']);
+    Route::get('institutions/import/permissions', [InstitutionController::class, 'getImportPermissions']);
+    Route::get('institutions/import/history', [InstitutionController::class, 'getImportHistory']);
+    Route::get('institutions/import/analytics', [InstitutionController::class, 'getImportAnalytics']);
 });
 
 // Institution Types Management (SuperAdmin only)
