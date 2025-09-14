@@ -30,7 +30,15 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
   const { toast } = useToast();
   const isEditMode = !!institution;
   const [selectedType, setSelectedType] = React.useState<string>('');
-  
+  const [hasUserSelectedType, setHasUserSelectedType] = React.useState(false); // Track manual selections
+
+  // Reset user selection flag when modal opens/closes
+  React.useEffect(() => {
+    if (open) {
+      setHasUserSelectedType(false); // Reset flag when modal opens
+    }
+  }, [open]);
+
   // Real-time validation states
   const [codeValidation, setCodeValidation] = React.useState<{
     status: 'idle' | 'checking' | 'valid' | 'invalid';
@@ -120,6 +128,26 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
 
   // Load institution types with simplified hook
   const { institutionTypes: rawInstitutionTypes, isLoading: typesLoading, isError: typesError } = useInstitutionTypesSimple(currentUser?.role);
+
+  // Debug log current user role and types loading
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Institution Types Loading Debug:', {
+        currentUser: {
+          id: currentUser?.id,
+          name: currentUser?.name,
+          username: currentUser?.username,
+          role: currentUser?.role,
+          roles: currentUser?.roles
+        },
+        currentUserRole: currentUser?.role,
+        typesLoading,
+        typesError,
+        rawInstitutionTypesCount: rawInstitutionTypes?.length || 0,
+        rawInstitutionTypes: rawInstitutionTypes?.map(t => ({ key: t.key, label: t.label_az, level: t.default_level })) || []
+      });
+    }
+  }, [currentUser, typesLoading, typesError, rawInstitutionTypes]);
   
   // Update loading states based on types loading
   React.useEffect(() => {
@@ -168,6 +196,9 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
         total: mappedTypes.length,
         ministryExists: mappedTypes.some(t => t.value === 'ministry'),
         level1Types: mappedTypes.filter(t => t.level === 1),
+        level2Types: mappedTypes.filter(t => t.level === 2),
+        level3Types: mappedTypes.filter(t => t.level === 3),
+        level4Types: mappedTypes.filter(t => t.level === 4),
         allTypes: mappedTypes.map(t => ({ key: t.value, level: t.level, label: t.label }))
       });
     }
@@ -272,19 +303,34 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
   }, [parentsLoading, selectedType]);
 
   const parentInstitutionOptions = React.useMemo(() => {
-    if (!parentInstitutions?.data) return [];
-    
-    return parentInstitutions.data.map((parent: any) => {
+    if (!parentInstitutions?.data) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 No parent institutions data:', { parentInstitutions });
+      }
+      return [];
+    }
+
+    const options = parentInstitutions.data.map((parent: any) => {
       const typeKey = typeof parent.type === 'object' ? parent.type?.key : parent.type;
       const typeName = typeKey === 'ministry' ? 'Nazirlik' :
                      typeKey === 'regional_education_department' ? 'Regional Təhsil İdarəsi' :
-                     typeKey === 'sector_education_office' ? 'Sektor Təhsil Şöbəsi' : 
+                     typeKey === 'sector_education_office' ? 'Sektor Təhsil Şöbəsi' :
                      (typeof parent.type === 'object' ? parent.type?.name || typeKey : typeKey);
       return {
         label: `${parent.name} (${typeName})`,
         value: parent.id.toString()
       };
     });
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📋 Parent institution options generated:', {
+        rawDataCount: parentInstitutions.data.length,
+        optionsCount: options.length,
+        options: options.map(opt => ({ label: opt.label, value: opt.value }))
+      });
+    }
+
+    return options;
   }, [parentInstitutions]);
 
   // Error detection and recovery utilities
@@ -861,6 +907,7 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
                 const value = e.target.value;
                 field.onChange(value);
                 setSelectedType(value);
+                setHasUserSelectedType(true); // Mark as user-selected to prevent auto-resets
                 // Update form completeness when type changes
                 const formValues = formControl?.getValues();
                 if (formValues) {
@@ -873,9 +920,15 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
               </option>
               {institutionTypes.map((type) => (
                 <option key={type.value} value={type.value}>
-                  {type.label}
+                  {type.label} {process.env.NODE_ENV === 'development' && type.value === 'ministry' ? '👑 MINISTRY' : ''}
                 </option>
               ))}
+              {process.env.NODE_ENV === 'development' && institutionTypes.length === 0 && (
+                <option disabled>DEBUG: No types loaded</option>
+              )}
+              {process.env.NODE_ENV === 'development' && (
+                <option disabled>DEBUG: Total {institutionTypes.length} types</option>
+              )}
             </select>
             {/* Custom dropdown arrow */}
             <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -905,14 +958,28 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
       ),
     }),
     // Add info field for level 1 institutions (ministry) - show disabled placeholder
-    ...(selectedType && getCurrentSelectedLevel() === 1 ? [
-      createField('parent_info', 'Ana Təşkilat', 'text', {
-        disabled: true,
-        placeholder: '🏛️ Səviyyə 1 müəssisələr ən üst səviyyədə olduğu üçün ana təşkilatı yoxdur',
-        description: 'Nazirlik səviyyəsindəki müəssisələrin ana təşkilatı olmur',
-        className: 'md:col-span-2'
-      })
-    ] : []),
+    ...((() => {
+      const currentLevel = getCurrentSelectedLevel();
+      const isLevel1 = selectedType && currentLevel === 1;
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📝 Level 1 Info Field:', {
+          selectedType,
+          currentLevel,
+          isLevel1,
+          shouldShowInfoField: isLevel1 ? 'YES - Level 1 info field will be shown' : 'NO - Level 1 info field will not be shown'
+        });
+      }
+
+      return isLevel1 ? [
+        createField('parent_info', 'Ana Təşkilat', 'text', {
+          disabled: true,
+          placeholder: '🏛️ Səviyyə 1 müəssisələr ən üst səviyyədə olduğu üçün ana təşkilatı yoxdur',
+          description: 'Nazirlik səviyyəsindəki müəssisələrin ana təşkilatı olmur',
+          className: 'md:col-span-2'
+        })
+      ] : [];
+    })()),
     ...((() => {
       const level = getCurrentSelectedLevel();
       const shouldShow = selectedType && level > 1;
@@ -924,7 +991,9 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
           level,
           shouldShowParent: shouldShow,
           reasoning: `Level ${level} ${level > 1 ? '> 1, showing parent field' : '<= 1, hiding parent field'}`,
-          fieldsBeingRendered: shouldShow ? 'PARENT FIELD WILL BE ADDED' : 'PARENT FIELD WILL NOT BE ADDED'
+          fieldsBeingRendered: shouldShow ? 'PARENT FIELD WILL BE ADDED' : 'PARENT FIELD WILL NOT BE ADDED',
+          parentInstitutionsCount: parentInstitutions?.data?.length || 0,
+          parentInstitutionsLoading: parentsLoading
         });
       }
 
@@ -959,6 +1028,9 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
                     {parent.label}
                   </option>
                 ))}
+                {process.env.NODE_ENV === 'development' && (
+                  <option disabled>DEBUG: Found {parentInstitutionOptions.length} parents</option>
+                )}
               </select>
               {/* Custom dropdown arrow */}
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -1445,7 +1517,25 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
   // Compute default values first
   const defaultValues = React.useMemo(() => {
     if (!institution) {
-      const defaultType = selectedType || (institutionTypes.length > 0 ? institutionTypes[0].value : 'secondary_school');
+      // Intelligent default type selection based on user role
+      let defaultType;
+      if (selectedType) {
+        defaultType = selectedType;
+      } else if (institutionTypes.length > 0) {
+        // For superadmin, prefer ministry; for others, prefer secondary_school
+        if (currentUser?.role === 'superadmin') {
+          defaultType = institutionTypes.find(type => type.value === 'ministry')?.value ||
+                       institutionTypes.find(type => type.level === 1)?.value ||
+                       institutionTypes[0].value;
+        } else {
+          defaultType = institutionTypes.find(type => type.value === 'secondary_school')?.value ||
+                       institutionTypes.find(type => type.level === 4)?.value ||
+                       institutionTypes[0].value;
+        }
+      } else {
+        defaultType = 'secondary_school';
+      }
+
       const typeData = institutionTypes.find(type => type.value === defaultType);
       const defaultLevel = typeData?.level || 4;
       
@@ -1502,7 +1592,7 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
       parent_id: institution.parent_id?.toString() || '',
       utis_code: (institution as any).utis_code || '',
     };
-  }, [institution, selectedType, institutionTypes]);
+  }, [institution, selectedType, institutionTypes, currentUser?.role]);
 
   // Set selected type when modal opens or institution changes - optimized
   React.useEffect(() => {
@@ -1524,16 +1614,37 @@ const InstitutionModalStandardizedComponent: React.FC<InstitutionModalStandardiz
       setSelectedType(backendType);
       // Update form completeness with existing institution data
       updateFormCompleteness(defaultValues);
-    } else if (institutionTypes.length > 0) {
-      // For new institutions, default to secondary_school if available
-      const defaultType = institutionTypes.find(type => type.value === 'secondary_school')?.value || 
-                         institutionTypes.find(type => type.level === 4)?.value ||
-                         institutionTypes[0].value;
+    } else if (institutionTypes.length > 0 && !hasUserSelectedType) {
+      // Only set default type if user hasn't manually selected one
+      let defaultType;
+
+      // For superadmin, prefer ministry (level 1), then secondary_school
+      if (currentUser?.role === 'superadmin') {
+        defaultType = institutionTypes.find(type => type.value === 'ministry')?.value ||
+                     institutionTypes.find(type => type.level === 1)?.value ||
+                     institutionTypes[0].value;
+      } else {
+        // For non-superadmin, default to secondary_school or lowest level available
+        defaultType = institutionTypes.find(type => type.value === 'secondary_school')?.value ||
+                     institutionTypes.find(type => type.level === 4)?.value ||
+                     institutionTypes[0].value;
+      }
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🎯 Default type selection:', {
+          userRole: currentUser?.role,
+          availableTypes: institutionTypes.map(t => ({ key: t.value, level: t.level })),
+          selectedDefault: defaultType,
+          reasoning: currentUser?.role === 'superadmin' ? 'SuperAdmin - prefer ministry' : 'Non-superadmin - prefer secondary_school',
+          hasUserSelectedType
+        });
+      }
+
       setSelectedType(defaultType);
       // Initialize form completeness for new institution
       updateFormCompleteness({ ...defaultValues, type: defaultType });
     }
-  }, [open, institution, institutionTypes.length, defaultValues, updateFormCompleteness]);
+  }, [open, institution, institutionTypes.length, defaultValues, updateFormCompleteness, currentUser?.role, hasUserSelectedType]);
 
   const handleSubmit = React.useCallback(async (data: any) => {
     try {

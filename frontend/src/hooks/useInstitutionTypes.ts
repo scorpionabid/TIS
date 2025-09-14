@@ -12,23 +12,43 @@ interface UseInstitutionTypesOptions {
  * Normalize different API response formats for institution types
  */
 const normalizeInstitutionTypesResponse = (response: any): InstitutionType[] => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔄 Normalizing API response:', {
+      response,
+      responseType: typeof response,
+      isArray: Array.isArray(response),
+      hasData: !!response?.data,
+      hasInstitutionTypes: !!response?.institution_types
+    });
+  }
+
   if (Array.isArray(response)) {
+    console.log('✅ Response is direct array');
     return response;
   }
-  
+
   if (response?.data && Array.isArray(response.data)) {
+    console.log('✅ Response has data array');
     return response.data;
   }
-  
+
   if (response?.institution_types && Array.isArray(response.institution_types)) {
+    console.log('✅ Response has institution_types array');
     return response.institution_types;
   }
-  
+
   logger.warn('Unexpected institution types response format', null, {
     component: 'useInstitutionTypes',
     data: { responseStructure: typeof response, hasData: !!response?.data }
   });
-  
+
+  if (process.env.NODE_ENV === 'development') {
+    console.error('❌ Could not normalize response:', {
+      response,
+      keys: response ? Object.keys(response) : 'no keys'
+    });
+  }
+
   return [];
 };
 
@@ -42,18 +62,39 @@ export const useInstitutionTypes = ({ userRole, enabled = true }: UseInstitution
     queryFn: async () => {
       const effectiveRole = userRole || 'superadmin';
       const fallbackTypes = getFallbackTypesForRole(effectiveRole);
-      
+
+      // Debug logging for development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔧 useInstitutionTypes Debug:', {
+          userRole,
+          effectiveRole,
+          fallbackTypesCount: fallbackTypes.length,
+          fallbackTypes: fallbackTypes.map(t => ({ key: t.key, level: t.default_level, label: t.label_az })),
+          hasMinistryInFallback: fallbackTypes.some(t => t.key === 'ministry')
+        });
+      }
+
       logger.debug('Loading institution types', {
         component: 'useInstitutionTypes',
         data: { userRole: effectiveRole, fallbackCount: fallbackTypes.length }
       });
-      
+
       // For superadmin, try API first, then fallback
       if (effectiveRole === 'superadmin') {
         try {
+          console.log('🌐 Calling API for institution types...');
           const apiResponse = await institutionService.getInstitutionTypes();
           const normalizedTypes = normalizeInstitutionTypesResponse(apiResponse);
-          
+
+          if (process.env.NODE_ENV === 'development') {
+            console.log('📡 API Response for institution types:', {
+              apiResponse,
+              normalizedTypes,
+              normalizedCount: normalizedTypes.length,
+              hasMinistryInAPI: normalizedTypes.some(t => t.key === 'ministry')
+            });
+          }
+
           if (normalizedTypes.length > 0) {
             logger.info('Institution types loaded from API', {
               component: 'useInstitutionTypes',
@@ -64,9 +105,13 @@ export const useInstitutionTypes = ({ userRole, enabled = true }: UseInstitution
             logger.warn('API returned empty types, using fallback', null, {
               component: 'useInstitutionTypes'
             });
+            console.log('⚠️ API returned empty, using fallback types');
             return { success: true, institution_types: fallbackTypes };
           }
         } catch (error) {
+          if (process.env.NODE_ENV === 'development') {
+            console.error('❌ API call failed, using fallback:', error);
+          }
           logger.error('Failed to load institution types from API', error, {
             component: 'useInstitutionTypes',
             action: 'api-fallback'
@@ -74,8 +119,9 @@ export const useInstitutionTypes = ({ userRole, enabled = true }: UseInstitution
           return { success: true, institution_types: fallbackTypes };
         }
       }
-      
+
       // For non-superadmin users, always use fallback types
+      console.log('👤 Non-superadmin user, using fallback types');
       return { success: true, institution_types: fallbackTypes };
     },
     enabled: enabled,

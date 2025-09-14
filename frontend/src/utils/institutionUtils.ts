@@ -7,6 +7,14 @@ import { Building, MapPin, Users, School } from 'lucide-react';
  * This avoids API calls for non-SuperAdmin users
  */
 export const getFallbackTypesForRole = (userRole?: string): InstitutionType[] => {
+  // Debug logging for development
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🎭 getFallbackTypesForRole called:', {
+      userRole,
+      effectiveRole: userRole || 'superadmin'
+    });
+  }
+
   // Define all types once to avoid duplicates
   const allTypes: Record<string, InstitutionType> = {
     ministry: { 
@@ -166,9 +174,24 @@ export const getFallbackTypesForRole = (userRole?: string): InstitutionType[] =>
   // Get accessible types for role
   const effectiveRole = userRole || 'superadmin';
   const accessibleTypes = roleAccess[effectiveRole] || roleAccess.schooladmin;
-  
+
+  // Map to actual types
+  const mappedTypes = accessibleTypes.map(key => allTypes[key]).filter(Boolean);
+
+  // Debug logging for development
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🏢 getFallbackTypesForRole result:', {
+      effectiveRole,
+      accessibleTypeKeys: accessibleTypes,
+      mappedTypesCount: mappedTypes.length,
+      hasMinistry: mappedTypes.some(t => t.key === 'ministry'),
+      ministryData: mappedTypes.find(t => t.key === 'ministry'),
+      allMappedTypes: mappedTypes.map(t => ({ key: t.key, level: t.default_level, label: t.label_az }))
+    });
+  }
+
   // Return unique types based on role
-  return accessibleTypes.map(key => allTypes[key]).filter(Boolean);
+  return mappedTypes;
 };
 
 /**
