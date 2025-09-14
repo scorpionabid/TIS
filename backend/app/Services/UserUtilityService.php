@@ -196,20 +196,20 @@ class UserUtilityService
     {
         $query = Institution::select(['id', 'name', 'type', 'level'])
             ->where('is_active', true);
-        
+
         // Filter institutions based on role
         if ($roleName) {
             switch ($roleName) {
                 case 'regionadmin':
                     // Region admin should be assigned to regional institutions
-                    $query->where('type', 'regional');
+                    $query->where('type', 'regional_education_department');
                     break;
-                    
+
                 case 'sektoradmin':
-                    // Sector admin should be assigned to sector institutions  
-                    $query->where('type', 'sector');
+                    // Sector admin should be assigned to sector institutions
+                    $query->where('type', 'sector_education_office');
                     break;
-                    
+
                 case 'schooladmin':
                 case 'müəllim':
                 case 'muavin':
@@ -219,7 +219,7 @@ class UserUtilityService
                     // School-level roles should be assigned to schools
                     $query->whereIn('type', [
                         'school',
-                        'secondary_school', 
+                        'secondary_school',
                         'primary_school',
                         'lyceum',
                         'gymnasium',
@@ -229,25 +229,25 @@ class UserUtilityService
                         'kindergarten'
                     ]);
                     break;
-                    
+
                 case 'superadmin':
                     // SuperAdmin can be assigned anywhere (no filter)
                     break;
-                    
+
                 case 'regionoperator':
                     // Region operator works at regional level but could also work at sector level
                     $query->whereIn('type', [
-                        'regional',
-                        'sector'
+                        'regional_education_department',
+                        'sector_education_office'
                     ]);
                     break;
-                    
+
                 default:
                     // For unknown roles, show all institutions
                     break;
             }
         }
-        
+
         return $query->orderBy('level')
                      ->orderBy('name')
                      ->get();
