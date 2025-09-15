@@ -109,13 +109,12 @@ export const EnhancedDeleteModal: React.FC<EnhancedDeleteModalProps> = ({
     setIsSubmitting(true);
     try {
       const requestData = {
-        type: deleteType,
         confirmation: true,
         reason: reason.trim() || undefined,
         force: deleteType === 'hard' ? force : undefined
       };
 
-      const result = await institutionService.delete(institution.id, deleteType);
+      const result = await institutionService.delete(institution.id, deleteType, requestData);
 
       // Close delete modal
       onClose();

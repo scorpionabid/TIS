@@ -379,10 +379,10 @@ class ApiClientOptimized {
     return this.performRequest<T>('PUT', endpoint, data);
   }
 
-  async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
+  async delete<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
     // Clear related cache entries
     this.clearCache(endpoint.split('/')[0]);
-    return this.performRequest<T>('DELETE', endpoint);
+    return this.performRequest<T>('DELETE', endpoint, data);
   }
 
   // Core request method
@@ -431,7 +431,7 @@ class ApiClientOptimized {
       credentials: 'include',
     };
 
-    if (data && (method === 'POST' || method === 'PUT')) {
+    if (data && (method === 'POST' || method === 'PUT' || method === 'DELETE')) {
       requestInit.body = JSON.stringify(data);
     }
 
