@@ -4,19 +4,20 @@
  */
 
 import { logger } from './logger';
+import { ApiError, NetworkError, ValidationError, PermissionError, ErrorWithCode, ErrorWithStatus } from '@/types/api';
 
 export interface ErrorContext {
   component?: string;
   action?: string;
   userId?: string;
-  additionalInfo?: Record<string, any>;
+  additionalInfo?: Record<string, unknown>;
 }
 
 export class ErrorHandler {
   /**
    * Handle API errors with consistent logging and user feedback
    */
-  static handleApiError(error: any, context: ErrorContext = {}): string {
+  static handleApiError(error: ApiError | NetworkError | ErrorWithStatus | Error, context: ErrorContext = {}): string {
     const errorMessage = error?.message || 'Gözlənilməz xəta baş verdi';
     
     // Log detailed error for debugging (only in development)
@@ -51,7 +52,7 @@ export class ErrorHandler {
   /**
    * Handle permission errors (403/401)
    */
-  static handlePermissionError(error: any, context: ErrorContext = {}): string {
+  static handlePermissionError(error: PermissionError | NetworkError | ErrorWithStatus | Error, context: ErrorContext = {}): string {
     logger.warn('Permission denied', {
       component: context.component,
       action: context.action,
@@ -71,7 +72,7 @@ export class ErrorHandler {
   /**
    * Handle network errors
    */
-  static handleNetworkError(error: any, context: ErrorContext = {}): string {
+  static handleNetworkError(error: NetworkError | ErrorWithStatus | Error, context: ErrorContext = {}): string {
     logger.error('Network error occurred', error, {
       component: context.component,
       data: { isOnline: navigator.onLine }
@@ -87,7 +88,7 @@ export class ErrorHandler {
   /**
    * Convert technical errors to user-friendly messages
    */
-  private static getUserFriendlyMessage(error: any): string {
+  private static getUserFriendlyMessage(error: ApiError | NetworkError | ErrorWithStatus | Error): string {
     if (error?.status) {
       switch (error.status) {
         case 400:
@@ -130,7 +131,7 @@ export class ErrorHandler {
   /**
    * Handle React component errors (for ErrorBoundary)
    */
-  static handleComponentError(error: Error, errorInfo: any, context: ErrorContext = {}): void {
+  static handleComponentError(error: Error, errorInfo: { componentStack?: string }, context: ErrorContext = {}): void {
     logger.error('React component error', error, {
       component: context.component || 'UnknownComponent',
       data: {
@@ -144,7 +145,7 @@ export class ErrorHandler {
   /**
    * Handle form submission errors
    */
-  static handleFormError(error: any, formName: string): string {
+  static handleFormError(error: ApiError & { errors?: Record<string, string[]> } | NetworkError | ErrorWithStatus | Error, formName: string): string {
     const context = {
       component: 'Form',
       action: 'submit',

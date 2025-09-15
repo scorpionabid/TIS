@@ -46,6 +46,13 @@ class InstitutionObserver
      */
     public function deleted(Institution $institution): void
     {
+        // Skip audit logging if this is part of a hard delete operation
+        $request = request();
+        if ($request && $request->input('type') === 'hard') {
+            // Hard delete operations have their own manual audit logging
+            return;
+        }
+
         $this->logAuditEvent($institution, 'deleted', $institution->toArray(), null);
     }
 
@@ -62,6 +69,13 @@ class InstitutionObserver
      */
     public function forceDeleted(Institution $institution): void
     {
+        // Skip audit logging if this is part of a hard delete operation
+        $request = request();
+        if ($request && $request->input('type') === 'hard') {
+            // Hard delete operations have their own manual audit logging
+            return;
+        }
+
         $this->logAuditEvent($institution, 'force_deleted', $institution->toArray(), null);
     }
 

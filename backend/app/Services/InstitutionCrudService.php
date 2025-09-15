@@ -329,7 +329,7 @@ class InstitutionCrudService extends BaseService
         $prefix = match($type) {
             'ministry' => 'MN',
             'regional_education_department' => 'RG',
-            'sector_education_office' => 'SC',
+            'sector' => 'SC',
             'secondary_school' => 'SS',
             'primary_school' => 'PS',
             'kindergarten' => 'KG',
@@ -361,7 +361,7 @@ class InstitutionCrudService extends BaseService
                 ['name' => 'Tərbiyə', 'description' => 'Tərbiyə şöbəsi'],
                 ['name' => 'Tibb', 'description' => 'Tibbi şöbə']
             ];
-        } elseif (in_array($institution->type, ['regional_education_department', 'sector_education_office'])) {
+        } elseif (in_array($institution->type, ['regional_education_department', 'sector'])) {
             $defaultDepartments = [
                 ['name' => 'İdarə', 'description' => 'İdarə şöbəsi'],
                 ['name' => 'Təhsil', 'description' => 'Təhsil şöbəsi'],

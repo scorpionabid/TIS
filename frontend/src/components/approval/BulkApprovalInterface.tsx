@@ -71,7 +71,7 @@ const BulkApprovalInterface: React.FC<BulkApprovalInterfaceProps> = ({
       setShowResults(false);
       bulkJob.resetJob();
     }
-  }, [open, bulkJob.resetJob]);
+  }, [open, bulkJob]);
 
   // Handle action selection
   const handleActionSelect = (action: 'approve' | 'reject' | 'return') => {

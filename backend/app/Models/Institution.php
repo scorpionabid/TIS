@@ -350,4 +350,312 @@ class Institution extends Model
     {
         return $this->institutionType?->getDisplayLabel() ?? $this->type;
     }
+
+    /**
+     * Perform comprehensive hard delete with all relationship cleanup
+     */
+    public function hardDeleteWithRelationships(): array
+    {
+        $deletedData = [];
+
+        \DB::transaction(function () use (&$deletedData) {
+            // Create manual audit log BEFORE deletion to preserve audit trail
+            $this->createManualAuditLog('hard_delete_initiated', $this->toArray(), null);
+
+            // CRITICAL: Disable Institution Observer to prevent audit log foreign key issues during hard delete
+            Institution::unsetEventDispatcher();
+
+            // For SQLite, temporarily disable foreign key checks
+            if (config('database.default') === 'sqlite') {
+                \DB::statement('PRAGMA foreign_keys=OFF;');
+            }
+
+            // 1. Recursively delete all child institutions first (bottom-up approach)
+            $children = $this->children()->get();
+            if ($children->count() > 0) {
+                $deletedData['children_deleted'] = [];
+                foreach ($children as $child) {
+                    // Ensure request has type=hard parameter for child deletions too
+                    if (request()) {
+                        request()->merge(['type' => 'hard']);
+                    }
+                    $childDeleteData = $child->hardDeleteWithRelationships();
+                    $deletedData['children_deleted'][] = [
+                        'id' => $child->id,
+                        'name' => $child->name,
+                        'data' => $childDeleteData
+                    ];
+                }
+            }
+
+            // 2. Delete all users associated with this institution
+            $userCount = $this->users()->count();
+            if ($userCount > 0) {
+                $deletedData['users_affected'] = $userCount;
+                // Force delete all users to avoid foreign key issues
+                $this->users()->each(function($user) {
+                    $user->forceDelete(); // Hard delete users
+                });
+                $deletedData['users_deleted'] = $userCount;
+            }
+
+            // 3. Delete records that don't have CASCADE DELETE - order matters!
+            // First delete dependent records to avoid foreign key constraints
+
+            // Delete all records that reference this institution_id
+            $this->deleteInstitutionReferences($deletedData);
+
+            // Survey responses
+            $surveyResponseCount = $this->surveyResponses()->count();
+            if ($surveyResponseCount > 0) {
+                $this->surveyResponses()->forceDelete();
+                $deletedData['survey_responses'] = $surveyResponseCount;
+            }
+
+            // Statistics - force delete to avoid constraints
+            $statisticsCount = $this->statistics()->count();
+            if ($statisticsCount > 0) {
+                $this->statistics()->forceDelete();
+                $deletedData['statistics'] = $statisticsCount;
+            }
+
+            // Indicator values - force delete
+            $indicatorCount = $this->indicatorValues()->count();
+            if ($indicatorCount > 0) {
+                $this->indicatorValues()->forceDelete();
+                $deletedData['indicator_values'] = $indicatorCount;
+            }
+
+            // Grades - force delete
+            $gradesCount = $this->grades()->count();
+            if ($gradesCount > 0) {
+                $this->grades()->each(function($grade) {
+                    $grade->forceDelete();
+                });
+                $deletedData['grades'] = $gradesCount;
+            }
+
+            // Rooms - force delete
+            $roomsCount = $this->rooms()->count();
+            if ($roomsCount > 0) {
+                $this->rooms()->each(function($room) {
+                    $room->forceDelete();
+                });
+                $deletedData['rooms'] = $roomsCount;
+            }
+
+            // Departments - force delete
+            $departmentsCount = $this->departments()->count();
+            if ($departmentsCount > 0) {
+                $this->departments()->each(function($department) {
+                    $department->forceDelete();
+                });
+                $deletedData['departments'] = $departmentsCount;
+            }
+
+            // Students - force delete
+            $studentsCount = $this->students()->count();
+            if ($studentsCount > 0) {
+                $this->students()->each(function($student) {
+                    $student->forceDelete();
+                });
+                $deletedData['students'] = $studentsCount;
+            }
+
+            // Region and Sector relationships (if applicable)
+            if ($this->region()->exists()) {
+                $this->region()->delete();
+                $deletedData['region_record'] = 1;
+            }
+
+            if ($this->sector()->exists()) {
+                $this->sector()->delete();
+                $deletedData['sector_record'] = 1;
+            }
+
+            // Delete activity logs (these usually don't have CASCADE)
+            \DB::table('activity_logs')->where('institution_id', $this->id)->delete();
+            \DB::table('audit_logs')->where('institution_id', $this->id)->delete();
+            \DB::table('security_events')->where('institution_id', $this->id)->delete();
+
+            // Audit logs
+            $auditLogsCount = $this->auditLogs()->count();
+            if ($auditLogsCount > 0) {
+                $this->auditLogs()->delete();
+                $deletedData['audit_logs'] = $auditLogsCount;
+            }
+
+            // 4. Finally, force delete the institution itself
+            // All CASCADE DELETE relationships will be automatically handled by the database
+            $this->forceDelete();
+            $deletedData['institution_deleted'] = true;
+
+            // Re-enable foreign key checks if we disabled them
+            if (config('database.default') === 'sqlite') {
+                \DB::statement('PRAGMA foreign_keys=ON;');
+            }
+
+            // Re-enable Institution Observer
+            Institution::setEventDispatcher(app('events'));
+        });
+
+        return $deletedData;
+    }
+
+    /**
+     * Get comprehensive relationship summary for delete confirmation
+     */
+    public function getDeleteImpactSummary(): array
+    {
+        $childrenSummary = [];
+        $totalChildrenCount = 0;
+        $totalUsersCount = $this->users()->count();
+        $totalStudentsCount = $this->students()->count();
+
+        // Recursively get children impact
+        $children = $this->children()->get();
+        foreach ($children as $child) {
+            $childSummary = $child->getDeleteImpactSummary();
+            $childrenSummary[] = $childSummary;
+            $totalChildrenCount += 1 + $childSummary['total_children_count'];
+            $totalUsersCount += $childSummary['users_count'];
+            $totalStudentsCount += $childSummary['students_count'];
+        }
+
+        return [
+            'institution' => [
+                'id' => $this->id,
+                'name' => $this->name,
+                'type' => $this->type,
+                'level' => $this->level
+            ],
+            'direct_children_count' => $this->children()->count(),
+            'total_children_count' => $totalChildrenCount,
+            'children_details' => $childrenSummary,
+            'users_count' => $this->users()->count(),
+            'total_users_count' => $totalUsersCount,
+            'students_count' => $this->students()->count(),
+            'total_students_count' => $totalStudentsCount,
+            'departments_count' => $this->departments()->count(),
+            'rooms_count' => $this->rooms()->count(),
+            'grades_count' => $this->grades()->count(),
+            'survey_responses_count' => $this->surveyResponses()->count(),
+            'statistics_count' => $this->statistics()->count(),
+            'indicator_values_count' => $this->indicatorValues()->count(),
+            'audit_logs_count' => $this->auditLogs()->count(),
+            'has_region' => $this->region()->exists(),
+            'has_sector' => $this->sector()->exists(),
+            'deletion_mode' => [
+                'soft_delete' => 'Yalnız bu müəssisə silinəcək (alt müəssisələr və istifadəçilər varsa icazə verilməz)',
+                'hard_delete' => 'Bu müəssisə və bütün alt müəssisələri, istifadəçiləri və əlaqəli məlumatları həmişəlik silinəcək'
+            ],
+            'cascade_delete_tables' => [
+                'teacher_evaluations',
+                'assessment_analytics',
+                'assessment_comparisons',
+                'assessment_trends',
+                'assessment_performance_indicators',
+                'assessment_improvement_plans',
+                'attendance_reports',
+                'document_collections',
+                'psychology_sessions',
+                'time_slots',
+                'academic_assessments',
+                'assessment_participants',
+                'school_classes',
+                'school_subjects',
+                'school_teachers',
+                'assessment_entries',
+                'assessment_type_institutions',
+                'inventory_items',
+                'bulk_assessment_sessions',
+                'class_bulk_attendance',
+                'schedule_generation_settings',
+                'schedule_templates',
+                'schedule_template_usages'
+            ]
+        ];
+    }
+
+    /**
+     * Create manual audit log before hard delete
+     */
+    private function createManualAuditLog(string $action, ?array $oldValues = null, ?array $newValues = null): void
+    {
+        try {
+            // Only log if user is authenticated
+            if (!\Auth::check()) {
+                return;
+            }
+
+            $request = request();
+            $description = match ($action) {
+                'hard_delete_initiated' => "Hard Delete başladı: {$this->name} (və bütün alt müəssisələri)",
+                default => "Müəssisə əməliyyatı: {$this->name}",
+            };
+
+            // Use parent institution or ministry (ID 1) for audit log to avoid foreign key constraint
+            $auditInstitutionId = $this->parent_id ?? 1; // Use parent or fallback to ministry
+
+            \DB::table('institution_audit_logs')->insert([
+                'institution_id' => $auditInstitutionId,
+                'user_id' => \Auth::id(),
+                'action' => $action,
+                'old_values' => $oldValues ? json_encode($oldValues) : null,
+                'new_values' => $newValues ? json_encode($newValues) : null,
+                'changes' => json_encode([
+                    'original_institution_id' => $this->id,
+                    'original_institution_name' => $this->name,
+                    'deletion_type' => 'hard_delete',
+                    'deletion_timestamp' => now()->toDateTimeString()
+                ]),
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'description' => $description . " (Orijinal ID: {$this->id})",
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to create manual audit log: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Delete all records that reference this institution to avoid foreign key constraints
+     */
+    private function deleteInstitutionReferences(array &$deletedData): void
+    {
+        // This method handles direct foreign key references that might cause constraints
+
+        // Delete any records that have foreign key references to this institution
+        // We'll use raw queries to avoid model constraints
+
+        $institutionId = $this->id;
+
+        try {
+            // Delete from tables that might not have CASCADE DELETE properly set up
+            $affectedTables = [
+                'user_profiles' => 'institution_id',
+                'activity_logs' => 'institution_id',
+                'audit_logs' => 'institution_id',
+                'security_events' => 'institution_id',
+                'session_logs' => 'institution_id'  // if exists
+            ];
+
+            foreach ($affectedTables as $table => $column) {
+                try {
+                    $count = \DB::table($table)->where($column, $institutionId)->count();
+                    if ($count > 0) {
+                        \DB::table($table)->where($column, $institutionId)->delete();
+                        $deletedData["raw_{$table}"] = $count;
+                    }
+                } catch (\Exception $e) {
+                    // Table might not exist, continue
+                    \Log::info("Table {$table} not found or error: " . $e->getMessage());
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::error('Error deleting institution references: ' . $e->getMessage());
+        }
+    }
 }

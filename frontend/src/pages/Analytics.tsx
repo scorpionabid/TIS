@@ -19,34 +19,19 @@ export default function Analytics() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Security check - only SuperAdmin and RegionAdmin can access analytics
-  if (!currentUser || !['superadmin', 'regionadmin'].includes(currentUser.role)) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
-          <p className="text-muted-foreground">
-            Bu səhifəyə yalnız SuperAdmin və RegionAdmin istifadəçiləri daxil ola bilər
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   // Build filters based on selected period
   const filters: AnalyticsFilters = useMemo(() => {
     const now = new Date();
     const daysAgo = {
       '7d': 7,
-      '30d': 30, 
+      '30d': 30,
       '90d': 90,
       '1y': 365
     }[selectedPeriod];
-    
+
     const fromDate = new Date(now);
     fromDate.setDate(fromDate.getDate() - daysAgo);
-    
+
     return {
       date_from: fromDate.toISOString().split('T')[0],
       date_to: now.toISOString().split('T')[0],
@@ -55,24 +40,30 @@ export default function Analytics() {
     };
   }, [selectedPeriod]);
 
-  // Load analytics data
+  // Check if user has access permissions
+  const hasAccess = currentUser && ['superadmin', 'regionadmin'].includes(currentUser.role);
+
+  // Load analytics data - use enabled prop for conditional fetching
   const { data: overviewData, isLoading: overviewLoading, error: overviewError } = useQuery({
     queryKey: ['analytics-overview', filters],
     queryFn: () => analyticsService.getAnalyticsOverview(filters),
     staleTime: 1000 * 60 * 2, // Cache for 2 minutes
     refetchInterval: refreshInterval * 1000,
+    enabled: hasAccess,
   });
 
   const { data: userAnalytics, isLoading: userLoading } = useQuery({
     queryKey: ['analytics-users', filters],
     queryFn: () => analyticsService.getUserAnalytics(filters),
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    enabled: hasAccess,
   });
 
   const { data: surveyAnalytics, isLoading: surveyLoading } = useQuery({
     queryKey: ['analytics-surveys', filters],
     queryFn: () => analyticsService.getSurveyAnalytics(filters),
     staleTime: 1000 * 60 * 5,
+    enabled: hasAccess,
   });
 
   const { data: performanceData, isLoading: performanceLoading } = useQuery({
@@ -80,6 +71,7 @@ export default function Analytics() {
     queryFn: () => analyticsService.getPerformanceAnalytics(filters),
     staleTime: 1000 * 60 * 1, // Cache for 1 minute
     refetchInterval: refreshInterval * 1000,
+    enabled: hasAccess,
   });
 
   const { data: realtimeData, isLoading: realtimeLoading } = useQuery({
@@ -87,18 +79,12 @@ export default function Analytics() {
     queryFn: () => analyticsService.getRealtimeMetrics(),
     staleTime: 1000 * 15, // Cache for 15 seconds
     refetchInterval: 15000, // Refresh every 15 seconds
+    enabled: hasAccess,
   });
-
-  // Use real data or fallback to mock data
-  const overview = overviewData?.data || analyticsService.getMockOverview();
-  const users = userAnalytics?.data || analyticsService.getMockUserAnalytics();
-  const surveys = surveyAnalytics?.data || analyticsService.getMockSurveyAnalytics();
-  const performance = performanceData?.data?.system_metrics;
-  const realtime = realtimeData?.data || analyticsService.getMockRealtimeMetrics();
 
   // Export mutation
   const exportMutation = useMutation({
-    mutationFn: (format: 'pdf' | 'excel' | 'csv') => 
+    mutationFn: (format: 'pdf' | 'excel' | 'csv') =>
       analyticsService.exportAnalytics({
         report_type: 'overview',
         format,
@@ -123,6 +109,28 @@ export default function Analytics() {
       });
     }
   });
+
+  // Use real data or fallback to mock data
+  const overview = overviewData?.data || analyticsService.getMockOverview();
+  const users = userAnalytics?.data || analyticsService.getMockUserAnalytics();
+  const surveys = surveyAnalytics?.data || analyticsService.getMockSurveyAnalytics();
+  const performance = performanceData?.data?.system_metrics;
+  const realtime = realtimeData?.data || analyticsService.getMockRealtimeMetrics();
+
+  // Security check - only SuperAdmin and RegionAdmin can access analytics
+  if (!hasAccess) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız SuperAdmin və RegionAdmin istifadəçiləri daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const getStatusColor = (percentage: number) => {
     if (percentage >= 90) return 'text-red-500';

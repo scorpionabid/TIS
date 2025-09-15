@@ -42,11 +42,11 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
   useEffect(() => {
     console.log('🔧 [Dashboard] SurveyResponseApprovalDashboard mounted');
     console.log('👤 [Dashboard] Current user at mount:', currentUser);
-    
+
     return () => {
       console.log('🔧 [Dashboard] SurveyResponseApprovalDashboard unmounted');
     };
-  }, []);
+  }, [currentUser]);
 
   // Log authentication state changes
   useEffect(() => {
@@ -54,7 +54,7 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
       isAuthenticated: !!currentUser,
       userId: currentUser?.id,
       userEmail: currentUser?.email,
-      userRoles: currentUser?.roles
+      userRole: currentUser?.role
     });
   }, [currentUser]);
 
@@ -86,13 +86,7 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
       console.log('👤 [Dashboard] Current user:', currentUser);
       return surveyResponseApprovalService.getPublishedSurveys();
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    onSuccess: (data) => {
-      console.log('🎉 [Dashboard] Published surveys loaded successfully:', data);
-    },
-    onError: (error) => {
-      console.error('💥 [Dashboard] Failed to load published surveys:', error);
-    }
+    staleTime: 5 * 60 * 1000 // 5 minutes
   });
 
   // Fetch survey responses when survey is selected
@@ -123,16 +117,16 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
       surveysLoading,
       surveysError: surveysError ? {
         message: surveysError.message,
-        response: surveysError.response?.data,
-        status: surveysError.response?.status
+        response: (surveysError as any).response?.data,
+        status: (surveysError as any).response?.status
       } : null,
-      publishedSurveysCount: publishedSurveys?.length || 0
+      publishedSurveysCount: Array.isArray(publishedSurveys) ? publishedSurveys.length : 0
     });
   }, [surveysLoading, surveysError, publishedSurveys]);
 
   // Auto-select first survey if none selected
   useEffect(() => {
-    if (publishedSurveys && publishedSurveys.length > 0 && !selectedSurvey) {
+    if (Array.isArray(publishedSurveys) && publishedSurveys.length > 0 && !selectedSurvey) {
       console.log('🎯 [Dashboard] Auto-selecting first survey:', publishedSurveys[0]);
       setSelectedSurvey(publishedSurveys[0]);
     }
@@ -148,7 +142,7 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
   }, [searchTerm]);
 
   // Handle filter changes
-  const handleFilterChange = useCallback((key: keyof ResponseFilters, value: any) => {
+  const handleFilterChange = useCallback((key: keyof ResponseFilters, value: unknown) => {
     setFilters(prev => ({
       ...prev,
       [key]: value || undefined
@@ -175,7 +169,7 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
   };
 
   // Handle bulk operations
-  const handleBulkAction = (action: 'approve' | 'reject' | 'return') => {
+  const handleBulkAction = (_action: 'approve' | 'reject' | 'return') => {
     if (selectedResponses.length === 0) {
       toast({
         title: "Xəta",
@@ -290,14 +284,14 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
             </div>
           ) : surveysError ? (
             <div className="text-red-500">Sorğular yüklənə bilmədi</div>
-          ) : !publishedSurveys?.length ? (
+          ) : !Array.isArray(publishedSurveys) || publishedSurveys.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Target className="h-12 w-12 mx-auto mb-4" />
               <p>Hazırda yayımlanmış sorğu yoxdur</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {publishedSurveys.map((survey) => (
+              {Array.isArray(publishedSurveys) && publishedSurveys.map((survey: any) => (
                 <Card
                   key={survey.id}
                   className={`cursor-pointer transition-all ${

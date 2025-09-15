@@ -29,39 +29,29 @@ export default function Roles() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Security check - only SuperAdmin can access roles management
-  if (!currentUser || currentUser.role !== 'superadmin') {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
-          <p className="text-muted-foreground">
-            Bu səhifəyə yalnız SuperAdmin istifadəçiləri daxil ola bilər
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // Check access permissions
+  const isSuperAdmin = currentUser && currentUser.role === 'superadmin';
 
-  // Load roles
+  // Load roles - use enabled prop
   const { data: rolesResponse, isLoading, error } = useQuery({
     queryKey: ['roles'],
     queryFn: () => roleService.getAll(),
+    enabled: isSuperAdmin,
   });
 
   const rawRoles = rolesResponse?.roles || [];
 
-  // Load permissions for modal
+  // Load permissions for modal - use enabled prop
   const { data: permissionsResponse } = useQuery({
     queryKey: ['permissions'],
     queryFn: () => roleService.getPermissions(),
     staleTime: 1000 * 60 * 10,
+    enabled: isSuperAdmin,
   });
 
   const allPermissions = permissionsResponse?.permissions || [];
 
-  // Filtering and Sorting logic
+  // Filtering and Sorting logic - moved before early return
   const roles = useMemo(() => {
     let filtered = [...rawRoles];
 
@@ -120,6 +110,21 @@ export default function Roles() {
     });
     return sorted;
   }, [rawRoles, sortField, sortDirection, searchTerm, categoryFilter, levelFilter]);
+
+  // Security check - only SuperAdmin can access roles management
+  if (!isSuperAdmin) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız SuperAdmin istifadəçiləri daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const clearFilters = () => {
     setSearchTerm('');

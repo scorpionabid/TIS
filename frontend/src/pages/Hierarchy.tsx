@@ -36,7 +36,76 @@ export default function Hierarchy() {
   console.log('Hierarchy Page - Loading:', loading);
   console.log('User Role:', user?.role);
   console.log('Role Check Result:', ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(user?.role || ''));
-  
+
+  // State hooks - all at the top
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState<HierarchyFilters>({
+    include_inactive: false,
+    max_depth: 5,
+    expand_all: false,
+  });
+  const [selectedNode, setSelectedNode] = useState<HierarchyNode | null>(null);
+  const [selectedPath, setSelectedPath] = useState<any[]>([]);
+  const [showValidation, setShowValidation] = useState(false);
+
+  // Modal states
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'edit' | 'move'>('edit');
+  const [availableParents, setAvailableParents] = useState<HierarchyNode[]>([]);
+
+  // Check access permissions
+  const hasAccess = user && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(user.role);
+  const canModify = hierarchyService.canModifyHierarchy(user?.roles || []);
+
+  // Fetch hierarchy data - use enabled prop
+  const {
+    data: hierarchyResponse,
+    isLoading: hierarchyLoading,
+    error: hierarchyError,
+    refetch: refetchHierarchy
+  } = useQuery({
+    queryKey: ['hierarchy', filters, user?.role, user?.institution_id],
+    queryFn: () => hierarchyService.getHierarchy(filters),
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    enabled: hasAccess,
+  });
+
+  // Fetch hierarchy statistics - use enabled prop
+  const {
+    data: statisticsData,
+    isLoading: statsLoading
+  } = useQuery({
+    queryKey: ['hierarchy-statistics', user?.role, user?.institution_id],
+    queryFn: () => hierarchyService.getStatistics(),
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    enabled: hasAccess,
+  });
+
+  // Fetch validation data when requested - use enabled prop
+  const {
+    data: validationData,
+    isLoading: validationLoading,
+    refetch: validateHierarchy
+  } = useQuery({
+    queryKey: ['hierarchy-validation'],
+    queryFn: () => hierarchyService.validateHierarchy(),
+    enabled: showValidation && hasAccess,
+    refetchOnWindowFocus: false,
+  });
+
+  // Search institutions - use enabled prop
+  const {
+    data: searchResults,
+    isLoading: searchLoading
+  } = useQuery({
+    queryKey: ['hierarchy-search', searchTerm, filters, user?.role, user?.institution_id],
+    queryFn: () => hierarchyService.searchInstitutions(searchTerm, filters),
+    enabled: searchTerm.length >= 2 && hasAccess,
+    refetchOnWindowFocus: false,
+  });
+
   // Show loading while authentication is being checked
   if (loading) {
     return (
@@ -50,7 +119,7 @@ export default function Hierarchy() {
   }
 
   // Security check - only administrative roles can access hierarchy management
-  if (!user || !['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(user.role)) {
+  if (!hasAccess) {
     console.log('Access denied for user:', user);
     return (
       <div className="flex items-center justify-center h-96">
@@ -64,70 +133,6 @@ export default function Hierarchy() {
       </div>
     );
   }
-  
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState<HierarchyFilters>({
-    include_inactive: false,
-    max_depth: 5,
-    expand_all: false,
-  });
-  const [selectedNode, setSelectedNode] = useState<HierarchyNode | null>(null);
-  const [selectedPath, setSelectedPath] = useState<any[]>([]);
-  const [showValidation, setShowValidation] = useState(false);
-  
-  // Modal states
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<'edit' | 'move'>('edit');
-  const [availableParents, setAvailableParents] = useState<HierarchyNode[]>([]);
-
-  const canModify = hierarchyService.canModifyHierarchy(user?.roles || []);
-
-  // Fetch hierarchy data
-  const { 
-    data: hierarchyResponse, 
-    isLoading: hierarchyLoading, 
-    error: hierarchyError,
-    refetch: refetchHierarchy 
-  } = useQuery({
-    queryKey: ['hierarchy', filters, user?.role, user?.institution_id],
-    queryFn: () => hierarchyService.getHierarchy(filters),
-    refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
-
-  // Fetch hierarchy statistics
-  const { 
-    data: statisticsData, 
-    isLoading: statsLoading 
-  } = useQuery({
-    queryKey: ['hierarchy-statistics', user?.role, user?.institution_id],
-    queryFn: () => hierarchyService.getStatistics(),
-    refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 10, // 10 minutes
-  });
-
-  // Fetch validation data when requested
-  const { 
-    data: validationData, 
-    isLoading: validationLoading,
-    refetch: validateHierarchy 
-  } = useQuery({
-    queryKey: ['hierarchy-validation'],
-    queryFn: () => hierarchyService.validateHierarchy(),
-    enabled: showValidation,
-    refetchOnWindowFocus: false,
-  });
-
-  // Search institutions
-  const { 
-    data: searchResults, 
-    isLoading: searchLoading 
-  } = useQuery({
-    queryKey: ['hierarchy-search', searchTerm, filters, user?.role, user?.institution_id],
-    queryFn: () => hierarchyService.searchInstitutions(searchTerm, filters),
-    enabled: searchTerm.length >= 2,
-    refetchOnWindowFocus: false,
-  });
 
   const hierarchyData = hierarchyResponse?.data || [];
   const statistics = statisticsData;

@@ -129,7 +129,7 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
   }, [responses, onBulkSelect]);
 
   // Handle pagination
-  const handlePageChange = (page: number) => {
+  const handlePageChange = useCallback((page: number) => {
     if (pagination && page >= 1 && page <= pagination.last_page) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
       // Trigger re-fetch with new page - this should be handled by parent
@@ -138,12 +138,12 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
       searchParams.set('page', page.toString());
       window.history.pushState({}, '', `?${searchParams.toString()}`);
     }
-  };
+  }, [pagination]);
 
   // Handle page size change
-  const handlePageSizeChange = (pageSize: number) => {
+  const handlePageSizeChange = useCallback((pageSize: number) => {
     onFiltersChange('per_page', pageSize);
-  };
+  }, [onFiltersChange]);
 
   // Memoized pagination component
   const PaginationComponent = useMemo(() => {

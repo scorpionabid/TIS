@@ -8,21 +8,35 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { DialogFooter } from '@/components/ui/dialog';
+import { KSQAssessmentFormData, AssessmentCriteria } from '@/types/forms';
+import { AcademicYear } from '@/types';
+
+interface Institution {
+  id: number;
+  name: string;
+  type: string;
+}
 
 interface KSQAssessmentFormProps {
-  form: any;
-  criteriaList: Array<{ name: string; score: number }>;
+  form: {
+    register: (name: string) => any;
+    handleSubmit: (callback: (data: KSQAssessmentFormData) => void) => any;
+    formState: { errors: Record<string, any> };
+    setValue: (name: string, value: any) => void;
+    watch: (name: string) => any;
+  };
+  criteriaList: AssessmentCriteria[];
   strengthsList: string[];
   improvementsList: string[];
   recommendationsList: string[];
-  academicYears: any[];
-  institutions: any;
-  defaultInstitution: any;
-  activeAcademicYear: any;
+  academicYears: AcademicYear[];
+  institutions: Institution[];
+  defaultInstitution: Institution | null;
+  activeAcademicYear: AcademicYear | null;
   creating: boolean;
   loadingAcademicYears: boolean;
   loadingInstitutions: boolean;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: KSQAssessmentFormData) => void;
   onClose: () => void;
   addCriteria: () => void;
   removeCriteria: (index: number) => void;

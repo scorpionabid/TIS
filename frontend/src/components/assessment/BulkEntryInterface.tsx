@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -92,14 +92,7 @@ export const BulkEntryInterface: React.FC<BulkEntryInterfaceProps> = ({
     { label: 'Qeyri-kafi (0-59)', range: [0, 59], color: 'bg-red-100 text-red-800' }
   ]);
 
-  // Load students
-  useEffect(() => {
-    if (institutionId) {
-      loadStudents();
-    }
-  }, [institutionId, gradeLevel, className]);
-
-  const loadStudents = async () => {
+  const loadStudents = useCallback(async () => {
     setLoadingStudents(true);
     try {
       const response = await studentService.getStudentsByInstitution(institutionId, {
@@ -107,10 +100,10 @@ export const BulkEntryInterface: React.FC<BulkEntryInterfaceProps> = ({
         class_name: className || undefined,
         per_page: 200
       });
-      
+
       const studentList = response.students || [];
       setStudents(studentList);
-      
+
       // Initialize entries
       const initialEntries = new Map<number, BulkEntry>();
       studentList.forEach((student: Student) => {
@@ -132,7 +125,14 @@ export const BulkEntryInterface: React.FC<BulkEntryInterfaceProps> = ({
     } finally {
       setLoadingStudents(false);
     }
-  };
+  }, [institutionId, gradeLevel, className, toast]);
+
+  // Load students
+  useEffect(() => {
+    if (institutionId) {
+      loadStudents();
+    }
+  }, [institutionId, loadStudents]);
 
   // Filter students
   const filteredStudents = useMemo(() => {

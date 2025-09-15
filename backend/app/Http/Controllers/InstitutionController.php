@@ -67,6 +67,14 @@ class InstitutionController extends Controller
     }
 
     /**
+     * Proxy to InstitutionCRUDController@getDeleteImpact
+     */
+    public function getDeleteImpact(Institution $institution): JsonResponse
+    {
+        return $this->crudController->getDeleteImpact($institution);
+    }
+
+    /**
      * Proxy to InstitutionCRUDController@destroy
      */
     public function destroy(Request $request, Institution $institution): JsonResponse

@@ -49,8 +49,19 @@ export default function AssessmentTypes() {
   const { toast } = useToast();
   const { currentUser, hasRole } = useAuth();
 
+  // Check if user has access permissions
+  const hasAccess = hasRole(['superadmin', 'regionadmin']);
+
+  // Fetch assessment types data - use enabled prop for conditional fetching
+  const { data: assessmentTypes, isLoading, error, refetch } = useQuery({
+    queryKey: ['assessment-types', filters],
+    queryFn: () => assessmentTypeService.getAssessmentTypes(filters),
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    enabled: hasAccess,
+  });
+
   // Check if user has permission to access this page
-  if (!hasRole(['superadmin', 'regionadmin'])) {
+  if (!hasAccess) {
     return (
       <div className="p-6 space-y-6">
         <div className="flex justify-center items-center min-h-[400px]">
@@ -65,13 +76,6 @@ export default function AssessmentTypes() {
       </div>
     );
   }
-
-  // Fetch assessment types data
-  const { data: assessmentTypes, isLoading, error, refetch } = useQuery({
-    queryKey: ['assessment-types', filters],
-    queryFn: () => assessmentTypeService.getAssessmentTypes(filters),
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
 
   // Handle filter changes
   const handleFilterChange = (key: keyof AssessmentTypeFilters, value: any) => {

@@ -3,24 +3,26 @@
  * Helps prevent runtime errors with safe type checking
  */
 
+import { ApiError, NetworkError, ValidationError, PermissionError } from '@/types/api';
+
 /**
  * Checks if a value is a non-empty string
  */
-export function isNonEmptyString(value: any): value is string {
+export function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0;
 }
 
 /**
  * Checks if a value is a valid number (not NaN)
  */
-export function isValidNumber(value: any): value is number {
+export function isValidNumber(value: unknown): value is number {
   return typeof value === 'number' && !isNaN(value) && isFinite(value);
 }
 
 /**
  * Checks if a value is a non-empty array
  */
-export function isNonEmptyArray<T>(value: any): value is T[] {
+export function isNonEmptyArray<T>(value: unknown): value is T[] {
   return Array.isArray(value) && value.length > 0;
 }
 
@@ -37,7 +39,7 @@ export function hasProperty<T extends object, K extends string | number | symbol
 /**
  * Checks if a value is a valid API response with data property
  */
-export function isApiResponse<T = any>(value: any): value is { data: T } {
+export function isApiResponse<T = unknown>(value: unknown): value is { data: T } {
   return (
     value != null &&
     typeof value === 'object' &&
@@ -48,7 +50,7 @@ export function isApiResponse<T = any>(value: any): value is { data: T } {
 /**
  * Checks if a value is a paginated API response
  */
-export function isPaginatedResponse<T = any>(value: any): value is {
+export function isPaginatedResponse<T = unknown>(value: unknown): value is {
   data: T[];
   current_page: number;
   total: number;
@@ -66,7 +68,7 @@ export function isPaginatedResponse<T = any>(value: any): value is {
 /**
  * Safely extracts data from API response
  */
-export function safeExtractData<T>(response: any, fallback: T): T {
+export function safeExtractData<T>(response: unknown, fallback: T): T {
   if (isApiResponse<T>(response)) {
     return response.data;
   }
@@ -82,7 +84,7 @@ export function safeExtractData<T>(response: any, fallback: T): T {
 /**
  * Safely extracts array data with fallback to empty array
  */
-export function safeExtractArray<T>(response: any): T[] {
+export function safeExtractArray<T>(response: unknown): T[] {
   const extracted = safeExtractData<T[]>(response, []);
   return Array.isArray(extracted) ? extracted : [];
 }
@@ -90,7 +92,7 @@ export function safeExtractArray<T>(response: any): T[] {
 /**
  * Checks if an error is an API error with specific status
  */
-export function isApiErrorWithStatus(error: any, status: number): boolean {
+export function isApiErrorWithStatus(error: unknown, status: number): error is ApiError | NetworkError {
   return (
     error &&
     typeof error === 'object' &&
@@ -101,21 +103,21 @@ export function isApiErrorWithStatus(error: any, status: number): boolean {
 /**
  * Checks if an error is a permission error (401/403)
  */
-export function isPermissionError(error: any): boolean {
+export function isPermissionError(error: unknown): error is PermissionError {
   return isApiErrorWithStatus(error, 401) || isApiErrorWithStatus(error, 403);
 }
 
 /**
  * Checks if an error is a validation error (422)
  */
-export function isValidationError(error: any): boolean {
+export function isValidationError(error: unknown): error is ValidationError {
   return isApiErrorWithStatus(error, 422) && hasProperty(error, 'errors');
 }
 
 /**
  * Safely gets error message from various error formats
  */
-export function getErrorMessage(error: any, fallback: string = 'Gözlənilməz xəta baş verdi'): string {
+export function getErrorMessage(error: unknown, fallback: string = 'Gözlənilməz xəta baş verdi'): string {
   if (typeof error === 'string') {
     return error;
   }
@@ -144,7 +146,7 @@ export function getErrorMessage(error: any, fallback: string = 'Gözlənilməz x
 /**
  * Safely converts string to number with fallback
  */
-export function safeParseInt(value: any, fallback: number = 0): number {
+export function safeParseInt(value: unknown, fallback: number = 0): number {
   if (isValidNumber(value)) {
     return Math.floor(value);
   }
@@ -160,7 +162,7 @@ export function safeParseInt(value: any, fallback: number = 0): number {
 /**
  * Safely converts string to float with fallback
  */
-export function safeParseFloat(value: any, fallback: number = 0): number {
+export function safeParseFloat(value: unknown, fallback: number = 0): number {
   if (isValidNumber(value)) {
     return value;
   }
@@ -190,6 +192,6 @@ export function safeGet<T extends object, K extends keyof T>(
 /**
  * Checks if a value can be used as a React key
  */
-export function isValidReactKey(value: any): value is string | number {
+export function isValidReactKey(value: unknown): value is string | number {
   return typeof value === 'string' || isValidNumber(value);
 }

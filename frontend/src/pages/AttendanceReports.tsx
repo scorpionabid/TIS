@@ -58,32 +58,20 @@ interface AttendanceStats {
 
 export default function AttendanceReports() {
   const { currentUser } = useAuth();
-  const { 
-    canAccess, 
-    isSuperAdmin, 
-    isRegionAdmin, 
-    isSektorAdmin, 
+  const {
+    canAccess,
+    isSuperAdmin,
+    isRegionAdmin,
+    isSektorAdmin,
     isSchoolAdmin,
     isTeacher
   } = useRoleCheck();
 
   // Security check - only educational administrative roles can access attendance reports
   const allowedRoles = [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM];
-  
-  if (!canAccess(allowedRoles)) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
-          <p className="text-muted-foreground">
-            Bu səhifəyə yalnız təhsil idarəçiləri və müəllimlər daxil ola bilər
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const hasAccess = canAccess(allowedRoles);
 
+  // State hooks - all at the top
   const [selectedSchool, setSelectedSchool] = useState<string>('all');
   const [selectedClass, setSelectedClass] = useState<string>('all');
   const [reportType, setReportType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
@@ -97,22 +85,22 @@ export default function AttendanceReports() {
   // Get current user's institution for filtering
   const userInstitutionId = currentUser?.institution?.id;
 
-  // Load schools data (only for higher admins)
+  // Load schools data (only for higher admins) - use enabled prop
   const { data: schoolsResponse } = useQuery({
     queryKey: ['institutions', 'schools', currentUser?.role, currentUser?.institution?.id],
     queryFn: () => institutionService.getAll(),
-    enabled: isSuperAdmin || isRegionAdmin || isSektorAdmin
+    enabled: hasAccess && (isSuperAdmin || isRegionAdmin || isSektorAdmin)
   });
 
   const schools = useMemo(() => {
     if (!schoolsResponse?.success || !schoolsResponse.data) return [];
     const data = Array.isArray(schoolsResponse.data) ? schoolsResponse.data : schoolsResponse.data.data || [];
-    return data.filter((institution: any) => 
+    return data.filter((institution: any) =>
       ['secondary_school', 'lyceum', 'gymnasium', 'vocational_school'].includes(institution.type)
     );
   }, [schoolsResponse]);
 
-  // Load attendance data
+  // Load attendance data - use enabled prop
   const { data: attendanceResponse, isLoading: attendanceLoading, refetch } = useQuery({
     queryKey: ['attendance-reports', selectedSchool, selectedClass, startDate, endDate, reportType, currentUser?.role, currentUser?.institution?.id],
     queryFn: () => {
@@ -133,10 +121,11 @@ export default function AttendanceReports() {
       }
 
       return attendanceService.getAttendanceRecords(filters);
-    }
+    },
+    enabled: hasAccess
   });
 
-  // Load attendance stats
+  // Load attendance stats - use enabled prop
   const { data: statsResponse } = useQuery({
     queryKey: ['attendance-stats-reports', selectedSchool, startDate, endDate, currentUser?.role, currentUser?.institution?.id],
     queryFn: () => {
@@ -152,7 +141,8 @@ export default function AttendanceReports() {
       }
 
       return attendanceService.getAttendanceStats(filters);
-    }
+    },
+    enabled: hasAccess
   });
 
   const attendanceData = attendanceResponse?.data || [];
@@ -169,6 +159,21 @@ export default function AttendanceReports() {
     const classes = [...new Set(attendanceData.map((record: AttendanceRecord) => record.class_name))];
     return classes.sort();
   }, [attendanceData]);
+
+  // Security check after all hooks
+  if (!hasAccess) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız təhsil idarəçiləri və müəllimlər daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const handleExportReport = async () => {
     try {

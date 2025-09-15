@@ -7,7 +7,7 @@ import { Plus, Edit, Trash2, Settings, Eye, Shield, AlertTriangle } from 'lucide
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { institutionService, InstitutionType } from '@/services/institutions';
 import { useToast } from '@/hooks/use-toast';
-import { InstitutionTypeModal } from '@/components/modals/InstitutionTypeModal';
+import { InstitutionTypeModalStandardized as InstitutionTypeModal } from '@/components/modals/InstitutionTypeModalStandardized';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function InstitutionTypesManagement() {
@@ -18,22 +18,10 @@ export default function InstitutionTypesManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Security check - only SuperAdmin can access institution types management
-  if (!currentUser || currentUser.role !== 'superadmin') {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
-          <p className="text-muted-foreground">
-            Bu səhifəyə yalnız SuperAdmin istifadəçiləri daxil ola bilər
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // Check access permissions
+  const isSuperAdmin = currentUser && currentUser.role === 'superadmin';
 
-  // Load institution types
+  // Load institution types - use enabled prop
   const { data: typesResponse, isLoading, error } = useQuery({
     queryKey: ['institution-types-management'],
     queryFn: async () => {
@@ -51,14 +39,30 @@ export default function InstitutionTypesManagement() {
         throw error;
       }
     },
+    enabled: isSuperAdmin,
   });
 
-  // Load hierarchy
+  // Load hierarchy - use enabled prop
   const { data: hierarchyResponse } = useQuery({
     queryKey: ['institution-types-hierarchy'],
     queryFn: () => institutionService.getInstitutionTypesHierarchy(),
-    enabled: viewMode === 'hierarchy',
+    enabled: viewMode === 'hierarchy' && isSuperAdmin,
   });
+
+  // Security check - only SuperAdmin can access institution types management
+  if (!isSuperAdmin) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız SuperAdmin istifadəçiləri daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const institutionTypes = typesResponse?.institution_types || [];
   const hierarchy = hierarchyResponse?.hierarchy || [];

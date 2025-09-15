@@ -38,20 +38,8 @@ export default function Departments() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Security check - only administrative roles can access department management
-  if (!currentUser || !['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role)) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
-          <p className="text-muted-foreground">
-            Bu səhifəyə yalnız idarəçi rolları daxil ola bilər
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // Check access permissions
+  const hasAccess = currentUser && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role);
 
   const fetchDepartmentAdmin = async (departmentId: number) => {
     try {
@@ -90,11 +78,11 @@ export default function Departments() {
 
   // Load departments with proper typing
   const { data: departmentsResponse, isLoading, isError } = useQuery<DepartmentApiResponse>({
-    queryKey: ['departments', { 
-      searchTerm, 
-      status: statusFilter, 
-      type: typeFilter, 
-      sortField, 
+    queryKey: ['departments', {
+      searchTerm,
+      status: statusFilter,
+      type: typeFilter,
+      sortField,
       sortDirection,
       userRole: currentUser?.role,
       institutionId: currentUser?.institution?.id
@@ -105,9 +93,10 @@ export default function Departments() {
         is_active: statusFilter === 'all' ? undefined : statusFilter === 'active',
         department_type: typeFilter === 'all' ? undefined : typeFilter,
       }) as DepartmentApiResponse;
-      
+
       return response;
     },
+    enabled: hasAccess,
   });
 
   // Extract departments from the API response
@@ -138,12 +127,12 @@ export default function Departments() {
 
   // Fetch department admins when departments change
   useEffect(() => {
-    if (!departmentsResponse) return;
-    
+    if (!departmentsResponse || !hasAccess) return;
+
     // Get the list of department IDs that need admin loading
     const response = departmentsResponse as any;
     let departmentsList: Department[] = [];
-    
+
     if (response && response.data) {
       if (Array.isArray(response.data)) {
         departmentsList = response.data;
@@ -151,17 +140,17 @@ export default function Departments() {
         departmentsList = response.data.data;
       }
     }
-    
+
     // Only fetch for departments that don't have admin data yet
     const missingAdminDepts = departmentsList.filter(dept => !(dept.id in departmentAdmins));
-    
+
     // Batch fetch admins with a small delay to avoid overwhelming the API
     missingAdminDepts.forEach((department, index) => {
       setTimeout(() => {
         fetchDepartmentAdmin(department.id);
       }, index * 100); // 100ms delay between requests
     });
-  }, [departmentsResponse]);
+  }, [departmentsResponse, hasAccess, departmentAdmins]);
 
   // Load department types for filter with proper typing
   interface DepartmentType {
@@ -176,6 +165,7 @@ export default function Departments() {
     queryKey: ['department-types'],
     queryFn: () => departmentService.getTypes() as Promise<DepartmentApiResponse>,
     staleTime: 1000 * 60 * 10,
+    enabled: hasAccess,
   });
 
   const departmentTypes = useMemo<DepartmentType[]>(() => {
@@ -273,6 +263,21 @@ export default function Departments() {
   });
 
   const departments = pagination.paginatedItems;
+
+  // Security check - only administrative roles can access department management
+  if (!hasAccess) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız idarəçi rolları daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const clearFilters = () => {
     setSearchTerm('');

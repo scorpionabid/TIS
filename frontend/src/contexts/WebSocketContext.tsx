@@ -1,13 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from 'react';
 import { useAuth } from './AuthContext';
-
-export interface WebSocketMessage {
-  type: string;
-  data: any;
-  timestamp: string;
-  user_id?: number;
-  channel?: string;
-}
+import { WebSocketMessage, WebSocketEventHandler } from '@/types/events';
 
 export interface WebSocketContextType {
   socket: WebSocket | null;
@@ -15,9 +8,9 @@ export interface WebSocketContextType {
   isConnecting: boolean;
   connectionError: string | null;
   lastMessage: WebSocketMessage | null;
-  subscribe: (channel: string, callback: (data: any) => void) => () => void;
-  unsubscribe: (channel: string, callback: (data: any) => void) => void;
-  send: (message: any) => void;
+  subscribe: (channel: string, callback: WebSocketEventHandler) => () => void;
+  unsubscribe: (channel: string, callback: WebSocketEventHandler) => void;
+  send: (message: Record<string, unknown>) => void;
   connect: () => void;
   disconnect: () => void;
   reconnect: () => void;
@@ -29,7 +22,7 @@ interface WebSocketProviderProps {
 
 interface ChannelSubscription {
   channel: string;
-  callback: (data: any) => void;
+  callback: WebSocketEventHandler;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -251,7 +244,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   }, [disconnect, connect]);
 
   // Subscribe to channel
-  const subscribe = useCallback((channel: string, callback: (data: any) => void): (() => void) => {
+  const subscribe = useCallback((channel: string, callback: WebSocketEventHandler): (() => void) => {
     const subscription: ChannelSubscription = { channel, callback };
     subscriptions.current.push(subscription);
 
@@ -271,7 +264,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   }, [socket, currentUser?.id]);
 
   // Unsubscribe from channel
-  const unsubscribe = useCallback((channel: string, callback: (data: any) => void) => {
+  const unsubscribe = useCallback((channel: string, callback: WebSocketEventHandler) => {
     subscriptions.current = subscriptions.current.filter(
       sub => !(sub.channel === channel && sub.callback === callback)
     );
@@ -290,7 +283,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   }, [socket, currentUser?.id]);
 
   // Send message
-  const send = useCallback((message: any) => {
+  const send = useCallback((message: Record<string, unknown>) => {
     if (socket?.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({
         ...message,

@@ -90,7 +90,7 @@ class InstitutionHierarchySeeder extends Seeder
             $sectorInst = Institution::create([
                 'name' => $sector['name'],
                 'short_name' => $sector['code'],
-                'type' => 'sector_education_office',
+                'type' => 'sector',
                 'parent_id' => $parentRegion->id,
                 'level' => 3,
                 'region_code' => $sector['region_code'],

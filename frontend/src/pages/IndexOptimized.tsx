@@ -84,14 +84,14 @@ const IndexOptimized = () => {
     switch (userRole) {
       case 'superadmin':
         return SuperAdminDashboardOptimized;
-      
+
       case 'regionadmin':
       case 'regionoperator':
         return RegionAdminDashboard;
-      
+
       case 'sektoradmin':
         return SektorAdminDashboard;
-      
+
       // School-related roles
       case SCHOOL_ROLES.SCHOOL_ADMIN:
       case 'schooladmin':
@@ -101,15 +101,25 @@ const IndexOptimized = () => {
       case SCHOOL_ROLES.PSIXOLOQ:
       case 'müəllim':
         return RoleBasedDashboard;
-      
+
       // Teacher dashboard for specific teacher role
       case 'teacher':
         return TeacherDashboard;
-      
+
       default:
         return RoleBasedDashboard;
     }
   }, [currentUser?.role]);
+
+  // Handle RegionAdmin redirect - only redirect when on exact index page
+  useEffect(() => {
+    if (currentUser && ['regionadmin', 'regionoperator'].includes(currentUser.role)) {
+      // Only redirect if we're on the exact root path "/"
+      if (location.pathname === '/') {
+        navigate('/regionadmin', { replace: true });
+      }
+    }
+  }, [currentUser?.role, location.pathname, navigate]);
 
   // Show loading state for auth
   if (loading) {
@@ -134,16 +144,6 @@ const IndexOptimized = () => {
       </div>
     );
   }
-
-  // Handle RegionAdmin redirect - only redirect when on exact index page
-  useEffect(() => {
-    if (currentUser && ['regionadmin', 'regionoperator'].includes(currentUser.role)) {
-      // Only redirect if we're on the exact root path "/"
-      if (location.pathname === '/') {
-        navigate('/regionadmin', { replace: true });
-      }
-    }
-  }, [currentUser?.role, location.pathname, navigate]);
 
   // Don't show dashboard for regionadmin on root path, let the redirect happen
   if (currentUser && ['regionadmin', 'regionoperator'].includes(currentUser.role) && location.pathname === '/') {

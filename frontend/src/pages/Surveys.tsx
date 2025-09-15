@@ -31,23 +31,13 @@ export default function Surveys() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  // Security check - only administrative roles can access surveys
-  if (!currentUser || !['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role)) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
-          <p className="text-muted-foreground">
-            Bu səhifəyə yalnız idarəçi rolları daxil ola bilər
-          </p>
-        </div>
-      </div>
-    );
-  }
-  
+  // Check if user is authorized
+  const isAuthorized = currentUser && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role);
+
+  // ALL HOOKS MOVED BEFORE SECURITY CHECK
   const { data: surveys, isLoading, error } = useQuery({
     queryKey: ['surveys', statusFilter, currentUser?.role, currentUser?.institution?.id],
+    enabled: isAuthorized, // Only fetch if authorized
     queryFn: () => surveyService.getAll({
       status: statusFilter === 'all' ? undefined : statusFilter,
       per_page: 20
@@ -64,33 +54,8 @@ export default function Surveys() {
       ).length || 0,
       totalResponses: surveys?.data?.data?.reduce((sum: number, s: Survey) => sum + (s.response_count || 0), 0) || 0,
     })),
-    enabled: !!surveys?.data?.data
+    enabled: isAuthorized && !!surveys?.data?.data // Only fetch if authorized and surveys loaded
   });
-
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: any, label: string }> = {
-      'draft': { variant: 'secondary', label: 'Layihə' },
-      'active': { variant: 'default', label: 'Aktiv' },
-      'paused': { variant: 'outline', label: 'Dayandırıldı' },
-      'completed': { variant: 'success', label: 'Tamamlandı' },
-      'archived': { variant: 'destructive', label: 'Arxivləndi' }
-    };
-    
-    const config = variants[status] || { variant: 'secondary', label: status };
-    return (
-      <Badge variant={config.variant as any}>
-        {config.label}
-      </Badge>
-    );
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('az-AZ', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
 
   // Create survey mutation
   const createSurveyMutation = useMutation({
@@ -153,6 +118,61 @@ export default function Surveys() {
       });
     },
   });
+
+  // Archive mutation - MOVED FROM BELOW TO TOP WITH OTHER HOOKS
+  const archiveSurveyMutation = useMutation({
+    mutationFn: (id: number) => surveyService.archive(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['surveys'] });
+      queryClient.invalidateQueries({ queryKey: ['survey-stats'] });
+      toast({
+        title: "Uğurlu",
+        description: "Sorğu arxivə göndərildi",
+      });
+    },
+  });
+
+
+
+  // Security check - only administrative roles can access surveys
+  if (!isAuthorized) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız idarəçi rolları daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, { variant: any, label: string }> = {
+      'draft': { variant: 'secondary', label: 'Layihə' },
+      'active': { variant: 'default', label: 'Aktiv' },
+      'paused': { variant: 'outline', label: 'Dayandırıldı' },
+      'completed': { variant: 'success', label: 'Tamamlandı' },
+      'archived': { variant: 'destructive', label: 'Arxivləndi' }
+    };
+    
+    const config = variants[status] || { variant: 'secondary', label: status };
+    return (
+      <Badge variant={config.variant as any}>
+        {config.label}
+      </Badge>
+    );
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('az-AZ', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
 
   const handleSaveSurvey = async (data: CreateSurveyData) => {
     try {
@@ -256,18 +276,6 @@ export default function Surveys() {
     }
   };
 
-  // Add archive mutation
-  const archiveSurveyMutation = useMutation({
-    mutationFn: (id: number) => surveyService.archive(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['surveys'] });
-      queryClient.invalidateQueries({ queryKey: ['survey-stats'] });
-      toast({
-        title: "Uğurlu",
-        description: "Sorğu arxivə göndərildi",
-      });
-    },
-  });
 
   const handlePublishSurvey = async (id: number) => {
     try {

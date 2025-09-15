@@ -77,37 +77,29 @@ export default function Tasks() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Security check - only administrative roles can access task management
-  if (!currentUser || !['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role)) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
-          <p className="text-muted-foreground">
-            Bu səhifəyə yalnız idarəçi rolları daxil ola bilər
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // Check access permissions
+  const hasAccess = currentUser && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role);
 
-  // Load tasks
+  // Load tasks - use enabled prop
   const { data: tasksResponse, isLoading, error } = useQuery({
     queryKey: ['tasks', currentUser?.role, currentUser?.institution?.id],
     queryFn: () => taskService.getAll(),
+    enabled: hasAccess,
   });
 
   const rawTasks = Array.isArray(tasksResponse?.data) ? tasksResponse.data : [];
 
-  // Load task statistics
+  // Load task statistics - use enabled prop
   const { data: taskStats } = useQuery({
     queryKey: ['task-stats', currentUser?.role],
     queryFn: () => taskService.getStats(undefined, currentUser?.role),
+    enabled: hasAccess,
   });
 
-  // Filtering and Sorting logic
+  // Filtering and Sorting logic - MOVED BEFORE SECURITY CHECK
   const tasks = useMemo(() => {
+    // If not authorized, return empty array
+    if (!hasAccess) return [];
     let filtered = [...rawTasks];
 
     // Apply search filter
@@ -175,7 +167,22 @@ export default function Tasks() {
       return 0;
     });
     return sorted;
-  }, [rawTasks, sortField, sortDirection, searchTerm, statusFilter, priorityFilter, categoryFilter]);
+  }, [rawTasks, sortField, sortDirection, searchTerm, statusFilter, priorityFilter, categoryFilter, hasAccess]);
+
+  // Security check - only administrative roles can access task management
+  if (!hasAccess) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız idarəçi rolları daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const clearFilters = () => {
     setSearchTerm('');

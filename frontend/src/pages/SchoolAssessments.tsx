@@ -42,32 +42,7 @@ const SchoolAssessments: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
-  // Show loading state while authentication is being checked
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <Clock className="h-12 w-12 animate-pulse text-primary mx-auto mb-4" />
-          <p className="text-lg text-muted-foreground">Yüklənir...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Check if user has access to this page
-  if (!currentUser?.institution?.id) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <GraduationCap className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Müəssisə məlumatı tapılmadı</h2>
-          <p className="text-muted-foreground">
-            Qiymətləndirmə sistemindən istifadə etmək üçün müəssisəyə təyin olunmalısınız.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // ALL HOOKS MOVED TO TOP - No early returns before hooks!
 
   // Fetch unified assessment dashboard data
   const { data: dashboardData, isLoading: dashboardLoading, error: dashboardError } = useQuery({
@@ -202,6 +177,35 @@ const SchoolAssessments: React.FC = () => {
     staleTime: 1000 * 60 * 10,
     retry: 2
   });
+
+  // SECURITY CHECKS MOVED AFTER ALL HOOKS
+
+  // Show loading state while authentication is being checked
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Clock className="h-12 w-12 animate-pulse text-primary mx-auto mb-4" />
+          <p className="text-lg text-muted-foreground">Yüklənir...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if user has access to this page
+  if (!currentUser?.institution?.id) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <GraduationCap className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Müəssisə məlumatı tapılmadı</h2>
+          <p className="text-muted-foreground">
+            Qiymətləndirmə sistemindən istifadə etmək üçün müəssisəyə təyin olunmalısınız.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Loading state for dashboard
   if (dashboardLoading) {

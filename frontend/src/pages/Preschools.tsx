@@ -64,21 +64,7 @@ const PRESCHOOL_TYPES = [
 export default function Preschools() {
   const { currentUser } = useAuth();
 
-  // Security check - only administrative and educational roles can access preschools
-  if (!currentUser || !['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'müəllim'].includes(currentUser.role)) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
-          <p className="text-muted-foreground">
-            Bu səhifəyə yalnız təhsil idarəçiləri və müəllimlər daxil ola bilər
-          </p>
-        </div>
-      </div>
-    );
-  }
-
+  // State hooks - all at the top
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedSector, setSelectedSector] = useState<string>('all');
@@ -90,6 +76,9 @@ export default function Preschools() {
 
   const queryClient = useQueryClient();
 
+  // Check access permissions
+  const hasAccess = currentUser && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'müəllim'].includes(currentUser.role);
+
   // Build filters
   const filters: PreschoolFilters = {
     ...(searchTerm && { search: searchTerm }),
@@ -100,14 +89,15 @@ export default function Preschools() {
     sort_order: 'asc'
   };
 
-  // Fetch preschools
+  // Fetch preschools - use enabled prop
   const { data: preschoolsResponse, isLoading, error } = useQuery({
     queryKey: ['preschools', filters, currentUser?.role, currentUser?.institution?.id],
     queryFn: () => preschoolsService.getPreschools(filters),
     refetchOnWindowFocus: false,
+    enabled: hasAccess,
   });
 
-  // Load sectors for filters - role-based
+  // Load sectors for filters - role-based - use enabled prop
   const { data: sectorsResponse } = useQuery({
     queryKey: ['sectors', currentUser?.role, currentUser?.institution?.id],
     queryFn: async () => {
@@ -127,15 +117,16 @@ export default function Preschools() {
       }
       return { data: [] };
     },
-    enabled: !!currentUser,
+    enabled: hasAccess,
     refetchOnWindowFocus: false,
   });
 
-  // Fetch statistics
+  // Fetch statistics - use enabled prop
   const { data: statisticsResponse } = useQuery({
     queryKey: ['preschool-statistics', currentUser?.role, currentUser?.institution?.id],
     queryFn: () => preschoolsService.getPreschoolStatistics(),
     refetchOnWindowFocus: false,
+    enabled: hasAccess,
   });
 
   const preschools = Array.isArray(preschoolsResponse?.data) ? preschoolsResponse.data : [];
@@ -162,7 +153,7 @@ export default function Preschools() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) => 
+    mutationFn: ({ id, data }: { id: number; data: any }) =>
       preschoolsService.updatePreschool(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preschools'] });
@@ -185,6 +176,21 @@ export default function Preschools() {
       toast.error(error.message || 'Məktəbəqədər müəssisə silmək mümkün olmadı');
     },
   });
+
+  // Security check - only administrative and educational roles can access preschools
+  if (!hasAccess) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız təhsil idarəçiləri və müəllimlər daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const handleOpenCreateModal = () => {
     setSelectedPreschool(null);

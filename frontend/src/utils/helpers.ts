@@ -34,7 +34,7 @@ export const arrayHelpers = {
   /**
    * Group array by key
    */
-  groupBy: <T extends Record<string, any>>(array: T[], key: keyof T): Record<string, T[]> => {
+  groupBy: <T extends Record<string, unknown>>(array: T[], key: keyof T): Record<string, T[]> => {
     return array.reduce((groups, item) => {
       const groupKey = String(item[key]);
       if (!groups[groupKey]) {
@@ -253,7 +253,7 @@ export const validationHelpers = {
   /**
    * Check if value is not null, undefined, or empty string
    */
-  isPresent: (value: any): boolean => {
+  isPresent: (value: unknown): boolean => {
     return value !== null && value !== undefined && value !== '';
   },
 
@@ -281,7 +281,7 @@ export const validationHelpers = {
   /**
    * Check if array has minimum length
    */
-  minArrayLength: (arr: any[], min: number): boolean => {
+  minArrayLength: (arr: unknown[], min: number): boolean => {
     return Array.isArray(arr) && arr.length >= min;
   }
 };
@@ -484,7 +484,7 @@ export const storageHelpers = {
   /**
    * Set item in localStorage
    */
-  set: (key: string, value: any): boolean => {
+  set: (key: string, value: unknown): boolean => {
     try {
       localStorage.setItem(key, JSON.stringify(value));
       return true;

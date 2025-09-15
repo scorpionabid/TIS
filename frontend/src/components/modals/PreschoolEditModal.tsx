@@ -110,7 +110,7 @@ export const PreschoolEditModal: React.FC<PreschoolEditModalProps> = ({
       newErrors.email = 'Düzgün email ünvanı daxil edin';
     }
 
-    if (formData.phone && !/^\+?[\d\s\-\(\)]{7,}$/.test(formData.phone)) {
+    if (formData.phone && !/^\+?[\d\s\-()]{7,}$/.test(formData.phone)) {
       newErrors.phone = 'Düzgün telefon nömrəsi daxil edin';
     }
 

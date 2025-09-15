@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -78,15 +78,15 @@ const SurveyResponsesTab: React.FC = () => {
 
   useEffect(() => {
     loadSurveys();
-  }, []);
+  }, [loadSurveys]);
 
   useEffect(() => {
     if (selectedSurvey) {
       loadSurveyResponses();
     }
-  }, [selectedSurvey, statusFilter]);
+  }, [selectedSurvey, statusFilter, searchTerm, loadSurveyResponses]);
 
-  const loadSurveys = async () => {
+  const loadSurveys = useCallback(async () => {
     try {
       setLoading(true);
       const response = await approvalService.getSurveysForApproval();
@@ -105,9 +105,9 @@ const SurveyResponsesTab: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadSurveyResponses = async () => {
+  const loadSurveyResponses = useCallback(async () => {
     if (!selectedSurvey) return;
 
     try {
@@ -137,7 +137,7 @@ const SurveyResponsesTab: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedSurvey, statusFilter, searchTerm]);
 
   const handleApproveResponse = async (responseId: number) => {
     try {

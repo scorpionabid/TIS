@@ -37,32 +37,14 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export default function Links() {
   const { currentUser } = useAuth();
-  
-  // Security check - all authenticated users can access links
-  if (!currentUser) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Giriş tələb olunur</h3>
-          <p className="text-muted-foreground">
-            Bu səhifəyə daxil olmaq üçün sistemə giriş etməlisiniz
-          </p>
-        </div>
-      </div>
-    );
-  }
 
-  // Check link creation permissions
-  const canCreateLinks = currentUser && ['superadmin', 'regionadmin'].includes(currentUser.role);
-  const canTrackLinks = currentUser && ['superadmin', 'regionadmin'].includes(currentUser.role);
-  
+  // State hooks - all at the top
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedScope, setSelectedScope] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'created_at' | 'click_count' | 'title'>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  
+
   // Modal states
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
@@ -72,10 +54,17 @@ export default function Links() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch links
+  // Check authentication
+  const isAuthenticated = !!currentUser;
+
+  // Check link creation permissions
+  const canCreateLinks = currentUser && ['superadmin', 'regionadmin'].includes(currentUser.role);
+  const canTrackLinks = currentUser && ['superadmin', 'regionadmin'].includes(currentUser.role);
+
+  // Fetch links - use enabled prop
   const { data: links, isLoading, error, refetch } = useQuery({
-    queryKey: ['links', { 
-      search: searchTerm, 
+    queryKey: ['links', {
+      search: searchTerm,
       link_type: selectedType !== 'all' ? selectedType : undefined,
       share_scope: selectedScope !== 'all' ? selectedScope : undefined,
       sort_by: sortBy,
@@ -89,28 +78,47 @@ export default function Links() {
       sort_by: sortBy,
       sort_direction: sortDirection,
       per_page: 50
-    })
+    }),
+    enabled: isAuthenticated,
   });
 
-  // Fetch link statistics
+  // Fetch link statistics - use enabled prop
   const { data: linkStats } = useQuery({
     queryKey: ['link-stats'],
     queryFn: () => linkService.getLinkStats(),
-    staleTime: 5 * 60 * 1000 // 5 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: isAuthenticated,
   });
 
-  // Fetch popular and featured links
+  // Fetch popular and featured links - use enabled prop (moved before early return)
   const { data: popularLinks } = useQuery({
     queryKey: ['popular-links'],
     queryFn: () => linkService.getPopularLinks(5),
-    staleTime: 10 * 60 * 1000 // 10 minutes
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    enabled: isAuthenticated,
   });
 
   const { data: featuredLinks } = useQuery({
     queryKey: ['featured-links'],
     queryFn: () => linkService.getFeaturedLinks(3),
-    staleTime: 10 * 60 * 1000 // 10 minutes
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    enabled: isAuthenticated,
   });
+
+  // Security check - all authenticated users can access links
+  if (!isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş tələb olunur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə daxil olmaq üçün sistemə giriş etməlisiniz
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const linksData = links?.data?.data || [];
 

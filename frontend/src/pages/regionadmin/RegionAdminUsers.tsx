@@ -37,46 +37,43 @@ export default function RegionAdminUsers() {
   const [selectedRole, setSelectedRole] = useState<string>('all');
   const { currentUser } = useAuth();
 
-  // Fetch regional users by role
-  const fetchUsersByRole = (role: string) => {
-    return useQuery({
-      queryKey: ['regionadmin-users', role, currentUser?.institution?.id],
-      queryFn: async () => {
-        try {
-          // Real API call - determine role name for backend
-          const roleMapping: Record<string, string> = {
-            'operators': 'regionoperator',
-            'sektoradmins': 'sektoradmin', 
-            'schooladmins': 'schooladmin',
-            'teachers': 'müəllim'
-          };
+  // Helper function to fetch users by role (not a hook)
+  const createUserQuery = async (role: string) => {
+    try {
+      // Real API call - determine role name for backend
+      const roleMapping: Record<string, string> = {
+        'operators': 'regionoperator',
+        'sektoradmins': 'sektoradmin',
+        'schooladmins': 'schooladmin',
+        'teachers': 'müəllim'
+      };
 
-          const apiRoleName = roleMapping[role];
-          if (!apiRoleName) {
-            throw new Error(`Invalid role: ${role}`);
-          }
+      const apiRoleName = roleMapping[role];
+      if (!apiRoleName) {
+        throw new Error(`Invalid role: ${role}`);
+      }
 
-          const params = new URLSearchParams({
-            role: apiRoleName,
-            per_page: '50'
-          });
+      const params = new URLSearchParams({
+        role: apiRoleName,
+        per_page: '50'
+      });
 
-          // Get authentication token properly
-          const token = localStorage.getItem('auth_token') || '';
-          console.log('🔐 Authentication token found:', !!token);
-          console.log('🔐 Token length:', token.length);
-          console.log('🔐 Token starts with:', token.substring(0, 20) + '...');
-          console.log('🔗 API URL:', `/api/regionadmin/users?${params.toString()}`);
-          
-          const response = await fetch(`/api/regionadmin/users?${params.toString()}`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              'Authorization': token ? `Bearer ${token}` : ''
-            },
-            credentials: 'include' // Include cookies for session-based auth
-          });
+      // Get authentication token properly
+      const token = localStorage.getItem('auth_token') || '';
+      console.log('🔐 Authentication token found:', !!token);
+      console.log('🔐 Token length:', token.length);
+      console.log('🔐 Token starts with:', token.substring(0, 20) + '...');
+      console.log('🔗 API URL:', `/api/regionadmin/users?${params.toString()}`);
+
+      const response = await fetch(`/api/regionadmin/users?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        credentials: 'include' // Include cookies for session-based auth
+      });
 
           if (!response.ok) {
             throw new Error(`API Error: ${response.status}`);
@@ -125,33 +122,50 @@ export default function RegionAdminUsers() {
             };
           });
 
-          return users;
-        } catch (error) {
-          console.error('🚨 RegionAdmin Users API Error:', error);
-          // Fallback to mock data on error
-          const mockUsers: RegionalUser[] = [
-            {
-              id: 1,
-              name: 'Mock İstifadəçi',
-              email: 'mock@example.com',
-              role: role === 'operators' ? 'RegionOperator' : role === 'sektoradmins' ? 'SektorAdmin' : role === 'schooladmins' ? 'MəktəbAdmin' : 'Müəllim',
-              institution: 'Mock Təşkilat',
-              status: 'active',
-              last_login: '2025-08-13T10:30:00',
-              created_at: '2025-08-01T09:00:00'
-            }
-          ];
-          return mockUsers;
+      return users;
+    } catch (error) {
+      console.error('🚨 RegionAdmin Users API Error:', error);
+      // Fallback to mock data on error
+      const mockUsers: RegionalUser[] = [
+        {
+          id: 1,
+          name: 'Mock İstifadəçi',
+          email: 'mock@example.com',
+          role: role === 'operators' ? 'RegionOperator' : role === 'sektoradmins' ? 'SektorAdmin' : role === 'schooladmins' ? 'MəktəbAdmin' : 'Müəllim',
+          institution: 'Mock Təşkilat',
+          status: 'active',
+          last_login: '2025-08-13T10:30:00',
+          created_at: '2025-08-01T09:00:00'
         }
-      },
-      staleTime: 1000 * 60 * 5,
-    });
+      ];
+      return mockUsers;
+    }
   };
 
-  const operatorsQuery = fetchUsersByRole('operators');
-  const sektorAdminsQuery = fetchUsersByRole('sektoradmins');
-  const schoolAdminsQuery = fetchUsersByRole('schooladmins');
-  const teachersQuery = fetchUsersByRole('teachers');
+  // Individual useQuery hooks for each role - moved to top level
+  const operatorsQuery = useQuery({
+    queryKey: ['regionadmin-users', 'operators', currentUser?.institution?.id],
+    queryFn: () => createUserQuery('operators'),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const sektorAdminsQuery = useQuery({
+    queryKey: ['regionadmin-users', 'sektoradmins', currentUser?.institution?.id],
+    queryFn: () => createUserQuery('sektoradmins'),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const schoolAdminsQuery = useQuery({
+    queryKey: ['regionadmin-users', 'schooladmins', currentUser?.institution?.id],
+    queryFn: () => createUserQuery('schooladmins'),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const teachersQuery = useQuery({
+    queryKey: ['regionadmin-users', 'teachers', currentUser?.institution?.id],
+    queryFn: () => createUserQuery('teachers'),
+    staleTime: 1000 * 60 * 5,
+  });
 
   const getStatusBadge = (status: string) => {
     switch (status) {

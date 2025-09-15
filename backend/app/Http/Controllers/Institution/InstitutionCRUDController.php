@@ -193,6 +193,36 @@ class InstitutionCRUDController extends Controller
     }
 
     /**
+     * Get delete impact summary for institution
+     */
+    public function getDeleteImpact(Institution $institution): JsonResponse
+    {
+        $user = Auth::user();
+
+        // Check permissions
+        if (!$user->hasRole('superadmin') && !$user->hasRole('regionadmin') && !$user->hasRole('sektoradmin')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'
+            ], 403);
+        }
+
+        try {
+            $impactSummary = $institution->getDeleteImpactSummary();
+
+            return response()->json([
+                'success' => true,
+                'data' => $impactSummary
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Məlumat toplanarkən xəta baş verdi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Remove the specified institution from storage.
      */
     public function destroy(Request $request, Institution $institution): JsonResponse
@@ -261,41 +291,89 @@ class InstitutionCRUDController extends Controller
             ], 422);
         }
         
-        // Check if institution has children (for both soft and hard delete)
-        if ($institution->children()->exists()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Alt müəssisələri olan müəssisə silinə bilməz. Əvvəlcə alt müəssisələri silin və ya köçürün.'
-            ], 422);
-        }
+        // Check if institution has children and users (different handling for soft vs hard delete)
+        $hasChildren = $institution->children()->exists();
+        $hasUsers = $institution->users()->exists();
 
-        // Check if institution has active users (for hard delete or if soft deleting with users)
-        if ($institution->users()->exists()) {
-            if ($deleteType === 'hard') {
+        if ($deleteType === 'soft') {
+            // For soft delete, prevent if has children or users
+            if ($hasChildren) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'İstifadəçiləri olan müəssisə həmişəlik silinə bilməz. Əvvəlcə istifadəçiləri köçürün və ya silin.'
+                    'message' => 'Alt müəssisələri olan müəssisə arxivə köçürülə bilməz. Əvvəlcə alt müəssisələri köçürün.'
                 ], 422);
             }
-            // For soft delete, we allow it but warn about users
+
+            if ($hasUsers) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'İstifadəçiləri olan müəssisə arxivə köçürülə bilməz. Əvvəlcə istifadəçiləri köçürün.'
+                ], 422);
+            }
         }
+
+        // For hard delete, we allow recursive deletion of children and users
+        // The model will handle the complex deletion process
 
         try {
             if ($deleteType === 'soft') {
                 // Soft delete - just marks as deleted
                 $institution->delete();
                 $message = 'Müəssisə arxivə köçürüldü və lazım olduqda bərpa edilə bilər.';
-            } else {
-                // Hard delete - permanently remove
-                $institution->forceDelete();
-                $message = 'Müəssisə həmişəlik silindi.';
-            }
 
-            return response()->json([
-                'success' => true,
-                'message' => $message,
-                'delete_type' => $deleteType
-            ], 200);
+                return response()->json([
+                    'success' => true,
+                    'message' => $message,
+                    'delete_type' => $deleteType
+                ], 200);
+            } else {
+                // Hard delete - comprehensive cleanup using the model method
+                $deletedData = $institution->hardDeleteWithRelationships();
+
+                // Build detailed success message
+                $details = [];
+                $childrenCount = 0;
+
+                if (isset($deletedData['children_deleted'])) {
+                    $childrenCount = count($deletedData['children_deleted']);
+                    $details[] = "{$childrenCount} alt müəssisə";
+                }
+
+                if (isset($deletedData['users_deleted'])) {
+                    $details[] = "{$deletedData['users_deleted']} istifadəçi";
+                }
+
+                if (isset($deletedData['students'])) {
+                    $details[] = "{$deletedData['students']} şagird";
+                }
+
+                if (isset($deletedData['survey_responses'])) {
+                    $details[] = "{$deletedData['survey_responses']} sorğu cavabı";
+                }
+                if (isset($deletedData['statistics'])) {
+                    $details[] = "{$deletedData['statistics']} statistika";
+                }
+                if (isset($deletedData['departments'])) {
+                    $details[] = "{$deletedData['departments']} şöbə";
+                }
+                if (isset($deletedData['rooms'])) {
+                    $details[] = "{$deletedData['rooms']} otaq";
+                }
+                if (isset($deletedData['grades'])) {
+                    $details[] = "{$deletedData['grades']} sinif";
+                }
+
+                $detailMessage = !empty($details) ? ' Silindi: ' . implode(', ', $details) . '.' : '';
+                $recursiveMessage = $childrenCount > 0 ? ' (Recursive silmə - alt müəssisələr də daxil olmaqla)' : '';
+                $message = 'Müəssisə və bütün əlaqəli məlumatlar həmişəlik silindi.' . $recursiveMessage . $detailMessage;
+
+                return response()->json([
+                    'success' => true,
+                    'message' => $message,
+                    'delete_type' => $deleteType,
+                    'deleted_data' => $deletedData
+                ], 200);
+            }
 
         } catch (\Exception $e) {
             return response()->json([

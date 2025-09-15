@@ -4,6 +4,16 @@ import { schoolAdminService, schoolAdminKeys, Assessment, AssessmentGrade } from
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
+interface CreateAssessmentData {
+  title: string;
+  type: string;
+  subject_id: number;
+  class_id: number;
+  max_score: number;
+  due_date: string;
+  description?: string;
+}
+
 export interface NewAssessmentData {
   title: string;
   subject: string;
@@ -80,7 +90,7 @@ export const useAssessmentGradebook = () => {
 
   // Create assessment mutation
   const createAssessmentMutation = useMutation({
-    mutationFn: (data: any) => schoolAdminService.createAssessment(data),
+    mutationFn: (data: CreateAssessmentData) => schoolAdminService.createAssessment(data),
     onSuccess: () => {
       toast.success('Qiymətləndirmə yaradıldı');
       refetchAssessments();

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -88,6 +88,22 @@ export const MuavinDashboard: React.FC = () => {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
+  // Calculate stats for Müavin dashboard - MOVED BEFORE EARLY RETURN
+  const totalClasses = classes?.length || 0;
+  const activeTeachers = teachers?.filter(t => t.is_active)?.length || 0;
+  
+  // Schedule management calculations - MOVED BEFORE EARLY RETURN
+  const scheduleConflicts = useMemo(() => {
+    // Basic conflict detection - can be enhanced with actual schedule data
+    return 0; // No conflicts detected in current implementation
+  }, []);
+  
+  const weeklyWorkload = useMemo(() => {
+    // Calculate total weekly workload from teachers and classes
+    const baseWorkload = Math.min(totalClasses * 5, 100); // 5 hours per class, max 100%
+    return Math.round(baseWorkload);
+  }, [totalClasses]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
@@ -114,21 +130,6 @@ export const MuavinDashboard: React.FC = () => {
       </div>
     );
   }
-
-  // Calculate stats for Müavin dashboard
-  const totalClasses = classes?.length || 0;
-  const activeTeachers = teachers?.filter(t => t.is_active)?.length || 0;
-  // Schedule management calculations
-  const scheduleConflicts = useMemo(() => {
-    // Basic conflict detection - can be enhanced with actual schedule data
-    return 0; // No conflicts detected in current implementation
-  }, []);
-  
-  const weeklyWorkload = useMemo(() => {
-    // Calculate total weekly workload from teachers and classes
-    const baseWorkload = Math.min(totalClasses * 5, 100); // 5 hours per class, max 100%
-    return Math.round(baseWorkload);
-  }, [totalClasses]);
 
   return (
     <div className="p-6 space-y-6">

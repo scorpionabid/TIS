@@ -15,21 +15,9 @@ export default function Sectors() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
 
-  // Security check - only administrative roles can access sector management
-  if (!currentUser || !['superadmin', 'regionadmin', 'sektoradmin'].includes(currentUser.role)) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
-          <p className="text-muted-foreground">
-            Bu səhifəyə yalnız sektor idarəçiləri daxil ola bilər
-          </p>
-        </div>
-      </div>
-    );
-  }
-  
+  // Check access permissions
+  const hasAccess = currentUser && ['superadmin', 'regionadmin', 'sektoradmin'].includes(currentUser.role);
+
   const {
     // State
     selectedType,
@@ -68,6 +56,21 @@ export default function Sectors() {
   const handleToggleStatus = (id: number) => {
     toggleStatusMutation.mutate(id);
   };
+
+  // Security check - only administrative roles can access sector management
+  if (!hasAccess) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız sektor idarəçiləri daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (

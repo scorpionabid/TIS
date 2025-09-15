@@ -198,27 +198,66 @@ const SelectLabel = React.forwardRef<
 ))
 SelectLabel.displayName = SelectPrimitive.Label.displayName
 
+// Safe JSON stringifier that handles circular references
+const safeStringify = (obj: any): string => {
+  const cache = new Set();
+  return JSON.stringify(obj, (key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      // Skip React internal properties and DOM nodes
+      if (key.startsWith('_') || key.startsWith('__react') ||
+          value instanceof HTMLElement || value.nodeType) {
+        return '[Circular/DOM]';
+      }
+      if (cache.has(value)) {
+        return '[Circular]';
+      }
+      cache.add(value);
+    }
+    return value;
+  });
+};
+
 // Utility function to safely convert children to string
 const safeChildrenToString = (children: React.ReactNode): string => {
   if (children === null || children === undefined) return '';
   if (typeof children === 'string') return children;
   if (typeof children === 'number' || typeof children === 'boolean') return String(children);
-  
+
+  // If it's a React element, extract text content
+  if (React.isValidElement(children)) {
+    // For React elements, try to get their text content
+    if (children.props && typeof children.props.children === 'string') {
+      return children.props.children;
+    }
+    return '[React Element]';
+  }
+
   // If it's an object, try to extract meaningful text
   if (typeof children === 'object') {
-    // Check if it's an object with name or display_name properties
     const obj = children as any;
-    if (obj && typeof obj === 'object' && !React.isValidElement(obj)) {
+    if (obj && typeof obj === 'object') {
+      // Try common text properties first
       if (obj.name) return String(obj.name);
       if (obj.display_name) return String(obj.display_name);
       if (obj.label) return String(obj.label);
-      
-      // As last resort, stringify the object  
-      console.warn('SelectItem received object as children:', obj);
-      return JSON.stringify(obj);
+      if (obj.text) return String(obj.text);
+      if (obj.title) return String(obj.title);
+
+      // Check if it's an array
+      if (Array.isArray(obj)) {
+        return obj.join(', ');
+      }
+
+      // As last resort, use safe stringify
+      try {
+        return safeStringify(obj);
+      } catch (error) {
+        console.warn('SelectItem failed to stringify object:', error);
+        return '[Object]';
+      }
     }
   }
-  
+
   // If it's a React element or other complex structure, convert to string
   return String(children);
 };

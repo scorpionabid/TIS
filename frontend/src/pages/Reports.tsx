@@ -21,20 +21,8 @@ export default function Reports() {
   const [endDate, setEndDate] = useState<string>(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const { toast } = useToast();
 
-  // Security check - hierarchical access to reports based on roles
-  if (!currentUser || !['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role)) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
-          <p className="text-muted-foreground">
-            Bu səhifəyə yalnız idarəçi rolları daxil ola bilər
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // Check access permissions
+  const hasAccess = currentUser && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role);
 
   // Build filters based on selections
   const filters: ReportFilters = useMemo(() => {
@@ -70,20 +58,21 @@ export default function Reports() {
     return dateFilters;
   }, [selectedDateRange, startDate, endDate]);
 
-  // Load overview stats
+  // Load overview stats - use enabled prop
   const { data: overviewResponse, isLoading: overviewLoading, error: overviewError } = useQuery({
     queryKey: ['reports-overview', filters, currentUser?.role, currentUser?.institution?.id],
     queryFn: () => reportsService.getOverviewStats(filters),
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
     retry: 1,
-    retryOnMount: false
+    retryOnMount: false,
+    enabled: hasAccess,
   });
 
-  // Load institutional performance
+  // Load institutional performance - use enabled prop
   const { data: institutionalResponse, isLoading: institutionalLoading } = useQuery({
     queryKey: ['reports-institutional', filters, currentUser?.role, currentUser?.institution?.id],
     queryFn: () => reportsService.getInstitutionalPerformance(filters),
-    enabled: selectedReportType === 'institutional',
+    enabled: selectedReportType === 'institutional' && hasAccess,
     staleTime: 1000 * 60 * 5,
   });
 
@@ -91,9 +80,24 @@ export default function Reports() {
   const { data: userActivityResponse, isLoading: userActivityLoading } = useQuery({
     queryKey: ['reports-user-activity', filters, currentUser?.role, currentUser?.institution?.id],
     queryFn: () => reportsService.getUserActivityReport(filters),
-    enabled: selectedReportType === 'user_activity' && ['superadmin', 'regionadmin'].includes(currentUser?.role || ''),
+    enabled: selectedReportType === 'user_activity' && ['superadmin', 'regionadmin'].includes(currentUser?.role || '') && hasAccess,
     staleTime: 1000 * 60 * 5,
   });
+
+  // Security check - hierarchical access to reports based on roles
+  if (!hasAccess) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız idarəçi rolları daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Use real data or fallback to mock data
   const overviewStats = overviewResponse?.data || reportsService.getMockOverviewStats();

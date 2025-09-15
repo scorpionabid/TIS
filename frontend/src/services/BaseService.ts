@@ -37,7 +37,7 @@ export abstract class BaseService<T extends BaseEntity> {
   /**
    * Generate cache key for requests
    */
-  protected getCacheKey(method: string, suffix: string = '', params?: any): string {
+  protected getCacheKey(method: string, suffix: string = '', params?: Record<string, unknown>): string {
     const paramString = params ? JSON.stringify(params) : '';
     return `${this.baseEndpoint}_${method}_${suffix}_${btoa(paramString).substring(0, 10)}`;
   }
@@ -215,7 +215,7 @@ export abstract class BaseService<T extends BaseEntity> {
   /**
    * Generic GET method for custom endpoints
    */
-  async get<R = any>(endpoint: string, params?: any): Promise<ApiResponse<R>> {
+  async get<R = unknown>(endpoint: string, params?: Record<string, unknown>): Promise<ApiResponse<R>> {
     logger.debug(`Making GET request to ${endpoint}`, {
       component: 'BaseService',
       action: 'get',
@@ -234,7 +234,7 @@ export abstract class BaseService<T extends BaseEntity> {
   /**
    * Generic POST method for custom endpoints
    */
-  async post<R = any>(endpoint: string, data?: any): Promise<ApiResponse<R>> {
+  async post<R = unknown>(endpoint: string, data?: Record<string, unknown>): Promise<ApiResponse<R>> {
     logger.debug(`Making POST request to ${endpoint}`, {
       component: 'BaseService',
       action: 'post',
@@ -253,7 +253,7 @@ export abstract class BaseService<T extends BaseEntity> {
   /**
    * Generic PUT method for custom endpoints
    */
-  async put<R = any>(endpoint: string, data?: any): Promise<ApiResponse<R>> {
+  async put<R = unknown>(endpoint: string, data?: Record<string, unknown>): Promise<ApiResponse<R>> {
     logger.debug(`Making PUT request to ${endpoint}`, {
       component: 'BaseService',
       action: 'put',
@@ -280,7 +280,7 @@ export abstract class BaseService<T extends BaseEntity> {
   /**
    * Invalidate specific cache entry
    */
-  protected invalidateSpecificCache(method: string, suffix: string = '', params?: any): void {
+  protected invalidateSpecificCache(method: string, suffix: string = '', params?: Record<string, unknown>): void {
     const cacheKey = this.getCacheKey(method, suffix, params);
     cacheService.delete(cacheKey);
   }
@@ -288,7 +288,7 @@ export abstract class BaseService<T extends BaseEntity> {
   /**
    * Get cache statistics for this service
    */
-  getCacheStats(): { stats: any; tags: string[] } {
+  getCacheStats(): { stats: Record<string, unknown>; tags: string[] } {
     return {
       stats: cacheService.getStats(),
       tags: this.cacheTags

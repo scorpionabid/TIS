@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -48,12 +48,12 @@ const ApprovalDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [activeTab, searchTerm, priorityFilter, workflowFilter]);
+  }, [activeTab, searchTerm, priorityFilter, workflowFilter, fetchData]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       // Get approvals based on active tab
       let approvalsResponse;
       if (activeTab === 'pending') {
@@ -72,13 +72,13 @@ const ApprovalDashboard: React.FC = () => {
       const analyticsResponse = await approvalService.getAnalytics();
 
       if (approvalsResponse.success) {
-        let filteredApprovals = Array.isArray(approvalsResponse.data) 
-          ? approvalsResponse.data 
+        let filteredApprovals = Array.isArray(approvalsResponse.data)
+          ? approvalsResponse.data
           : approvalsResponse.data.data || [];
 
         // Apply search filter
         if (searchTerm) {
-          filteredApprovals = filteredApprovals.filter(approval => 
+          filteredApprovals = filteredApprovals.filter(approval =>
             approval.workflow.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             approval.submitter.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             approval.comments?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -96,7 +96,7 @@ const ApprovalDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab, searchTerm, priorityFilter, workflowFilter]);
 
   const handleApprovalAction = async (approval: ApprovalRequest, action: 'approve' | 'reject' | 'return') => {
     setSelectedApproval(approval);

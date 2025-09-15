@@ -26,25 +26,13 @@ export default function Documents() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
 
-  // Security check - all authenticated users can access documents
-  if (!currentUser) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Giriş tələb olunur</h3>
-          <p className="text-muted-foreground">
-            Bu səhifəyə daxil olmaq üçün sistemə giriş etməlisiniz
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // Check authentication
+  const isAuthenticated = !!currentUser;
 
   // Check document upload permissions
   const canUploadDocuments = currentUser && ['superadmin', 'regionadmin'].includes(currentUser.role);
   const canTrackDocuments = currentUser && ['superadmin', 'regionadmin'].includes(currentUser.role);
-  
+
   const { data: documents, isLoading } = useQuery({
     queryKey: ['documents', searchTerm, categoryFilter, typeFilter, accessLevelFilter, uploaderFilter, dateFilter, currentUser?.role, currentUser?.institution?.id],
     queryFn: () => documentService.getAll({
@@ -60,12 +48,29 @@ export default function Documents() {
       }),
       per_page: 20
     }),
+    enabled: isAuthenticated,
   });
 
   const { data: stats } = useQuery({
     queryKey: ['document-stats'],
     queryFn: () => documentService.getStats(),
+    enabled: isAuthenticated,
   });
+
+  // Security check - all authenticated users can access documents
+  if (!isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş tələb olunur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə daxil olmaq üçün sistemə giriş etməlisiniz
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const handleDownload = async (document: Document) => {
     try {

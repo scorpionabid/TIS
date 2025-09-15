@@ -33,34 +33,14 @@ export default function Regions() {
   const [regionStats, setRegionStats] = useState<Record<number, RegionStats>>({});
   const [loadingStats, setLoadingStats] = useState<Record<number, boolean>>({});
 
-  // Security check - only SuperAdmin and RegionAdmin can access regional management
-  if (!currentUser || ![USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN].includes(currentUser.role)) {
-    console.log('🚫 Regions access denied:', {
-      hasCurrentUser: !!currentUser,
-      currentUserRole: currentUser?.role,
-      allowedRoles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN],
-      roleCheck: currentUser ? [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN].includes(currentUser.role) : false
-    });
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
-          <p className="text-muted-foreground">
-            Bu səhifəyə yalnız SuperAdmin və RegionAdmin istifadəçiləri daxil ola bilər
-          </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Sizin rolunuz: {currentUser?.role || 'Tanınmır'}
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // Check access permissions
+  const hasAccess = currentUser && [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN].includes(currentUser.role);
 
-  // Fetch regions from API with higher per_page to get all institutions
+  // Fetch regions from API with higher per_page to get all institutions - use enabled prop
   const { data: institutionsResponse, isLoading, error } = useQuery({
     queryKey: ['institutions', currentUser?.role, currentUser?.institution?.id],
     queryFn: () => institutionService.getAll({ per_page: 100 }),
+    enabled: hasAccess,
   });
 
   // Filter regions (level 2) from all institutions
@@ -146,12 +126,37 @@ export default function Regions() {
 
   // Load statistics for all regions when they are loaded
   useEffect(() => {
+    if (!hasAccess) return;
     regions.forEach(region => {
       if (!regionStats[region.id] && !loadingStats[region.id]) {
         loadRegionStats(region.id);
       }
     });
-  }, [regions]);
+  }, [regions, hasAccess, regionStats, loadingStats]);
+
+  // Security check - only SuperAdmin and RegionAdmin can access regional management
+  if (!hasAccess) {
+    console.log('🚫 Regions access denied:', {
+      hasCurrentUser: !!currentUser,
+      currentUserRole: currentUser?.role,
+      allowedRoles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN],
+      roleCheck: currentUser ? [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN].includes(currentUser.role) : false
+    });
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız SuperAdmin və RegionAdmin istifadəçiləri daxil ola bilər
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Sizin rolunuz: {currentUser?.role || 'Tanınmır'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const getRegionDescription = (regionName: string): string => {
     if (regionName.includes('Bakı')) return 'Paytaxt regionu';

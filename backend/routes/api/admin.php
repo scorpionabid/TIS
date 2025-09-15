@@ -130,6 +130,7 @@ Route::middleware('permission:institutions.read')->group(function () {
     Route::get('institutions/check-utis-code-exists', [InstitutionController::class, 'checkUtisCodeExists']);
     Route::post('institutions/generate-code', [InstitutionController::class, 'generateCode']);
     Route::get('institutions/{institution}/stats', [InstitutionController::class, 'getStats']);
+    Route::get('institutions/{institution}/delete-impact', [InstitutionController::class, 'getDeleteImpact']);
 });
 
 Route::middleware('permission:institutions.write')->group(function () {

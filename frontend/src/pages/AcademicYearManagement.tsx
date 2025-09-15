@@ -19,22 +19,7 @@ export default function AcademicYearManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Security check - only SuperAdmin can access academic year management
-  if (!currentUser || currentUser.role !== 'superadmin') {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
-          <p className="text-muted-foreground">
-            Bu səhifəyə yalnız SuperAdmin istifadəçiləri daxil ola bilər
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Load academic years
+  // Load academic years - MOVED BEFORE SECURITY CHECK
   const { data: yearsResponse, isLoading, error } = useQuery({
     queryKey: ['academic-years-management'],
     queryFn: async () => {
@@ -49,9 +34,10 @@ export default function AcademicYearManagement() {
       }
     },
     staleTime: 30000, // 30 seconds
+    enabled: !!currentUser && currentUser.role === 'superadmin', // Only fetch if authorized
   });
 
-  // Delete mutation
+  // Delete mutation - MOVED BEFORE SECURITY CHECK
   const deleteMutation = useMutation({
     mutationFn: (id: number) => academicYearService.delete(id),
     onSuccess: (_, deletedId) => {
@@ -71,7 +57,7 @@ export default function AcademicYearManagement() {
     },
   });
 
-  // Activate mutation
+  // Activate mutation - MOVED BEFORE SECURITY CHECK
   const activateMutation = useMutation({
     mutationFn: (id: number) => academicYearService.activate(id),
     onSuccess: (_, activatedId) => {
@@ -90,6 +76,21 @@ export default function AcademicYearManagement() {
       });
     },
   });
+
+  // Security check - only SuperAdmin can access academic year management
+  if (!currentUser || currentUser.role !== 'superadmin') {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız SuperAdmin istifadəçiləri daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const handleCreate = () => {
     setSelectedYear(null);

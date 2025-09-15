@@ -144,7 +144,45 @@ class InstitutionService extends BaseService<Institution> {
     return response.data;
   }
 
-  async delete(id: number, type: 'soft' | 'hard' = 'soft'): Promise<void> {
+  async getDeleteImpact(id: number): Promise<{
+    institution: { id: number; name: string; type: string; level: number };
+    direct_children_count: number;
+    total_children_count: number;
+    children_details: any[];
+    users_count: number;
+    total_users_count: number;
+    students_count: number;
+    total_students_count: number;
+    departments_count: number;
+    rooms_count: number;
+    grades_count: number;
+    survey_responses_count: number;
+    statistics_count: number;
+    indicator_values_count: number;
+    audit_logs_count: number;
+    has_region: boolean;
+    has_sector: boolean;
+    deletion_mode: {
+      soft_delete: string;
+      hard_delete: string;
+    };
+    cascade_delete_tables: string[];
+  }> {
+    try {
+      const response = await apiClient.get(`${this.baseEndpoint}/${id}/delete-impact`);
+      return response.data;
+    } catch (error) {
+      console.error('❌ InstitutionService.getDeleteImpact failed:', error);
+      throw error;
+    }
+  }
+
+  async delete(id: number, type: 'soft' | 'hard' = 'soft'): Promise<{
+    success: boolean;
+    message: string;
+    delete_type: 'soft' | 'hard';
+    deleted_data?: Record<string, any>;
+  }> {
     try {
       const result = await apiClient.delete(`${this.baseEndpoint}/${id}?type=${type}`);
       return result;

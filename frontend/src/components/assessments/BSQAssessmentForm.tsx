@@ -6,17 +6,31 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DialogFooter } from '@/components/ui/dialog';
+import { BSQAssessmentFormData } from '@/types/forms';
+import { AcademicYear } from '@/types';
+
+interface Institution {
+  id: number;
+  name: string;
+  type: string;
+}
 
 interface BSQAssessmentFormProps {
-  form: any;
-  academicYears: any[];
-  institutions: any;
-  defaultInstitution: any;
-  activeAcademicYear: any;
+  form: {
+    register: (name: string) => any;
+    handleSubmit: (callback: (data: BSQAssessmentFormData) => void) => any;
+    formState: { errors: Record<string, any> };
+    setValue: (name: string, value: any) => void;
+    watch: (name: string) => any;
+  };
+  academicYears: AcademicYear[];
+  institutions: Institution[];
+  defaultInstitution: Institution | null;
+  activeAcademicYear: AcademicYear | null;
   creating: boolean;
   loadingAcademicYears: boolean;
   loadingInstitutions: boolean;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: BSQAssessmentFormData) => void;
   onClose: () => void;
   calculatePercentage: (totalScore: number, maxScore: number) => number;
 }
