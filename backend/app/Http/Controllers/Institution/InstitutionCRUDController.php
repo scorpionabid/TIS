@@ -224,6 +224,31 @@ class InstitutionCRUDController extends Controller
             // Find institution including soft deleted ones
             $institution = Institution::withTrashed()->findOrFail($id);
 
+            // Ensure we have a single model instance, not a collection
+            if ($institution instanceof \Illuminate\Database\Eloquent\Collection) {
+                $institution = $institution->first();
+            }
+
+            if (!$institution) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Müəssisə tapılmadı.'
+                ], 404);
+            }
+
+            // Verify the method exists before calling it
+            if (!method_exists($institution, 'getDeleteImpactSummary')) {
+                \Log::error('getDeleteImpactSummary method not found on Institution model', [
+                    'institution_id' => $id,
+                    'institution_class' => get_class($institution)
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sistem xətası: Metodun mövcud olmadığı müəyyən edildi.'
+                ], 500);
+            }
+
             $impactSummary = $institution->getDeleteImpactSummary();
 
             return response()->json([
@@ -231,6 +256,12 @@ class InstitutionCRUDController extends Controller
                 'data' => $impactSummary
             ], 200);
         } catch (\Exception $e) {
+            \Log::error('Delete impact calculation failed', [
+                'institution_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Məlumat toplanarkən xəta baş verdi: ' . $e->getMessage()
