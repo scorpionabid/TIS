@@ -179,14 +179,38 @@ class InstitutionService extends BaseService<Institution> {
     }
   }
 
-  async delete(id: number, type: 'soft' | 'hard' = 'soft'): Promise<{
+  async delete(
+    id: number,
+    type: 'soft' | 'hard' = 'soft',
+    options?: {
+      confirmation?: boolean;
+      reason?: string;
+      force?: boolean;
+    }
+  ): Promise<{
     success: boolean;
     message: string;
     delete_type: 'soft' | 'hard';
     deleted_data?: Record<string, any>;
+    operation_id?: string;
   }> {
     try {
-      const result = await apiClient.delete(`${this.baseEndpoint}/${id}?type=${type}`);
+      // Prepare request data for validation
+      const requestData: any = {
+        type,
+        confirmation: options?.confirmation ?? true, // Default to true for backwards compatibility
+      };
+
+      // Add optional parameters
+      if (options?.reason) {
+        requestData.reason = options.reason;
+      }
+
+      if (type === 'hard' && options?.force !== undefined) {
+        requestData.force = options.force;
+      }
+
+      const result = await apiClient.delete(`${this.baseEndpoint}/${id}`, requestData);
       return result;
     } catch (error) {
       console.error('❌ InstitutionService.delete failed:', error);
