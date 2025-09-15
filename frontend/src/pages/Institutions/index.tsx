@@ -39,6 +39,7 @@ const InstitutionsPage: React.FC = () => {
     statusFilter,
     levelFilter,
     parentFilter,
+    deletedFilter,
     sortField,
     sortDirection,
     showFilters,
@@ -50,6 +51,7 @@ const InstitutionsPage: React.FC = () => {
     setStatusFilter,
     setLevelFilter,
     setParentFilter,
+    setDeletedFilter,
     setSortField,
     setSortDirection,
     setShowFilters,
@@ -81,6 +83,7 @@ const InstitutionsPage: React.FC = () => {
     statusFilter,
     levelFilter,
     parentFilter,
+    deletedFilter,
     sortField,
     sortDirection,
     institutionAdmins,
@@ -187,6 +190,7 @@ const InstitutionsPage: React.FC = () => {
         statusFilter={statusFilter}
         levelFilter={levelFilter}
         parentFilter={parentFilter}
+        deletedFilter={deletedFilter}
         sortField={sortField}
         sortDirection={sortDirection}
         showFilters={showFilters}
@@ -197,6 +201,7 @@ const InstitutionsPage: React.FC = () => {
         onStatusFilterChange={setStatusFilter}
         onLevelFilterChange={setLevelFilter}
         onParentFilterChange={setParentFilter}
+        onDeletedFilterChange={setDeletedFilter}
         onSortFieldChange={setSortField}
         onSortDirectionChange={setSortDirection}
         onToggleFilters={() => setShowFilters(!showFilters)}

@@ -12,10 +12,11 @@ interface InstitutionFiltersProps {
   statusFilter: string;
   levelFilter: string;
   parentFilter: string;
+  deletedFilter: string;
   sortField: string;
   sortDirection: string;
   showFilters: boolean;
-  
+
   // Available options
   availableTypes: Array<{
     key: string;
@@ -28,18 +29,19 @@ interface InstitutionFiltersProps {
     regions: any[];
     sectors: any[];
   };
-  
+
   // Event handlers
   onTypeChange: (value: string) => void;
   onSearchChange: (value: string) => void;
   onStatusFilterChange: (value: string) => void;
   onLevelFilterChange: (value: string) => void;
   onParentFilterChange: (value: string) => void;
+  onDeletedFilterChange: (value: string) => void;
   onSortFieldChange: (value: string) => void;
   onSortDirectionChange: (value: string) => void;
   onToggleFilters: () => void;
   onResetFilters: () => void;
-  
+
   // User permissions
   isSuperAdmin: boolean;
   isRegionAdmin: boolean;
@@ -51,6 +53,7 @@ export const InstitutionFilters: React.FC<InstitutionFiltersProps> = ({
   statusFilter,
   levelFilter,
   parentFilter,
+  deletedFilter,
   sortField,
   sortDirection,
   showFilters,
@@ -61,6 +64,7 @@ export const InstitutionFilters: React.FC<InstitutionFiltersProps> = ({
   onStatusFilterChange,
   onLevelFilterChange,
   onParentFilterChange,
+  onDeletedFilterChange,
   onSortFieldChange,
   onSortDirectionChange,
   onToggleFilters,
@@ -68,8 +72,8 @@ export const InstitutionFilters: React.FC<InstitutionFiltersProps> = ({
   isSuperAdmin,
   isRegionAdmin,
 }) => {
-  const hasActiveFilters = searchQuery || statusFilter !== 'all' || levelFilter !== 'all' || 
-    parentFilter !== 'all' || sortField !== 'name' || sortDirection !== 'asc';
+  const hasActiveFilters = searchQuery || statusFilter !== 'all' || levelFilter !== 'all' ||
+    parentFilter !== 'all' || deletedFilter !== 'active' || sortField !== 'name' || sortDirection !== 'asc';
 
   return (
     <div className="space-y-4">
@@ -116,16 +120,31 @@ export const InstitutionFilters: React.FC<InstitutionFiltersProps> = ({
       {showFilters && (
         <Card>
           <CardContent className="p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Status Filter */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              {/* Deleted Filter */}
               <div>
                 <label className="block text-sm font-medium mb-2">Status</label>
-                <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+                <Select value={deletedFilter} onValueChange={onDeletedFilterChange}>
                   <SelectTrigger>
                     <SelectValue placeholder="Status seçin" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Bütün statuslar</SelectItem>
+                    <SelectItem value="active">✅ Aktiv müəssisələr</SelectItem>
+                    <SelectItem value="with_deleted">📋 Aktiv + Arxivlənmiş</SelectItem>
+                    <SelectItem value="only_deleted">🗑️ Yalnız Arxivlənmiş</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Active Status Filter */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Aktivlik</label>
+                <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Aktivlik seçin" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Bütün aktivliklər</SelectItem>
                     <SelectItem value="active">Aktiv</SelectItem>
                     <SelectItem value="inactive">Deaktiv</SelectItem>
                     <SelectItem value="pending">Gözləyən</SelectItem>

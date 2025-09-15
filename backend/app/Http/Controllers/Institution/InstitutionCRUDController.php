@@ -20,6 +20,17 @@ class InstitutionCRUDController extends Controller
         $user = Auth::user();
         $query = Institution::query();
 
+        // Handle soft deleted institutions visibility
+        $showTrashed = $request->boolean('include_trashed', false);
+        $onlyTrashed = $request->boolean('only_trashed', false);
+
+        if ($onlyTrashed) {
+            $query->onlyTrashed();
+        } elseif ($showTrashed) {
+            $query->withTrashed();
+        }
+        // Default behavior: only show non-deleted institutions (withoutTrashed is default)
+
         // Apply role-based access control
         $this->applyAccessControl($query, $user);
 
@@ -195,7 +206,7 @@ class InstitutionCRUDController extends Controller
     /**
      * Get delete impact summary for institution
      */
-    public function getDeleteImpact(Institution $institution): JsonResponse
+    public function getDeleteImpact($id): JsonResponse
     {
         $user = Auth::user();
 
@@ -208,6 +219,9 @@ class InstitutionCRUDController extends Controller
         }
 
         try {
+            // Find institution including soft deleted ones
+            $institution = Institution::withTrashed()->findOrFail($id);
+
             $impactSummary = $institution->getDeleteImpactSummary();
 
             return response()->json([
@@ -225,9 +239,12 @@ class InstitutionCRUDController extends Controller
     /**
      * Remove the specified institution from storage.
      */
-    public function destroy(Request $request, Institution $institution): JsonResponse
+    public function destroy(Request $request, $id): JsonResponse
     {
         $user = Auth::user();
+
+        // Find institution including soft deleted ones
+        $institution = Institution::withTrashed()->findOrFail($id);
         
         // Check permissions - align with frontend UI permissions
         if (!$user->hasRole('superadmin') && !$user->hasRole('regionadmin') && !$user->hasRole('sektoradmin')) {
@@ -316,6 +333,8 @@ class InstitutionCRUDController extends Controller
         // The model will handle the complex deletion process
 
         try {
+            \Log::info("Starting deletion for institution {$institution->id}, type: {$deleteType}");
+
             if ($deleteType === 'soft') {
                 // Soft delete - just marks as deleted
                 $institution->delete();
@@ -327,8 +346,10 @@ class InstitutionCRUDController extends Controller
                     'delete_type' => $deleteType
                 ], 200);
             } else {
+                \Log::info("About to call hardDeleteWithRelationships for institution {$institution->id}");
                 // Hard delete - comprehensive cleanup using the model method
                 $deletedData = $institution->hardDeleteWithRelationships();
+                \Log::info("Hard delete completed for institution {$institution->id}");
 
                 // Build detailed success message
                 $details = [];

@@ -61,13 +61,13 @@ class Institution extends Model
         // Include current institution
         $childrenIds[] = $this->id;
         
-        // Get direct children
-        $directChildren = $this->children()->pluck('id')->toArray();
+        // Get direct children (include soft deleted)
+        $directChildren = $this->children()->withTrashed()->pluck('id')->toArray();
         $childrenIds = array_merge($childrenIds, $directChildren);
-        
+
         // Recursively get children of children
         foreach ($directChildren as $childId) {
-            $child = Institution::find($childId);
+            $child = Institution::withTrashed()->find($childId);
             if ($child) {
                 $grandChildren = $child->getAllChildrenIds();
                 $childrenIds = array_merge($childrenIds, $grandChildren);
@@ -354,9 +354,26 @@ class Institution extends Model
     /**
      * Perform comprehensive hard delete with all relationship cleanup
      */
+    /**
+     * Perform comprehensive hard delete with all relationship cleanup
+     * Handles both single models and collections
+     */
     public function hardDeleteWithRelationships(): array
     {
-        $deletedData = [];
+        // If this is a collection, process each model
+        if ($this instanceof \Illuminate\Database\Eloquent\Collection) {
+            $deletedData = [];
+            foreach ($this as $institution) {
+                $deletedData[] = $institution->hardDeleteWithRelationships();
+            }
+            return $deletedData;
+        }
+
+        // For single model
+        $deletedData = [
+            'institution_id' => $this->id,
+            'institution_name' => $this->name,
+        ];
 
         \DB::transaction(function () use (&$deletedData) {
             // Create manual audit log BEFORE deletion to preserve audit trail
@@ -366,12 +383,16 @@ class Institution extends Model
             Institution::unsetEventDispatcher();
 
             // For SQLite, temporarily disable foreign key checks
-            if (config('database.default') === 'sqlite') {
+            $dbConfig = config('database.default');
+            if ($dbConfig === 'sqlite') {
                 \DB::statement('PRAGMA foreign_keys=OFF;');
+                \Log::info('SQLite foreign keys disabled for hard delete');
             }
 
             // 1. Recursively delete all child institutions first (bottom-up approach)
-            $children = $this->children()->get();
+            \Log::info("Getting children for institution {$this->id}");
+            $children = $this->children()->withTrashed()->get();
+            \Log::info("Found {$children->count()} children for institution {$this->id}");
             if ($children->count() > 0) {
                 $deletedData['children_deleted'] = [];
                 foreach ($children as $child) {
@@ -392,8 +413,38 @@ class Institution extends Model
             $userCount = $this->users()->count();
             if ($userCount > 0) {
                 $deletedData['users_affected'] = $userCount;
-                // Force delete all users to avoid foreign key issues
+
+                // First, clear references in other tables
+                \DB::table('user_profiles')->where('institution_id', $this->id)->delete();
+
+                // Then force delete all users to avoid foreign key issues
                 $this->users()->each(function($user) {
+                    // Clear all user references systematically in correct order (FK constraints)
+                    // 1. First delete user profile (has FK to users.id)
+                    \DB::table('user_profiles')->where('user_id', $user->id)->delete();
+
+                    // 2. Then delete role/permission assignments
+                    \DB::table('model_has_roles')->where('model_id', $user->id)->where('model_type', 'App\\Models\\User')->delete();
+                    \DB::table('model_has_permissions')->where('model_id', $user->id)->where('model_type', 'App\\Models\\User')->delete();
+
+                    // Clear any other references to this user
+                    \DB::table('personal_access_tokens')->where('tokenable_id', $user->id)->where('tokenable_type', 'App\\Models\\User')->delete();
+
+                    // Clear password resets
+                    \DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+
+                    // Clear any audit logs, activity logs that might reference this user
+                    \DB::table('activity_logs')->where('user_id', $user->id)->delete();
+                    \DB::table('audit_logs')->where('user_id', $user->id)->delete();
+
+                    // Clear session logs if exists
+                    try {
+                        \DB::table('session_logs')->where('user_id', $user->id)->delete();
+                    } catch (\Exception $e) {
+                        // Table might not exist
+                    }
+
+                    // Force delete user
                     $user->forceDelete(); // Hard delete users
                 });
                 $deletedData['users_deleted'] = $userCount;
@@ -491,8 +542,9 @@ class Institution extends Model
             $deletedData['institution_deleted'] = true;
 
             // Re-enable foreign key checks if we disabled them
-            if (config('database.default') === 'sqlite') {
+            if ($dbConfig === 'sqlite') {
                 \DB::statement('PRAGMA foreign_keys=ON;');
+                \Log::info('SQLite foreign keys re-enabled after hard delete');
             }
 
             // Re-enable Institution Observer
@@ -513,7 +565,7 @@ class Institution extends Model
         $totalStudentsCount = $this->students()->count();
 
         // Recursively get children impact
-        $children = $this->children()->get();
+        $children = $this->children()->withTrashed()->get();
         foreach ($children as $child) {
             $childSummary = $child->getDeleteImpactSummary();
             $childrenSummary[] = $childSummary;
@@ -529,7 +581,7 @@ class Institution extends Model
                 'type' => $this->type,
                 'level' => $this->level
             ],
-            'direct_children_count' => $this->children()->count(),
+            'direct_children_count' => $this->children()->withTrashed()->count(),
             'total_children_count' => $totalChildrenCount,
             'children_details' => $childrenSummary,
             'users_count' => $this->users()->count(),

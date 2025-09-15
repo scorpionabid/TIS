@@ -68,6 +68,8 @@ export interface InstitutionFilters extends PaginationParams {
   type?: 'ministry' | 'regional' | 'sector' | 'school';
   parent_id?: number;
   is_active?: boolean;
+  include_trashed?: boolean;
+  only_trashed?: boolean;
 }
 
 class InstitutionService extends BaseService<Institution> {

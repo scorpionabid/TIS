@@ -21,6 +21,7 @@ export interface InstitutionsState {
   statusFilter: string;
   levelFilter: string;
   parentFilter: string;
+  deletedFilter: string;
   sortField: string;
   sortDirection: string;
   showFilters: boolean;
@@ -48,6 +49,7 @@ export const useInstitutionsState = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [levelFilter, setLevelFilter] = useState<string>('all');
   const [parentFilter, setParentFilter] = useState<string>('all');
+  const [deletedFilter, setDeletedFilter] = useState<string>('active');
   const [sortField, setSortField] = useState<string>('name');
   const [sortDirection, setSortDirection] = useState<string>('asc');
   const [showFilters, setShowFilters] = useState(false);
@@ -100,6 +102,7 @@ export const useInstitutionsState = () => {
     setStatusFilter('all');
     setLevelFilter('all');
     setParentFilter('all');
+    setDeletedFilter('active');
     setSortField('name');
     setSortDirection('asc');
     setCurrentPage(1);
@@ -127,6 +130,7 @@ export const useInstitutionsState = () => {
     statusFilter,
     levelFilter,
     parentFilter,
+    deletedFilter,
     sortField,
     sortDirection,
     showFilters,
@@ -140,6 +144,7 @@ export const useInstitutionsState = () => {
     setStatusFilter,
     setLevelFilter,
     setParentFilter,
+    setDeletedFilter,
     setSortField,
     setSortDirection,
     setShowFilters,

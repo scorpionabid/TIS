@@ -130,13 +130,13 @@ Route::middleware('permission:institutions.read')->group(function () {
     Route::get('institutions/check-utis-code-exists', [InstitutionController::class, 'checkUtisCodeExists']);
     Route::post('institutions/generate-code', [InstitutionController::class, 'generateCode']);
     Route::get('institutions/{institution}/stats', [InstitutionController::class, 'getStats']);
-    Route::get('institutions/{institution}/delete-impact', [InstitutionController::class, 'getDeleteImpact']);
+    Route::get('institutions/{id}/delete-impact', [InstitutionController::class, 'getDeleteImpact']); // Use ID instead of model binding for soft deleted institutions
 });
 
 Route::middleware('permission:institutions.write')->group(function () {
     Route::post('institutions', [InstitutionController::class, 'store']);
     Route::put('institutions/{institution}', [InstitutionController::class, 'update']);
-    Route::delete('institutions/{institution}', [InstitutionController::class, 'destroy']);
+    Route::delete('institutions/{id}', [InstitutionController::class, 'destroy']); // Use ID instead of model binding for soft deleted institutions
     
     // Import/Export routes
     Route::post('institutions/import/template', [InstitutionController::class, 'downloadImportTemplate']);

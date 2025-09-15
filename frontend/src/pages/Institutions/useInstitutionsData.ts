@@ -25,6 +25,7 @@ interface UseInstitutionsDataProps {
   statusFilter: string;
   levelFilter: string;
   parentFilter: string;
+  deletedFilter: string;
   sortField: string;
   sortDirection: string;
   institutionAdmins: Record<number, User | null>;
@@ -39,6 +40,7 @@ export const useInstitutionsData = ({
   statusFilter,
   levelFilter,
   parentFilter,
+  deletedFilter,
   sortField,
   sortDirection,
   institutionAdmins,
@@ -144,7 +146,7 @@ export const useInstitutionsData = ({
 
   // Main institutions query
   const { data: institutionsResponse, isLoading, error } = useQuery<InstitutionsResponse>({
-    queryKey: ['institutions-main', selectedType, currentPage, perPage, searchQuery, statusFilter, levelFilter, parentFilter, sortField, sortDirection],
+    queryKey: ['institutions-main', selectedType, currentPage, perPage, searchQuery, statusFilter, levelFilter, parentFilter, deletedFilter, sortField, sortDirection],
     queryFn: async () => {
       const params: any = {
         page: currentPage,
@@ -152,8 +154,16 @@ export const useInstitutionsData = ({
       };
       
       if (searchQuery.trim()) params.search = searchQuery.trim();
-      if (statusFilter !== 'all') params.status = statusFilter;
+      if (statusFilter !== 'all') params.is_active = statusFilter === 'active';
       if (levelFilter !== 'all') params.level = parseInt(levelFilter);
+
+      // Handle deleted filter
+      if (deletedFilter === 'with_deleted') {
+        params.include_trashed = true;
+      } else if (deletedFilter === 'only_deleted') {
+        params.only_trashed = true;
+      }
+      // Default (deletedFilter === 'active') shows only active institutions (no additional params needed)
       
       // Handle parent filter
       if (parentFilter !== 'all') {
