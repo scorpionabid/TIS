@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Institution;
 
 use App\Http\Controllers\Controller;
 use App\Models\Institution;
+use App\Services\InstitutionDeleteProgressService;
+use App\Http\Requests\InstitutionDeleteRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
@@ -237,19 +239,57 @@ class InstitutionCRUDController extends Controller
     }
 
     /**
+     * Get delete operation progress
+     */
+    public function getDeleteProgress(Request $request, $operationId): JsonResponse
+    {
+        $progressService = new InstitutionDeleteProgressService();
+        $progress = $progressService->getProgress($operationId);
+
+        if (!$progress) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Progress not found'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $progress
+        ]);
+    }
+
+    /**
      * Remove the specified institution from storage.
      */
-    public function destroy(Request $request, Institution $institution): JsonResponse
+    public function destroy(InstitutionDeleteRequest $request, Institution $institution): JsonResponse
     {
         $user = Auth::user();
+        $progressService = new InstitutionDeleteProgressService();
+        $operationId = InstitutionDeleteProgressService::generateOperationId();
+
         \Log::info("Deletion process initiated for Institution ID: {$institution->id} ('{$institution->name}') by User ID: {$user->id} ('{$user->name}').");
+
+        // Initialize progress tracking
+        $progressService->initializeProgress($operationId, [
+            'institution_id' => $institution->id,
+            'institution_name' => $institution->name,
+            'delete_type' => $request->input('type', 'soft'),
+            'user_id' => $user->id,
+            'children_count' => $institution->children()->withTrashed()->count(),
+            'users_count' => $institution->users()->count()
+        ]);
+
+        $progressService->updateProgress($operationId, 10, 'İcazələr yoxlanılır...');
 
         // Check permissions - align with frontend UI permissions
         if (!$user->hasRole('superadmin') && !$user->hasRole('regionadmin') && !$user->hasRole('sektoradmin')) {
             \Log::warning("Permission denied for User ID: {$user->id} attempting to delete Institution ID: {$institution->id}. Required roles: superadmin, regionadmin, or sektoradmin.");
+            $progressService->failProgress($operationId, 'Bu əməliyyat üçün icazəniz yoxdur.');
             return response()->json([
                 'success' => false,
-                'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'
+                'message' => 'Bu əməliyyat üçün icazəniz yoxdur.',
+                'operation_id' => $operationId
             ], 403);
         }
         
@@ -283,9 +323,16 @@ class InstitutionCRUDController extends Controller
         $deleteType = $request->input('type', 'soft');
         \Log::info("Delete type specified: '{$deleteType}' for Institution ID: {$institution->id}.");
 
+        $progressService->updateProgress($operationId, 20, 'Silmə növü təsdiq edilir...');
+
         if (!in_array($deleteType, ['soft', 'hard'])) {
             \Log::error("Invalid delete type '{$deleteType}' requested for Institution ID: {$institution->id}.");
-            return response()->json(['success' => false, 'message' => 'Yanlış silmə növü. "soft" və ya "hard" olmalıdır.'], 422);
+            $progressService->failProgress($operationId, 'Yanlış silmə növü. "soft" və ya "hard" olmalıdır.');
+            return response()->json([
+                'success' => false,
+                'message' => 'Yanlış silmə növü. "soft" və ya "hard" olmalıdır.',
+                'operation_id' => $operationId
+            ], 422);
         }
         
         // Check if institution has users (prevent soft delete if users exist)
@@ -302,30 +349,49 @@ class InstitutionCRUDController extends Controller
 
         try {
             if ($deleteType === 'soft') {
+                $progressService->updateProgress($operationId, 50, 'Arxivə köçürülür...');
+
                 \Log::info("Executing soft delete for Institution ID: {$institution->id}.");
                 $institution->delete();
                 $message = 'Müəssisə arxivə köçürüldü və lazım olduqda bərpa edilə bilər.';
                 \Log::info("Soft delete successful for Institution ID: {$institution->id}.");
 
+                $progressService->completeProgress($operationId, [
+                    'message' => $message,
+                    'delete_type' => $deleteType
+                ]);
+
                 return response()->json([
                     'success' => true,
                     'message' => $message,
-                    'delete_type' => $deleteType
+                    'delete_type' => $deleteType,
+                    'operation_id' => $operationId
                 ], 200);
             } else {
+                $progressService->updateProgress($operationId, 40, 'Həmişəlik silmə başlanılır...');
+
                 \Log::info("Executing hard delete for Institution ID: {$institution->id}. Calling hardDeleteWithRelationships method.");
-                $deletedData = $institution->hardDeleteWithRelationships();
+
+                // Pass progress service to hard delete method
+                $deletedData = $institution->hardDeleteWithRelationships($progressService, $operationId);
                 \Log::info("Hard delete completed for Institution ID: {$institution->id}.", ['details' => $deletedData]);
 
                 $childrenCount = isset($deletedData['children_deleted']) ? count($deletedData['children_deleted']) : 0;
                 $detailMessage = $childrenCount > 0 ? ' (Rekursiv silmə - alt müəssisələr də daxil olmaqla)' : '';
                 $message = 'Müəssisə və bütün əlaqəli məlumatlar həmişəlik silindi.' . $detailMessage;
 
+                $progressService->completeProgress($operationId, [
+                    'message' => $message,
+                    'delete_type' => $deleteType,
+                    'deleted_data' => $deletedData
+                ]);
+
                 return response()->json([
                     'success' => true,
                     'message' => $message,
                     'delete_type' => $deleteType,
-                    'deleted_data' => $deletedData
+                    'deleted_data' => $deletedData,
+                    'operation_id' => $operationId
                 ], 200);
             }
 
@@ -337,9 +403,16 @@ class InstitutionCRUDController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
 
+            $progressService->failProgress($operationId, 'Müəssisə silinərkən xəta baş verdi: ' . $e->getMessage(), [
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Müəssisə silinərkən xəta baş verdi: ' . $e->getMessage()
+                'message' => 'Müəssisə silinərkən xəta baş verdi: ' . $e->getMessage(),
+                'operation_id' => $operationId
             ], 500);
         }
     }

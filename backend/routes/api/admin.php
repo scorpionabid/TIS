@@ -131,6 +131,7 @@ Route::middleware('permission:institutions.read')->group(function () {
     Route::post('institutions/generate-code', [InstitutionController::class, 'generateCode']);
     Route::get('institutions/{institution}/stats', [InstitutionController::class, 'getStats']);
     Route::get('institutions/{id}/delete-impact', [InstitutionController::class, 'getDeleteImpact']); // Use ID instead of model binding for soft deleted institutions
+    Route::get('institutions/delete-progress/{operationId}', [\App\Http\Controllers\Institution\InstitutionCRUDController::class, 'getDeleteProgress']); // Progress tracking
 });
 
 Route::middleware('permission:institutions.write')->group(function () {

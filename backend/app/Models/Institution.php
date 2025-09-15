@@ -90,14 +90,6 @@ class Institution extends Model
      */
     public function children(): HasMany
     {
-        // Debug logging to trace children() method calls
-        \Log::info('Institution->children() called', [
-            'institution_id' => $this->id ?? 'null',
-            'institution_name' => $this->name ?? 'null',
-            'class' => get_class($this),
-            'backtrace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 5)
-        ]);
-
         return $this->hasMany(Institution::class, 'parent_id');
     }
 
@@ -366,7 +358,7 @@ class Institution extends Model
      * Perform comprehensive hard delete with all relationship cleanup
      * Handles both single models and collections
      */
-    public function hardDeleteWithRelationships(): array
+    public function hardDeleteWithRelationships($progressService = null, $operationId = null): array
     {
         // If this is a collection, process each model
         if ($this instanceof \Illuminate\Database\Eloquent\Collection) {
@@ -390,9 +382,13 @@ class Institution extends Model
             \Log::info('SQLite foreign keys disabled for hard delete');
         }
 
-        \DB::transaction(function () use (&$deletedData, $dbConfig) {
+        \DB::transaction(function () use (&$deletedData, $dbConfig, $progressService, $operationId) {
             // Create manual audit log BEFORE deletion to preserve audit trail
             $this->createManualAuditLog('hard_delete_initiated', $this->toArray(), null);
+
+            if ($progressService && $operationId) {
+                $progressService->updateProgress($operationId, 45, 'Audit log yaradılır...');
+            }
 
             // CRITICAL: Disable Institution Observer to prevent audit log foreign key issues during hard delete
             Institution::unsetEventDispatcher();
@@ -401,6 +397,11 @@ class Institution extends Model
             \Log::info("Getting children for institution {$this->id}");
             $children = $this->children()->withTrashed()->get();
             \Log::info("Found {$children->count()} children for institution {$this->id}");
+
+            if ($progressService && $operationId) {
+                $progressService->updateProgress($operationId, 50, "Alt müəssisələr silinir ({$children->count()} ədəd)...");
+            }
+
             if ($children->count() > 0) {
                 $deletedData['children_deleted'] = [];
                 foreach ($children as $child) {
@@ -423,6 +424,11 @@ class Institution extends Model
 
             // 2. Delete all users associated with this institution
             $userCount = $this->users()->count();
+
+            if ($progressService && $operationId) {
+                $progressService->updateProgress($operationId, 65, "İstifadəçilər silinir ({$userCount} ədəd)...");
+            }
+
             if ($userCount > 0) {
                 $deletedData['users_affected'] = $userCount;
 
@@ -546,6 +552,10 @@ class Institution extends Model
             if ($auditLogsCount > 0) {
                 $this->auditLogs()->delete();
                 $deletedData['audit_logs'] = $auditLogsCount;
+            }
+
+            if ($progressService && $operationId) {
+                $progressService->updateProgress($operationId, 90, 'Müəssisə məlumatları silinir...');
             }
 
             // 4. Finally, force delete the institution itself using raw SQL
