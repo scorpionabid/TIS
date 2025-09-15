@@ -385,7 +385,7 @@ class InventoryAnalyticsService
         if ($user->hasRole('regionadmin')) {
             return $user->institution->descendants()->pluck('id')->toArray();
         } elseif ($user->hasRole('sektoradmin')) {
-            return $user->institution->children()->pluck('id')->toArray();
+            return $user->institution->children()->withTrashed()->pluck('id')->toArray();
         } else {
             return [$user->institution_id];
         }

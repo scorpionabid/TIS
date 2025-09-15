@@ -284,10 +284,10 @@ class SectorManagerService extends BaseService
 
         if ($sector) {
             $performance['metrics'] = [
-                'schools_managed' => $sector->children()->count(),
-                'active_schools' => $sector->children()->where('is_active', true)->count(),
-                'total_students' => $sector->children()->withCount('students')->get()->sum('students_count'),
-                'total_teachers' => $sector->children()->withCount(['users' => function($query) {
+                'schools_managed' => $sector->children()->withTrashed()->count(),
+                'active_schools' => $sector->children()->withTrashed()->where('is_active', true)->count(),
+                'total_students' => $sector->children()->withTrashed()->withCount('students')->get()->sum('students_count'),
+                'total_teachers' => $sector->children()->withTrashed()->withCount(['users' => function($query) {
                     $query->whereHas('roles', function($roleQuery) {
                         $roleQuery->where('name', 'teacher');
                     });

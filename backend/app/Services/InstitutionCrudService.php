@@ -159,7 +159,7 @@ class InstitutionCrudService extends BaseService
 
         return DB::transaction(function () use ($institution) {
             // Check if institution has children
-            if ($institution->children()->count() > 0) {
+            if ($institution->children()->withTrashed()->count() > 0) {
                 throw new Exception('Bu qurumun alt qurumları var. Əvvəlcə alt qurumları silin və ya başqa valideynə köçürün.', 422);
             }
 

@@ -304,7 +304,7 @@ class RegionAdminInstitutionController extends Controller
         }
         
         // Check if institution has children
-        if ($institution->children()->exists()) {
+        if ($institution->children()->withTrashed()->exists()) {
             return response()->json([
                 'message' => 'Cannot delete institution with child institutions'
             ], 400);

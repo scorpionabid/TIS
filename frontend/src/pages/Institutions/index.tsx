@@ -108,12 +108,12 @@ const InstitutionsPage: React.FC = () => {
   };
 
   // Handle delete action
-  const handleDelete = async (deleteType: 'soft' | 'hard') => {
-    if (!institutionToDelete) return;
+  const handleDelete = async (institution: any, deleteType: 'soft' | 'hard') => {
+    if (!institution) return;
     
     try {
       // Call the institution service delete method
-      await institutionService.delete(institutionToDelete.id, deleteType);
+      await institutionService.delete(institution.id, deleteType);
       
       // Close the modal
       closeDeleteModal();

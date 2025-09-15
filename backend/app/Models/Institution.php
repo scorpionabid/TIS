@@ -90,6 +90,14 @@ class Institution extends Model
      */
     public function children(): HasMany
     {
+        // Debug logging to trace children() method calls
+        \Log::info('Institution->children() called', [
+            'institution_id' => $this->id ?? 'null',
+            'institution_name' => $this->name ?? 'null',
+            'class' => get_class($this),
+            'backtrace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 5)
+        ]);
+
         return $this->hasMany(Institution::class, 'parent_id');
     }
 
@@ -98,7 +106,7 @@ class Institution extends Model
      */
     public function descendants(): HasMany
     {
-        return $this->children()->with('descendants');
+        return $this->children()->withTrashed()->with('descendants');
     }
 
     /**
@@ -375,19 +383,19 @@ class Institution extends Model
             'institution_name' => $this->name,
         ];
 
-        \DB::transaction(function () use (&$deletedData) {
+        // For SQLite, disable foreign key checks BEFORE the transaction
+        $dbConfig = config('database.default');
+        if ($dbConfig === 'sqlite') {
+            \DB::statement('PRAGMA foreign_keys=OFF;');
+            \Log::info('SQLite foreign keys disabled for hard delete');
+        }
+
+        \DB::transaction(function () use (&$deletedData, $dbConfig) {
             // Create manual audit log BEFORE deletion to preserve audit trail
             $this->createManualAuditLog('hard_delete_initiated', $this->toArray(), null);
 
             // CRITICAL: Disable Institution Observer to prevent audit log foreign key issues during hard delete
             Institution::unsetEventDispatcher();
-
-            // For SQLite, temporarily disable foreign key checks
-            $dbConfig = config('database.default');
-            if ($dbConfig === 'sqlite') {
-                \DB::statement('PRAGMA foreign_keys=OFF;');
-                \Log::info('SQLite foreign keys disabled for hard delete');
-            }
 
             // 1. Recursively delete all child institutions first (bottom-up approach)
             \Log::info("Getting children for institution {$this->id}");
@@ -400,6 +408,10 @@ class Institution extends Model
                     if (request()) {
                         request()->merge(['type' => 'hard']);
                     }
+
+                    // Refresh child model to ensure we have fresh relationships
+                    $child = $child->fresh() ?? Institution::withTrashed()->find($child->id);
+
                     $childDeleteData = $child->hardDeleteWithRelationships();
                     $deletedData['children_deleted'][] = [
                         'id' => $child->id,
@@ -444,8 +456,8 @@ class Institution extends Model
                         // Table might not exist
                     }
 
-                    // Force delete user
-                    $user->forceDelete(); // Hard delete users
+                    // Force delete user using raw SQL (bypasses Eloquent FK checks)
+                    \DB::statement('DELETE FROM users WHERE id = ?', [$user->id]);
                 });
                 $deletedData['users_deleted'] = $userCount;
             }
@@ -536,20 +548,20 @@ class Institution extends Model
                 $deletedData['audit_logs'] = $auditLogsCount;
             }
 
-            // 4. Finally, force delete the institution itself
+            // 4. Finally, force delete the institution itself using raw SQL
             // All CASCADE DELETE relationships will be automatically handled by the database
-            $this->forceDelete();
+            \DB::statement('DELETE FROM institutions WHERE id = ?', [$this->id]);
             $deletedData['institution_deleted'] = true;
-
-            // Re-enable foreign key checks if we disabled them
-            if ($dbConfig === 'sqlite') {
-                \DB::statement('PRAGMA foreign_keys=ON;');
-                \Log::info('SQLite foreign keys re-enabled after hard delete');
-            }
 
             // Re-enable Institution Observer
             Institution::setEventDispatcher(app('events'));
         });
+
+        // Re-enable foreign key checks AFTER the transaction
+        if ($dbConfig === 'sqlite') {
+            \DB::statement('PRAGMA foreign_keys=ON;');
+            \Log::info('SQLite foreign keys re-enabled after hard delete');
+        }
 
         return $deletedData;
     }

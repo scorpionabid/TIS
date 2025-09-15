@@ -133,7 +133,7 @@ class InstitutionService
     public function deleteInstitution(Institution $institution): bool
     {
         // Check if institution has active children
-        if ($institution->children()->where('is_active', true)->exists()) {
+        if ($institution->children()->withTrashed()->where('is_active', true)->exists()) {
             throw new \Exception('Bu təşkilatın aktiv alt təşkilatları var. Əvvəlcə onları deaktiv edin.');
         }
 

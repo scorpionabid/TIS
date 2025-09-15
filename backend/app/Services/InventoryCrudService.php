@@ -250,7 +250,7 @@ class InventoryCrudService
             return $user->institution->descendants()->pluck('id')->toArray();
         } elseif ($user->hasRole('sektoradmin')) {
             // SektorAdmin can access institutions in their sector
-            return $user->institution->children()->pluck('id')->toArray();
+            return $user->institution->children()->withTrashed()->pluck('id')->toArray();
         } else {
             // School level users can only access their own institution
             return [$user->institution_id];

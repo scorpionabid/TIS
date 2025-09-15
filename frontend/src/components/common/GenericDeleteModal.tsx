@@ -281,13 +281,13 @@ export const DeleteInstitutionModal: React.FC<{
   open: boolean;
   onClose: () => void;
   institution: any | null;
-  onDelete: (deleteType: DeleteType) => Promise<void>;
+  onDelete: (institution: any, deleteType: DeleteType) => Promise<void>;
 }> = (props) => (
   <GenericDeleteModal
     open={props.open}
     onClose={props.onClose}
     item={props.institution}
-    onConfirmWithItem={(item, deleteType) => props.onDelete(deleteType)}
+    onConfirmWithItem={(item, deleteType) => props.onDelete(item, deleteType)}
     itemType="müəssisə"
     showDeleteTypeOptions={true}
   />

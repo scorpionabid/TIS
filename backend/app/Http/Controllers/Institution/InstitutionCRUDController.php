@@ -239,106 +239,73 @@ class InstitutionCRUDController extends Controller
     /**
      * Remove the specified institution from storage.
      */
-    public function destroy(Request $request, $id): JsonResponse
+    public function destroy(Request $request, Institution $institution): JsonResponse
     {
         $user = Auth::user();
+        \Log::info("Deletion process initiated for Institution ID: {$institution->id} ('{$institution->name}') by User ID: {$user->id} ('{$user->name}').");
 
-        // Find institution including soft deleted ones
-        $institution = Institution::withTrashed()->findOrFail($id);
-        
         // Check permissions - align with frontend UI permissions
         if (!$user->hasRole('superadmin') && !$user->hasRole('regionadmin') && !$user->hasRole('sektoradmin')) {
+            \Log::warning("Permission denied for User ID: {$user->id} attempting to delete Institution ID: {$institution->id}. Required roles: superadmin, regionadmin, or sektoradmin.");
             return response()->json([
                 'success' => false,
                 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'
             ], 403);
         }
         
-        // RegionAdmin can only delete institutions within their hierarchy (level 3 and 4)
+        // RegionAdmin permission checks
         if ($user->hasRole('regionadmin')) {
             $userInstitution = $user->institution;
-            
             if (!$userInstitution || $userInstitution->level !== 2) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'RegionAdmin regional müəssisə ilə əlaqələndirilməlidir.'
-                ], 403);
+                \Log::warning("RegionAdmin (User ID: {$user->id}) permission failed: Not associated with a regional institution.");
+                return response()->json(['success' => false, 'message' => 'RegionAdmin regional müəssisə ilə əlaqələndirilməlidir.'], 403);
             }
-            
-            // Check if institution is within their hierarchy
-            $canDelete = $institution->parent_id === $userInstitution->id || // Direct child (sector)
-                        ($institution->parent && $institution->parent->parent_id === $userInstitution->id); // Grandchild (school under sector)
-                        
+            $canDelete = $institution->parent_id === $userInstitution->id || ($institution->parent_id && Institution::withTrashed()->where('id', $institution->parent_id)->where('parent_id', $userInstitution->id)->exists());
             if (!$canDelete || $institution->level < 3) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'RegionAdmin yalnız öz regionu altındakı müəssisələri silə bilər.'
-                ], 403);
+                \Log::warning("RegionAdmin (User ID: {$user->id}) permission failed: Attempted to delete institution ({$institution->id}) outside of their hierarchy.");
+                return response()->json(['success' => false, 'message' => 'RegionAdmin yalnız öz regionu altındakı müəssisələri silə bilər.'], 403);
             }
         }
         
-        // SektorAdmin can only delete level 4 institutions (schools) under their sector
+        // SektorAdmin permission checks
         if ($user->hasRole('sektoradmin')) {
             $userInstitution = $user->institution;
-            
             if (!$userInstitution || $userInstitution->level !== 3) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'SektorAdmin sektor müəssisəsi ilə əlaqələndirilməlidir.'
-                ], 403);
+                \Log::warning("SektorAdmin (User ID: {$user->id}) permission failed: Not associated with a sector institution.");
+                return response()->json(['success' => false, 'message' => 'SektorAdmin sektor müəssisəsi ilə əlaqələndirilməlidir.'], 403);
             }
-            
-            // Can only delete level 4 institutions directly under their sector
             if ($institution->parent_id !== $userInstitution->id || $institution->level !== 4) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'SektorAdmin yalnız öz sektoru altındakı məktəbləri silə bilər.'
-                ], 403);
+                \Log::warning("SektorAdmin (User ID: {$user->id}) permission failed: Attempted to delete institution ({$institution->id}) outside of their hierarchy.");
+                return response()->json(['success' => false, 'message' => 'SektorAdmin yalnız öz sektoru altındakı məktəbləri silə bilər.'], 403);
             }
         }
         
-        // Get delete type from request parameter (soft or hard)
         $deleteType = $request->input('type', 'soft');
-        
-        // Validate delete type
+        \Log::info("Delete type specified: '{$deleteType}' for Institution ID: {$institution->id}.");
+
         if (!in_array($deleteType, ['soft', 'hard'])) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Yanlış silmə növü. "soft" və ya "hard" olmalıdır.'
-            ], 422);
+            \Log::error("Invalid delete type '{$deleteType}' requested for Institution ID: {$institution->id}.");
+            return response()->json(['success' => false, 'message' => 'Yanlış silmə növü. "soft" və ya "hard" olmalıdır.'], 422);
         }
         
-        // Check if institution has children and users (different handling for soft vs hard delete)
-        $hasChildren = $institution->children()->exists();
-        $hasUsers = $institution->users()->exists();
-
+        // Check if institution has users (prevent soft delete if users exist)
         if ($deleteType === 'soft') {
-            // For soft delete, prevent if has children or users
-            if ($hasChildren) {
+            $userCount = $institution->users()->count();
+            if ($userCount > 0) {
+                \Log::warning("Soft delete aborted for Institution ID: {$institution->id}. Reason: Institution has {$userCount} associated users.");
                 return response()->json([
                     'success' => false,
-                    'message' => 'Alt müəssisələri olan müəssisə arxivə köçürülə bilməz. Əvvəlcə alt müəssisələri köçürün.'
-                ], 422);
-            }
-
-            if ($hasUsers) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'İstifadəçiləri olan müəssisə arxivə köçürülə bilməz. Əvvəlcə istifadəçiləri köçürün.'
+                    'message' => "İstifadəçiləri ({$userCount} nəfər) olan müəssisə arxivə köçürülə bilməz. Əvvəlcə istifadəçiləri köçürün."
                 ], 422);
             }
         }
-
-        // For hard delete, we allow recursive deletion of children and users
-        // The model will handle the complex deletion process
 
         try {
-            \Log::info("Starting deletion for institution {$institution->id}, type: {$deleteType}");
-
             if ($deleteType === 'soft') {
-                // Soft delete - just marks as deleted
+                \Log::info("Executing soft delete for Institution ID: {$institution->id}.");
                 $institution->delete();
                 $message = 'Müəssisə arxivə köçürüldü və lazım olduqda bərpa edilə bilər.';
+                \Log::info("Soft delete successful for Institution ID: {$institution->id}.");
 
                 return response()->json([
                     'success' => true,
@@ -346,47 +313,13 @@ class InstitutionCRUDController extends Controller
                     'delete_type' => $deleteType
                 ], 200);
             } else {
-                \Log::info("About to call hardDeleteWithRelationships for institution {$institution->id}");
-                // Hard delete - comprehensive cleanup using the model method
+                \Log::info("Executing hard delete for Institution ID: {$institution->id}. Calling hardDeleteWithRelationships method.");
                 $deletedData = $institution->hardDeleteWithRelationships();
-                \Log::info("Hard delete completed for institution {$institution->id}");
+                \Log::info("Hard delete completed for Institution ID: {$institution->id}.", ['details' => $deletedData]);
 
-                // Build detailed success message
-                $details = [];
-                $childrenCount = 0;
-
-                if (isset($deletedData['children_deleted'])) {
-                    $childrenCount = count($deletedData['children_deleted']);
-                    $details[] = "{$childrenCount} alt müəssisə";
-                }
-
-                if (isset($deletedData['users_deleted'])) {
-                    $details[] = "{$deletedData['users_deleted']} istifadəçi";
-                }
-
-                if (isset($deletedData['students'])) {
-                    $details[] = "{$deletedData['students']} şagird";
-                }
-
-                if (isset($deletedData['survey_responses'])) {
-                    $details[] = "{$deletedData['survey_responses']} sorğu cavabı";
-                }
-                if (isset($deletedData['statistics'])) {
-                    $details[] = "{$deletedData['statistics']} statistika";
-                }
-                if (isset($deletedData['departments'])) {
-                    $details[] = "{$deletedData['departments']} şöbə";
-                }
-                if (isset($deletedData['rooms'])) {
-                    $details[] = "{$deletedData['rooms']} otaq";
-                }
-                if (isset($deletedData['grades'])) {
-                    $details[] = "{$deletedData['grades']} sinif";
-                }
-
-                $detailMessage = !empty($details) ? ' Silindi: ' . implode(', ', $details) . '.' : '';
-                $recursiveMessage = $childrenCount > 0 ? ' (Recursive silmə - alt müəssisələr də daxil olmaqla)' : '';
-                $message = 'Müəssisə və bütün əlaqəli məlumatlar həmişəlik silindi.' . $recursiveMessage . $detailMessage;
+                $childrenCount = isset($deletedData['children_deleted']) ? count($deletedData['children_deleted']) : 0;
+                $detailMessage = $childrenCount > 0 ? ' (Rekursiv silmə - alt müəssisələr də daxil olmaqla)' : '';
+                $message = 'Müəssisə və bütün əlaqəli məlumatlar həmişəlik silindi.' . $detailMessage;
 
                 return response()->json([
                     'success' => true,
@@ -397,6 +330,13 @@ class InstitutionCRUDController extends Controller
             }
 
         } catch (\Exception $e) {
+            \Log::error("An exception occurred during the '{$deleteType}' deletion of Institution ID: {$institution->id}.", [
+                'error_message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Müəssisə silinərkən xəta baş verdi: ' . $e->getMessage()

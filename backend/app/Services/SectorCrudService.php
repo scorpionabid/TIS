@@ -156,7 +156,7 @@ class SectorCrudService extends BaseService
             $sector = $query->findOrFail($id);
 
             // Check if sector has active child institutions
-            $childInstitutions = $sector->children()->where('is_active', true)->count();
+            $childInstitutions = $sector->children()->withTrashed()->where('is_active', true)->count();
             if ($childInstitutions > 0) {
                 throw new \Exception('Sektor silinə bilməz: Aktiv məktəbləri var');
             }
@@ -234,10 +234,10 @@ class SectorCrudService extends BaseService
                 'email' => $sector->manager->email
             ] : null,
             'statistics' => [
-                'total_institutions' => $sector->children()->count(),
-                'active_institutions' => $sector->children()->where('is_active', true)->count(),
-                'total_schools' => $sector->children()->count(),
-                'active_schools' => $sector->children()->where('is_active', true)->count(),
+                'total_institutions' => $sector->children()->withTrashed()->count(),
+                'active_institutions' => $sector->children()->withTrashed()->where('is_active', true)->count(),
+                'total_schools' => $sector->children()->withTrashed()->count(),
+                'active_schools' => $sector->children()->withTrashed()->where('is_active', true)->count(),
                 'total_users' => $sector->users()->count(),
                 'active_users' => $sector->users()->where('is_active', true)->count(),
                 'total_students' => 0, // Will be calculated if student relationships exist
