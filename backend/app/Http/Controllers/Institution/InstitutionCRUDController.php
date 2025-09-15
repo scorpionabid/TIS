@@ -293,10 +293,19 @@ class InstitutionCRUDController extends Controller
     /**
      * Remove the specified institution from storage.
      */
-    public function destroy(InstitutionDeleteRequest $request, Institution $institution): JsonResponse
+    public function destroy(InstitutionDeleteRequest $request, $id): JsonResponse
     {
+        \Log::info("🚀 DELETE request received for Institution ID: {$id}", [
+            'request_data' => $request->all(),
+            'user_id' => auth()->id(),
+            'ip' => $request->ip()
+        ]);
+
         $user = Auth::user();
         $progressService = new InstitutionDeleteProgressService();
+
+        // Find institution including soft deleted ones
+        $institution = Institution::withTrashed()->findOrFail($id);
         $operationId = InstitutionDeleteProgressService::generateOperationId();
 
         \Log::info("Deletion process initiated for Institution ID: {$institution->id} ('{$institution->name}') by User ID: {$user->id} ('{$user->name}').");

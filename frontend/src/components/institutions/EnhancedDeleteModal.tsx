@@ -90,7 +90,7 @@ export const EnhancedDeleteModal: React.FC<EnhancedDeleteModalProps> = ({
     }
 
     if (deleteType === 'hard' && !force && !reason.trim()) {
-      newErrors.push('Həmişəlik silmə üçün səbəb göstərilməlidir.');
+      newErrors.push('Həmişəlik silmə üçün səbəb göstərilməlidir və ya "force" seçimi aktivləşdirilməlidir.');
     }
 
     if (reason.length > 500) {
@@ -102,7 +102,18 @@ export const EnhancedDeleteModal: React.FC<EnhancedDeleteModalProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!institution || !validateForm()) {
+    console.log('🚀 handleSubmit called', { institution: !!institution, confirmation, deleteType, reason, force });
+
+    if (!institution) {
+      console.log('❌ No institution provided');
+      return;
+    }
+
+    const isValid = validateForm();
+    console.log('📋 Validation result:', { isValid, errors });
+
+    if (!isValid) {
+      console.log('❌ Validation failed, stopping submit');
       return;
     }
 
@@ -114,7 +125,9 @@ export const EnhancedDeleteModal: React.FC<EnhancedDeleteModalProps> = ({
         force: deleteType === 'hard' ? force : undefined
       };
 
+      console.log('📤 Sending delete request:', { institutionId: institution.id, deleteType, requestData });
       const result = await institutionService.delete(institution.id, deleteType, requestData);
+      console.log('✅ Delete request successful:', result);
 
       // Close delete modal
       onClose();
@@ -137,7 +150,13 @@ export const EnhancedDeleteModal: React.FC<EnhancedDeleteModalProps> = ({
       }
 
     } catch (error: any) {
-      console.error('Delete failed:', error);
+      console.error('❌ Delete failed:', error);
+      console.log('🔍 Error details:', {
+        message: error.message,
+        response: error.response,
+        status: error.response?.status,
+        data: error.response?.data
+      });
 
       let errorTitle = 'Silmə Xətası';
       let errorMessage = 'Müəssisə silinərkən xəta baş verdi.';
