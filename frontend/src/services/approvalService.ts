@@ -302,6 +302,31 @@ class ApprovalService {
     });
     return response.data;
   }
+
+  // New Table Editing Methods
+
+  /**
+   * Get survey responses in table editing format
+   */
+  async getTableEditingView(surveyId: number, params?: any): Promise<ApiResponse<any>> {
+    const response = await apiClient.get(`/survey-response-approval/surveys/${surveyId}/table-view`, {
+      params
+    });
+    return response.data;
+  }
+
+  /**
+   * Batch update multiple survey responses
+   */
+  async batchUpdateResponses(updates: Array<{
+    response_id: number;
+    responses: Record<string, any>;
+  }>): Promise<ApiResponse<any>> {
+    const response = await apiClient.post('/survey-responses/batch-update', {
+      updates
+    });
+    return response.data;
+  }
 }
 
 export const approvalService = new ApprovalService();

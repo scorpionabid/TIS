@@ -10,9 +10,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Controller;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class SurveyResponseApprovalController extends Controller
 {
+    use AuthorizesRequests;
     protected function getApprovalService()
     {
         return new SurveyResponseApprovalService();
@@ -72,13 +74,18 @@ class SurveyResponseApprovalController extends Controller
     public function getResponseDetail(SurveyResponse $response): JsonResponse
     {
         try {
-            // Check user access to this response
-            $this->authorize('view', $response);
+            // Simple permission check
+            if (!Auth::user()->can('survey_responses.read')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient permissions'
+                ], 403);
+            }
 
             $response->load([
                 'survey',
                 'institution',
-                'department', 
+                'department',
                 'respondent',
                 'approvalRequest.approvalActions.approver',
                 'approvalRequest.workflow'
@@ -90,7 +97,7 @@ class SurveyResponseApprovalController extends Controller
                     'response' => $response,
                     'approval_history' => $response->approvalRequest?->approvalActions ?? [],
                     'can_edit' => $response->status === 'draft',
-                    'can_approve' => $this->canApprove($response),
+                    'can_approve' => $response->status === 'submitted',
                 ],
                 'message' => 'Response details retrieved successfully'
             ]);
@@ -111,8 +118,13 @@ class SurveyResponseApprovalController extends Controller
     public function updateResponseData(SurveyResponse $response, Request $request): JsonResponse
     {
         try {
-            // Check user can edit this response
-            $this->authorize('update', $response);
+            // Simple permission check
+            if (!Auth::user()->can('survey_responses.write')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient permissions'
+                ], 403);
+            }
 
             $validator = Validator::make($request->all(), [
                 'responses' => 'required|array',
@@ -154,7 +166,12 @@ class SurveyResponseApprovalController extends Controller
     public function createApprovalRequest(SurveyResponse $response, Request $request): JsonResponse
     {
         try {
-            $this->authorize('submit', $response);
+            if (!Auth::user()->can('survey_responses.write')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient permissions'
+                ], 403);
+            }
 
             $validator = Validator::make($request->all(), [
                 'notes' => 'sometimes|string|max:1000',
@@ -196,7 +213,12 @@ class SurveyResponseApprovalController extends Controller
     public function approveResponse(SurveyResponse $response, Request $request): JsonResponse
     {
         try {
-            $this->authorize('approve', $response);
+            if (!Auth::user()->can('survey_responses.approve')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient permissions'
+                ], 403);
+            }
 
             $validator = Validator::make($request->all(), [
                 'comments' => 'sometimes|string|max:1000',
@@ -239,7 +261,12 @@ class SurveyResponseApprovalController extends Controller
     public function rejectResponse(SurveyResponse $response, Request $request): JsonResponse
     {
         try {
-            $this->authorize('approve', $response);
+            if (!Auth::user()->can('survey_responses.approve')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient permissions'
+                ], 403);
+            }
 
             $validator = Validator::make($request->all(), [
                 'comments' => 'required|string|max:1000',
@@ -282,7 +309,12 @@ class SurveyResponseApprovalController extends Controller
     public function returnForRevision(SurveyResponse $response, Request $request): JsonResponse
     {
         try {
-            $this->authorize('approve', $response);
+            if (!Auth::user()->can('survey_responses.approve')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient permissions'
+                ], 403);
+            }
 
             $validator = Validator::make($request->all(), [
                 'comments' => 'required|string|max:1000',
@@ -425,6 +457,100 @@ class SurveyResponseApprovalController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error retrieving published surveys',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get responses in table editing format
+     * EXTEND existing functionality, not duplicate
+     * GET /api/survey-response-approval/surveys/{survey}/table-view
+     */
+    public function getTableEditingView(Survey $survey, Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'status' => 'sometimes|in:draft,submitted,approved,rejected',
+                'institution_type' => 'sometimes|string',
+                'search' => 'sometimes|string|max:255',
+                'per_page' => 'sometimes|integer|min:10|max:100',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation error',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $result = $this->getApprovalService()->getResponsesForTableView(
+                $survey,
+                $request,
+                Auth::user()
+            );
+
+            return response()->json([
+                'success' => true,
+                'data' => $result,
+                'message' => 'Table editing view retrieved successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error retrieving table editing view',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Batch update multiple responses
+     * LEVERAGE existing updateResponseData method
+     * POST /api/survey-response-approval/responses/batch-update
+     */
+    public function batchUpdateResponses(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'updates' => 'required|array|min:1',
+                'updates.*.response_id' => 'required|integer|exists:survey_responses,id',
+                'updates.*.responses' => 'required|array'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation error',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $results = $this->getApprovalService()->batchUpdateResponses(
+                $request->input('updates'),
+                Auth::user()
+            );
+
+            $message = $results['successful'] > 0
+                ? "{$results['successful']} responses updated successfully"
+                : 'No responses were updated';
+
+            if ($results['failed'] > 0) {
+                $message .= ", {$results['failed']} failed";
+            }
+
+            return response()->json([
+                'success' => $results['successful'] > 0,
+                'data' => $results,
+                'message' => $message
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error performing batch update',
                 'error' => $e->getMessage()
             ], 500);
         }

@@ -4,11 +4,11 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Input } from '../ui/input';
-import { 
-  FileText, 
-  Check, 
-  X, 
-  Eye, 
+import {
+  FileText,
+  Check,
+  X,
+  Eye,
   Search,
   Users,
   Clock,
@@ -16,13 +16,16 @@ import {
   XCircle,
   Building,
   User,
-  Calendar
+  Calendar,
+  List,
+  Table
 } from 'lucide-react';
 import approvalService from '../../services/approvalService';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { toast } from 'sonner';
+import InstitutionResponsesTable from './InstitutionResponsesTable';
 
 interface Survey {
   id: number;
@@ -75,16 +78,7 @@ const SurveyResponsesTab: React.FC = () => {
   const [selectedResponses, setSelectedResponses] = useState<number[]>([]);
   const [statusFilter, setStatusFilter] = useState('submitted');
   const [searchTerm, setSearchTerm] = useState('');
-
-  useEffect(() => {
-    loadSurveys();
-  }, [loadSurveys]);
-
-  useEffect(() => {
-    if (selectedSurvey) {
-      loadSurveyResponses();
-    }
-  }, [selectedSurvey, statusFilter, searchTerm, loadSurveyResponses]);
+  const [viewMode, setViewMode] = useState<'list' | 'table'>('list');
 
   const loadSurveys = useCallback(async () => {
     try {
@@ -138,6 +132,16 @@ const SurveyResponsesTab: React.FC = () => {
       setLoading(false);
     }
   }, [selectedSurvey, statusFilter, searchTerm]);
+
+  useEffect(() => {
+    loadSurveys();
+  }, [loadSurveys]);
+
+  useEffect(() => {
+    if (selectedSurvey) {
+      loadSurveyResponses();
+    }
+  }, [selectedSurvey, statusFilter, searchTerm, loadSurveyResponses]);
 
   const handleApproveResponse = async (responseId: number) => {
     try {
@@ -318,15 +322,37 @@ const SurveyResponsesTab: React.FC = () => {
             </div>
           </div>
 
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Müəssisə və ya istifadəçi adı ilə axtar..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+          {/* Search and View Mode */}
+          <div className="flex space-x-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Müəssisə və ya istifadəçi adı ilə axtar..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* View Mode Toggle */}
+            <div className="flex space-x-2">
+              <Button
+                size="sm"
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                onClick={() => setViewMode('list')}
+              >
+                <List className="h-4 w-4 mr-1" />
+                Siyahı
+              </Button>
+              <Button
+                size="sm"
+                variant={viewMode === 'table' ? 'default' : 'outline'}
+                onClick={() => setViewMode('table')}
+              >
+                <Table className="h-4 w-4 mr-1" />
+                Redaktə Cədvəli
+              </Button>
+            </div>
           </div>
 
           {/* Bulk Actions */}
@@ -388,8 +414,16 @@ const SurveyResponsesTab: React.FC = () => {
         </Card>
       )}
 
+      {/* Responses Content */}
+      {selectedSurvey && viewMode === 'table' && (
+        <InstitutionResponsesTable
+          survey={selectedSurvey}
+          onUpdate={loadSurveyResponses}
+        />
+      )}
+
       {/* Responses List */}
-      {selectedSurvey && (
+      {selectedSurvey && viewMode === 'list' && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">

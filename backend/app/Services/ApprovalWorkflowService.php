@@ -210,6 +210,7 @@ class ApprovalWorkflowService extends BaseService
      */
     public function getPendingApprovals(Request $request, $user)
     {
+        // Get traditional approval requests
         $query = DataApprovalRequest::with(['workflow', 'institution', 'submitter'])
             ->where('current_status', 'pending');
 
@@ -231,7 +232,101 @@ class ApprovalWorkflowService extends BaseService
         $query->orderByDesc('priority')
               ->orderBy('created_at', 'asc');
 
-        return $query->paginate($request->get('per_page', 15));
+        $approvalRequests = $query->paginate($request->get('per_page', 15));
+
+        // Add survey responses that need approval
+        $surveyResponses = $this->getSurveyResponsesForApproval($request, $user);
+
+        // Convert survey responses to approval request format
+        $formattedSurveyResponses = $surveyResponses->map(function ($response) {
+            return (object)[
+                'id' => 'survey_' . $response->id,
+                'workflow' => (object)[
+                    'id' => null,
+                    'name' => 'Survey Response: ' . $response->survey->title,
+                    'workflow_type' => 'survey'
+                ],
+                'institution' => $response->institution,
+                'submitter' => $response->respondent,
+                'current_status' => $response->status === 'submitted' ? 'pending' : $response->status,
+                'priority' => 'normal',
+                'created_at' => $response->submitted_at ?? $response->created_at,
+                'comments' => 'Survey response requires approval',
+                'current_approval_level' => 1,
+                'deadline' => null,
+                'response_data' => $response,
+                'type' => 'survey_response'
+            ];
+        });
+
+        // Merge with existing approval requests
+        $allApprovals = collect($approvalRequests->items())->concat($formattedSurveyResponses);
+
+        // Sort combined results
+        $sortedApprovals = $allApprovals->sortBy('created_at');
+
+        // Create paginated response
+        $approvalRequests->setCollection($sortedApprovals);
+
+        return $approvalRequests;
+    }
+
+    /**
+     * Get survey responses that need approval
+     */
+    private function getSurveyResponsesForApproval(Request $request, $user)
+    {
+        $query = \App\Models\SurveyResponse::with([
+            'survey:id,title,description',
+            'institution:id,name,type',
+            'respondent:id,name,email'
+        ])->where('status', 'submitted');
+
+        // Filter based on user's hierarchy permissions
+        $this->filterSurveyResponsesByAuthority($query, $user);
+
+        // Apply workflow_type filter for surveys
+        if ($request->filled('workflow_type') && $request->workflow_type !== 'survey') {
+            return collect(); // Return empty if not looking for surveys
+        }
+
+        return $query->orderBy('submitted_at', 'asc')->get();
+    }
+
+    /**
+     * Filter survey responses based on user authority
+     */
+    private function filterSurveyResponsesByAuthority($query, $user)
+    {
+        // Check role using Spatie Permission system
+        if ($user->hasRole('superadmin')) {
+            // SuperAdmin can see all
+            return;
+        }
+
+        if ($user->hasRole('regionadmin')) {
+            if ($user->institution) {
+                $childInstitutionIds = $user->institution->getAllChildrenIds();
+                $query->whereIn('institution_id', array_merge([$user->institution_id], $childInstitutionIds));
+            }
+            return;
+        }
+
+        if ($user->hasRole('sektoradmin')) {
+            if ($user->institution) {
+                $childInstitutionIds = $user->institution->getAllChildrenIds();
+                $query->whereIn('institution_id', array_merge([$user->institution_id], $childInstitutionIds));
+            }
+            return;
+        }
+
+        if ($user->hasRole('schooladmin')) {
+            $query->where('institution_id', $user->institution_id);
+            return;
+        }
+
+        // Other roles cannot approve
+        $query->where('id', -1); // No results
     }
 
     /**

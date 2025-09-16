@@ -32,6 +32,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('surveys/{survey}/stats', [SurveyResponseApprovalController::class, 'getApprovalStats'])
             ->middleware('permission:survey_responses.read')
             ->name('stats');
+
+        // Get table editing view for responses
+        Route::get('surveys/{survey}/table-view', [SurveyResponseApprovalController::class, 'getTableEditingView'])
+            ->middleware('permission:survey_responses.read')
+            ->name('table-view');
     });
     
     // Individual Survey Response Operations
@@ -67,6 +72,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('bulk-approval', [SurveyResponseApprovalController::class, 'bulkApprovalOperation'])
             ->middleware(['permission:survey_responses.approve', 'permission:survey_responses.bulk_approve'])
             ->name('bulk-approval');
+
+        // Batch update multiple responses
+        Route::post('batch-update', [SurveyResponseApprovalController::class, 'batchUpdateResponses'])
+            ->middleware('permission:survey_responses.write')
+            ->name('batch-update');
     });
 });
 

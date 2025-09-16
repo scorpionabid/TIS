@@ -29,6 +29,7 @@ import ApprovalDetailsModal from './ApprovalDetailsModal';
 import ApprovalActionModal from './ApprovalActionModal';
 import BulkApprovalModal from './BulkApprovalModal';
 import SurveyResponsesTab from './SurveyResponsesTab';
+import { toast } from 'sonner';
 
 const ApprovalDashboard: React.FC = () => {
   const { currentUser: user } = useAuth();
@@ -45,10 +46,6 @@ const ApprovalDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [workflowFilter, setWorkflowFilter] = useState('all');
-
-  useEffect(() => {
-    fetchData();
-  }, [activeTab, searchTerm, priorityFilter, workflowFilter, fetchData]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -72,9 +69,17 @@ const ApprovalDashboard: React.FC = () => {
       const analyticsResponse = await approvalService.getAnalytics();
 
       if (approvalsResponse.success) {
-        let filteredApprovals = Array.isArray(approvalsResponse.data)
-          ? approvalsResponse.data
-          : approvalsResponse.data.data || [];
+        let filteredApprovals = [];
+
+        if (activeTab === 'pending') {
+          // For pending approvals, data is in pending_approvals.data
+          filteredApprovals = approvalsResponse.data?.pending_approvals?.data || [];
+        } else {
+          // For other tabs, use standard data structure
+          filteredApprovals = Array.isArray(approvalsResponse.data)
+            ? approvalsResponse.data
+            : approvalsResponse.data.data || [];
+        }
 
         // Apply search filter
         if (searchTerm) {
@@ -98,10 +103,45 @@ const ApprovalDashboard: React.FC = () => {
     }
   }, [activeTab, searchTerm, priorityFilter, workflowFilter]);
 
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
   const handleApprovalAction = async (approval: ApprovalRequest, action: 'approve' | 'reject' | 'return') => {
-    setSelectedApproval(approval);
-    setActionType(action);
-    setShowActionModal(true);
+    // Handle survey response approvals differently
+    if (approval.type === 'survey_response') {
+      await handleSurveyResponseAction(approval, action);
+    } else {
+      setSelectedApproval(approval);
+      setActionType(action);
+      setShowActionModal(true);
+    }
+  };
+
+  const handleSurveyResponseAction = async (approval: ApprovalRequest, action: 'approve' | 'reject' | 'return') => {
+    const responseId = approval.id.toString().replace('survey_', '');
+
+    try {
+      if (action === 'approve') {
+        const response = await approvalService.approveSurveyResponse(parseInt(responseId));
+        if (response.success) {
+          toast.success('Sorğu cavabı təsdiqləndi');
+          fetchData();
+        }
+      } else if (action === 'reject') {
+        const reason = prompt('Rədd səbəbini daxil edin:');
+        if (!reason) return;
+
+        const response = await approvalService.rejectSurveyResponse(parseInt(responseId), reason);
+        if (response.success) {
+          toast.success('Sorğu cavabı rədd edildi');
+          fetchData();
+        }
+      }
+    } catch (error) {
+      console.error('Survey response action error:', error);
+      toast.error('Əməliyyat zamanı xəta baş verdi');
+    }
   };
 
   const handleBulkAction = (action: 'approve' | 'reject') => {
@@ -365,6 +405,11 @@ const ApprovalDashboard: React.FC = () => {
                             {getPriorityIcon(approval.priority)}
                             <h3 className="text-lg font-medium text-gray-900">
                               {approval.workflow.name}
+                              {approval.type === 'survey_response' && (
+                                <Badge variant="secondary" className="ml-2">
+                                  Sorğu Cavabı
+                                </Badge>
+                              )}
                             </h3>
                             <Badge 
                               variant={approvalService.getStatusColor(approval.status) as any}

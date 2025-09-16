@@ -518,6 +518,179 @@ class SurveyResponseApprovalService extends BaseService
     }
     
     /**
+     * Get responses organized for table editing interface
+     * EXTEND existing getResponsesForApproval method
+     */
+    public function getResponsesForTableView(Survey $survey, Request $request, User $user): array
+    {
+        // Use existing method as base
+        $baseData = $this->getResponsesForApproval($survey, $request, $user);
+
+        // Group responses by institution for table view
+        $responses = $baseData['responses'] ?? [];
+        $institutionGroups = collect($responses)->groupBy('institution_id');
+
+        // Get survey questions for table headers
+        $questions = $survey->questions()->active()->ordered()->get();
+
+        // Build institution matrix with editing permissions
+        $institutionMatrix = [];
+        foreach ($institutionGroups as $institutionId => $institutionResponses) {
+            $institution = $institutionResponses->first()->institution ?? null;
+            if (!$institution) continue;
+
+            $institutionMatrix[$institutionId] = [
+                'institution' => [
+                    'id' => $institution->id,
+                    'name' => $institution->name,
+                    'type' => $institution->type,
+                    'code' => $institution->code ?? 'N/A'
+                ],
+                'responses' => $this->buildResponseMatrix($institutionResponses, $questions),
+                'respondents_count' => $institutionResponses->count(),
+                'can_edit' => $this->canUserEditInstitutionResponse($user, $institution),
+                'can_approve' => $this->canUserApproveInstitutionResponse($user, $institution)
+            ];
+        }
+
+        return [
+            'institutions' => $institutionMatrix,
+            'questions' => $questions,
+            'stats' => $baseData['stats'] ?? []
+        ];
+    }
+
+    /**
+     * Batch update multiple responses (leveraging existing updateResponseData)
+     * NO duplicate - uses existing method in loop with transaction
+     */
+    public function batchUpdateResponses(array $updates, User $user): array
+    {
+        $results = [];
+        $errors = [];
+
+        DB::beginTransaction();
+        try {
+            foreach ($updates as $update) {
+                try {
+                    $response = SurveyResponse::findOrFail($update['response_id']);
+
+                    // Check permissions
+                    if (!$this->canUserEditInstitutionResponse($user, $response->institution)) {
+                        $errors[] = "No permission to edit institution: {$response->institution->name}";
+                        continue;
+                    }
+
+                    // Use existing updateResponseData method
+                    $updatedResponse = $this->updateResponseData($response, $update['responses']);
+
+                    $results[] = [
+                        'response_id' => $response->id,
+                        'institution' => $response->institution->name,
+                        'status' => 'updated'
+                    ];
+                } catch (\Exception $e) {
+                    $errors[] = "Error updating response {$update['response_id']}: " . $e->getMessage();
+                }
+            }
+
+            if (empty($errors)) {
+                DB::commit();
+            } else {
+                DB::rollback();
+            }
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            throw $e;
+        }
+
+        return [
+            'successful' => count($results),
+            'failed' => count($errors),
+            'results' => $results,
+            'errors' => $errors
+        ];
+    }
+
+    /**
+     * Build response matrix for table display
+     */
+    private function buildResponseMatrix($institutionResponses, $questions): array
+    {
+        $responseMatrix = [];
+
+        foreach ($institutionResponses as $response) {
+            $questionResponses = [];
+
+            foreach ($questions as $question) {
+                $questionId = (string)$question->id;
+                $responseValue = $response->responses[$questionId] ?? null;
+
+                $questionResponses[$questionId] = [
+                    'question' => [
+                        'id' => $question->id,
+                        'title' => $question->title,
+                        'type' => $question->type,
+                        'is_required' => $question->is_required,
+                        'options' => $question->options
+                    ],
+                    'value' => $responseValue,
+                    'is_editable' => true
+                ];
+            }
+
+            $responseMatrix[] = [
+                'id' => $response->id,
+                'respondent' => [
+                    'id' => $response->respondent->id,
+                    'name' => $response->respondent->name,
+                    'email' => $response->respondent->email
+                ],
+                'questions' => $questionResponses,
+                'submitted_at' => $response->submitted_at,
+                'status' => $response->status
+            ];
+        }
+
+        return $responseMatrix;
+    }
+
+    /**
+     * Check if user can edit institution responses (enhanced permission check)
+     */
+    private function canUserEditInstitutionResponse(User $user, $institution): bool
+    {
+        $userRole = $user->role?->name ?? $user->roles->pluck('name')->first();
+
+        switch ($userRole) {
+            case 'superadmin':
+                return true;
+            case 'regionadmin':
+                return $user->institution && in_array(
+                    $institution->id,
+                    $user->institution->getAllChildrenIds()
+                );
+            case 'sektoradmin':
+                return $user->institution && in_array(
+                    $institution->id,
+                    $user->institution->getAllChildrenIds()
+                );
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Check if user can approve institution responses
+     */
+    private function canUserApproveInstitutionResponse(User $user, $institution): bool
+    {
+        // Same logic as edit for now, can be customized later
+        return $this->canUserEditInstitutionResponse($user, $institution);
+    }
+
+    /**
      * Clear approval-related cache for a survey
      */
     private function clearApprovalCache(int $surveyId): void
@@ -527,7 +700,7 @@ class SurveyResponseApprovalService extends BaseService
             "service_SurveyResponse_approval_stats_*survey_id*{$surveyId}*",
             "service_SurveyResponseApprovalService_*"
         ];
-        
+
         // Use cache tags if available, otherwise clear all cache
         if (config('cache.default') === 'redis') {
             foreach ($patterns as $pattern) {
@@ -535,7 +708,7 @@ class SurveyResponseApprovalService extends BaseService
                 // For now, we'll use a simple approach
             }
         }
-        
+
         // Clear service cache using parent method
         $this->clearServiceCache();
     }
