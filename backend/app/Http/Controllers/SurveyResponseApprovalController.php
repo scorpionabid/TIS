@@ -430,29 +430,4 @@ class SurveyResponseApprovalController extends Controller
         }
     }
 
-    /**
-     * Check if current user can approve a response
-     */
-    private function canApprove(SurveyResponse $response): bool
-    {
-        $user = Auth::user();
-        
-        if (!$response->approvalRequest) {
-            return false;
-        }
-
-        // Check if user has appropriate role for current approval level
-        $approvalRequest = $response->approvalRequest;
-        $workflow = $approvalRequest->workflow;
-        $currentLevel = $approvalRequest->current_approval_level;
-        
-        if (!isset($workflow->approval_chain[$currentLevel - 1])) {
-            return false;
-        }
-
-        $requiredRole = $workflow->approval_chain[$currentLevel - 1]['role'];
-        $userRole = $user->role ?? $user->roles->pluck('name')->first();
-
-        return $userRole === $requiredRole || $userRole === 'superadmin';
-    }
 }

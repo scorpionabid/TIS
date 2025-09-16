@@ -142,6 +142,8 @@ export function useBulkApprovalJob(options: UseBulkApprovalJobOptions = {}) {
           unsubscribeRef.current = subscribe(
             `bulk-approval.${initialResult.job_id}`,
             (data: any) => {
+              if (!data || typeof data !== 'object') return;
+
               if (data.status === 'in_progress') {
                 handleProgress(data as BulkJobProgress);
               } else if (data.status === 'completed' || data.status === 'failed') {
@@ -154,6 +156,8 @@ export function useBulkApprovalJob(options: UseBulkApprovalJobOptions = {}) {
           const userUnsubscribe = subscribe(
             `user.${initialResult.job_id}.bulk-approval`,
             (data: any) => {
+              if (!data || typeof data !== 'object') return;
+
               if (data.status === 'in_progress') {
                 handleProgress(data as BulkJobProgress);
               } else if (data.status === 'completed' || data.status === 'failed') {
@@ -264,15 +268,15 @@ export function useBulkApprovalJob(options: UseBulkApprovalJobOptions = {}) {
   }, []);
 
   // Get progress percentage
-  const progressPercentage = state.progress?.progress.percentage ?? 0;
+  const progressPercentage = state.progress?.progress?.percentage ?? 0;
 
   // Get progress text
-  const progressText = state.progress 
+  const progressText = state.progress?.progress
     ? `${state.progress.progress.processed}/${state.progress.progress.total} (${state.progress.progress.successful} uğurlu, ${state.progress.progress.failed} uğursuz)`
     : '';
 
   // Get estimated time remaining
-  const estimatedTimeRemaining = state.progress?.metadata.remaining 
+  const estimatedTimeRemaining = state.progress?.metadata?.remaining
     ? `${state.progress.metadata.remaining} qalıb`
     : '';
 

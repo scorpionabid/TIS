@@ -53,6 +53,7 @@ class PermissionSeeder extends Seeder
             'survey_responses.read',
             'survey_responses.write',
             'survey_responses.approve',
+            'survey_responses.bulk_approve',
 
             // Role Management
             'roles.read',
@@ -299,7 +300,7 @@ class PermissionSeeder extends Seeder
             'superadmin' => [
                 'users.create', 'users.read', 'users.update', 'users.delete', 'users.write', 'users.import', 'users.export', 'users.bulk', 'users.test',
                 'institutions.create', 'institutions.read', 'institutions.update', 'institutions.delete', 'institutions.write', 'institutions.hierarchy',
-                'surveys.create', 'surveys.read', 'surveys.update', 'surveys.delete', 'surveys.write', 'surveys.publish', 'surveys.manage', 'surveys.target', 'survey_responses.read', 'survey_responses.write', 'survey_responses.approve',
+                'surveys.create', 'surveys.read', 'surveys.update', 'surveys.delete', 'surveys.write', 'surveys.publish', 'surveys.manage', 'surveys.target', 'survey_responses.read', 'survey_responses.write', 'survey_responses.approve', 'survey_responses.bulk_approve',
                 'roles.read', 'roles.create', 'roles.update', 'roles.delete',
                 'schedules.create', 'schedules.read', 'schedules.update', 'schedules.delete', 'schedules.approve',
                 'attendance.manage', 'attendance.create', 'attendance.read', 'attendance.update', 'attendance.delete', 'attendance.approve',
@@ -328,7 +329,7 @@ class PermissionSeeder extends Seeder
             'regionadmin' => [
                 'users.read', 'users.create', 'users.update', 'users.delete',
                 'institutions.create', 'institutions.read', 'institutions.update', 'institutions.write', 'institutions.hierarchy',
-                'surveys.create', 'surveys.read', 'surveys.update', 'surveys.delete', 'surveys.write', 'surveys.publish', 'surveys.manage', 'surveys.target', 'surveys.approve',
+                'surveys.create', 'surveys.read', 'surveys.update', 'surveys.delete', 'surveys.write', 'surveys.publish', 'surveys.manage', 'surveys.target', 'surveys.approve', 'survey_responses.read', 'survey_responses.write', 'survey_responses.approve', 'survey_responses.bulk_approve',
                 'schedules.read', 'schedules.update', 'grades.read', 'attendance.manage', 'attendance.read', 'attendance.update', 'attendance.approve',
                 'documents.create', 'documents.read', 'documents.update', 'documents.delete', 'documents.share', 'documents.bulk', 'documents.analytics', 'documents.tracking',
                 'tasks.create', 'tasks.read', 'tasks.update', 'tasks.delete',
@@ -381,7 +382,7 @@ class PermissionSeeder extends Seeder
             'sektoradmin' => [
                 'users.read', 'users.create', 'users.update',
                 'institutions.read', 'institutions.hierarchy',
-                'surveys.read', 'surveys.respond', 'survey_responses.read', 'survey_responses.write',
+                'surveys.read', 'surveys.respond', 'survey_responses.read', 'survey_responses.write', 'survey_responses.approve', 'survey_responses.bulk_approve',
                 'schedules.read', 'schedules.update', 'grades.read', 'attendance.read', 'attendance.update',
                 'documents.create', 'documents.read',
                 'tasks.create', 'tasks.read', 'tasks.update', 'tasks.delete',
