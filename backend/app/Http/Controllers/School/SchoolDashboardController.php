@@ -380,14 +380,6 @@ class SchoolDashboardController extends Controller
                 'color' => 'primary'
             ],
             [
-                'id' => 'respond_survey',
-                'title' => 'Sorğu Cavabla',
-                'description' => 'Gözləyən sorğuları cavablandır',
-                'icon' => 'clipboard',
-                'path' => '/school/surveys',
-                'color' => 'success'
-            ],
-            [
                 'id' => 'record_attendance',
                 'title' => 'Davamiyyət Qeydə Al',
                 'description' => 'Günlük davamiyyət qeydiyyatı',

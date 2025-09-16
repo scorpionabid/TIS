@@ -274,4 +274,35 @@ class SurveyResponseController extends BaseController
                $response->institution_id === $user->institution_id ||
                $response->survey->creator_id === $user->id;
     }
+
+    /**
+     * Download survey response report
+     */
+    public function downloadReport(Request $request, SurveyResponse $response)
+    {
+        try {
+            // Check if user can view this response
+            if (!$this->canViewResponse($response)) {
+                return $this->errorResponse('Unauthorized', 403);
+            }
+
+            // Load relationships
+            $response->load(['survey.questions', 'respondent', 'institution']);
+
+            // Generate PDF report
+            $pdf = \PDF::loadView('reports.survey-response', [
+                'response' => $response,
+                'survey' => $response->survey,
+                'respondent' => $response->respondent,
+                'institution' => $response->institution,
+                'generated_at' => now()
+            ]);
+
+            $filename = "survey-response-{$response->id}-" . now()->format('Y-m-d') . ".pdf";
+
+            return $pdf->download($filename);
+        } catch (\Exception $e) {
+            return $this->errorResponse('Failed to generate report: ' . $e->getMessage(), 500);
+        }
+    }
 }

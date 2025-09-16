@@ -13,6 +13,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { dashboardService } from "@/services/dashboard";
 import { useEffect, useState } from "react";
+import { SurveyDashboardWidget } from "./SurveyDashboardWidget";
 
 export const SuperAdminDashboard = () => {
   const [stats, setStats] = useState<any>(null);
@@ -149,6 +150,11 @@ export const SuperAdminDashboard = () => {
         {systemStats.map((stat, index) => (
           <StatsCard key={index} {...stat} />
         ))}
+      </div>
+
+      {/* Survey Widget */}
+      <div className="mb-6">
+        <SurveyDashboardWidget variant="default" />
       </div>
 
       {/* Content Grid */}

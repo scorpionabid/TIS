@@ -28,6 +28,7 @@ class Survey extends Model
         'structure',
         'target_institutions',
         'target_departments',
+        'target_roles',
         'start_date',
         'end_date',
         'published_at',
@@ -71,6 +72,7 @@ class Survey extends Model
             'structure' => 'array',
             'target_institutions' => 'array',
             'target_departments' => 'array',
+            'target_roles' => 'array',
             'start_date' => 'datetime',
             'end_date' => 'datetime',
             'published_at' => 'datetime',
@@ -86,6 +88,14 @@ class Survey extends Model
             'region_approved_at' => 'datetime',
             'targeting_summary' => 'array',
         ];
+    }
+
+    /**
+     * Get the questions count attribute.
+     */
+    public function getQuestionsCountAttribute(): int
+    {
+        return $this->current_questions_count ?? $this->questions()->count();
     }
 
     /**

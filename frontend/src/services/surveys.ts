@@ -259,6 +259,34 @@ class SurveyService extends BaseService<Survey> {
     const response = await apiClient.post(`/survey-notifications/${surveyId}/mark-read`);
     return response.data;
   }
+
+  // Dashboard and user-facing survey methods
+  async getDashboardStats() {
+    const response = await apiClient.get('/my-surveys/dashboard-stats');
+    return response.data;
+  }
+
+  async getAssignedSurveys(params?: PaginationParams) {
+    const response = await apiClient.get('/my-surveys/assigned', params);
+    return response.data;
+  }
+
+  async getMyResponses(params?: PaginationParams) {
+    const response = await apiClient.get('/my-surveys/responses', params);
+    return response.data;
+  }
+
+  async getRecentAssignedSurveys(limit: number = 5) {
+    const response = await apiClient.get('/my-surveys/recent', { limit });
+    return response.data;
+  }
+
+  async downloadResponseReport(responseId: number) {
+    const response = await apiClient.get(`/survey-responses/${responseId}/report`, {
+      responseType: 'blob'
+    });
+    return response.data;
+  }
 }
 
 export const surveyService = new SurveyService();

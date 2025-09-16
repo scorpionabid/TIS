@@ -205,11 +205,6 @@ Route::prefix('schooladmin')->middleware(['auth:sanctum', 'role_or_permission:su
     Route::put('students/{student}', [SchoolStudentController::class, 'update']);
     Route::delete('students/{student}', [SchoolStudentController::class, 'destroy']);
     
-    // Survey management routes 
-    Route::get('surveys/available', [App\Http\Controllers\School\SchoolSurveyController::class, 'getAvailableSurveys']);
-    Route::post('surveys/{survey}/respond', [App\Http\Controllers\School\SchoolSurveyController::class, 'submitResponse']);
-    Route::get('surveys/responses', [App\Http\Controllers\School\SchoolSurveyController::class, 'getResponses']);
-    Route::get('surveys/{survey}/status', [App\Http\Controllers\School\SchoolSurveyController::class, 'getSurveyStatus']);
     
     // Task management routes
     Route::get('tasks/assigned', [App\Http\Controllers\School\SchoolTaskController::class, 'getAssignedTasks']);

@@ -698,4 +698,138 @@ class SurveyController extends BaseController
 
         return $recommendations;
     }
+
+    /**
+     * Get user's survey dashboard statistics
+     */
+    public function getMyDashboardStats(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+
+            // Get surveys assigned to user
+            $assignedSurveys = $this->getAssignedSurveysQuery($user)->get();
+
+            // Get user's responses
+            $responses = \App\Models\SurveyResponse::where('respondent_id', $user->id)->get();
+
+            $stats = [
+                'total' => $assignedSurveys->count(),
+                'pending' => $assignedSurveys->whereIn('status', ['published', 'active'])
+                    ->filter(function($survey) use ($user) {
+                        return !$survey->responses()->where('respondent_id', $user->id)->exists();
+                    })->count(),
+                'in_progress' => $responses->where('status', 'draft')->count(),
+                'completed' => $responses->where('status', 'submitted')->count(),
+                'overdue' => $assignedSurveys->where('end_date', '<', now())
+                    ->whereIn('status', ['published', 'active'])
+                    ->filter(function($survey) use ($user) {
+                        return !$survey->responses()->where('respondent_id', $user->id)->exists();
+                    })->count(),
+                'completion_rate' => $assignedSurveys->count() > 0
+                    ? round(($responses->where('status', 'submitted')->count() / $assignedSurveys->count()) * 100, 2)
+                    : 0
+            ];
+
+            return $this->successResponse($stats, 'Dashboard statistics retrieved successfully');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Get surveys assigned to the current user
+     */
+    public function getAssignedSurveys(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            $perPage = $request->get('per_page', 20);
+
+            $surveys = $this->getAssignedSurveysQuery($user)
+                ->with(['questions', 'responses' => function($q) use ($user) {
+                    $q->where('respondent_id', $user->id);
+                }])
+                ->paginate($perPage);
+
+            // Add response status to each survey
+            $surveys->getCollection()->transform(function($survey) use ($user) {
+                $response = $survey->responses->first();
+                $survey->response_status = $response ? $response->status : 'not_started';
+
+                if (!$response && $survey->end_date && $survey->end_date < now()) {
+                    $survey->response_status = 'overdue';
+                }
+
+                $survey->makeHidden('responses');
+                return $survey;
+            });
+
+            return $this->successResponse($surveys, 'Assigned surveys retrieved successfully');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Get user's survey responses
+     */
+    public function getMyResponses(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            $perPage = $request->get('per_page', 20);
+
+            $responses = \App\Models\SurveyResponse::where('respondent_id', $user->id)
+                ->with(['survey' => function($q) {
+                    $q->select('id', 'title', 'description', 'end_date', 'questions_count');
+                }])
+                ->orderBy('updated_at', 'desc')
+                ->paginate($perPage);
+
+            return $this->successResponse($responses, 'User responses retrieved successfully');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Get recent surveys assigned to user
+     */
+    public function getRecentAssignedSurveys(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            $limit = $request->get('limit', 5);
+
+            $surveys = $this->getAssignedSurveysQuery($user)
+                ->where('created_at', '>=', now()->subDays(7))
+                ->limit($limit)
+                ->get(['id', 'title', 'description', 'end_date', 'questions_count']);
+
+            return $this->successResponse($surveys, 'Recent assigned surveys retrieved successfully');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Get surveys assigned to user query
+     */
+    private function getAssignedSurveysQuery($user)
+    {
+        return Survey::whereIn('status', ['published', 'active'])
+            ->where(function($query) use ($user) {
+                // Check if user is targeted by role
+                $query->whereJsonContains('target_roles', $user->role)
+                    // Or by institution
+                    ->orWhereJsonContains('target_institutions', $user->institution_id)
+                    // Or if no specific targeting (public surveys)
+                    ->orWhere(function($q) {
+                        $q->whereNull('target_roles')
+                          ->whereNull('target_institutions');
+                    });
+            })
+            ->orderBy('created_at', 'desc');
+    }
 }

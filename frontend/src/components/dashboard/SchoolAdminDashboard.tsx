@@ -27,6 +27,7 @@ import {
 import { StatsCard } from './StatsCard';
 import { NotificationDropdown } from '@/components/layout/components/Header/NotificationDropdown';
 import { SurveyAnalyticsDashboard } from '@/components/analytics/SurveyAnalyticsDashboard';
+import { SurveyDashboardWidget } from './SurveyDashboardWidget';
 import { schoolAdminService, schoolAdminKeys } from '@/services/schoolAdmin';
 import { formatDistanceToNow, format } from 'date-fns';
 import { az } from 'date-fns/locale';
@@ -201,6 +202,11 @@ export const SchoolAdminDashboard: React.FC = () => {
           icon={UserCheck}
           variant={stats && stats.today_attendance_rate >= 90 ? "success" : "warning"}
         />
+      </div>
+
+      {/* Survey Widget */}
+      <div className="mb-6">
+        <SurveyDashboardWidget variant="default" />
       </div>
 
       {/* Secondary Stats */}

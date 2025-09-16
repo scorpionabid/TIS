@@ -502,11 +502,31 @@ export const improvedNavigationConfig: MenuGroup[] = [
             path: '/survey-results',
             roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN]
           },
+        ]
+      },
+      {
+        id: 'my-surveys',
+        label: 'Mənim Sorğularım',
+        icon: ClipboardList,
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM],
+        children: [
           {
-            id: 'school-surveys',
-            label: 'Məktəb Sorğuları',
-            path: '/school/surveys',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]
+            id: 'pending-surveys',
+            label: 'Gözləyən Sorğular',
+            path: '/my-surveys/pending',
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]
+          },
+          {
+            id: 'my-responses',
+            label: 'Mənim Cavablarım',
+            path: '/my-surveys/responses',
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]
+          },
+          {
+            id: 'completed-surveys',
+            label: 'Tamamlanmış Sorğular',
+            path: '/my-surveys/completed',
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]
           }
         ]
       },

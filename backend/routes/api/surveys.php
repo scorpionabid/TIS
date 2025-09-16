@@ -114,3 +114,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('survey-notifications/stats', [SurveyNotificationController::class, 'stats']);
     Route::post('survey-notifications/{surveyId}/mark-read', [SurveyNotificationController::class, 'markAsRead']);
 });
+
+// My Surveys - User-facing survey endpoints
+Route::middleware('auth:sanctum')->prefix('my-surveys')->group(function () {
+    Route::get('dashboard-stats', [SurveyController::class, 'getMyDashboardStats']);
+    Route::get('assigned', [SurveyController::class, 'getAssignedSurveys']);
+    Route::get('responses', [SurveyController::class, 'getMyResponses']);
+    Route::get('recent', [SurveyController::class, 'getRecentAssignedSurveys']);
+});
+
+// Survey Response Reports
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('survey-responses/{response}/report', [SurveyResponseController::class, 'downloadReport']);
+});

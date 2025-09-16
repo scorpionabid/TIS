@@ -105,21 +105,6 @@ export interface TemplateInfo {
   headers: string[];
 }
 
-// School-specific survey interfaces
-export interface SchoolSurvey extends Survey {
-  response_status: 'not_started' | 'in_progress' | 'completed' | 'overdue';
-  assigned_at?: string;
-  due_date?: string;
-  response_id?: number;
-  completion_percentage?: number;
-}
-
-export interface SchoolSurveyFilters extends PaginationParams {
-  status?: SchoolSurvey['response_status'];
-  due_date_from?: string;
-  due_date_to?: string;
-  priority?: 'low' | 'medium' | 'high';
-}
 
 // School-specific task interfaces
 export interface SchoolTask extends Task {
@@ -265,39 +250,6 @@ class SchoolAdminService {
     return response.data || response as QuickAction[];
   }
 
-  // Survey management methods
-  async getSchoolSurveys(filters?: SchoolSurveyFilters): Promise<SchoolSurvey[]> {
-    const response = await apiClient.get<SchoolSurvey[]>(`${this.baseEndpoint}/surveys`, filters);
-    return response.data || response as SchoolSurvey[];
-  }
-
-  async getSurveyResponse(surveyId: number): Promise<SurveyResponse | null> {
-    try {
-      const response = await apiClient.get<SurveyResponse>(`${this.baseEndpoint}/surveys/${surveyId}/response`);
-      return response.data || response as SurveyResponse;
-    } catch (error) {
-      return null;
-    }
-  }
-
-  async startSurveyResponse(surveyId: number, departmentId?: number): Promise<SurveyResponse> {
-    const response = await apiClient.post<SurveyResponse>(`${this.baseEndpoint}/surveys/${surveyId}/start`, {
-      department_id: departmentId
-    });
-    return response.data || response as SurveyResponse;
-  }
-
-  async saveSurveyProgress(responseId: number, responses: Record<string, any>): Promise<SurveyResponse> {
-    const response = await apiClient.put<SurveyResponse>(`${this.baseEndpoint}/survey-responses/${responseId}/save`, {
-      responses
-    });
-    return response.data || response as any;
-  }
-
-  async submitSurveyResponse(responseId: number): Promise<SurveyResponse> {
-    const response = await apiClient.post<SurveyResponse>(`${this.baseEndpoint}/survey-responses/${responseId}/submit`);
-    return response.data || response as any;
-  }
 
   // Task management methods
   async getSchoolTasks(filters?: SchoolTaskFilters): Promise<SchoolTask[]> {
@@ -593,8 +545,6 @@ export const schoolAdminKeys = {
   activities: () => [...schoolAdminKeys.dashboard(), 'activities'] as const,
   deadlines: () => [...schoolAdminKeys.dashboard(), 'deadlines'] as const,
   notifications: () => [...schoolAdminKeys.all, 'notifications'] as const,
-  surveys: () => [...schoolAdminKeys.all, 'surveys'] as const,
-  survey: (id: number) => [...schoolAdminKeys.surveys(), id] as const,
   tasks: () => [...schoolAdminKeys.all, 'tasks'] as const,
   task: (id: number) => [...schoolAdminKeys.tasks(), id] as const,
   classes: () => [...schoolAdminKeys.all, 'classes'] as const,

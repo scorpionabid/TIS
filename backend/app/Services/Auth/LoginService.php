@@ -24,10 +24,16 @@ class LoginService
      */
     public function attemptLogin(array $credentials, ?string $deviceName = null, ?string $deviceId = null): array
     {
+        logger()->info('attemptLogin called', [
+            'credentials' => array_keys($credentials),
+            'deviceName' => $deviceName,
+            'deviceId' => $deviceId
+        ]);
+
         try {
             $login = $credentials['login'];
             $password = $credentials['password'];
-            
+
             logger()->info('Login attempt', ['login' => $login]);
 
             // Find user by username or email
@@ -108,9 +114,10 @@ class LoginService
         } catch (\Exception $e) {
             logger()->error('Login attempt failed with exception', [
                 'login' => $credentials['login'] ?? 'unknown',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
-            
+
             throw ValidationException::withMessages([
                 'login' => 'Giriş zamanı xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.',
             ]);
