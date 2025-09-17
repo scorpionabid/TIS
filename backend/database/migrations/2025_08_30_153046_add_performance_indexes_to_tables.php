@@ -33,53 +33,68 @@ return new class extends Migration
         Schema::table('institutions', function (Blueprint $table) {
             // Parent-child hierarchy index
             $table->index(['parent_id'], 'institutions_parent_idx');
-            
+
             // Type and status index
             $table->index(['type', 'is_active'], 'institutions_type_status_idx');
-            
-            // Regional hierarchy index
-            $table->index(['region_id'], 'institutions_region_idx');
-            
+
+            // Regional hierarchy index (using region_code, not region_id)
+            $table->index(['region_code'], 'institutions_region_code_idx');
+
             // Created at index
             $table->index(['created_at'], 'institutions_created_at_idx');
         });
 
         // Surveys and responses optimization
         Schema::table('surveys', function (Blueprint $table) {
-            // Institution and status index
-            $table->index(['institution_id', 'status'], 'surveys_institution_status_idx');
-            
+            // Creator and status index (using creator_id, not created_by)
+            $table->index(['creator_id', 'status'], 'surveys_creator_status_idx');
+
             // Date range queries
             $table->index(['start_date', 'end_date'], 'surveys_date_range_idx');
-            
+
             // Creator index
-            $table->index(['created_by'], 'surveys_creator_idx');
+            $table->index(['creator_id'], 'surveys_creator_idx');
+
+            // Survey type and status
+            $table->index(['survey_type', 'status'], 'surveys_type_status_idx');
         });
 
         Schema::table('survey_responses', function (Blueprint $table) {
-            // Survey and user index
-            $table->index(['survey_id', 'user_id'], 'survey_responses_survey_user_idx');
-            
+            // Survey and respondent index (using respondent_id, not user_id)
+            $table->index(['survey_id', 'respondent_id'], 'survey_responses_survey_respondent_idx');
+
+            // Institution and survey index
+            $table->index(['institution_id', 'survey_id'], 'survey_responses_institution_survey_idx');
+
             // Response date index
             $table->index(['created_at'], 'survey_responses_created_at_idx');
-            
+
             // Status index
             $table->index(['status'], 'survey_responses_status_idx');
+
+            // Department index
+            $table->index(['department_id'], 'survey_responses_department_idx');
         });
 
         // Tasks optimization
         Schema::table('tasks', function (Blueprint $table) {
-            // Institution and status index
-            $table->index(['institution_id', 'status'], 'tasks_institution_status_idx');
-            
-            // Due date index
-            $table->index(['due_date'], 'tasks_due_date_idx');
-            
+            // Assigned institution and status index
+            $table->index(['assigned_institution_id', 'status'], 'tasks_institution_status_idx');
+
+            // Deadline index (using deadline, not due_date)
+            $table->index(['deadline'], 'tasks_deadline_idx');
+
             // Priority index
             $table->index(['priority'], 'tasks_priority_idx');
-            
+
             // Assigned user index
             $table->index(['assigned_to'], 'tasks_assigned_to_idx');
+
+            // Creator index
+            $table->index(['created_by'], 'tasks_created_by_idx');
+
+            // Category and status
+            $table->index(['category', 'status'], 'tasks_category_status_idx');
         });
 
         // Documents optimization
@@ -172,29 +187,34 @@ return new class extends Migration
         Schema::table('institutions', function (Blueprint $table) {
             $table->dropIndex('institutions_parent_idx');
             $table->dropIndex('institutions_type_status_idx');
-            $table->dropIndex('institutions_region_idx');
+            $table->dropIndex('institutions_region_code_idx');
             $table->dropIndex('institutions_created_at_idx');
         });
 
         // Surveys indexes
         Schema::table('surveys', function (Blueprint $table) {
-            $table->dropIndex('surveys_institution_status_idx');
+            $table->dropIndex('surveys_creator_status_idx');
             $table->dropIndex('surveys_date_range_idx');
             $table->dropIndex('surveys_creator_idx');
+            $table->dropIndex('surveys_type_status_idx');
         });
 
         Schema::table('survey_responses', function (Blueprint $table) {
-            $table->dropIndex('survey_responses_survey_user_idx');
+            $table->dropIndex('survey_responses_survey_respondent_idx');
+            $table->dropIndex('survey_responses_institution_survey_idx');
             $table->dropIndex('survey_responses_created_at_idx');
             $table->dropIndex('survey_responses_status_idx');
+            $table->dropIndex('survey_responses_department_idx');
         });
 
         // Tasks indexes
         Schema::table('tasks', function (Blueprint $table) {
             $table->dropIndex('tasks_institution_status_idx');
-            $table->dropIndex('tasks_due_date_idx');
+            $table->dropIndex('tasks_deadline_idx');
             $table->dropIndex('tasks_priority_idx');
             $table->dropIndex('tasks_assigned_to_idx');
+            $table->dropIndex('tasks_created_by_idx');
+            $table->dropIndex('tasks_category_status_idx');
         });
 
         // Documents indexes

@@ -1,4 +1,4 @@
-import { BaseService } from './baseService';
+import { BaseService } from './BaseService';
 
 export interface BulkJobStatus {
   job_id: string;

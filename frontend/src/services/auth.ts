@@ -114,7 +114,8 @@ class AuthService {
     // STEP 1: Get CSRF cookie first (required for Laravel Sanctum SPA)
     this.log('🍪 Auth Service: Fetching CSRF cookie');
     try {
-      await fetch('http://localhost:8000/sanctum/csrf-cookie', {
+      const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'https://atis.sim.edu.az';
+      await fetch(`${baseUrl}/sanctum/csrf-cookie`, {
         method: 'GET',
         credentials: 'include',
         headers: {

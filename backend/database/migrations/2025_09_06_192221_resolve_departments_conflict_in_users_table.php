@@ -21,15 +21,37 @@ return new class extends Migration
         });
 
         // Migrate existing department_id data to departments JSON if needed
-        DB::statement("
-            UPDATE users 
-            SET departments = CASE 
-                WHEN department_id IS NOT NULL AND (departments IS NULL OR departments = '[]' OR departments = '{}')
-                THEN JSON_ARRAY(department_id)
-                ELSE departments
-            END
-            WHERE department_id IS NOT NULL
-        ");
+        // Use database-specific JSON functions
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement("
+                UPDATE users
+                SET departments = CASE
+                    WHEN department_id IS NOT NULL AND (
+                        departments IS NULL OR
+                        departments::text = '[]' OR
+                        departments::text = '{}'
+                    )
+                    THEN json_build_array(department_id)
+                    ELSE departments
+                END
+                WHERE department_id IS NOT NULL
+            ");
+        } else {
+            // SQLite and MySQL compatible version
+            DB::statement("
+                UPDATE users
+                SET departments = CASE
+                    WHEN department_id IS NOT NULL AND (
+                        departments IS NULL OR
+                        departments = '[]' OR
+                        departments = '{}'
+                    )
+                    THEN json_array(department_id)
+                    ELSE departments
+                END
+                WHERE department_id IS NOT NULL
+            ");
+        }
 
         // Add index for better JSON query performance
         if (DB::getDriverName() === 'pgsql') {
