@@ -1,0 +1,149 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: atis-app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./backend:/var/www/html
+      - backend_vendor:/var/www/html/vendor
+    networks:
+      - atis-network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      - APP_NAME=ATİS
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=atis_db
+      - DB_USERNAME=atis_user
+      - DB_PASSWORD=atis_password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CACHE_DRIVER=redis
+      - SESSION_DRIVER=redis
+      - QUEUE_CONNECTION=redis
+
+  nginx:
+    image: nginx:alpine
+    container_name: atis-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./backend:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./docker/nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - app
+    networks:
+      - atis-network
+
+  db:
+    image: postgres:15-alpine
+    container_name: atis-db
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=atis_db
+      - POSTGRES_USER=atis_user
+      - POSTGRES_PASSWORD=atis_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atis_user -d atis_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - atis-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: atis-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    command: redis-server --maxmemory 4gb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - atis-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: atis-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - REACT_APP_API_URL=http://localhost/api
+      - REACT_APP_ENV=development
+    depends_on:
+      - app
+    networks:
+      - atis-network
+
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: atis-queue
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./backend:/var/www/html
+      - backend_vendor:/var/www/html/vendor
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: php artisan queue:work --verbose --tries=3 --timeout=90
+    networks:
+      - atis-network
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: atis-scheduler
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./backend:/var/www/html
+      - backend_vendor:/var/www/html/vendor
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: php artisan schedule:work
+    networks:
+      - atis-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_vendor:
+
+networks:
+  atis-network:
+    driver: bridge

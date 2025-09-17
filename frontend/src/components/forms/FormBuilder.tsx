@@ -398,8 +398,8 @@ export const commonValidations = {
     optional: () => z.string().email('Etibarlı email daxil edin').optional().or(z.literal('')),
   },
   phone: {
-    required: z.string().regex(/^[0-9\+\-\s\(\)]+$/, 'Etibarlı telefon nömrəsi daxil edin'),
-    optional: () => z.string().regex(/^[0-9\+\-\s\(\)]+$/, 'Etibarlı telefon nömrəsi daxil edin').optional().or(z.literal('')),
+    required: z.string().regex(/^[0-9+\-\s()]+$/, 'Etibarlı telefon nömrəsi daxil edin'),
+    optional: () => z.string().regex(/^[0-9+\-\s()]+$/, 'Etibarlı telefon nömrəsi daxil edin').optional().or(z.literal('')),
   },
   password: z.string().min(6, 'Şifrə ən azı 6 simvol olmalıdır'),
   required: z.string().min(1, 'Bu sahə tələb olunur'),

@@ -16,7 +16,6 @@ class TeacherPerformanceController extends BaseController
         private TeacherPerformanceService $performanceService,
         private PermissionCheckService $permissionService
     ) {
-        parent::__construct();
         $this->middleware('auth:sanctum');
         $this->middleware('permission:view teacher_performance')->only(['index', 'show']);
         $this->middleware('permission:create teacher_performance')->only(['store']);

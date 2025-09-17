@@ -25,9 +25,7 @@ import { scheduleService } from '@/services/schedule';
 import { useAuth } from '@/contexts/AuthContext';
 // import { regionAdminService } from '@/services/regionAdmin';
 
-interface RegionSchedulesProps {}
-
-export default function RegionSchedules({}: RegionSchedulesProps) {
+export default function RegionSchedules() {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [institutionFilter, setInstitutionFilter] = useState<string>('all');

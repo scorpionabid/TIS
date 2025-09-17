@@ -359,8 +359,13 @@ export interface PaginatedResponse<T> {
   };
 }
 
-export interface SectorTasksResponse extends PaginatedResponse<SectorTask> {}
-export interface SectorDocumentsResponse extends PaginatedResponse<SectorDocument> {}
+export interface SectorTasksResponse extends PaginatedResponse<SectorTask> {
+  // Additional task-specific response properties can be added here
+}
+
+export interface SectorDocumentsResponse extends PaginatedResponse<SectorDocument> {
+  // Additional document-specific response properties can be added here
+}
 
 export interface SectorTaskResponse {
   success: boolean;

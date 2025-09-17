@@ -32,7 +32,7 @@ print_error() {
 # Check if Docker containers are running
 check_docker_running() {
     if command -v docker-compose >/dev/null 2>&1; then
-        if docker-compose -f docker-compose.simple.yml ps -q 2>/dev/null | grep -q .; then
+        if docker-compose ps -q 2>/dev/null | grep -q .; then
             return 0
         fi
     fi
@@ -44,7 +44,7 @@ stop_docker() {
     print_status "Docker konteynerləri dayandır..."
     
     # Stop and remove containers
-    docker-compose -f docker-compose.simple.yml down 2>/dev/null || true
+    docker-compose down 2>/dev/null || true
     
     # Clean up orphaned containers
     docker container prune -f 2>/dev/null || true
@@ -225,8 +225,8 @@ force_stop() {
     done
     
     # Stop Docker aggressively
-    docker-compose -f docker-compose.simple.yml kill 2>/dev/null || true
-    docker-compose -f docker-compose.simple.yml down --remove-orphans 2>/dev/null || true
+    docker-compose kill 2>/dev/null || true
+    docker-compose down --remove-orphans 2>/dev/null || true
     
     # Clean up PID files
     rm -f .backend.pid .frontend.pid

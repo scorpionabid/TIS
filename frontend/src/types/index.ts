@@ -23,11 +23,11 @@ export type DeepPartial<T> = {
 export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
 
 export type RequiredKeys<T> = {
-  [K in keyof T]-?: {} extends Pick<T, K> ? never : K;
+  [K in keyof T]-?: Record<string, never> extends Pick<T, K> ? never : K;
 }[keyof T];
 
 export type OptionalKeys<T> = {
-  [K in keyof T]-?: {} extends Pick<T, K> ? K : never;
+  [K in keyof T]-?: Record<string, never> extends Pick<T, K> ? K : never;
 }[keyof T];
 
 export type NonNullable<T> = T extends null | undefined ? never : T;
@@ -39,20 +39,20 @@ export type ValueOf<T> = T[keyof T];
 export type ArrayElement<T> = T extends (infer U)[] ? U : never;
 
 // React-specific utility types
-export type PropsWithClassName<T = {}> = T & {
+export type PropsWithClassName<T = Record<string, unknown>> = T & {
   className?: string;
 };
 
-export type PropsWithChildren<T = {}> = T & {
+export type PropsWithChildren<T = Record<string, unknown>> = T & {
   children?: React.ReactNode;
 };
 
-export type PropsWithTestId<T = {}> = T & {
+export type PropsWithTestId<T = Record<string, unknown>> = T & {
   'data-testid'?: string;
 };
 
 // Common prop combinations
-export type BaseProps<T = {}> = PropsWithClassName<PropsWithChildren<PropsWithTestId<T>>>;
+export type BaseProps<T = Record<string, unknown>> = PropsWithClassName<PropsWithChildren<PropsWithTestId<T>>>;
 
 // Function types
 export type AsyncFunction<T = void, P extends any[] = any[]> = (...args: P) => Promise<T>;

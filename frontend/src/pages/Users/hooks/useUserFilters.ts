@@ -62,7 +62,7 @@ export const useUserFilters = (users: User[] = []) => {
 
   // Filter and sort users
   const filteredAndSortedUsers = useMemo(() => {
-    let filtered = users.filter(user => {
+    const filtered = users.filter(user => {
       const displayName = getUserDisplayName(user).toLowerCase();
       const email = user.email?.toLowerCase() || '';
       const username = user.username?.toLowerCase() || '';

@@ -84,9 +84,7 @@ class SuperAdminDashboardController extends Controller
                         'uptime' => $this->getSystemUptime()
                     ],
                     'performance' => [
-                        'daily_active_users' => User::whereHas('sessions', function ($query) {
-                            $query->where('last_activity', '>=', now()->subDay());
-                        })->count(),
+                        'daily_active_users' => User::where('updated_at', '>=', now()->subDay())->count(),
                         'peak_concurrent_users' => $this->getPeakConcurrentUsers(),
                         'avg_session_duration' => $this->getAverageSessionDuration(),
                         'page_load_times' => $this->getPageLoadTimes()

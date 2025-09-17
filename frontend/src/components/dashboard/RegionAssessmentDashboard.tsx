@@ -171,7 +171,17 @@ export const RegionAssessmentDashboard: React.FC = () => {
 
   const handleExportData = async () => {
     try {
-      await assessmentService.exportRegionReport(currentUser?.institution?.region_id!, {
+      const regionId = currentUser?.institution?.region_id;
+      if (!regionId) {
+        toast({
+          title: 'Xəta',
+          description: 'Region məlumatları tapılmadı',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      await assessmentService.exportRegionReport(regionId, {
         district: selectedDistrict !== 'all' ? selectedDistrict : undefined,
         institution_type: selectedInstitutionType !== 'all' ? selectedInstitutionType : undefined,
         performance_level: selectedPerformanceLevel !== 'all' ? selectedPerformanceLevel : undefined,

@@ -112,7 +112,7 @@ export const objectHelpers = {
     if (typeof obj === "object") {
       const copy = {} as T;
       for (const key in obj) {
-        if (obj.hasOwnProperty(key)) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
           copy[key] = objectHelpers.deepClone(obj[key]);
         }
       }

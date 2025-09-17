@@ -201,26 +201,22 @@ class StudentService {
    * Legacy getAll method for backward compatibility
    */
   async getAll(filters: StudentFilters = {}): Promise<{ data: { students: Student[]; pagination: any }; success: boolean; message: string }> {
-    try {
-      const students = await this.get(filters);
-      return {
-        data: { 
-          students, 
-          pagination: { 
-            current_page: 1, 
-            per_page: students.length, 
-            total: students.length, 
-            last_page: 1, 
-            from: 1, 
-            to: students.length 
-          } 
-        },
-        success: true,
-        message: 'Şagirdlər uğurla yükləndi'
-      };
-    } catch (error: any) {
-      throw error;
-    }
+    const students = await this.get(filters);
+    return {
+      data: {
+        students,
+        pagination: {
+          current_page: 1,
+          per_page: students.length,
+          total: students.length,
+          last_page: 1,
+          from: 1,
+          to: students.length
+        }
+      },
+      success: true,
+      message: 'Şagirdlər uğurla yükləndi'
+    };
   }
 
   /**
@@ -333,47 +329,35 @@ class StudentService {
    * Create new student (legacy)
    */
   async createLegacy(studentData: any): Promise<{ data: Student; success: boolean; message: string }> {
-    try {
-      const student = await this.create(studentData);
-      return {
-        data: student,
-        success: true,
-        message: 'Şagird uğurla yaradıldı'
-      };
-    } catch (error: any) {
-      throw error;
-    }
+    const student = await this.create(studentData);
+    return {
+      data: student,
+      success: true,
+      message: 'Şagird uğurla yaradıldı'
+    };
   }
 
   /**
    * Update student (legacy)
    */
   async updateLegacy(id: number, studentData: any): Promise<{ data: Student; success: boolean; message: string }> {
-    try {
-      const student = await this.update(id, studentData);
-      return {
-        data: student,
-        success: true,
-        message: 'Şagird uğurla yeniləndi'
-      };
-    } catch (error: any) {
-      throw error;
-    }
+    const student = await this.update(id, studentData);
+    return {
+      data: student,
+      success: true,
+      message: 'Şagird uğurla yeniləndi'
+    };
   }
 
   /**
    * Delete student (legacy)
    */
   async deleteLegacy(id: number): Promise<{ success: boolean; message: string }> {
-    try {
-      await this.delete(id);
-      return {
-        success: true,
-        message: 'Şagird uğurla silindi'
-      };
-    } catch (error: any) {
-      throw error;
-    }
+    await this.delete(id);
+    return {
+      success: true,
+      message: 'Şagird uğurla silindi'
+    };
   }
 
   /**

@@ -28,9 +28,7 @@ import { ConflictDetector } from '@/components/schedules/ConflictDetector';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
-interface SchoolScheduleManagementProps {}
-
-export default function SchoolScheduleManagement({}: SchoolScheduleManagementProps) {
+export default function SchoolScheduleManagement() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedTab, setSelectedTab] = useState<'overview' | 'builder' | 'conflicts'>('overview');

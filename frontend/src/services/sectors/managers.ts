@@ -378,7 +378,7 @@ export class SectorManagersService {
     maxWorkload?: number;
     preferredRating?: number;
   }): SectorManager | null {
-    let eligibleManagers = managers.filter(manager => 
+    const eligibleManagers = managers.filter(manager => 
       manager.is_active && 
       (!sectorRequirements?.minExperience || manager.experience_years >= sectorRequirements.minExperience)
     );

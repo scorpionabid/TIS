@@ -10,9 +10,7 @@ import { ScheduleGrid } from '@/components/schedules/ScheduleGrid';
 import { ScheduleListView } from '@/components/schedules/components/ScheduleListView';
 import { Badge } from '@/components/ui/badge';
 
-interface TeacherScheduleProps {}
-
-export default function TeacherSchedule({}: TeacherScheduleProps) {
+export default function TeacherSchedule() {
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedWeek, setSelectedWeek] = useState(getCurrentWeek());

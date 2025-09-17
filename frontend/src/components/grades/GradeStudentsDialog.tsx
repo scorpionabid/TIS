@@ -183,7 +183,7 @@ export const GradeStudentsDialog: React.FC<GradeStudentsDialogProps> = ({
     };
 
     students.forEach(student => {
-      if (counts.hasOwnProperty(student.enrollment_status)) {
+      if (Object.prototype.hasOwnProperty.call(counts, student.enrollment_status)) {
         counts[student.enrollment_status as keyof typeof counts]++;
       }
     });
