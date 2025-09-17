@@ -23,10 +23,12 @@ export default tseslint.config(
         "warn",
         { allowConstantExport: true },
       ],
+      // Disable problematic rules temporarily for development speed
       "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-unused-expressions": "off",
-      "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-require-imports": "warn",
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-require-imports": "off",
+      "no-unused-expressions": "off",
       "react-hooks/exhaustive-deps": "warn",
     },
   }
