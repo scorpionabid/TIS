@@ -22,11 +22,12 @@ const buttonVariants = cva(
         admin: "bg-gradient-accent text-accent-foreground hover:shadow-primary shadow-card hover:scale-105 font-semibold"
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-8",
-        xl: "h-12 rounded-lg px-10 text-base font-semibold",
-        icon: "h-10 w-10",
+        default: "h-11 px-4 py-2", // 44px - WCAG touch target minimum
+        sm: "h-11 rounded-md px-3", // 44px - Mobile friendly
+        lg: "h-12 rounded-md px-8", // 48px - Comfortable touch
+        xl: "h-14 rounded-lg px-10 text-base font-semibold", // 56px - Large touch
+        icon: "h-11 w-11", // 44px - Icon touch target
+        touch: "h-12 w-12", // 48px - Comfortable mobile icon
       },
     },
     defaultVariants: {

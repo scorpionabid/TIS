@@ -25,6 +25,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { cn } from '@/lib/utils';
+import { useLayout } from '@/contexts/LayoutContext';
 
 export type FieldType = 
   | 'text' 
@@ -83,6 +84,7 @@ export function FormBuilder({
   layout = 'vertical',
   columns = 1,
 }: FormBuilderProps) {
+  const { isMobile } = useLayout();
   // Create dynamic schema from fields
   const schema = z.object(
     fields.reduce((acc, field) => {
@@ -153,14 +155,14 @@ export function FormBuilder({
   // Remove the problematic useEffect that causes controlled/uncontrolled warnings
   // The form will use the initial defaultValues and won't reset during renders
 
-  const renderField = (field: FormField) => {
+  const renderField = (field: FormField, controlClass?: string) => {
     return (
       <FormField
         key={field.name}
         control={form.control}
         name={field.name}
         render={({ field: formField }) => (
-          <FormItem className={cn(field.className)}>
+          <FormItem className={cn(field.className, controlClass)}>
             <FormLabel className="text-foreground">
               {field.label}
               {field.required && <span className="text-destructive ml-1">*</span>}
@@ -353,15 +355,19 @@ export function FormBuilder({
     3: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3',
   }[columns];
 
+  // Use mobile CSS classes for enhanced mobile experience
+  const formGridClass = isMobile ? 'form-grid' : `grid ${gridClass}`;
+  const formControlClass = isMobile ? 'form-control' : '';
+
   return (
     <div className={cn("space-y-6", className)}>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <div className={cn(
             "gap-6",
-            columns > 1 ? `grid ${gridClass}` : "space-y-6"
+            columns > 1 ? formGridClass : "space-y-6"
           )}>
-            {fields.map(renderField)}
+            {fields.map((field) => renderField(field, formControlClass))}
           </div>
           
           <div className="flex justify-end pt-4">

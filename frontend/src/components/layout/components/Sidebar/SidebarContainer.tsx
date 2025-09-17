@@ -16,15 +16,25 @@ export const SidebarContainer: React.FC<SidebarContainerProps> = ({ children }) 
 
   if (isMobile) {
     return (
-      <div
-        className={cn(
-          "fixed inset-y-0 left-0 z-50 bg-card border-r border-border shadow-lg transform transition-transform duration-300 ease-in-out",
-          isExpanded ? "translate-x-0" : "-translate-x-full",
-          "w-64"
+      <>
+        {/* Mobile backdrop overlay */}
+        {isExpanded && (
+          <div
+            className="sidebar-overlay"
+            onClick={() => handleMouseLeave()}
+          />
         )}
-      >
-        {children}
-      </div>
+
+        {/* Mobile sidebar using existing CSS classes */}
+        <div
+          className={cn(
+            "sidebar-mobile w-64 bg-card border-r border-border shadow-lg",
+            !isExpanded && "closed"
+          )}
+        >
+          {children}
+        </div>
+      </>
     );
   }
 

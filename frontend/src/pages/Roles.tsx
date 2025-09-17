@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ResponsiveTable, ResponsiveTableColumn, MobileStatusBadge, MobileActionButton } from "@/components/ui/responsive-table";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Edit, Trash2, Loader2, Shield, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter, AlertTriangle } from "lucide-react";
@@ -236,6 +236,90 @@ export default function Roles() {
     return 'bg-green-100 text-green-800';
   };
 
+  // Define responsive table columns
+  const columns: ResponsiveTableColumn[] = [
+    {
+      key: 'name',
+      label: 'Ad',
+      className: 'w-[200px]',
+      render: (value, role) => (
+        <div className="flex items-center gap-2">
+          <Shield className="h-4 w-4 text-muted-foreground" />
+          {value}
+        </div>
+      ),
+      mobileRender: (value) => (
+        <div className="flex items-center gap-2">
+          <Shield className="h-4 w-4 text-muted-foreground" />
+          <span className="font-medium">{value}</span>
+        </div>
+      )
+    },
+    {
+      key: 'display_name',
+      label: 'Göstəriş adı',
+      render: (value, role) => value || role.name,
+      hideOnMobile: true
+    },
+    {
+      key: 'description',
+      label: 'Təsvir',
+      render: (value) => (
+        <div className="max-w-[200px] truncate" title={value}>
+          {value || '-'}
+        </div>
+      ),
+      mobileRender: (value) => (
+        <span className="text-sm text-muted-foreground">
+          {value ? (value.length > 50 ? `${value.substring(0, 50)}...` : value) : '-'}
+        </span>
+      )
+    },
+    {
+      key: 'level',
+      label: 'Səviyyə',
+      render: (value) => (
+        <Badge className={`${getLevelBadgeColor(value)} border-0`}>
+          Səviyyə {value}
+        </Badge>
+      ),
+      mobileRender: (value) => (
+        <MobileStatusBadge
+          status={`Səviyyə ${value}`}
+          variant="outline"
+        />
+      )
+    },
+    {
+      key: 'role_category',
+      label: 'Kateqoriya',
+      render: (value) => (
+        <Badge variant={getCategoryBadgeVariant(value)}>
+          {value === 'system' ? 'Sistem' : value === 'custom' ? 'Özəl' : value}
+        </Badge>
+      ),
+      mobileRender: (value) => (
+        <MobileStatusBadge
+          status={value === 'system' ? 'Sistem' : value === 'custom' ? 'Özəl' : value}
+          variant={getCategoryBadgeVariant(value) as any}
+        />
+      )
+    },
+    {
+      key: 'permissions',
+      label: 'İcazələr',
+      render: (value) => (
+        <div className="flex items-center gap-1">
+          <span className="text-sm font-medium">{value.length}</span>
+          <span className="text-xs text-muted-foreground">icazə</span>
+        </div>
+      ),
+      mobileRender: (value) => (
+        <span className="text-sm font-medium">{value.length} icazə</span>
+      )
+    }
+  ];
+
   // Get unique levels and categories for filters
   const uniqueLevels = [...new Set(rawRoles.map(role => role.level))].sort((a, b) => a - b);
   const uniqueCategories = [...new Set(rawRoles.map(role => role.role_category))];
@@ -250,34 +334,12 @@ export default function Roles() {
           </div>
         </div>
         
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[200px]">Ad</TableHead>
-                <TableHead>Göstəriş adı</TableHead>
-                <TableHead>Təsvir</TableHead>
-                <TableHead>Səviyyə</TableHead>
-                <TableHead>Kateqoriya</TableHead>
-                <TableHead>İcazələr</TableHead>
-                <TableHead className="text-right w-[100px]">Əməliyyat</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {[1,2,3,4,5].map((i) => (
-                <TableRow key={i}>
-                  <TableCell><div className="h-6 bg-muted rounded animate-pulse" /></TableCell>
-                  <TableCell><div className="h-6 bg-muted rounded animate-pulse" /></TableCell>
-                  <TableCell><div className="h-6 bg-muted rounded animate-pulse" /></TableCell>
-                  <TableCell><div className="h-6 bg-muted rounded animate-pulse" /></TableCell>
-                  <TableCell><div className="h-6 bg-muted rounded animate-pulse" /></TableCell>
-                  <TableCell><div className="h-6 bg-muted rounded animate-pulse" /></TableCell>
-                  <TableCell><div className="h-6 bg-muted rounded animate-pulse" /></TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <ResponsiveTable
+          data={[]}
+          columns={columns}
+          loading={true}
+          emptyMessage="Rol tapılmadı"
+        />
       </div>
     );
   }
@@ -359,132 +421,32 @@ export default function Roles() {
         </div>
       </div>
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[200px]">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort('name')}
-                  className="h-auto p-0 font-semibold hover:bg-transparent"
-                >
-                  Ad
-                  {getSortIcon('name')}
-                </Button>
-              </TableHead>
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort('display_name')}
-                  className="h-auto p-0 font-semibold hover:bg-transparent"
-                >
-                  Göstəriş adı
-                  {getSortIcon('display_name')}
-                </Button>
-              </TableHead>
-              <TableHead>Təsvir</TableHead>
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort('level')}
-                  className="h-auto p-0 font-semibold hover:bg-transparent"
-                >
-                  Səviyyə
-                  {getSortIcon('level')}
-                </Button>
-              </TableHead>
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort('role_category')}
-                  className="h-auto p-0 font-semibold hover:bg-transparent"
-                >
-                  Kateqoriya
-                  {getSortIcon('role_category')}
-                </Button>
-              </TableHead>
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort('permissions')}
-                  className="h-auto p-0 font-semibold hover:bg-transparent"
-                >
-                  İcazələr
-                  {getSortIcon('permissions')}
-                </Button>
-              </TableHead>
-              <TableHead className="text-right w-[100px]">Əməliyyat</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {roles.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center">
-                  Heç bir rol tapılmadı.
-                </TableCell>
-              </TableRow>
-            ) : (
-              roles.map((role) => (
-                <TableRow key={role.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-muted-foreground" />
-                      {role.name}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {role.display_name || role.name}
-                  </TableCell>
-                  <TableCell>
-                    <div className="max-w-[200px] truncate" title={role.description}>
-                      {role.description || '-'}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={`${getLevelBadgeColor(role.level)} border-0`}>
-                      Səviyyə {role.level}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getCategoryBadgeVariant(role.role_category)}>
-                      {role.role_category === 'system' ? 'Sistem' : role.role_category === 'custom' ? 'Özəl' : role.role_category}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <span className="text-sm font-medium">{role.permissions.length}</span>
-                      <span className="text-xs text-muted-foreground">icazə</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center gap-1 justify-end">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleOpenModal(role)}
-                        title="Redaktə et"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      {role.role_category !== 'system' && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleDeleteClick(role)}
-                          title="Sil"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+      <ResponsiveTable
+        data={roles}
+        columns={columns}
+        loading={isLoading}
+        emptyMessage="Heç bir rol tapılmadı"
+        actions={(role) => (
+          <>
+            <MobileActionButton
+              onClick={() => handleOpenModal(role)}
+              variant="outline"
+            >
+              <Edit className="h-3 w-3 mr-1" />
+              Redaktə
+            </MobileActionButton>
+            {role.role_category !== 'system' && (
+              <MobileActionButton
+                onClick={() => handleDeleteClick(role)}
+                variant="outline"
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                Sil
+              </MobileActionButton>
             )}
-          </TableBody>
-        </Table>
-      </div>
+          </>
+        )}
+      />
 
       {/* Role Modal */}
       <RoleModal

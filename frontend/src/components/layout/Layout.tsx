@@ -5,6 +5,7 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { HeaderContainer } from "@/components/layout/components/Header/HeaderContainer";
 import { Breadcrumbs } from "@/components/layout/components/Header/Breadcrumbs";
 import { PageContainer } from "@/components/layout/components/Container/PageContainer";
+import { MobileBottomNav } from "@/components/layout/components/Navigation/MobileBottomNav";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { LayoutProvider } from "@/contexts/LayoutContext";
@@ -104,12 +105,15 @@ const Layout = () => {
                 </div>
               </HeaderContainer>
               
-              <main className="flex-1 overflow-y-auto bg-surface">
+              <main className="flex-1 overflow-y-auto bg-surface pb-16 md:pb-0">
                 <PageContainer>
                   <Outlet />
                 </PageContainer>
               </main>
             </div>
+
+            {/* Mobile Bottom Navigation */}
+            <MobileBottomNav />
           </div>
         </NavigationProvider>
       </LayoutProvider>

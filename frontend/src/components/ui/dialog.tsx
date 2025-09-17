@@ -4,6 +4,7 @@ import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { getFirstFocusableElement } from "@/utils/focusManagement"
+import { useLayout } from "@/contexts/LayoutContext"
 
 const Dialog = DialogPrimitive.Root
 
@@ -33,6 +34,7 @@ const DialogContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => {
   const contentRef = React.useRef<HTMLDivElement>(null);
+  const { isMobile } = useLayout();
   
   React.useImperativeHandle(ref, () => contentRef.current!);
   
@@ -104,7 +106,12 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={contentRef}
         className={cn(
-          "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+          // Base modal styles
+          "fixed left-[50%] top-[50%] z-50 grid w-full translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background shadow-lg duration-200",
+          // Mobile styles using existing CSS classes
+          isMobile ? "modal-content inset-2 h-[90vh] w-[calc(100vw-1rem)] max-w-none rounded-lg p-4" : "max-w-lg p-6 sm:rounded-lg",
+          // Animations
+          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
           className
         )}
         onAnimationStart={(e) => {
@@ -217,29 +224,41 @@ DialogContent.displayName = DialogPrimitive.Content.displayName
 const DialogHeader = ({
   className,
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) => (
-  <div
-    className={cn(
-      "flex flex-col space-y-1.5 text-center sm:text-left",
-      className
-    )}
-    {...props}
-  />
-)
+}: React.HTMLAttributes<HTMLDivElement>) => {
+  const { isMobile } = useLayout();
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col space-y-1.5 text-center sm:text-left",
+        // Mobile header using existing CSS classes
+        isMobile && "modal-header sticky top-0 bg-background z-10 border-b px-4 py-3",
+        className
+      )}
+      {...props}
+    />
+  );
+};
 DialogHeader.displayName = "DialogHeader"
 
 const DialogFooter = ({
   className,
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) => (
-  <div
-    className={cn(
-      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
-      className
-    )}
-    {...props}
-  />
-)
+}: React.HTMLAttributes<HTMLDivElement>) => {
+  const { isMobile } = useLayout();
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
+        // Mobile footer using existing CSS classes
+        isMobile && "modal-footer sticky bottom-0 bg-background border-t px-4 py-3 space-x-0 space-y-2 flex-col",
+        className
+      )}
+      {...props}
+    />
+  );
+};
 DialogFooter.displayName = "DialogFooter"
 
 const DialogTitle = React.forwardRef<

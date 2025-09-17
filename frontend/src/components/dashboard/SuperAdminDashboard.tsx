@@ -14,8 +14,10 @@ import { useQuery } from "@tanstack/react-query";
 import { dashboardService } from "@/services/dashboard";
 import { useEffect, useState } from "react";
 import { SurveyDashboardWidget } from "./SurveyDashboardWidget";
+import { useLayout } from "@/contexts/LayoutContext";
 
 export const SuperAdminDashboard = () => {
+  const { isMobile } = useLayout();
   const [stats, setStats] = useState<any>(null);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
@@ -145,10 +147,14 @@ export const SuperAdminDashboard = () => {
 
   return (
     <div className="space-y-6">
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Stats Grid using mobile CSS classes */}
+      <div className={isMobile ? "analytics-grid" : "grid gap-4 md:grid-cols-2 lg:grid-cols-4"}>
         {systemStats.map((stat, index) => (
-          <StatsCard key={index} {...stat} />
+          <StatsCard
+            key={index}
+            {...stat}
+            className={isMobile ? "metrics-card" : ""}
+          />
         ))}
       </div>
 
@@ -157,8 +163,8 @@ export const SuperAdminDashboard = () => {
         <SurveyDashboardWidget variant="default" />
       </div>
 
-      {/* Content Grid */}
-      <div className="grid gap-6 md:grid-cols-2">
+      {/* Content Grid using mobile CSS classes */}
+      <div className={isMobile ? "analytics-grid" : "grid gap-6 md:grid-cols-2"}>
         {/* Recent Activities */}
         <Card className="shadow-card">
           <CardHeader>
