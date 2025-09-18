@@ -445,8 +445,29 @@ class InstitutionService extends BaseService<Institution> {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Template download error response:', errorText);
-        throw new Error(`Template download failed: ${response.status} - ${errorText}`);
+        console.error('❌ Template download error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorText,
+          requestBody,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+
+        // Try to parse JSON error response
+        let errorDetails = errorText;
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorDetails = errorJson.message || errorJson.error || errorText;
+
+          // Log detailed validation errors if available
+          if (errorJson.errors) {
+            console.error('🔍 Validation errors:', errorJson.errors);
+          }
+        } catch (e) {
+          // Not JSON, use as-is
+        }
+
+        throw new Error(`Template download failed (${response.status}): ${errorDetails}`);
       }
 
       const blob = await response.blob();
