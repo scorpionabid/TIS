@@ -124,9 +124,23 @@ const InstitutionRow: React.FC<{
         </div>
       </TableCell>
       
-      <TableCell>
-        <div className="text-sm text-muted-foreground">
-          {new Date(institution.created_at).toLocaleDateString('az-AZ')}
+      <TableCell onClick={(e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(institution.id.toString()).then(() => {
+          // Simple feedback - could be enhanced with toast
+          const element = e.currentTarget;
+          const originalTitle = element.title;
+          element.title = '✅ Kopyalandı!';
+          setTimeout(() => {
+            element.title = originalTitle;
+          }, 2000);
+        }).catch(() => {
+          console.log('Kopyalama uğursuz');
+        });
+      }}>
+        <div className="text-sm font-mono bg-red-50 text-red-700 px-2 py-1 rounded border border-red-200 cursor-pointer select-all hover:bg-red-100 transition-colors"
+             title="ID kopyalamaq üçün kliklə">
+          #{institution.id}
         </div>
       </TableCell>
       
@@ -213,7 +227,7 @@ export const InstitutionsList: React.FC<InstitutionsListProps> = ({
               <TableHead>Administrator</TableHead>
               <TableHead className="w-24">Status</TableHead>
               <TableHead>Ana müəssisə</TableHead>
-              <TableHead className="w-32">Yaradılma tarixi</TableHead>
+              <TableHead className="w-20">ID</TableHead>
               <TableHead className="w-12"></TableHead>
             </TableRow>
           </TableHeader>

@@ -154,6 +154,9 @@ Route::middleware('permission:institutions.write')->group(function () {
     Route::get('institutions/import/permissions', [InstitutionController::class, 'getImportPermissions']);
     Route::get('institutions/import/history', [InstitutionController::class, 'getImportHistory']);
     Route::get('institutions/import/analytics', [InstitutionController::class, 'getImportAnalytics']);
+
+    // Parent institutions reference for import
+    Route::get('institutions/parent-institutions', [InstitutionController::class, 'getParentInstitutions']);
 });
 
 // Institution Types Management (SuperAdmin only)

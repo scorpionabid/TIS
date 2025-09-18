@@ -12,7 +12,18 @@ use App\Services\BaseService;
 class InstitutionExcelTemplateService extends BaseService
 {
     /**
-     * Generate basic import template for institutions
+     * Generate enhanced template by institution type (new main method)
+     */
+    public function generateTemplateByType(string $institutionTypeKey): string
+    {
+        $institutionType = \App\Models\InstitutionType::where('key', $institutionTypeKey)->firstOrFail();
+        $fileName = "muessise_idxal_sablonu_{$institutionTypeKey}_" . date('Y-m-d_H-i-s') . '.xlsx';
+        
+        return $this->generateTypeSpecificTemplate($institutionType, $fileName);
+    }
+    
+    /**
+     * Generate basic import template for institutions (legacy)
      */
     public function generateBasicTemplate($institutions, string $fileName): string
     {
@@ -33,19 +44,35 @@ class InstitutionExcelTemplateService extends BaseService
     }
 
     /**
-     * Generate type-specific template with instructions
+     * Generate type-specific template with enhanced features (colors, real data)
      */
     public function generateTypeSpecificTemplate($institutionType, string $fileName): string
     {
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('İmport Template');
+        $sheet->setTitle('Müəssisə İdxal Şablonu');
 
-        $instructionRow = $this->addInstructions($sheet, $institutionType);
-        $headerRow = $this->addTypeSpecificHeaders($sheet, $institutionType, $instructionRow);
-        $this->addTypeSpecificSampleData($sheet, $institutionType, $headerRow);
-        $this->addDataValidation($sheet, $institutionType, $headerRow);
-        $this->styleTypeSpecificTemplate($sheet, $institutionType);
+        // Get institution level for processing
+        $institutionLevel = $institutionType->level ?? $institutionType->default_level;
+        
+        // Add enhanced headers with color coding
+        $headers = $this->getEnhancedHeaders($institutionType, $institutionLevel);
+        $this->setEnhancedHeaders($sheet, $headers);
+        
+        // Add enhanced sample data with real parent IDs
+        $this->addEnhancedSampleData($sheet, $institutionType, $institutionLevel);
+        
+        // Add instructions sheet
+        $this->addInstructionsSheet($spreadsheet, $institutionType);
+
+        // Add parent institutions reference sheet
+        $this->addParentInstitutionsSheet($spreadsheet, $institutionType);
+
+        // Add color legend
+        $this->addColorLegend($sheet);
+        
+        // Style the template
+        $this->styleEnhancedTemplate($sheet);
 
         return $this->saveTemplate($spreadsheet, $fileName);
     }
@@ -397,6 +424,338 @@ class InstitutionExcelTemplateService extends BaseService
     }
 
     /**
+     * Get enhanced headers with database field mapping
+     */
+    private function getEnhancedHeaders($institutionType, int $institutionLevel): array
+    {
+        $headers = [
+            'A1' => 'Ad (name)*',
+            'B1' => 'Qısa Ad (short_name)',
+            'C1' => 'Müəssisə Kodu (institution_code)',
+            'D1' => 'UTIS Kod (utis_code)',
+            'E1' => 'Region Kodu (region_code)',
+            'F1' => 'Əlaqə Məlumatları (contact_info)',
+            'G1' => 'Yer Məlumatları (location)',
+            'H1' => 'Təsis Tarixi (established_date)',
+            'I1' => 'Status (is_active): aktiv/qeyri-aktiv',
+        ];
+
+        // Add parent_id if level >= 2
+        if ($institutionLevel >= 2) {
+            $headers['J1'] = 'Üst Müəssisə ID (parent_id)';
+        }
+
+        // Add school-specific fields
+        if (in_array($institutionType->key, ['secondary_school', 'lyceum', 'gymnasium', 'tam_orta_mekteb'])) {
+            $headers['K1'] = 'Sinif Sayı';
+            $headers['L1'] = 'Şagird Sayı';
+            $headers['M1'] = 'Müəllim Sayı';
+        }
+
+        // Add SchoolAdmin fields for level 4
+        if ($institutionLevel == 4) {
+            $headers['N1'] = 'SchoolAdmin İstifadəçi Adı*';
+            $headers['O1'] = 'SchoolAdmin Email*';
+            $headers['P1'] = 'SchoolAdmin Şifrə*';
+            $headers['Q1'] = 'SchoolAdmin Ad';
+            $headers['R1'] = 'SchoolAdmin Soyad';
+            $headers['S1'] = 'SchoolAdmin Telefon';
+            $headers['T1'] = 'SchoolAdmin Department';
+        }
+
+        return $headers;
+    }
+
+    /**
+     * Set enhanced headers with mandatory field styling
+     */
+    private function setEnhancedHeaders($sheet, array $headers): void
+    {
+        foreach ($headers as $cell => $value) {
+            $sheet->setCellValue($cell, $value);
+            $sheet->getStyle($cell)->getFont()->setBold(true);
+            
+            // Check if field is mandatory (contains *)
+            if (strpos($value, '*') !== false) {
+                // Mandatory fields: Red background
+                $sheet->getStyle($cell)->getFill()
+                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB('FFFFE6E6'); // Light red
+                $sheet->getStyle($cell)->getFont()->getColor()->setARGB('FFCC0000'); // Dark red text
+            } else {
+                // Optional fields: Light purple background
+                $sheet->getStyle($cell)->getFill()
+                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB('FFE6E6FA'); // Light purple
+            }
+        }
+    }
+
+    /**
+     * Add enhanced sample data with real parent IDs
+     */
+    private function addEnhancedSampleData($sheet, $institutionType, int $institutionLevel): void
+    {
+        $sampleRow = 2;
+        $sampleData = [
+            'A' . $sampleRow => 'Nümunə ' . $institutionType->name,
+            'B' . $sampleRow => 'Qısa ad',
+            'C' . $sampleRow => 'INST001',
+            'D' . $sampleRow => '12345678',
+            'E' . $sampleRow => 'BAK',
+            'F' . $sampleRow => '{"phone":"+994123456789","email":"contact@example.com"}',
+            'G' . $sampleRow => '{"address":"Bakı şəhəri, Nəsimi rayonu","coordinates":"40.4093,49.8671"}',
+            'H' . $sampleRow => '2000-01-01',
+            'I' . $sampleRow => 'aktiv',
+        ];
+
+        if ($institutionLevel >= 2) {
+            // Use real parent institution ID based on level
+            if ($institutionLevel == 4) {
+                // For schools (level 4), use a real sector ID (level 3)
+                $sampleParentId = \App\Models\Institution::where('level', 3)->first()?->id ?? '73';
+                $sampleData['J' . $sampleRow] = $sampleParentId . ' // Sektor ID (örnek: Zaqatala)';
+            } else if ($institutionLevel == 3) {
+                // For sectors (level 3), use a real regional department ID (level 2)
+                $sampleParentId = \App\Models\Institution::where('level', 2)->first()?->id ?? '71';
+                $sampleData['J' . $sampleRow] = $sampleParentId . ' // Regional İdarə ID';
+            } else {
+                // For level 2, use ministry ID (level 1)
+                $sampleParentId = \App\Models\Institution::where('level', 1)->first()?->id ?? '70';
+                $sampleData['J' . $sampleRow] = $sampleParentId . ' // Nazirlik ID';
+            }
+        }
+
+        if (in_array($institutionType->key, ['secondary_school', 'lyceum', 'gymnasium', 'tam_orta_mekteb'])) {
+            $sampleData['K' . $sampleRow] = '11';
+            $sampleData['L' . $sampleRow] = '300';
+            $sampleData['M' . $sampleRow] = '25';
+        }
+
+        // Add SchoolAdmin sample data for level 4
+        if ($institutionLevel == 4) {
+            $sampleData['N' . $sampleRow] = 'schooladmin001';
+            $sampleData['O' . $sampleRow] = 'admin@school001.edu.az';
+            $sampleData['P' . $sampleRow] = 'SecurePassword123';
+            $sampleData['Q' . $sampleRow] = 'Məktəb';
+            $sampleData['R' . $sampleRow] = 'Administratoru';
+            $sampleData['S' . $sampleRow] = '+994501234567';
+            $sampleData['T' . $sampleRow] = 'İdarəetmə';
+        }
+
+        foreach ($sampleData as $cell => $value) {
+            $sheet->setCellValue($cell, $value);
+            $sheet->getStyle($cell)->getFont()->setItalic(true);
+            $sheet->getStyle($cell)->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setARGB('FFFFFFFF');
+        }
+    }
+
+    /**
+     * Add instructions sheet
+     */
+    private function addInstructionsSheet($spreadsheet, $institutionType): void
+    {
+        $instructionSheet = $spreadsheet->createSheet();
+        $instructionSheet->setTitle('Təlimatlar');
+        
+        $institutionLevel = $institutionType->level ?? $institutionType->default_level;
+        $instructions = [
+            'A1' => 'İDXAL ŞABLONUnda İSTİFADƏ TƏLİMATLARI',
+            'A3' => '1. * işarəsi olan sahələr mütləqdir',
+            'A4' => '2. Tarix formatı: YYYY-MM-DD (məsələn: 2000-01-01)',
+            'A5' => '3. Status: "aktiv" və ya "qeyri-aktiv"',
+        ];
+
+        // Add parent_id specific instructions if needed
+        if ($institutionLevel > 1) {
+            $instructions['A6'] = '4. ÜST MÜƏSSİSƏ ID (J sütunu) - ÇOX VACİB!';
+            $instructions['A7'] = '   📋 "Üst Müəssisələr" sheet-indən ID kopyalayın';
+            $instructions['A8'] = '   📝 Həmçinin müəssisə adını da yaza bilərsiniz';
+            $instructions['A9'] = '   ✅ Sistem həm ID həm də ad qəbul edir';
+            $instructions['A11'] = '5. contact_info: JSON format {"phone":"+994...","email":"..."}';
+            $instructions['A12'] = '6. location: JSON format {"address":"...","coordinates":"..."}';
+            $instructions['A13'] = '7. region_code: 3 hərfli kod (BAK, GNC, ŞKI və s.)';
+            $instructions['A14'] = '8. utis_code: 8 rəqəmli kod';
+        } else {
+            $instructions['A6'] = '4. contact_info: JSON format {"phone":"+994...","email":"..."}';
+            $instructions['A7'] = '5. location: JSON format {"address":"...","coordinates":"..."}';
+            $instructions['A8'] = '6. region_code: 3 hərfli kod (BAK, GNC, ŞKI və s.)';
+            $instructions['A9'] = '7. utis_code: 8 rəqəmli kod';
+        }
+
+        // Add SchoolAdmin instructions for level 4
+        if ($institutionLevel == 4) {
+            $startRow = $institutionLevel > 1 ? 16 : 11;
+            $instructions['A' . $startRow] = ($startRow - 6) . '. SchoolAdmin sahələri (məktəblər üçün):';
+            $instructions['A' . ($startRow + 1)] = '   - İstifadəçi adı unikal olmalıdır';
+            $instructions['A' . ($startRow + 2)] = '   - Email unikal olmalıdır və düzgün formatda';
+            $instructions['A' . ($startRow + 3)] = '   - Şifrə minimum 8 simvol olmalıdır';
+            $instructions['A' . ($startRow + 5)] = ($startRow - 5) . '. Nümunə məlumatları silib, öz məlumatlarınızı daxil edin';
+            $instructions['A' . ($startRow + 6)] = ($startRow - 4) . '. Fayl ölçüsü maksimum 10MB ola bilər';
+        } else {
+            $startRow = $institutionLevel > 1 ? 16 : 11;
+            $instructions['A' . $startRow] = ($startRow - 6) . '. Nümunə məlumatları silib, öz məlumatlarınızı daxil edin';
+            $instructions['A' . ($startRow + 1)] = ($startRow - 5) . '. Fayl ölçüsü maksimum 10MB ola bilər';
+        }
+
+        foreach ($instructions as $cell => $text) {
+            $instructionSheet->setCellValue($cell, $text);
+            if ($cell === 'A1') {
+                $instructionSheet->getStyle($cell)->getFont()->setBold(true)->setSize(14);
+            }
+        }
+
+        // Auto-size columns
+        foreach (range('A', 'T') as $column) {
+            $instructionSheet->getColumnDimension($column)->setAutoSize(true);
+        }
+    }
+
+    /**
+     * Add color legend
+     */
+    private function addColorLegend($sheet): void
+    {
+        $legendRow = 5;
+        $sheet->setCellValue('A' . $legendRow, 'RƏNG LEGENDİ:');
+        $sheet->getStyle('A' . $legendRow)->getFont()->setBold(true);
+        
+        $sheet->setCellValue('A' . ($legendRow + 1), 'Qırmızı rəng = Məcburi sahələr (*)');
+        $sheet->getStyle('A' . ($legendRow + 1))->getFill()
+            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+            ->getStartColor()->setARGB('FFFFE6E6');
+        $sheet->getStyle('A' . ($legendRow + 1))->getFont()->getColor()->setARGB('FFCC0000');
+        
+        $sheet->setCellValue('A' . ($legendRow + 2), 'Bənövşəyi rəng = İsteğe bağlı sahələr');
+        $sheet->getStyle('A' . ($legendRow + 2))->getFill()
+            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+            ->getStartColor()->setARGB('FFE6E6FA');
+    }
+
+    /**
+     * Style enhanced template
+     */
+    private function styleEnhancedTemplate($sheet): void
+    {
+        // Auto-size columns (extended to T for SchoolAdmin fields)
+        foreach (range('A', 'T') as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+    }
+
+    /**
+     * Add parent institutions reference sheet
+     */
+    private function addParentInstitutionsSheet(Spreadsheet $spreadsheet, $institutionType): void
+    {
+        $institutionLevel = $institutionType->level ?? $institutionType->default_level;
+
+        // Only add parent sheet if this institution type needs parent ID
+        if ($institutionLevel <= 1) {
+            return; // No parent needed for top-level institutions
+        }
+
+        // Create new sheet
+        $parentSheet = $spreadsheet->createSheet();
+        $parentSheet->setTitle('Üst Müəssisələr');
+
+        // Add header
+        $parentSheet->setCellValue('A1', 'ÜST MÜƏSSİSƏLƏR SİYAHISI');
+        $parentSheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+
+        $parentSheet->setCellValue('A2', 'Bu siyahıdan ID-ni götürərək J sütununa yazın');
+        $parentSheet->getStyle('A2')->getFont()->setItalic(true);
+
+        // Add column headers
+        $parentSheet->setCellValue('A4', 'ID *');
+        $parentSheet->setCellValue('B4', 'Müəssisə Adı');
+        $parentSheet->setCellValue('C4', 'Qısa Ad');
+        $parentSheet->setCellValue('D4', 'Səviyyə');
+        $parentSheet->setCellValue('E4', 'Region');
+
+        // Style headers
+        $headerRange = 'A4:E4';
+        $parentSheet->getStyle($headerRange)->getFont()->setBold(true);
+        $parentSheet->getStyle($headerRange)->getFill()
+            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+            ->getStartColor()->setARGB('FFE6E6FA'); // Light purple
+
+        // Get potential parent institutions
+        $parentInstitutions = $this->getPotentialParentInstitutions($institutionLevel);
+
+        // Add institution data
+        $row = 5;
+        foreach ($parentInstitutions as $institution) {
+            $parentSheet->setCellValue('A' . $row, $institution->id);
+            $parentSheet->setCellValue('B' . $row, $institution->name);
+            $parentSheet->setCellValue('C' . $row, $institution->short_name ?? '');
+            $parentSheet->setCellValue('D' . $row, 'Level ' . $institution->level);
+            $parentSheet->setCellValue('E' . $row, $institution->region_code ?? 'N/A');
+
+            // Highlight ID column (important for copy-paste)
+            $parentSheet->getStyle('A' . $row)->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setARGB('FFFFE6E6'); // Light red
+            $parentSheet->getStyle('A' . $row)->getFont()->setBold(true);
+
+            $row++;
+        }
+
+        // Auto-size columns
+        foreach (['A', 'B', 'C', 'D', 'E'] as $column) {
+            $parentSheet->getColumnDimension($column)->setAutoSize(true);
+        }
+
+        // Add instruction at bottom
+        $instructionRow = $row + 2;
+        $parentSheet->setCellValue('A' . $instructionRow, 'TƏLİMAT:');
+        $parentSheet->getStyle('A' . $instructionRow)->getFont()->setBold(true);
+
+        $parentSheet->setCellValue('A' . ($instructionRow + 1), '1. 🔍 AXTARIŞ: Ctrl+F vasitəsilə lazımi müəssisəni tapın');
+        $parentSheet->setCellValue('A' . ($instructionRow + 2), '2. 📋 KOPYALAMA: ID sütunundan (A) ID-ni kopyalayın');
+        $parentSheet->setCellValue('A' . ($instructionRow + 3), '3. 📝 YAPIŞDIRMA: Əsas sheet-də J sütununa yapışdırın');
+        $parentSheet->setCellValue('A' . ($instructionRow + 4), '4. ✏️ ALTERNATIV: Müəssisə adını da yaza bilərsiniz');
+        $parentSheet->setCellValue('A' . ($instructionRow + 6), 'MƏSƏLƏN:');
+        $parentSheet->setCellValue('A' . ($instructionRow + 7), '• Bakı şəhər təhsil şöbəsi axtarırsınız → "Bakı" yazıb axtarın');
+        $parentSheet->setCellValue('A' . ($instructionRow + 8), '• Zaqatala rayon təhsil şöbəsi → "Zaqatala" yazıb axtarın');
+        $parentSheet->setCellValue('A' . ($instructionRow + 9), '• Nizami rayonu təhsil şöbəsi → "Nizami" yazıb axtarın');
+    }
+
+    /**
+     * Get potential parent institutions based on level
+     */
+    private function getPotentialParentInstitutions(int $currentLevel): \Illuminate\Database\Eloquent\Collection
+    {
+        // Get institutions that can be parents (lower level numbers)
+        $institutions = \App\Models\Institution::where('level', '<', $currentLevel)
+            ->where('is_active', true)
+            ->orderBy('level')
+            ->orderBy('region_code')
+            ->orderBy('name')
+            ->get(['id', 'name', 'level', 'region_code', 'short_name']);
+
+        // If too many institutions, prioritize by level and region
+        if ($institutions->count() > 100) {
+            // Group by level and region to show representative examples
+            $grouped = $institutions->groupBy(['level', 'region_code']);
+            $prioritized = collect();
+
+            foreach ($grouped as $level => $regions) {
+                foreach ($regions as $regionCode => $regionInstitutions) {
+                    // Take first 2 from each region per level
+                    $prioritized = $prioritized->merge($regionInstitutions->take(2));
+                }
+            }
+
+            return $prioritized->take(80); // Reasonable limit
+        }
+
+        return $institutions;
+    }
+
+    /**
      * Save template to temporary file
      */
     private function saveTemplate(Spreadsheet $spreadsheet, string $fileName): string
@@ -410,6 +769,10 @@ class InstitutionExcelTemplateService extends BaseService
 
         $writer = new Xlsx($spreadsheet);
         $writer->save($filePath);
+
+        // Clean up
+        $spreadsheet->disconnectWorksheets();
+        unset($spreadsheet);
 
         return $filePath;
     }

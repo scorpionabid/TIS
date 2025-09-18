@@ -483,6 +483,14 @@ class InstitutionController extends Controller
     }
 
     /**
+     * Get parent institutions for import reference
+     */
+    public function getParentInstitutions(Request $request): JsonResponse
+    {
+        return $this->bulkController->getParentInstitutions($request);
+    }
+
+    /**
      * Get refactoring information
      */
     public function refactorInfo(): JsonResponse
