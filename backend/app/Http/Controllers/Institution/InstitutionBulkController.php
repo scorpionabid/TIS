@@ -463,13 +463,17 @@ class InstitutionBulkController extends Controller
         } catch (\Illuminate\Validation\ValidationException $e) {
             \Log::error('Template download validation error', [
                 'errors' => $e->errors(),
-                'request' => $request->all()
+                'request' => $request->all(),
+                'available_types' => InstitutionType::active()->pluck('key')->toArray(),
+                'user_id' => auth()->id()
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Validasiya xətası',
-                'errors' => $e->errors()
+                'message' => 'Validasiya xətası - müəssisə növü düzgün deyil',
+                'errors' => $e->errors(),
+                'available_types' => InstitutionType::active()->pluck('key')->toArray(),
+                'requested_type' => $request->input('type')
             ], 422);
         } catch (\Exception $e) {
             \Log::error('Template download error', [
