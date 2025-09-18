@@ -562,6 +562,10 @@ class InstitutionBulkController extends Controller
     public function importFromTemplateByType(Request $request): JsonResponse
     {
         try {
+            // Increase execution time limit for large imports (10 minutes)
+            set_time_limit(600);
+            ini_set('memory_limit', '512M');
+
             // Validate the request
             $validTypes = InstitutionType::active()->pluck('key')->toArray();
             $validTypesString = implode(',', $validTypes);
@@ -569,6 +573,13 @@ class InstitutionBulkController extends Controller
             $validated = $request->validate([
                 'file' => 'required|file|mimes:xlsx,xls|max:10240',
                 'type' => "required|string|in:{$validTypesString}"
+            ]);
+
+            \Log::info('Large import started', [
+                'type' => $validated['type'],
+                'file_size' => $validated['file']->getSize(),
+                'memory_limit' => ini_get('memory_limit'),
+                'time_limit' => ini_get('max_execution_time')
             ]);
 
             // Use the ImportOrchestrator to handle the import process
