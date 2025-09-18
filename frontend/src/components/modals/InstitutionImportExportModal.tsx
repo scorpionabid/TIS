@@ -308,7 +308,14 @@ export function InstitutionImportExportModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className="max-w-4xl max-h-[90vh] overflow-y-auto"
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5" />
