@@ -238,17 +238,17 @@ class SurveyResponseService extends BaseService
                 'progress_percentage' => $response->progress_percentage
             ]);
 
-            // Mark related survey assignment notification as completed
-            $this->markSurveyNotificationCompleted($response->survey_id, $response->respondent_id);
+            // Note: Notification will be marked as completed only when the response is approved/rejected
+            // not when it's just submitted for approval
 
             return $response;
         });
     }
 
     /**
-     * Mark survey assignment notification as completed when response is submitted
+     * Mark survey assignment notification as completed when response is approved/rejected
      */
-    protected function markSurveyNotificationCompleted(int $surveyId, int $userId): void
+    public function markSurveyNotificationCompleted(int $surveyId, int $userId, string $finalStatus = 'completed'): void
     {
         try {
             // Find the survey assignment notification for this user and survey
@@ -268,6 +268,7 @@ class SurveyResponseService extends BaseService
                     'read_at' => now(),
                     'metadata' => array_merge($notification->metadata ?? [], [
                         'status' => 'completed',
+                        'final_status' => $finalStatus,
                         'completed_at' => now()->toISOString(),
                         'action_type' => 'survey_completed'
                     ])

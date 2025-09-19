@@ -92,6 +92,35 @@ const isNotificationCompleted = (notification: Notification) => {
          notification.metadata?.action_type === 'survey_completed';
 };
 
+const getCompletionStatus = (notification: Notification) => {
+  if (!isNotificationCompleted(notification)) return null;
+  return notification.metadata?.final_status || 'completed';
+};
+
+const getCompletionStyling = (status: string | null) => {
+  switch (status) {
+    case 'approved':
+      return 'opacity-60 bg-green-50 dark:bg-green-950/20 border-l-2 border-green-500';
+    case 'rejected':
+      return 'opacity-60 bg-red-50 dark:bg-red-950/20 border-l-2 border-red-500';
+    case 'completed':
+    default:
+      return 'opacity-60 bg-green-50 dark:bg-green-950/20 border-l-2 border-green-500';
+  }
+};
+
+const getCompletionText = (status: string | null) => {
+  switch (status) {
+    case 'approved':
+      return 'Təsdiqləndi';
+    case 'rejected':
+      return 'Rədd edildi';
+    case 'completed':
+    default:
+      return 'Tamamlandı';
+  }
+};
+
 export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   className,
   enableRealTime = true,
@@ -236,13 +265,15 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           </div>
         ) : (
           <div className="space-y-1 p-1">
-            {displayNotifications.map((notification: Notification) => (
+            {displayNotifications.map((notification: Notification) => {
+              const completionStatus = getCompletionStatus(notification);
+              return (
               <div
                 key={notification.id}
                 className={`relative p-3 rounded-md cursor-pointer transition-colors hover:bg-accent/50 ${
                   !notification.isRead ? 'bg-accent/30' : ''
                 } ${
-                  isNotificationCompleted(notification) ? 'opacity-60 bg-green-50 dark:bg-green-950/20 border-l-2 border-green-500' : ''
+                  completionStatus ? getCompletionStyling(completionStatus) : ''
                 }`}
                 onClick={() => {
                   if (notification.action_url) {
@@ -288,7 +319,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                             isNotificationCompleted(notification) ? 'bg-green-100 text-green-800 border-green-200' : ''
                           }`}
                         >
-                          {isNotificationCompleted(notification) ? 'Tamamlandı' : getNotificationTypeText(notification.type)}
+                          {completionStatus ? getCompletionText(completionStatus) : getNotificationTypeText(notification.type)}
                         </Badge>
                         <div className="flex items-center space-x-1">
                           <Clock className="h-3 w-3 text-muted-foreground" />
@@ -331,7 +362,8 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                   </div>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
 

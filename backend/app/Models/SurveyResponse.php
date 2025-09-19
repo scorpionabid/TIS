@@ -229,8 +229,12 @@ class SurveyResponse extends Model
                 'approver_id' => $approver->id
             ]);
         }
-        
+
         $this->save();
+
+        // Mark related survey assignment notification as completed
+        $surveyResponseService = app(\App\Services\SurveyResponseService::class);
+        $surveyResponseService->markSurveyNotificationCompleted($this->survey_id, $this->respondent_id, 'approved');
     }
 
     /**
@@ -250,8 +254,12 @@ class SurveyResponse extends Model
                 'approver_id' => $rejector ? $rejector->id : null
             ]);
         }
-        
+
         $this->save();
+
+        // Mark related survey assignment notification as completed
+        $surveyResponseService = app(\App\Services\SurveyResponseService::class);
+        $surveyResponseService->markSurveyNotificationCompleted($this->survey_id, $this->respondent_id, 'rejected');
     }
 
     /**
