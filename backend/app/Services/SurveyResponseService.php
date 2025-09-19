@@ -6,6 +6,7 @@ use App\Models\Survey;
 use App\Models\SurveyResponse;
 use App\Models\SurveyAuditLog;
 use App\Models\ActivityLog;
+use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -237,8 +238,60 @@ class SurveyResponseService extends BaseService
                 'progress_percentage' => $response->progress_percentage
             ]);
 
+            // Mark related survey assignment notification as completed
+            $this->markSurveyNotificationCompleted($response->survey_id, $response->respondent_id);
+
             return $response;
         });
+    }
+
+    /**
+     * Mark survey assignment notification as completed when response is submitted
+     */
+    protected function markSurveyNotificationCompleted(int $surveyId, int $userId): void
+    {
+        try {
+            // Find the survey assignment notification for this user and survey
+            $notification = Notification::where('type', 'survey_assigned')
+                ->where('user_id', $userId)
+                ->where('related_id', $surveyId)
+                ->where(function ($query) {
+                    $query->where('related_type', 'App\Models\Survey')
+                          ->orWhere('related_type', 'Survey');
+                })
+                ->first();
+
+            if ($notification) {
+                // Update notification to indicate survey is completed
+                $notification->update([
+                    'is_read' => true,
+                    'read_at' => now(),
+                    'metadata' => array_merge($notification->metadata ?? [], [
+                        'status' => 'completed',
+                        'completed_at' => now()->toISOString(),
+                        'action_type' => 'survey_completed'
+                    ])
+                ]);
+
+                \Log::info("Survey notification marked as completed", [
+                    'notification_id' => $notification->id,
+                    'survey_id' => $surveyId,
+                    'user_id' => $userId
+                ]);
+            } else {
+                \Log::warning("No survey assignment notification found to mark as completed", [
+                    'survey_id' => $surveyId,
+                    'user_id' => $userId
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Log::error("Failed to mark survey notification as completed", [
+                'survey_id' => $surveyId,
+                'user_id' => $userId,
+                'error' => $e->getMessage()
+            ]);
+            // Don't throw exception as this is not critical for response submission
+        }
     }
 
     public function approveResponse(int $responseId): SurveyResponse

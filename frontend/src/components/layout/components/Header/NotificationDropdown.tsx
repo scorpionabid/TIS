@@ -1,26 +1,24 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Bell, 
-  CheckCircle, 
-  AlertCircle, 
-  Info, 
+import {
+  Bell,
+  CheckCircle,
+  AlertCircle,
+  Info,
   Clock,
   Eye,
-  EyeOff,
   Trash2,
   CheckCheck,
-  RefreshCw
+  RefreshCw,
+  CheckCircle2
 } from 'lucide-react';
 import { useRealTimeNotifications } from '@/hooks/useRealTimeNotifications';
 import { toast } from 'sonner';
@@ -33,6 +31,12 @@ interface Notification {
   type: 'info' | 'success' | 'warning' | 'error';
   isRead: boolean;
   createdAt: string;
+  action_url?: string;
+  metadata?: {
+    status?: string;
+    action_type?: string;
+    [key: string]: any;
+  };
 }
 
 interface NotificationDropdownProps {
@@ -70,17 +74,22 @@ const formatTimeAgo = (dateString: string) => {
   const date = new Date(dateString);
   const now = new Date();
   const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / 60000);
-  
+
   if (diffInMinutes < 1) return 'İndi';
   if (diffInMinutes < 60) return `${diffInMinutes} dəqiqə əvvəl`;
-  
+
   const diffInHours = Math.floor(diffInMinutes / 60);
   if (diffInHours < 24) return `${diffInHours} saat əvvəl`;
-  
+
   const diffInDays = Math.floor(diffInHours / 24);
   if (diffInDays < 7) return `${diffInDays} gün əvvəl`;
-  
+
   return date.toLocaleDateString('az-AZ');
+};
+
+const isNotificationCompleted = (notification: Notification) => {
+  return notification.metadata?.status === 'completed' ||
+         notification.metadata?.action_type === 'survey_completed';
 };
 
 export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
@@ -227,11 +236,13 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           </div>
         ) : (
           <div className="space-y-1 p-1">
-            {displayNotifications.map((notification) => (
+            {displayNotifications.map((notification: Notification) => (
               <div
                 key={notification.id}
                 className={`relative p-3 rounded-md cursor-pointer transition-colors hover:bg-accent/50 ${
                   !notification.isRead ? 'bg-accent/30' : ''
+                } ${
+                  isNotificationCompleted(notification) ? 'opacity-60 bg-green-50 dark:bg-green-950/20 border-l-2 border-green-500' : ''
                 }`}
                 onClick={() => {
                   if (notification.action_url) {
@@ -247,7 +258,11 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                 <div className="flex items-start space-x-3">
                   {/* Notification Icon */}
                   <div className="flex-shrink-0 mt-0.5">
-                    {getNotificationIcon(notification.type)}
+                    {isNotificationCompleted(notification) ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    ) : (
+                      getNotificationIcon(notification.type)
+                    )}
                   </div>
                   
                   {/* Notification Content */}
@@ -267,8 +282,13 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                     
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
-                        <Badge variant="outline" className="text-xs h-4">
-                          {getNotificationTypeText(notification.type)}
+                        <Badge
+                          variant={isNotificationCompleted(notification) ? "secondary" : "outline"}
+                          className={`text-xs h-4 ${
+                            isNotificationCompleted(notification) ? 'bg-green-100 text-green-800 border-green-200' : ''
+                          }`}
+                        >
+                          {isNotificationCompleted(notification) ? 'Tamamlandı' : getNotificationTypeText(notification.type)}
                         </Badge>
                         <div className="flex items-center space-x-1">
                           <Clock className="h-3 w-3 text-muted-foreground" />
