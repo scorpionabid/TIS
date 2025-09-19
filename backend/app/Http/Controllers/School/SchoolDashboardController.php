@@ -338,9 +338,13 @@ class SchoolDashboardController extends Controller
 
         // Get notifications for the school/user
         $notifications = Notification::where(function ($query) use ($user, $school) {
-                $query->where('target_user_ids', 'like', '%"' . $user->id . '"%')
-                      ->orWhere('target_institutions', 'like', '%"' . $school->id . '"%');
-            })
+            $query->where('user_id', $user->id) // Direct assignment
+                  ->orWhereJsonContains('target_users', $user->id);
+
+            if ($school) {
+                $query->orWhereJsonContains('target_institutions', $school->id); // Targeted to user's institution
+            }
+        })
             ->orderBy('created_at', 'desc')
             ->limit($perPage)
             ->get()

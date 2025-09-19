@@ -124,6 +124,11 @@ class SurveyController extends BaseController
      */
     public function update(Request $request, Survey $survey): JsonResponse
     {
+        // Check if user can edit this survey (either has surveys.write permission OR is the creator)
+        if (!auth()->user()->can('surveys.write') && $survey->creator_id !== auth()->id()) {
+            return $this->errorResponse('Bu sorğunu redaktə etmək üçün icazəniz yoxdur', 403);
+        }
+
         $validated = $request->validate([
             'title' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string|max:2000',
@@ -181,6 +186,11 @@ class SurveyController extends BaseController
      */
     public function destroy(Request $request, Survey $survey): JsonResponse
     {
+        // Check if user can delete this survey (either has surveys.write permission OR is the creator)
+        if (!auth()->user()->can('surveys.write') && $survey->creator_id !== auth()->id()) {
+            return $this->errorResponse('Bu sorğunu silmək üçün icazəniz yoxdur', 403);
+        }
+
         try {
             $forceDelete = $request->boolean('force', false);
             
@@ -221,6 +231,11 @@ class SurveyController extends BaseController
      */
     public function publish(Survey $survey): JsonResponse
     {
+        // Check if user can publish this survey (either has surveys.write permission OR is the creator)
+        if (!auth()->user()->can('surveys.write') && $survey->creator_id !== auth()->id()) {
+            return $this->errorResponse('Bu sorğunu dərc etmək üçün icazəniz yoxdur', 403);
+        }
+
         try {
             // Update survey status to published
             $survey->update([
@@ -260,6 +275,11 @@ class SurveyController extends BaseController
      */
     public function archive(Survey $survey): JsonResponse
     {
+        // Check if user can archive this survey (either has surveys.write permission OR is the creator)
+        if (!auth()->user()->can('surveys.write') && $survey->creator_id !== auth()->id()) {
+            return $this->errorResponse('Bu sorğunu arxivləmək üçün icazəniz yoxdur', 403);
+        }
+
         try {
             $survey->update([
                 'status' => 'archived',
@@ -292,6 +312,11 @@ class SurveyController extends BaseController
      */
     public function duplicate(Survey $survey, Request $request): JsonResponse
     {
+        // Check if user can duplicate this survey (either has surveys.write permission OR is the creator)
+        if (!auth()->user()->can('surveys.write') && $survey->creator_id !== auth()->id()) {
+            return $this->errorResponse('Bu sorğunu kopyalamaq üçün icazəniz yoxdur', 403);
+        }
+
         $validated = $request->validate([
             'title' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:2000',

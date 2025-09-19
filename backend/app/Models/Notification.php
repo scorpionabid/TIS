@@ -58,6 +58,7 @@ class Notification extends Model
         'task_updated' => 'Tapşırıq yeniləndi',
         'task_deadline' => 'Tapşırıq müddəti',
         'survey_published' => 'Yeni sorğu',
+        'survey_assigned' => 'Survey təyinatı',
         'survey_deadline' => 'Sorğu müddəti',
         'survey_approved' => 'Sorğu təsdiqləndi',
         'survey_rejected' => 'Sorğu rədd edildi',

@@ -24,7 +24,7 @@ class NotificationController extends Controller
     {
         $request->validate([
             'per_page' => 'nullable|integer|min:1|max:100',
-            'type' => 'nullable|string|in:task_assigned,task_updated,task_deadline,survey_published,survey_deadline,survey_approved,survey_rejected,system_alert,maintenance,security_alert',
+            'type' => 'nullable|string|in:task_assigned,task_updated,task_deadline,survey_published,survey_assigned,survey_deadline,survey_approved,survey_rejected,system_alert,maintenance,security_alert',
             'channel' => 'nullable|string|in:in_app,email,sms,push',
             'priority' => 'nullable|string|in:low,normal,high,critical',
             'is_read' => 'nullable|boolean',
