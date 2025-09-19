@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Survey;
 use App\Models\User;
 use App\Services\SurveyCrudService;
-use App\Notifications\SurveyApprovalNotification;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Traits\ValidationRules;
@@ -16,10 +16,12 @@ class SurveyController extends BaseController
     use ValidationRules, ResponseHelpers;
 
     protected SurveyCrudService $crudService;
+    protected NotificationService $notificationService;
 
-    public function __construct(SurveyCrudService $crudService)
+    public function __construct(SurveyCrudService $crudService, NotificationService $notificationService)
     {
         $this->crudService = $crudService;
+        $this->notificationService = $notificationService;
     }
 
     /**
@@ -573,34 +575,19 @@ class SurveyController extends BaseController
                 })
                 ->get();
 
+            $sentCount = 0;
             foreach ($usersToNotify as $user) {
-                // Create mock approval request for notification system compatibility
-                $mockApprovalRequest = (object) [
-                    'id' => null,
-                    'priority' => 'normal',
-                    'deadline' => $survey->end_date,
-                    'institution' => $user->institution,
-                    'submitter' => $survey->creator,
-                ];
-
-                $additionalData = [
-                    'survey_id' => $survey->id,
-                    'survey_title' => $survey->title,
-                    'survey_category' => $survey->survey_type ?? 'general',
-                    'institution_name' => $user->institution->name ?? '',
-                    'assigned_by' => $survey->creator->name ?? 'Sistem',
-                    'deadline' => $survey->end_date?->toISOString(),
-                    'priority' => $survey->priority ?? 'normal',
-                ];
-
-                // Send notification
-                $user->notify(new SurveyApprovalNotification($mockApprovalRequest, 'survey_assigned', $additionalData));
+                $notification = $this->notificationService->sendSurveyAssignment($survey, $user);
+                if ($notification) {
+                    $sentCount++;
+                }
             }
 
             \Log::info('Survey assignment notifications sent', [
                 'survey_id' => $survey->id,
                 'target_institutions' => $targetInstitutions,
-                'notified_users_count' => $usersToNotify->count()
+                'total_users' => $usersToNotify->count(),
+                'notifications_sent' => $sentCount
             ]);
 
         } catch (\Exception $e) {

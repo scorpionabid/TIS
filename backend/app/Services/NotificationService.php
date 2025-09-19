@@ -461,4 +461,46 @@ class NotificationService
             ]
         );
     }
+
+    /**
+     * Send survey assignment notification
+     */
+    public function sendSurveyAssignment(Survey $survey, User $user): ?Notification
+    {
+        try {
+            $notificationData = [
+                'title' => 'Yeni Survey Təyinatı',
+                'message' => "Sizə yeni survey təyin edildi: {$survey->title}",
+                'type' => 'survey_assigned',
+                'priority' => $survey->priority ?? 'normal',
+                'channel' => 'in_app',
+                'user_id' => $user->id,
+                'related_type' => 'Survey',
+                'related_id' => $survey->id,
+                'action_data' => [
+                    'action_url' => "/survey-response/{$survey->id}",
+                    'survey_id' => $survey->id,
+                    'survey_title' => $survey->title,
+                ],
+                'metadata' => [
+                    'survey_title' => $survey->title,
+                    'survey_description' => $survey->description,
+                    'survey_type' => $survey->survey_type ?? 'general',
+                    'institution_name' => $user->institution->name ?? '',
+                    'assigned_by' => $survey->creator->name ?? 'Sistem',
+                    'deadline' => $survey->end_date?->toISOString(),
+                    'priority' => $survey->priority ?? 'normal',
+                ],
+            ];
+
+            return $this->send($notificationData);
+        } catch (\Exception $e) {
+            Log::error('Failed to send survey assignment notification', [
+                'survey_id' => $survey->id,
+                'user_id' => $user->id,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
 }
