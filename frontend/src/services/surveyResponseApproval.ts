@@ -28,6 +28,7 @@ export interface SurveyResponseForApproval {
   institution?: {
     id: number;
     name: string;
+    short_name?: string;
     type?: string;
     level?: number;
   };

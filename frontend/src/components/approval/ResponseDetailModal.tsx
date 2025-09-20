@@ -43,13 +43,15 @@ interface ResponseDetailModalProps {
   onClose: () => void;
   responseId: number;
   onUpdate?: () => void;
+  defaultTab?: 'details' | 'responses' | 'history';
 }
 
 const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
   open,
   onClose,
   responseId,
-  onUpdate
+  onUpdate,
+  defaultTab = 'details'
 }) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -377,7 +379,7 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden">
-          <Tabs defaultValue="details" className="h-full flex flex-col">
+          <Tabs defaultValue={defaultTab} className="h-full flex flex-col">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="details">Cavab Detalları</TabsTrigger>
               <TabsTrigger value="responses">Sorğu Cavabları</TabsTrigger>

@@ -71,6 +71,7 @@ interface ResponseManagementTableProps {
   onFiltersChange: (key: keyof ResponseFilters, value: any) => void;
   filters: ResponseFilters;
   onResponseEdit?: (response: SurveyResponseForApproval) => void;
+  onResponseViewTab?: (response: SurveyResponseForApproval, tab: 'details' | 'responses' | 'history') => void;
 }
 const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
   responses,
@@ -82,7 +83,8 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
   onBulkSelect,
   onFiltersChange,
   filters,
-  onResponseEdit
+  onResponseEdit,
+  onResponseViewTab
 }) => {
   const { user } = useAuth();
   const [selectAll, setSelectAll] = useState(false);
@@ -426,19 +428,89 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
             </div>
             <div className="min-w-0 flex-1">
               <div className="font-medium truncate" title={response.institution?.name}>
-                {response.institution?.name || 'Müəssisə adı yoxdur'}
+                {response.institution?.short_name || response.institution?.name || 'Müəssisə adı yoxdur'}
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                {response.institution?.type && (
-                  <span className="px-2 py-0.5 bg-muted rounded-full">
-                    {response.institution.type}
-                  </span>
-                )}
                 {response.department?.name && (
-                  <span>• {response.department.name}</span>
+                  <span>{response.department.name}</span>
                 )}
               </div>
             </div>
+          </div>
+        </TableCell>
+
+        <TableCell className="py-3">
+          <div className="space-y-3 max-w-md">
+            {response.responses && Object.keys(response.responses).length > 0 ? (
+              <div className="space-y-3">
+                {Object.entries(response.responses).slice(0, 3).map(([questionId, answer], index) => (
+                  <div key={questionId} className="space-y-1">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="w-5 h-5 bg-primary/20 text-primary rounded-full flex items-center justify-center text-[10px] font-medium">
+                        {index + 1}
+                      </span>
+                      <span className="font-medium text-muted-foreground">Sual {questionId}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0 hover:bg-primary/10"
+                        onClick={() => onResponseViewTab ? onResponseViewTab(response, 'responses') : onResponseSelect(response)}
+                        title="Sorğu cavablarını görüntülə"
+                      >
+                        <Eye className="h-3 w-3 text-primary" />
+                      </Button>
+                    </div>
+                    <div className="text-xs text-foreground pl-7">
+                      {Array.isArray(answer) ? (
+                        <div className="space-y-1">
+                          {answer.slice(0, 1).map((item, i) => (
+                            <div key={i} className="px-2 py-1 bg-muted/50 rounded text-xs">
+                              {String(item).slice(0, 50)}{String(item).length > 50 ? '...' : ''}
+                            </div>
+                          ))}
+                          {answer.length > 1 && (
+                            <div className="text-xs text-muted-foreground">
+                              +{answer.length - 1} əlavə cavab
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="px-2 py-1 bg-muted/50 rounded text-xs">
+                          {String(answer || 'Cavab verilməyib').slice(0, 50)}
+                          {String(answer || '').length > 50 ? '...' : ''}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {Object.keys(response.responses).length > 3 && (
+                  <div className="text-xs text-muted-foreground pt-1 border-t border-muted pl-7">
+                    +{Object.keys(response.responses).length - 3} əlavə sual
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-4 w-4 p-0 ml-2 hover:bg-primary/10"
+                      onClick={() => onResponseViewTab ? onResponseViewTab(response, 'responses') : onResponseSelect(response)}
+                      title="Bütün sorğu cavablarını görüntülə"
+                    >
+                      <Eye className="h-3 w-3 text-primary" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 w-5 p-0 hover:bg-primary/10"
+                  onClick={() => onResponseViewTab ? onResponseViewTab(response, 'responses') : onResponseSelect(response)}
+                  title="Sorğu detallarını görüntülə"
+                >
+                  <Eye className="h-3 w-3 text-primary" />
+                </Button>
+              </div>
+            )}
           </div>
         </TableCell>
 
@@ -462,18 +534,15 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
             <div className="text-xs text-muted-foreground truncate" title={response.respondent?.email}>
               {response.respondent?.email || ''}
             </div>
-          </div>
-        </TableCell>
-
-        <TableCell className="py-3">
-          <div className="text-sm">
-            {response.submitted_at
-              ? formatDistanceToNow(new Date(response.submitted_at), {
-                  addSuffix: true,
-                  locale: az
-                })
-              : 'Təqdim edilməyib'
-            }
+            <div className="text-xs text-muted-foreground">
+              {response.submitted_at
+                ? formatDistanceToNow(new Date(response.submitted_at), {
+                    addSuffix: true,
+                    locale: az
+                  })
+                : 'Təqdim edilməyib'
+              }
+            </div>
           </div>
         </TableCell>
 
@@ -499,61 +568,6 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
           </div>
         </TableCell>
 
-        <TableCell className="py-3">
-          <div className="flex justify-end">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 hover:bg-muted/50"
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => onResponseSelect(response)}>
-                  <Eye className="h-4 w-4 mr-2" />
-                  Cavabı görüntülə
-                </DropdownMenuItem>
-                {canEditResponse(response) && (
-                  <DropdownMenuItem onClick={() => onResponseEdit?.(response)}>
-                    <Edit className="h-4 w-4 mr-2 text-orange-600" />
-                    Cavabı redaktə et
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                {canApproveResponse(response) && (
-                  <DropdownMenuItem
-                    onClick={() => handleApproval(response.id, 'approve')}
-                    className="text-green-600 focus:text-green-600"
-                  >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Təsdiqlə
-                  </DropdownMenuItem>
-                )}
-                {canRejectResponse(response) && (
-                  <DropdownMenuItem
-                    onClick={() => handleApproval(response.id, 'reject')}
-                    className="text-red-600 focus:text-red-600"
-                  >
-                    <XCircle className="h-4 w-4 mr-2" />
-                    Rədd et
-                  </DropdownMenuItem>
-                )}
-                {/* Status indicators */}
-                {(response.status === 'approved' || response.status === 'rejected') && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem disabled className="text-xs text-muted-foreground">
-                      {response.status === 'approved' ? '✅ Təsdiqlənib' : '❌ Rədd edilib'}
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </TableCell>
       </TableRow>
     );
   });
@@ -854,8 +868,95 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
             {/* Card Content */}
             <div className="space-y-3">
               <div>
-                <h4 className="font-medium text-sm">{response.institution?.name || 'Müəssisə adı yoxdur'}</h4>
-                <p className="text-xs text-muted-foreground">{response.institution?.type}</p>
+                <h4 className="font-medium text-sm">{response.institution?.short_name || response.institution?.name || 'Müəssisə adı yoxdur'}</h4>
+              </div>
+
+              {/* Survey Responses */}
+              <div className="p-2 bg-muted/30 rounded-md">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-medium text-muted-foreground">Sorğu Cavabları:</div>
+                  {response.responses && Object.keys(response.responses).length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 w-5 p-0 hover:bg-primary/10"
+                      onClick={() => onResponseViewTab ? onResponseViewTab(response, 'responses') : onResponseSelect(response)}
+                      title="Sorğu cavablarını görüntülə"
+                    >
+                      <Eye className="h-3 w-3 text-primary" />
+                    </Button>
+                  )}
+                </div>
+                {response.responses && Object.keys(response.responses).length > 0 ? (
+                  <div className="space-y-2">
+                    {Object.entries(response.responses).slice(0, 2).map(([questionId, answer], index) => (
+                      <div key={questionId} className="space-y-1">
+                        <div className="flex items-center gap-1 text-xs">
+                          <span className="w-4 h-4 bg-primary/20 text-primary rounded-full flex items-center justify-center text-[10px] font-medium">
+                            {index + 1}
+                          </span>
+                          <span className="font-medium text-muted-foreground">Sual {questionId}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-4 w-4 p-0 hover:bg-primary/10"
+                            onClick={() => onResponseViewTab ? onResponseViewTab(response, 'responses') : onResponseSelect(response)}
+                            title="Bu sorğu cavabını görüntülə"
+                          >
+                            <Eye className="h-2.5 w-2.5 text-primary" />
+                          </Button>
+                        </div>
+                        <div className="text-xs text-foreground ml-5">
+                          {Array.isArray(answer) ? (
+                            <div className="space-y-1">
+                              {answer.slice(0, 1).map((item, i) => (
+                                <div key={i} className="px-2 py-1 bg-background/50 rounded text-xs">
+                                  {String(item).slice(0, 40)}{String(item).length > 40 ? '...' : ''}
+                                </div>
+                              ))}
+                              {answer.length > 1 && (
+                                <div className="text-xs text-muted-foreground">
+                                  +{answer.length - 1} əlavə
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="px-2 py-1 bg-background/50 rounded text-xs">
+                              {String(answer || 'Cavab verilməyib').slice(0, 40)}
+                              {String(answer || '').length > 40 ? '...' : ''}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {Object.keys(response.responses).length > 2 && (
+                      <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-muted/50 ml-5">
+                        <span>+{Object.keys(response.responses).length - 2} əlavə sual</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-4 w-4 p-0 hover:bg-primary/10"
+                          onClick={() => onResponseViewTab ? onResponseViewTab(response, 'responses') : onResponseSelect(response)}
+                          title="Bütün sorğu cavablarını görüntülə"
+                        >
+                          <Eye className="h-2.5 w-2.5 text-primary" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-4 w-4 p-0 hover:bg-primary/10"
+                      onClick={() => onResponseViewTab ? onResponseViewTab(response, 'responses') : onResponseSelect(response)}
+                      title="Sorğu detallarını görüntülə"
+                    >
+                      <Eye className="h-2.5 w-2.5 text-primary" />
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-4 text-xs">
@@ -866,12 +967,15 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
               </div>
 
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>{response.respondent?.name || 'Bilinməyən'}</span>
-                <span>
+                <div>
+                  <div className="font-medium">{response.respondent?.name || 'Bilinməyən'}</div>
+                  <div className="text-xs text-muted-foreground">{response.respondent?.email || ''}</div>
+                </div>
+                <div className="text-right">
                   {response.submitted_at
                     ? new Date(response.submitted_at).toLocaleDateString('az-AZ')
                     : 'Təqdim edilməyib'}
-                </span>
+                </div>
               </div>
 
               <div className="space-y-1">
@@ -914,38 +1018,35 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
                   Müəssisə
                 </SortableHeader>
               </TableHead>
-              <TableHead className="font-semibold w-16 text-center">
+              <TableHead className="font-semibold w-80">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Sorğu Cavabları
+                </div>
+              </TableHead>
+              <TableHead className="font-semibold w-24 text-center">
                 <SortableHeader field="status">
                   <Clock className="h-4 w-4" />
-                  St
+                  Status
                 </SortableHeader>
               </TableHead>
-              <TableHead className="font-semibold w-16 text-center">
+              <TableHead className="font-semibold w-24 text-center">
                 <SortableHeader field="approval_status">
                   <CheckCircle className="h-4 w-4" />
-                  Tş
+                  Təsdiq
                 </SortableHeader>
               </TableHead>
-              <TableHead className="font-semibold w-44">
-                <SortableHeader field="respondent_name">
+              <TableHead className="font-semibold w-52">
+                <div className="flex items-center gap-2">
                   <User className="h-4 w-4" />
-                  Cavablayan
-                </SortableHeader>
-              </TableHead>
-              <TableHead className="font-semibold w-36">
-                <SortableHeader field="submitted_at">
-                  <Calendar className="h-4 w-4" />
-                  Tarix
-                </SortableHeader>
+                  Cavablayan / Tarix
+                </div>
               </TableHead>
               <TableHead className="font-semibold w-32">
                 <SortableHeader field="progress_percentage">
                   <RefreshCw className="h-4 w-4" />
                   İrəliləmə
                 </SortableHeader>
-              </TableHead>
-              <TableHead className="text-right font-semibold w-28">
-                Əməliyyatlar
               </TableHead>
             </TableRow>
           </TableHeader>

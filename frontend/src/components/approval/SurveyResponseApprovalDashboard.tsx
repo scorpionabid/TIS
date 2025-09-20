@@ -49,6 +49,7 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
   const [showResponseModal, setShowResponseModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [selectedResponses, setSelectedResponses] = useState<number[]>([]);
+  const [defaultTab, setDefaultTab] = useState<'details' | 'responses' | 'history'>('details');
   
   // Filters state
   const [filters, setFilters] = useState<ResponseFilters>({
@@ -145,6 +146,13 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
   // Handle response selection
   const handleResponseSelect = (response: SurveyResponseForApproval) => {
     setSelectedResponse(response);
+    setShowResponseModal(true);
+  };
+
+  // Handle response selection with specific tab
+  const handleResponseViewTab = (response: SurveyResponseForApproval, tab: 'details' | 'responses' | 'history') => {
+    setSelectedResponse(response);
+    setDefaultTab(tab);
     setShowResponseModal(true);
   };
 
@@ -545,6 +553,7 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
                 onFiltersChange={handleFilterChange}
                 filters={filters}
                 onResponseEdit={handleResponseEdit}
+                onResponseViewTab={handleResponseViewTab}
               />
             </CardContent>
           </Card>
@@ -558,12 +567,14 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
           onClose={() => {
             setShowResponseModal(false);
             setSelectedResponse(null);
+            setDefaultTab('details');
           }}
           responseId={selectedResponse.id}
+          defaultTab={defaultTab}
           onUpdate={() => {
             refetchResponses();
-            queryClient.invalidateQueries({ 
-              queryKey: ['survey-responses-approval', selectedSurvey?.id] 
+            queryClient.invalidateQueries({
+              queryKey: ['survey-responses-approval', selectedSurvey?.id]
             });
           }}
         />
