@@ -51,9 +51,11 @@ import { formatDistanceToNow } from 'date-fns';
 import { az } from 'date-fns/locale';
 import {
   SurveyResponseForApproval,
-  ResponseFilters
+  ResponseFilters,
+  surveyResponseApprovalService
 } from '../../services/surveyResponseApproval';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../hooks/use-toast';
 interface PaginationData {
   current_page: number;
   last_page: number;
@@ -72,6 +74,7 @@ interface ResponseManagementTableProps {
   filters: ResponseFilters;
   onResponseEdit?: (response: SurveyResponseForApproval) => void;
   onResponseViewTab?: (response: SurveyResponseForApproval, tab: 'details' | 'responses' | 'history') => void;
+  onUpdate?: () => void;
 }
 const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
   responses,
@@ -84,12 +87,15 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
   onFiltersChange,
   filters,
   onResponseEdit,
-  onResponseViewTab
+  onResponseViewTab,
+  onUpdate
 }) => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [selectAll, setSelectAll] = useState(false);
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [processingApprovals, setProcessingApprovals] = useState<Set<number>>(new Set());
   // Helper function to check if user can edit a response
   const canEditResponse = useCallback((response: SurveyResponseForApproval) => {
     if (!user || !onResponseEdit) return false;
@@ -123,10 +129,177 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
     return response.approvalRequest?.current_status === 'pending';
   }, [user]);
 
-  const handleApproval = useCallback((responseId: number, action: 'approve' | 'reject') => {
-    console.log(`${action} response:`, responseId);
-    // Here will be the actual approval logic
-  }, []);
+  const handleApproval = useCallback(async (responseId: number, action: 'approve' | 'reject' | 'return', comments?: string) => {
+    try {
+      setProcessingApprovals(prev => new Set([...prev, responseId]));
+
+      let result;
+      const data = { comments: comments || '', metadata: { action_source: 'table_approval' } };
+
+      if (action === 'approve') {
+        result = await surveyResponseApprovalService.approveResponse(responseId, data);
+      } else if (action === 'reject') {
+        result = await surveyResponseApprovalService.rejectResponse(responseId, { ...data, comments: comments || 'Rədd edildi' });
+      } else if (action === 'return') {
+        result = await surveyResponseApprovalService.returnForRevision(responseId, { ...data, comments: comments || 'Yenidən işləmə üçün qaytarıldı' });
+      }
+
+      console.log(`✅ ${action} successful:`, result);
+
+      // Show success toast
+      const actionMessages = {
+        approve: 'Sorğu cavabı uğurla təsdiqləndi',
+        reject: 'Sorğu cavabı rədd edildi',
+        return: 'Sorğu cavabı yenidən işləmə üçün qaytarıldı'
+      };
+
+      toast({
+        title: "Uğurlu əməliyyat",
+        description: actionMessages[action],
+        variant: "default",
+      });
+
+      // Refresh data
+      if (onUpdate) {
+        onUpdate();
+      }
+
+    } catch (error: any) {
+      console.error(`❌ ${action} failed:`, error);
+
+      // Show error toast
+      const errorMessages = {
+        approve: 'Təsdiq zamanı xəta baş verdi',
+        reject: 'Rədd zamanı xəta baş verdi',
+        return: 'Qaytarma zamanı xəta baş verdi'
+      };
+
+      toast({
+        title: "Xəta baş verdi",
+        description: error?.response?.data?.message || errorMessages[action],
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingApprovals(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(responseId);
+        return newSet;
+      });
+    }
+  }, [onUpdate, toast]);
+
+  // Approval Actions Component
+  const ApprovalActions = React.memo(({ response }: { response: SurveyResponseForApproval }) => {
+    const isProcessing = processingApprovals.has(response.id);
+    const approvalStatus = response.approvalRequest?.current_status;
+
+    // Show badge for final statuses
+    if (approvalStatus === 'approved') {
+      return (
+        <div className="flex justify-center">
+          <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-md">
+            <CheckCircle className="h-3 w-3" />
+            Təsdiqləndi
+          </span>
+        </div>
+      );
+    }
+
+    if (approvalStatus === 'rejected') {
+      return (
+        <div className="flex justify-center">
+          <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-md">
+            <XCircle className="h-3 w-3" />
+            Rədd edildi
+          </span>
+        </div>
+      );
+    }
+
+    if (approvalStatus === 'returned') {
+      return (
+        <div className="flex justify-center">
+          <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-md">
+            <RefreshCw className="h-3 w-3" />
+            Qaytarıldı
+          </span>
+        </div>
+      );
+    }
+
+    // Show action buttons for pending status
+    if (approvalStatus === 'pending' && (canApproveResponse(response) || canRejectResponse(response))) {
+      return (
+        <div className="flex justify-center gap-1">
+          {canApproveResponse(response) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={isProcessing}
+              onClick={() => handleApproval(response.id, 'approve')}
+              className="h-7 w-7 p-0 text-green-600 hover:bg-green-50 hover:text-green-700 disabled:opacity-50"
+              title="Təsdiqlə"
+            >
+              {isProcessing ? (
+                <div className="w-3 h-3 border border-green-600 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <CheckCircle className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          )}
+          {canRejectResponse(response) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={isProcessing}
+              onClick={() => handleApproval(response.id, 'reject')}
+              className="h-7 w-7 p-0 text-red-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+              title="Rədd et"
+            >
+              {isProcessing ? (
+                <div className="w-3 h-3 border border-red-600 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <XCircle className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={isProcessing}
+            onClick={() => handleApproval(response.id, 'return')}
+            className="h-7 w-7 p-0 text-amber-600 hover:bg-amber-50 hover:text-amber-700 disabled:opacity-50"
+            title="Yenidən işləmə üçün qaytarma"
+          >
+            {isProcessing ? (
+              <div className="w-3 h-3 border border-amber-600 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        </div>
+      );
+    }
+
+    // Show in_progress status
+    if (approvalStatus === 'in_progress') {
+      return (
+        <div className="flex justify-center">
+          <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-md">
+            <Clock className="h-3 w-3" />
+            İcrada
+          </span>
+        </div>
+      );
+    }
+
+    // No approval request or other status
+    return (
+      <div className="flex justify-center">
+        <span className="text-xs text-muted-foreground">-</span>
+      </div>
+    );
+  });
 
   // Ultra-compact status indicators - just colored dots with tooltips (80% space saving)
   const getStatusDot = (status: string) => {
@@ -521,9 +694,7 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
         </TableCell>
 
         <TableCell className="py-3">
-          <div className="flex justify-center">
-            {getApprovalStatusDot(response.approvalRequest?.current_status)}
-          </div>
+          <ApprovalActions response={response} />
         </TableCell>
 
         <TableCell className="py-3">
@@ -959,10 +1130,13 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
                 )}
               </div>
 
-              <div className="flex items-center gap-4 text-xs">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-muted-foreground">Status:</span>
                   {getStatusDot(response.status)}
-                  {getApprovalStatusDot(response.approvalRequest?.current_status)}
+                </div>
+                <div className="text-xs">
+                  <ApprovalActions response={response} />
                 </div>
               </div>
 
@@ -1030,7 +1204,7 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
                   Status
                 </SortableHeader>
               </TableHead>
-              <TableHead className="font-semibold w-24 text-center">
+              <TableHead className="font-semibold w-36 text-center">
                 <SortableHeader field="approval_status">
                   <CheckCircle className="h-4 w-4" />
                   Təsdiq
