@@ -28,8 +28,25 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Filter
+  Filter,
+  MoreHorizontal,
+  MoreVertical,
+  X,
+  TrendingUp,
+  BarChart3,
+  Download,
+  FileText,
+  UserPlus,
+  Bell,
+  Star
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
+} from '../ui/dropdown-menu';
 import { formatDistanceToNow } from 'date-fns';
 import { az } from 'date-fns/locale';
 import {
@@ -37,14 +54,12 @@ import {
   ResponseFilters
 } from '../../services/surveyResponseApproval';
 import { useAuth } from '../../contexts/AuthContext';
-
 interface PaginationData {
   current_page: number;
   last_page: number;
   per_page: number;
   total: number;
 }
-
 interface ResponseManagementTableProps {
   responses: SurveyResponseForApproval[];
   pagination?: PaginationData;
@@ -57,7 +72,6 @@ interface ResponseManagementTableProps {
   filters: ResponseFilters;
   onResponseEdit?: (response: SurveyResponseForApproval) => void;
 }
-
 const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
   responses,
   pagination,
@@ -74,123 +88,119 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
   const [selectAll, setSelectAll] = useState(false);
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-
   // Helper function to check if user can edit a response
   const canEditResponse = useCallback((response: SurveyResponseForApproval) => {
     if (!user || !onResponseEdit) return false;
-
     // Only sektoradmin and regionadmin can edit responses
     const canEditRoles = ['sektoradmin', 'regionadmin', 'superadmin'];
     const hasEditRole = user.roles?.some(role => canEditRoles.includes(role.name));
-
     if (!hasEditRole) return false;
-
     // Can only edit unapproved responses (not approved or rejected)
     const canEditStatuses = ['draft', 'submitted'];
     const isEditableStatus = canEditStatuses.includes(response.status);
-
     // Can only edit if approval status is not final
     const canEditApprovalStatuses = ['pending', 'in_progress', undefined];
     const isEditableApprovalStatus = canEditApprovalStatuses.includes(response.approvalRequest?.current_status);
-
     return isEditableStatus && isEditableApprovalStatus;
   }, [user, onResponseEdit]);
 
-  // Enhanced status badge styling - compact version
-  const getStatusBadge = (status: string) => {
+  // Helper functions for approval checks
+  const canApproveResponse = useCallback((response: SurveyResponseForApproval) => {
+    if (!user) return false;
+    const canApproveRoles = ['sektoradmin', 'regionadmin', 'superadmin'];
+    const hasApproveRole = user.roles?.some(role => canApproveRoles.includes(role.name));
+    if (!hasApproveRole) return false;
+    return response.approvalRequest?.current_status === 'pending';
+  }, [user]);
+
+  const canRejectResponse = useCallback((response: SurveyResponseForApproval) => {
+    if (!user) return false;
+    const canRejectRoles = ['sektoradmin', 'regionadmin', 'superadmin'];
+    const hasRejectRole = user.roles?.some(role => canRejectRoles.includes(role.name));
+    if (!hasRejectRole) return false;
+    return response.approvalRequest?.current_status === 'pending';
+  }, [user]);
+
+  const handleApproval = useCallback((responseId: number, action: 'approve' | 'reject') => {
+    console.log(`${action} response:`, responseId);
+    // Here will be the actual approval logic
+  }, []);
+
+  // Ultra-compact status indicators - just colored dots with tooltips (80% space saving)
+  const getStatusDot = (status: string) => {
     const statusConfig = {
       draft: {
-        className: 'bg-orange-100 text-orange-800 border-orange-200',
-        icon: Edit,
-        text: 'Qaralama',
-        dotColor: 'bg-orange-500'
+        dotColor: 'bg-orange-500',
+        label: 'Qaralama',
+        tooltip: 'Hələ tamamlanmayıb'
       },
       submitted: {
-        className: 'bg-blue-100 text-blue-800 border-blue-200',
-        icon: Clock,
-        text: 'Təqdim edilib',
-        dotColor: 'bg-blue-500'
+        dotColor: 'bg-blue-500',
+        label: 'Təqdim edilib',
+        tooltip: 'Yoxlanmaq üçün göndərilib'
       },
       approved: {
-        className: 'bg-green-100 text-green-800 border-green-200',
-        icon: CheckCircle,
-        text: 'Təsdiqləndi',
-        dotColor: 'bg-green-500'
+        dotColor: 'bg-green-500',
+        label: 'Təsdiqləndi',
+        tooltip: 'Rəsmi olaraq təsdiqlənib'
       },
       rejected: {
-        className: 'bg-red-100 text-red-800 border-red-200',
-        icon: XCircle,
-        text: 'Rədd edildi',
-        dotColor: 'bg-red-500'
+        dotColor: 'bg-red-500',
+        label: 'Rədd edildi',
+        tooltip: 'Təkrar işləmə tələb olunur'
       },
     } as const;
-
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.draft;
-    const Icon = config.icon;
-
     return (
-      <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border ${config.className}`}>
-        <div className={`w-1.5 h-1.5 rounded-full ${config.dotColor}`} />
-        <Icon className="h-2.5 w-2.5" />
-        <span className="text-xs">{config.text}</span>
-      </div>
+      <div
+        className={`w-3 h-3 rounded-full ${config.dotColor} ring-2 ring-white shadow-sm cursor-help`}
+        title={`${config.label} - ${config.tooltip}`}
+      />
     );
   };
-
-  // Enhanced approval status badge styling - compact version
-  const getApprovalStatusBadge = (status?: string) => {
+  // Ultra-compact approval status indicators - just colored dots with tooltips
+  const getApprovalStatusDot = (status?: string) => {
     if (!status) return (
-      <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border bg-gray-50 text-gray-600 border-gray-200">
-        <div className="w-1.5 h-1.5 rounded-full bg-gray-400" />
-        <span className="text-xs">—</span>
-      </div>
+      <div
+        className="w-3 h-3 rounded-full bg-gray-400 ring-2 ring-white shadow-sm cursor-help"
+        title="Təsdiq gözlənilmir"
+      />
     );
-
     const statusConfig = {
       pending: {
-        className: 'bg-amber-100 text-amber-800 border-amber-200',
-        icon: Clock,
-        text: 'Gözləyir',
-        dotColor: 'bg-amber-500'
+        dotColor: 'bg-amber-500',
+        label: 'Gözləyir',
+        tooltip: 'Təsdiq gözlənilir'
       },
       in_progress: {
-        className: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-        icon: RefreshCw,
-        text: 'İcrada',
-        dotColor: 'bg-indigo-500'
+        dotColor: 'bg-indigo-500',
+        label: 'İcrada',
+        tooltip: 'Hazırda təsdiq edilir'
       },
       approved: {
-        className: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-        icon: CheckCircle,
-        text: 'Təsdiqləndi',
-        dotColor: 'bg-emerald-500'
+        dotColor: 'bg-emerald-500',
+        label: 'Təsdiqləndi',
+        tooltip: 'Rəsmi olaraq təsdiqlənib'
       },
       rejected: {
-        className: 'bg-rose-100 text-rose-800 border-rose-200',
-        icon: XCircle,
-        text: 'Rədd edildi',
-        dotColor: 'bg-rose-500'
+        dotColor: 'bg-rose-500',
+        label: 'Rədd edildi',
+        tooltip: 'Təkrar işləmə tələb olunur'
       },
       returned: {
-        className: 'bg-purple-100 text-purple-800 border-purple-200',
-        icon: RefreshCw,
-        text: 'Geri qaytarıldı',
-        dotColor: 'bg-purple-500'
+        dotColor: 'bg-purple-500',
+        label: 'Geri qaytarıldı',
+        tooltip: 'Yenidən işləmə üçün qaytarılıb'
       },
     } as const;
-
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
-    const Icon = config.icon;
-
     return (
-      <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border ${config.className}`}>
-        <div className={`w-1.5 h-1.5 rounded-full ${config.dotColor}`} />
-        <Icon className="h-2.5 w-2.5" />
-        <span className="text-xs">{config.text}</span>
-      </div>
+      <div
+        className={`w-3 h-3 rounded-full ${config.dotColor} ring-2 ring-white shadow-sm cursor-help`}
+        title={`${config.label} - ${config.tooltip}`}
+      />
     );
   };
-
   // Handle individual checkbox
   const handleResponseCheckbox = useCallback((responseId: number, checked: boolean) => {
     if (checked) {
@@ -200,7 +210,6 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
       setSelectAll(false);
     }
   }, [selectedResponses, onBulkSelect]);
-
   // Handle select all checkbox
   const handleSelectAll = useCallback((checked: boolean) => {
     setSelectAll(checked);
@@ -210,7 +219,6 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
       onBulkSelect([]);
     }
   }, [responses, onBulkSelect]);
-
   // Handle pagination
   const handlePageChange = useCallback((page: number) => {
     if (pagination && page >= 1 && page <= pagination.last_page) {
@@ -222,12 +230,10 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
       window.history.pushState({}, '', `?${searchParams.toString()}`);
     }
   }, [pagination]);
-
   // Handle page size change
   const handlePageSizeChange = useCallback((pageSize: number) => {
     onFiltersChange('per_page', pageSize);
   }, [onFiltersChange]);
-
   // Handle sorting
   const handleSort = useCallback((field: string) => {
     if (sortField === field) {
@@ -240,7 +246,6 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
     onFiltersChange('sort_by', field);
     onFiltersChange('sort_direction', sortDirection === 'asc' ? 'desc' : 'asc');
   }, [sortField, sortDirection, onFiltersChange]);
-
   // Sortable column header component
   const SortableHeader = ({ field, children, className = '' }: {
     field: string;
@@ -254,7 +259,6 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
         ? <ArrowUp className="h-3 w-3" />
         : <ArrowDown className="h-3 w-3" />;
     };
-
     return (
       <button
         onClick={() => handleSort(field)}
@@ -267,15 +271,12 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
       </button>
     );
   };
-
   // Enhanced pagination component
   const PaginationComponent = useMemo(() => {
     if (!pagination || pagination.total === 0) return null;
-
     const { current_page, last_page, total } = pagination;
     const startItem = ((current_page - 1) * pagination.per_page) + 1;
     const endItem = Math.min(current_page * pagination.per_page, total);
-
     return (
       <div className="flex items-center justify-between px-4 py-4 border-t bg-muted/20">
         <div className="flex items-center gap-6 text-sm text-muted-foreground">
@@ -292,11 +293,29 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
               onChange={(e) => handlePageSizeChange(Number(e.target.value))}
               className="border border-muted bg-background rounded-md px-3 py-1.5 text-sm font-medium hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
+              <option value={10}>10 (Sürətli)</option>
+              <option value={25}>25 (Normal)</option>
+              <option value={50}>50 (Daha çox)</option>
+              <option value={100}>100 (Böyük səhifə)</option>
+              <option value={200}>200 (Ənterprayz)</option>
             </select>
+          </div>
+          {/* Performance Metrics */}
+          <div className="hidden lg:flex items-center gap-3 text-xs">
+            <div className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-md">
+              <RefreshCw className="h-3 w-3" />
+              <span>Yükləndi: {responses.length}</span>
+            </div>
+            {selectedResponses.length > 0 && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-md">
+                <CheckCircle className="h-3 w-3" />
+                <span>Seçildi: {selectedResponses.length}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-600 rounded-md">
+              <BarChart3 className="h-3 w-3" />
+              <span>Səhifə: {current_page}/{last_page}</span>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -320,7 +339,6 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-
           <div className="flex items-center gap-1 mx-2">
             {Array.from({ length: Math.min(5, last_page) }, (_, i) => {
               let pageNum: number;
@@ -333,9 +351,7 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
               } else {
                 pageNum = current_page - 2 + i;
               }
-
               const isCurrentPage = current_page === pageNum;
-
               return (
                 <Button
                   key={pageNum}
@@ -353,7 +369,6 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
               );
             })}
           </div>
-
           <Button
             variant="outline"
             size="sm"
@@ -378,7 +393,170 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
       </div>
     );
   }, [pagination, handlePageChange, handlePageSizeChange]);
+  // Memoized row component for performance optimization
+  const ResponseTableRow = React.memo(({ response }: { response: SurveyResponseForApproval }) => {
+    const isSelected = selectedResponses.includes(response.id);
+    return (
+      <TableRow
+        key={response.id}
+        className={`
+          group transition-all duration-200 hover:bg-muted/30 hover:shadow-sm
+          ${isSelected
+            ? 'bg-primary/8 border-l-4 border-l-primary shadow-sm'
+            : 'border-l-4 border-l-transparent'
+          }
+        `}
+      >
+        <TableCell className="py-3">
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={(checked) =>
+              handleResponseCheckbox(response.id, Boolean(checked))
+            }
+            className="rounded-md"
+          />
+        </TableCell>
 
+        <TableCell className="py-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Building className="h-4 w-4 text-primary" />
+              </div>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="font-medium truncate" title={response.institution?.name}>
+                {response.institution?.name || 'Müəssisə adı yoxdur'}
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                {response.institution?.type && (
+                  <span className="px-2 py-0.5 bg-muted rounded-full">
+                    {response.institution.type}
+                  </span>
+                )}
+                {response.department?.name && (
+                  <span>• {response.department.name}</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </TableCell>
+
+        <TableCell className="py-3">
+          <div className="flex justify-center">
+            {getStatusDot(response.status)}
+          </div>
+        </TableCell>
+
+        <TableCell className="py-3">
+          <div className="flex justify-center">
+            {getApprovalStatusDot(response.approvalRequest?.current_status)}
+          </div>
+        </TableCell>
+
+        <TableCell className="py-3">
+          <div className="min-w-0">
+            <div className="font-medium text-sm truncate" title={response.respondent?.name}>
+              {response.respondent?.name || 'Bilinməyən'}
+            </div>
+            <div className="text-xs text-muted-foreground truncate" title={response.respondent?.email}>
+              {response.respondent?.email || ''}
+            </div>
+          </div>
+        </TableCell>
+
+        <TableCell className="py-3">
+          <div className="text-sm">
+            {response.submitted_at
+              ? formatDistanceToNow(new Date(response.submitted_at), {
+                  addSuffix: true,
+                  locale: az
+                })
+              : 'Təqdim edilməyib'
+            }
+          </div>
+        </TableCell>
+
+        <TableCell className="py-3">
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <div className="w-full bg-muted rounded-full h-2">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    (response.progress_percentage || 0) === 100
+                      ? 'bg-green-500'
+                      : (response.progress_percentage || 0) >= 50
+                      ? 'bg-blue-500'
+                      : 'bg-orange-500'
+                  }`}
+                  style={{ width: `${response.progress_percentage || 0}%` }}
+                />
+              </div>
+            </div>
+            <span className="text-xs font-medium text-muted-foreground min-w-[3rem] text-right">
+              {response.progress_percentage || 0}%
+            </span>
+          </div>
+        </TableCell>
+
+        <TableCell className="py-3">
+          <div className="flex justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 hover:bg-muted/50"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => onResponseSelect(response)}>
+                  <Eye className="h-4 w-4 mr-2" />
+                  Cavabı görüntülə
+                </DropdownMenuItem>
+                {canEditResponse(response) && (
+                  <DropdownMenuItem onClick={() => onResponseEdit?.(response)}>
+                    <Edit className="h-4 w-4 mr-2 text-orange-600" />
+                    Cavabı redaktə et
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                {canApproveResponse(response) && (
+                  <DropdownMenuItem
+                    onClick={() => handleApproval(response.id, 'approve')}
+                    className="text-green-600 focus:text-green-600"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Təsdiqlə
+                  </DropdownMenuItem>
+                )}
+                {canRejectResponse(response) && (
+                  <DropdownMenuItem
+                    onClick={() => handleApproval(response.id, 'reject')}
+                    className="text-red-600 focus:text-red-600"
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Rədd et
+                  </DropdownMenuItem>
+                )}
+                {/* Status indicators */}
+                {(response.status === 'approved' || response.status === 'rejected') && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem disabled className="text-xs text-muted-foreground">
+                      {response.status === 'approved' ? '✅ Təsdiqlənib' : '❌ Rədd edilib'}
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  });
   if (loading) {
     return (
       <div className="space-y-4">
@@ -394,7 +572,6 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
       </div>
     );
   }
-
   if (error) {
     return (
       <div className="space-y-4">
@@ -420,7 +597,6 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
       </div>
     );
   }
-
   if (!responses || responses.length === 0) {
     return (
       <div className="space-y-4">
@@ -451,75 +627,161 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
       </div>
     );
   }
-
-  // Bulk actions component
+  // Advanced bulk actions component with enterprise features
   const BulkActionsBar = () => {
     if (selectedResponses.length === 0) return null;
-
+    const selectedResponsesData = responses.filter(r => selectedResponses.includes(r.id));
+    const canApproveAll = selectedResponsesData.every(r => canApproveResponse(r));
+    const canRejectAll = selectedResponsesData.every(r => canRejectResponse(r));
+    const pendingCount = selectedResponsesData.filter(r => r.approvalRequest?.current_status === 'pending').length;
+    const approvedCount = selectedResponsesData.filter(r => r.approvalRequest?.current_status === 'approved').length;
     return (
-      <div className="flex items-center justify-between p-4 bg-primary/5 border border-primary/20 rounded-lg">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <CheckCircle className="h-4 w-4 text-primary" />
-            <span>{selectedResponses.length} element seçildi</span>
+      <div className="flex flex-col gap-3 p-4 bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20 rounded-lg shadow-sm">
+        {/* Selection Info & Quick Actions */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <CheckCircle className="h-4 w-4 text-primary" />
+              <span>{selectedResponses.length} element seçildi</span>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span>🟡 {pendingCount} gözləyir</span>
+              <span>🟢 {approvedCount} təsdiqləndi</span>
+            </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleSelectAll(false)}
-            className="h-8 text-xs"
-          >
-            Seçimi təmizlə
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleSelectAll(false)}
+              className="h-7 text-xs hover:bg-white/50"
+            >
+              <X className="h-3 w-3 mr-1" />
+              Təmizlə
+            </Button>
+          </div>
         </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-green-600 border-green-200 hover:bg-green-50"
-            onClick={() => {
-              // Handle bulk approve
-              console.log('Bulk approve:', selectedResponses);
-            }}
-          >
-            <CheckCircle className="h-3 w-3 mr-1" />
-            Toplu Təsdiq
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-red-600 border-red-200 hover:bg-red-50"
-            onClick={() => {
-              // Handle bulk reject
-              console.log('Bulk reject:', selectedResponses);
-            }}
-          >
-            <XCircle className="h-3 w-3 mr-1" />
-            Toplu Rədd
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-blue-600 border-blue-200 hover:bg-blue-50"
-            onClick={() => {
-              // Handle bulk export
-              console.log('Bulk export:', selectedResponses);
-            }}
-          >
-            <Eye className="h-3 w-3 mr-1" />
-            İxrac Et
-          </Button>
+        {/* Advanced Action Buttons */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {/* Quick Status Filters */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 text-xs">
+                  <Filter className="h-3 w-3 mr-1" />
+                  Sürətli Filtr
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                <DropdownMenuItem onClick={() => {
+                  const pendingIds = responses.filter(r => r.approvalRequest?.current_status === 'pending').map(r => r.id);
+                  onBulkSelect(pendingIds);
+                }}>
+                  <Clock className="h-4 w-4 mr-2 text-amber-600" />
+                  Gözləyən cavabları seç
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {
+                  const highProgressIds = responses.filter(r => (r.progress_percentage || 0) >= 80).map(r => r.id);
+                  onBulkSelect(highProgressIds);
+                }}>
+                  <TrendingUp className="h-4 w-4 mr-2 text-green-600" />
+                  Tamamlanan cavabları seç
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {
+                  const todayIds = responses.filter(r => {
+                    if (!r.submitted_at) return false;
+                    const today = new Date();
+                    const submitDate = new Date(r.submitted_at);
+                    return submitDate.toDateString() === today.toDateString();
+                  }).map(r => r.id);
+                  onBulkSelect(todayIds);
+                }}>
+                  <Calendar className="h-4 w-4 mr-2 text-blue-600" />
+                  Bu günkü cavabları seç
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {/* Progress Summary */}
+            <div className="hidden md:flex items-center gap-2 px-2 py-1 bg-white/50 rounded text-xs">
+              <BarChart3 className="h-3 w-3" />
+              Orta irəliləmə: {Math.round(selectedResponsesData.reduce((acc, r) => acc + (r.progress_percentage || 0), 0) / selectedResponsesData.length || 0)}%
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Approval Actions */}
+            {canApproveAll && pendingCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-green-700 border-green-300 hover:bg-green-50 text-xs"
+                onClick={() => {
+                  console.log('Bulk approve:', selectedResponses);
+                  // Here will be the actual bulk approve logic
+                }}
+              >
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Toplu Təsdiq ({pendingCount})
+              </Button>
+            )}
+            {canRejectAll && pendingCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-red-700 border-red-300 hover:bg-red-50 text-xs"
+                onClick={() => {
+                  console.log('Bulk reject:', selectedResponses);
+                  // Here will be the actual bulk reject logic
+                }}
+              >
+                <XCircle className="h-3 w-3 mr-1" />
+                Toplu Rədd ({pendingCount})
+              </Button>
+            )}
+            {/* Advanced Actions Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 text-xs">
+                  <MoreHorizontal className="h-3 w-3 mr-1" />
+                  Əlavə
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => console.log('Bulk export:', selectedResponses)}>
+                  <Download className="h-4 w-4 mr-2 text-blue-600" />
+                  Excel formatında ixrac et
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => console.log('Bulk PDF export:', selectedResponses)}>
+                  <FileText className="h-4 w-4 mr-2 text-red-600" />
+                  PDF formatında ixrac et
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => console.log('Bulk assign:', selectedResponses)}>
+                  <UserPlus className="h-4 w-4 mr-2 text-purple-600" />
+                  Cavablamaq üçün təyin et
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => console.log('Bulk notify:', selectedResponses)}>
+                  <Bell className="h-4 w-4 mr-2 text-orange-600" />
+                  Xatırlatma göndər
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => console.log('Bulk priority:', selectedResponses)}
+                  className="text-amber-700"
+                >
+                  <Star className="h-4 w-4 mr-2" />
+                  Prioritet olaraq işarələ
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
     );
   };
-
   return (
     <div className="space-y-4">
       {/* Bulk Actions Bar */}
       <BulkActionsBar />
-
       {/* Mobile Card Layout - visible on small screens */}
       <div className="block md:hidden space-y-3">
         {responses.map((response) => (
@@ -545,28 +807,48 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
                   <Building className="h-4 w-4 text-primary" />
                 </div>
               </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onResponseSelect(response)}
-                  className="h-8 w-8 p-0"
-                  title="Cavabı görüntülə"
-                >
-                  <Eye className="h-4 w-4" />
-                </Button>
-                {canEditResponse(response) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => onResponseEdit?.(response)}
-                    className="h-8 w-8 p-0 hover:bg-orange-100 hover:text-orange-600"
-                    title="Cavabı redaktə et"
+                    className="h-8 w-8 p-0 hover:bg-muted/50"
                   >
-                    <Edit className="h-4 w-4" />
+                    <MoreHorizontal className="h-4 w-4" />
                   </Button>
-                )}
-              </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => onResponseSelect(response)}>
+                    <Eye className="h-4 w-4 mr-2" />
+                    Cavabı görüntülə
+                  </DropdownMenuItem>
+                  {canEditResponse(response) && (
+                    <DropdownMenuItem onClick={() => onResponseEdit?.(response)}>
+                      <Edit className="h-4 w-4 mr-2 text-orange-600" />
+                      Cavabı redaktə et
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  {canApproveResponse(response) && (
+                    <DropdownMenuItem
+                      onClick={() => handleApproval(response.id, 'approve')}
+                      className="text-green-600 focus:text-green-600"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Təsdiqlə
+                    </DropdownMenuItem>
+                  )}
+                  {canRejectResponse(response) && (
+                    <DropdownMenuItem
+                      onClick={() => handleApproval(response.id, 'reject')}
+                      className="text-red-600 focus:text-red-600"
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Rədd et
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {/* Card Content */}
@@ -577,8 +859,10 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
               </div>
 
               <div className="flex items-center gap-4 text-xs">
-                {getStatusBadge(response.status)}
-                {getApprovalStatusBadge(response.approvalRequest?.current_status)}
+                <div className="flex items-center gap-2">
+                  {getStatusDot(response.status)}
+                  {getApprovalStatusDot(response.approvalRequest?.current_status)}
+                </div>
               </div>
 
               <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -612,7 +896,6 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
           </div>
         ))}
       </div>
-
       {/* Desktop Table Layout - hidden on small screens */}
       <div className="hidden md:block border rounded-xl overflow-hidden shadow-sm">
         <Table>
@@ -631,16 +914,16 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
                   Müəssisə
                 </SortableHeader>
               </TableHead>
-              <TableHead className="font-semibold w-32">
+              <TableHead className="font-semibold w-16 text-center">
                 <SortableHeader field="status">
                   <Clock className="h-4 w-4" />
-                  Status
+                  St
                 </SortableHeader>
               </TableHead>
-              <TableHead className="font-semibold w-36">
+              <TableHead className="font-semibold w-16 text-center">
                 <SortableHeader field="approval_status">
                   <CheckCircle className="h-4 w-4" />
-                  Təsdiq
+                  Tş
                 </SortableHeader>
               </TableHead>
               <TableHead className="font-semibold w-44">
@@ -668,202 +951,14 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
           </TableHeader>
           <TableBody>
             {responses.map((response) => (
-              <TableRow
-                key={response.id}
-                className={`
-                  group transition-all duration-200 hover:bg-muted/30 hover:shadow-sm
-                  ${selectedResponses.includes(response.id)
-                    ? 'bg-primary/8 border-l-4 border-l-primary shadow-sm'
-                    : 'border-l-4 border-l-transparent'
-                  }
-                `}
-              >
-                <TableCell className="py-3">
-                  <Checkbox
-                    checked={selectedResponses.includes(response.id)}
-                    onCheckedChange={(checked) =>
-                      handleResponseCheckbox(response.id, Boolean(checked))
-                    }
-                    className="rounded-md"
-                  />
-                </TableCell>
-
-                <TableCell className="py-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex-shrink-0">
-                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Building className="h-4 w-4 text-primary" />
-                      </div>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium truncate" title={response.institution?.name}>
-                        {response.institution?.name || 'Müəssisə adı yoxdur'}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        {response.institution?.type && (
-                          <span className="px-2 py-0.5 bg-muted rounded-full">
-                            {response.institution.type}
-                          </span>
-                        )}
-                        {response.department?.name && (
-                          <span>• {response.department.name}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </TableCell>
-
-                <TableCell className="py-3">
-                  {getStatusBadge(response.status)}
-                </TableCell>
-
-                <TableCell className="py-3">
-                  {getApprovalStatusBadge(response.approvalRequest?.current_status)}
-                </TableCell>
-                <TableCell className="py-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                      <User className="h-3 w-3 text-muted-foreground" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium truncate" title={response.respondent?.name}>
-                        {response.respondent?.name || 'Bilinməyən'}
-                      </div>
-                      {response.respondent_role && (
-                        <div className="text-xs text-muted-foreground">
-                          {response.respondent_role}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </TableCell>
-
-                <TableCell className="py-3">
-                  <div className="text-sm min-w-0">
-                    {response.submitted_at ? (
-                      <div className="space-y-1">
-                        <div className="font-medium">
-                          {new Date(response.submitted_at).toLocaleDateString('az-AZ', {
-                            day: 'numeric',
-                            month: 'short'
-                          })}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(response.submitted_at), {
-                            addSuffix: true,
-                            locale: az
-                          })}
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">
-                        Təqdim edilməyib
-                      </span>
-                    )}
-                  </div>
-                </TableCell>
-
-                <TableCell className="py-3">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">İrəliləmə</span>
-                      <span className="font-medium">
-                        {response.progress_percentage || 0}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          (response.progress_percentage || 0) === 100
-                            ? 'bg-green-500'
-                            : (response.progress_percentage || 0) >= 50
-                            ? 'bg-blue-500'
-                            : 'bg-orange-500'
-                        }`}
-                        style={{ width: `${response.progress_percentage || 0}%` }}
-                      />
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell className="py-3">
-                  <div className="flex items-center justify-end gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                    {/* Always show view button */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onResponseSelect(response)}
-                      className="h-8 w-8 p-0 hover:bg-blue-100 hover:text-blue-600"
-                      title="Cavabı görüntülə"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-
-                    {/* Show edit for responses that can be edited by admins */}
-                    {canEditResponse(response) && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onResponseEdit?.(response)}
-                        className="h-8 w-8 p-0 hover:bg-orange-100 hover:text-orange-600"
-                        title="Cavabı redaktə et"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    )}
-
-                    {/* Show quick actions for pending approval */}
-                    {response.approvalRequest?.current_status === 'pending' && (
-                      <div className="flex items-center gap-0.5 ml-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-green-600 hover:bg-green-100 hover:text-green-700"
-                          onClick={() => {
-                            // Handle quick approve - will be implemented
-                            onResponseSelect(response);
-                          }}
-                          title="Tez təsdiq et"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-red-600 hover:bg-red-100 hover:text-red-700"
-                          onClick={() => {
-                            // Handle quick reject - will be implemented
-                            onResponseSelect(response);
-                          }}
-                          title="Tez rədd et"
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* Status-based action indicator */}
-                    {response.status === 'approved' && (
-                      <div className="w-8 h-8 flex items-center justify-center">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      </div>
-                    )}
-                    {response.status === 'rejected' && (
-                      <div className="w-8 h-8 flex items-center justify-center">
-                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                      </div>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
+              <ResponseTableRow key={response.id} response={response} />
             ))}
           </TableBody>
         </Table>
       </div>
-
       {/* Pagination */}
       {PaginationComponent}
     </div>
   );
 };
-
 export default ResponseManagementTable;
