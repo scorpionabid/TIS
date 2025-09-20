@@ -81,10 +81,13 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
 
   const isEditMode = !!survey;
 
-  // Load institutions for targeting
+  // Load institutions for targeting - məktəb sorğuları üçün bütün müəssisələri yüklə
   const { data: institutionsResponse } = useQuery({
     queryKey: ['institutions-for-surveys'],
-    queryFn: () => institutionService.getAll(),
+    queryFn: () => institutionService.getAll({
+      per_page: 1000, // Bütün müəssisələri yüklə (1000 limit kifayətdir)
+      include_trashed: false // Yalnız aktiv müəssisələr
+    }),
     enabled: open,
   });
 
@@ -816,14 +819,18 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        const allIds = availableInstitutions.map((inst: any) => inst.id);
-                        handleInputChange('target_institutions', allIds);
+                        // Filtered institutions əsasında seç (axtarış nəticəsindəkilər)
+                        const filteredIds = filteredInstitutions.map((inst: any) => inst.id);
+                        handleInputChange('target_institutions', filteredIds);
                       }}
                     >
                       <Users className="h-4 w-4 mr-1" />
-                      Hamısını seç
+                      {institutionSearch
+                        ? `Görünənləri seç (${filteredInstitutions.length})`
+                        : `Hamısını seç (${availableInstitutions.length})`
+                      }
                     </Button>
-                    
+
                     <Button
                       type="button"
                       variant="outline"
@@ -843,9 +850,9 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                       onClick={() => selectInstitutionsByLevel(2)}
                     >
                       <Building2 className="h-4 w-4 mr-1" />
-                      Regional idarələr
+                      Regional idarələr ({availableInstitutions.filter((inst: any) => inst.level === 2).length})
                     </Button>
-                    
+
                     <Button
                       type="button"
                       variant="outline"
@@ -853,19 +860,26 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                       onClick={() => selectInstitutionsByLevel(3)}
                     >
                       <Target className="h-4 w-4 mr-1" />
-                      Sektorlar
+                      Sektorlar ({availableInstitutions.filter((inst: any) => inst.level === 3).length})
                     </Button>
                     
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => selectInstitutionsByType((inst: any) => 
-                        inst.level === 4 && inst.name.toLowerCase().includes('məktəb')
-                      )}
+                      onClick={() => selectInstitutionsByType((inst: any) => {
+                        // Məktəb tipləri: secondary_school, vocational_school, və məktəb sözü olan bütün level 4 müəssisələr
+                        const isSchoolType = ['secondary_school', 'vocational_school'].includes(inst.type);
+                        const isSchoolByName = inst.level === 4 && inst.name?.toLowerCase().includes('məktəb');
+                        return isSchoolType || isSchoolByName;
+                      })}
                     >
                       <Building2 className="h-4 w-4 mr-1" />
-                      Məktəblər
+                      Məktəblər ({availableInstitutions.filter((inst: any) => {
+                        const isSchoolType = ['secondary_school', 'vocational_school'].includes(inst.type);
+                        const isSchoolByName = inst.level === 4 && inst.name?.toLowerCase().includes('məktəb');
+                        return isSchoolType || isSchoolByName;
+                      }).length})
                     </Button>
                     
                     <Button
@@ -894,17 +908,23 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                         <Checkbox
                           id={`institution-${institution.id}`}
                           checked={
-                            formData.target_institutions?.includes(institution.id) || 
-                            formData.target_institutions?.includes(String(institution.id)) ||
-                            formData.target_institutions?.map(String).includes(String(institution.id)) ||
-                            false
+                            // Sadə və etibarlı yoxlama - həm number həm string ID-ləri dəstəkləyir
+                            (formData.target_institutions || []).some(id => String(id) === String(institution.id))
                           }
                           onCheckedChange={(checked) => {
                             const currentTargets = formData.target_institutions || [];
+                            const institutionId = institution.id;
+
                             if (checked) {
-                              handleInputChange('target_institutions', [...currentTargets, institution.id]);
+                              // Əgər artıq seçilməyibsə əlavə et (duplicate yoxla)
+                              if (!currentTargets.some(id => String(id) === String(institutionId))) {
+                                handleInputChange('target_institutions', [...currentTargets, institutionId]);
+                              }
                             } else {
-                              handleInputChange('target_institutions', currentTargets.filter(id => id !== institution.id));
+                              // Seçimi ləğv et - bütün eyni ID-li elementləri sil
+                              handleInputChange('target_institutions',
+                                currentTargets.filter(id => String(id) !== String(institutionId))
+                              );
                             }
                           }}
                         />

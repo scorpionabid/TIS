@@ -38,24 +38,9 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Component lifecycle logging
+  // Component lifecycle logging (reduced)
   useEffect(() => {
-    console.log('🔧 [Dashboard] SurveyResponseApprovalDashboard mounted');
-    console.log('👤 [Dashboard] Current user at mount:', currentUser);
-
-    return () => {
-      console.log('🔧 [Dashboard] SurveyResponseApprovalDashboard unmounted');
-    };
-  }, [currentUser]);
-
-  // Log authentication state changes
-  useEffect(() => {
-    console.log('🔐 [Dashboard] Auth state changed:', {
-      isAuthenticated: !!currentUser,
-      userId: currentUser?.id,
-      userEmail: currentUser?.email,
-      userRole: currentUser?.role
-    });
+    console.log('🔧 [Dashboard] Component mounted, user role:', currentUser?.role);
   }, [currentUser]);
 
   // State management
@@ -75,15 +60,14 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch published surveys
-  const { 
-    data: publishedSurveys, 
+  const {
+    data: publishedSurveys,
     isLoading: surveysLoading,
-    error: surveysError 
+    error: surveysError
   } = useQuery({
     queryKey: ['published-surveys'],
     queryFn: () => {
-      console.log('🚀 [Dashboard] Starting published surveys query...');
-      console.log('👤 [Dashboard] Current user:', currentUser);
+      console.log('🚀 [Dashboard] Fetching published surveys...');
       return surveyResponseApprovalService.getPublishedSurveys();
     },
     staleTime: 5 * 60 * 1000 // 5 minutes
@@ -127,7 +111,8 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
   // Auto-select first survey if none selected
   useEffect(() => {
     if (Array.isArray(publishedSurveys) && publishedSurveys.length > 0 && !selectedSurvey) {
-      console.log('🎯 [Dashboard] Auto-selecting first survey:', publishedSurveys[0]);
+      console.log('🎯 [Dashboard] Published surveys data:', publishedSurveys);
+      console.log('🎯 [Dashboard] First survey:', publishedSurveys[0]);
       setSelectedSurvey(publishedSurveys[0]);
     }
   }, [publishedSurveys, selectedSurvey]);
@@ -162,6 +147,19 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
     setSelectedResponse(response);
     setShowResponseModal(true);
   };
+
+  // Handle response editing
+  const handleResponseEdit = useCallback((response: SurveyResponseForApproval) => {
+    // For now, we'll use the same modal as viewing but we can add edit functionality later
+    // TODO: Implement dedicated edit modal or inline editing
+    setSelectedResponse(response);
+    setShowResponseModal(true);
+
+    toast({
+      title: "Redaktə rejimi",
+      description: `${response.institution?.name} müəssisəsinin cavabını redaktə edirsiniz`,
+    });
+  }, [toast]);
 
   // Handle bulk selection
   const handleBulkSelect = (responseIds: number[]) => {
@@ -290,37 +288,52 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
               <p>Hazırda yayımlanmış sorğu yoxdur</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Array.isArray(publishedSurveys) && publishedSurveys.map((survey: any) => (
-                <Card
-                  key={survey.id}
-                  className={`cursor-pointer transition-all ${
-                    selectedSurvey?.id === survey.id
-                      ? 'ring-2 ring-primary bg-primary/5'
-                      : 'hover:shadow-md'
-                  }`}
-                  onClick={() => handleSurveySelect(survey)}
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <Select
+                  value={selectedSurvey?.id?.toString() || ""}
+                  onValueChange={(value) => {
+                    const survey = publishedSurveys.find((s: any) => s.id.toString() === value);
+                    if (survey) handleSurveySelect(survey);
+                  }}
                 >
-                  <CardContent className="p-4">
-                    <h3 className="font-semibold mb-2 line-clamp-2">{survey.title}</h3>
-                    {survey.description && (
-                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                        {survey.description}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {survey.start_date && new Date(survey.start_date).toLocaleDateString('az-AZ')}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        {survey.target_institutions?.length || 0} müəssisə
-                      </div>
+                  <SelectTrigger className="w-full max-w-md">
+                    <SelectValue placeholder="Sorğu seçin..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.isArray(publishedSurveys) && publishedSurveys.map((survey: any) => (
+                      <SelectItem key={survey.id} value={survey.id.toString()}>
+                        {survey.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {selectedSurvey && (
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-4 w-4" />
+                      {selectedSurvey.start_date && new Date(selectedSurvey.start_date).toLocaleDateString('az-AZ')}
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    <div className="flex items-center gap-1">
+                      <Users className="h-4 w-4" />
+                      {selectedSurvey.target_institutions?.length || 0} müəssisə
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Target className="h-4 w-4" />
+                      {selectedSurvey.questions_count || 0} sual
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {selectedSurvey?.description && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    {selectedSurvey.description}
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -531,6 +544,7 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
                 onBulkSelect={handleBulkSelect}
                 onFiltersChange={handleFilterChange}
                 filters={filters}
+                onResponseEdit={handleResponseEdit}
               />
             </CardContent>
           </Card>
