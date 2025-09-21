@@ -56,6 +56,7 @@ import {
 } from '../../services/surveyResponseApproval';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../hooks/use-toast';
+import ResponseEditModal from './ResponseEditModal';
 interface PaginationData {
   current_page: number;
   last_page: number;
@@ -90,18 +91,20 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
   onResponseViewTab,
   onUpdate
 }) => {
-  const { user } = useAuth();
+  const { currentUser: user } = useAuth();
   const { toast } = useToast();
   const [selectAll, setSelectAll] = useState(false);
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [processingApprovals, setProcessingApprovals] = useState<Set<number>>(new Set());
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedResponseForEdit, setSelectedResponseForEdit] = useState<SurveyResponseForApproval | null>(null);
   // Helper function to check if user can edit a response
   const canEditResponse = useCallback((response: SurveyResponseForApproval) => {
     if (!user || !onResponseEdit) return false;
     // Only sektoradmin and regionadmin can edit responses
     const canEditRoles = ['sektoradmin', 'regionadmin', 'superadmin'];
-    const hasEditRole = user.roles?.some(role => canEditRoles.includes(role.name));
+    const hasEditRole = user.role && canEditRoles.includes(user.role);
     if (!hasEditRole) return false;
     // Can only edit unapproved responses (not approved or rejected)
     const canEditStatuses = ['draft', 'submitted'];
@@ -116,7 +119,7 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
   const canApproveResponse = useCallback((response: SurveyResponseForApproval) => {
     if (!user) return false;
     const canApproveRoles = ['sektoradmin', 'regionadmin', 'superadmin'];
-    const hasApproveRole = user.roles?.some(role => canApproveRoles.includes(role.name));
+    const hasApproveRole = user.role && canApproveRoles.includes(user.role);
     if (!hasApproveRole) return false;
     return response.approvalRequest?.current_status === 'pending';
   }, [user]);
@@ -124,7 +127,7 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
   const canRejectResponse = useCallback((response: SurveyResponseForApproval) => {
     if (!user) return false;
     const canRejectRoles = ['sektoradmin', 'regionadmin', 'superadmin'];
-    const hasRejectRole = user.roles?.some(role => canRejectRoles.includes(role.name));
+    const hasRejectRole = user.role && canRejectRoles.includes(user.role);
     if (!hasRejectRole) return false;
     return response.approvalRequest?.current_status === 'pending';
   }, [user]);
@@ -187,6 +190,26 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
       });
     }
   }, [onUpdate, toast]);
+
+  // Handle edit modal open
+  const handleOpenEditModal = useCallback((response: SurveyResponseForApproval) => {
+    setSelectedResponseForEdit(response);
+    setEditModalOpen(true);
+  }, []);
+
+  // Handle edit modal close
+  const handleCloseEditModal = useCallback(() => {
+    setEditModalOpen(false);
+    setSelectedResponseForEdit(null);
+  }, []);
+
+  // Handle edit modal update
+  const handleEditModalUpdate = useCallback(() => {
+    handleCloseEditModal();
+    if (onUpdate) {
+      onUpdate();
+    }
+  }, [onUpdate]);
 
   // Approval Actions Component
   const ApprovalActions = React.memo(({ response }: { response: SurveyResponseForApproval }) => {
@@ -627,8 +650,8 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
                         variant="ghost"
                         size="sm"
                         className="h-5 w-5 p-0 hover:bg-primary/10"
-                        onClick={() => onResponseViewTab ? onResponseViewTab(response, 'responses') : onResponseSelect(response)}
-                        title="Sorğu cavablarını görüntülə"
+                        onClick={() => handleOpenEditModal(response)}
+                        title="Sorğu cavablarını redaktə et"
                       >
                         <Eye className="h-3 w-3 text-primary" />
                       </Button>
@@ -663,8 +686,8 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
                       variant="ghost"
                       size="sm"
                       className="h-4 w-4 p-0 ml-2 hover:bg-primary/10"
-                      onClick={() => onResponseViewTab ? onResponseViewTab(response, 'responses') : onResponseSelect(response)}
-                      title="Bütün sorğu cavablarını görüntülə"
+                      onClick={() => handleOpenEditModal(response)}
+                      title="Bütün sorğu cavablarını redaktə et"
                     >
                       <Eye className="h-3 w-3 text-primary" />
                     </Button>
@@ -677,8 +700,8 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
                   variant="ghost"
                   size="sm"
                   className="h-5 w-5 p-0 hover:bg-primary/10"
-                  onClick={() => onResponseViewTab ? onResponseViewTab(response, 'responses') : onResponseSelect(response)}
-                  title="Sorğu detallarını görüntülə"
+                  onClick={() => handleOpenEditModal(response)}
+                  title="Sorğu cavablarını redaktə et"
                 >
                   <Eye className="h-3 w-3 text-primary" />
                 </Button>
@@ -1051,8 +1074,8 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
                       variant="ghost"
                       size="sm"
                       className="h-5 w-5 p-0 hover:bg-primary/10"
-                      onClick={() => onResponseViewTab ? onResponseViewTab(response, 'responses') : onResponseSelect(response)}
-                      title="Sorğu cavablarını görüntülə"
+                      onClick={() => handleOpenEditModal(response)}
+                      title="Sorğu cavablarını redaktə et"
                     >
                       <Eye className="h-3 w-3 text-primary" />
                     </Button>
@@ -1071,8 +1094,8 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
                             variant="ghost"
                             size="sm"
                             className="h-4 w-4 p-0 hover:bg-primary/10"
-                            onClick={() => onResponseViewTab ? onResponseViewTab(response, 'responses') : onResponseSelect(response)}
-                            title="Bu sorğu cavabını görüntülə"
+                            onClick={() => handleOpenEditModal(response)}
+                            title="Bu sorğu cavabını redaktə et"
                           >
                             <Eye className="h-2.5 w-2.5 text-primary" />
                           </Button>
@@ -1107,8 +1130,8 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
                           variant="ghost"
                           size="sm"
                           className="h-4 w-4 p-0 hover:bg-primary/10"
-                          onClick={() => onResponseViewTab ? onResponseViewTab(response, 'responses') : onResponseSelect(response)}
-                          title="Bütün sorğu cavablarını görüntülə"
+                          onClick={() => handleOpenEditModal(response)}
+                          title="Bütün sorğu cavablarını redaktə et"
                         >
                           <Eye className="h-2.5 w-2.5 text-primary" />
                         </Button>
@@ -1121,8 +1144,8 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
                       variant="ghost"
                       size="sm"
                       className="h-4 w-4 p-0 hover:bg-primary/10"
-                      onClick={() => onResponseViewTab ? onResponseViewTab(response, 'responses') : onResponseSelect(response)}
-                      title="Sorğu detallarını görüntülə"
+                      onClick={() => handleOpenEditModal(response)}
+                      title="Sorğu cavablarını redaktə et"
                     >
                       <Eye className="h-2.5 w-2.5 text-primary" />
                     </Button>
@@ -1233,6 +1256,16 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
       </div>
       {/* Pagination */}
       {PaginationComponent}
+
+      {/* Edit Modal */}
+      {selectedResponseForEdit && (
+        <ResponseEditModal
+          open={editModalOpen}
+          onClose={handleCloseEditModal}
+          response={selectedResponseForEdit}
+          onUpdate={handleEditModalUpdate}
+        />
+      )}
     </div>
   );
 };

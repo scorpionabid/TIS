@@ -11,7 +11,7 @@ import { ScheduleListView } from '@/components/schedules/components/ScheduleList
 import { Badge } from '@/components/ui/badge';
 
 export default function TeacherSchedule() {
-  const { user } = useAuth();
+  const { currentUser: user } = useAuth();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedWeek, setSelectedWeek] = useState(getCurrentWeek());
 

@@ -29,7 +29,7 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 export default function SchoolScheduleManagement() {
-  const { user } = useAuth();
+  const { currentUser: user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedTab, setSelectedTab] = useState<'overview' | 'builder' | 'conflicts'>('overview');
   const [searchTerm, setSearchTerm] = useState('');

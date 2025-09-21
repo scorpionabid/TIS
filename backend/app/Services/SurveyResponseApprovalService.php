@@ -34,7 +34,7 @@ class SurveyResponseApprovalService extends BaseService
                 'approvalRequest:id,approvalable_id,current_status,current_approval_level,submitted_at,completed_at',
                 'approvalRequest.approvalActions:id,approval_request_id,approver_id,action,comments,action_taken_at'
             ])
-            ->select(['id', 'survey_id', 'institution_id', 'department_id', 'respondent_id', 'status', 'submitted_at', 'approved_at', 'progress_percentage']);
+            ->select(['id', 'survey_id', 'institution_id', 'department_id', 'respondent_id', 'status', 'responses', 'submitted_at', 'approved_at', 'progress_percentage']);
 
         // Apply user access control based on role hierarchy
         $this->applyUserAccessControl($query, $user);

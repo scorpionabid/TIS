@@ -31,3 +31,4 @@ Homestead.yaml
 Thumbs.db
 *.sqlite
 database/database.sqlite
+cookies.txt

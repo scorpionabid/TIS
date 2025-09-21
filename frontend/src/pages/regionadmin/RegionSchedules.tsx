@@ -26,7 +26,7 @@ import { useAuth } from '@/contexts/AuthContext';
 // import { regionAdminService } from '@/services/regionAdmin';
 
 export default function RegionSchedules() {
-  const { user } = useAuth();
+  const { currentUser: user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [institutionFilter, setInstitutionFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
