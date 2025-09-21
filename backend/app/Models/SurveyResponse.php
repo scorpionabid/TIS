@@ -325,4 +325,44 @@ class SurveyResponse extends Model
     {
         return $query->where('status', 'draft');
     }
+
+    /**
+     * Scope to get returned responses.
+     */
+    public function scopeReturned($query)
+    {
+        return $query->where('status', 'returned');
+    }
+
+    /**
+     * Check if response is returned.
+     */
+    public function isReturned(): bool
+    {
+        return $this->status === 'returned';
+    }
+
+    /**
+     * Return the response for revision.
+     */
+    public function returnForRevision(string $reason, ?User $rejector = null): void
+    {
+        $this->status = 'returned';
+        $this->rejection_reason = $reason;
+
+        // Update associated approval request if exists
+        if ($this->approvalRequest) {
+            $this->approvalRequest->update([
+                'current_status' => 'returned',
+                'rejection_reason' => $reason,
+                'approver_id' => $rejector ? $rejector->id : null
+            ]);
+        }
+
+        $this->save();
+
+        // Mark related survey assignment notification as completed
+        $surveyResponseService = app(\App\Services\SurveyResponseService::class);
+        $surveyResponseService->markSurveyNotificationCompleted($this->survey_id, $this->respondent_id, 'returned');
+    }
 }

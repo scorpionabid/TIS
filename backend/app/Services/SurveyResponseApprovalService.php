@@ -691,6 +691,88 @@ class SurveyResponseApprovalService extends BaseService
     }
 
     /**
+     * Export survey responses to Excel format
+     */
+    public function exportSurveyResponses(Survey $survey, Request $request, User $user): array
+    {
+        try {
+            // Import the export class
+            $export = new \App\Exports\SurveyResponseApprovalExport($survey, $request, $user);
+
+            // Determine format
+            $format = $request->input('format', 'xlsx');
+            $extension = $format === 'csv' ? 'csv' : 'xlsx';
+
+            // Generate filename
+            $filename = "survey_{$survey->id}_responses_" . date('Y-m-d_H-i-s') . ".{$extension}";
+            $filePath = storage_path("app/exports/{$filename}");
+
+            // Ensure directory exists
+            if (!file_exists(dirname($filePath))) {
+                mkdir(dirname($filePath), 0755, true);
+            }
+
+            // Use download method instead of store to get file content
+            if ($format === 'csv') {
+                $fileContent = \Maatwebsite\Excel\Facades\Excel::raw($export, \Maatwebsite\Excel\Excel::CSV);
+            } else {
+                $fileContent = \Maatwebsite\Excel\Facades\Excel::raw($export, \Maatwebsite\Excel\Excel::XLSX);
+            }
+
+            // Save file to disk manually
+            file_put_contents($filePath, $fileContent);
+
+            // Log export activity
+            $this->logExportActivity($survey, $user, $request->all());
+
+            return [
+                'file_path' => $filePath,
+                'filename' => $filename,
+                'format' => $format,
+                'survey_id' => $survey->id,
+                'exported_at' => now(),
+                'user_id' => $user->id
+            ];
+
+        } catch (\Exception $e) {
+            // Log error
+            \Log::error('Survey response export failed', [
+                'survey_id' => $survey->id,
+                'user_id' => $user->id,
+                'filters' => $request->all(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            throw new \Exception('Export failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Log export activity for audit purposes
+     */
+    private function logExportActivity(Survey $survey, User $user, array $filters): void
+    {
+        try {
+            // Log export activity using Laravel Log
+            \Log::info('Survey responses exported', [
+                'action' => 'survey_response_export',
+                'survey_id' => $survey->id,
+                'survey_title' => $survey->title,
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+                'filters' => $filters,
+                'format' => $filters['format'] ?? 'xlsx',
+                'exported_at' => now(),
+                'ip_address' => request()->ip()
+            ]);
+        } catch (\Exception $e) {
+            // Don't fail export if logging fails
+            \Log::warning('Failed to log export activity', ['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
      * Clear approval-related cache for a survey
      */
     private function clearApprovalCache(int $surveyId): void

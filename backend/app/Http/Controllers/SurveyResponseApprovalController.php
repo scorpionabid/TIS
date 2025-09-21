@@ -28,7 +28,7 @@ class SurveyResponseApprovalController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'status' => 'sometimes|in:draft,submitted,approved,rejected',
+                'status' => 'sometimes|in:draft,submitted,approved,rejected,returned',
                 'approval_status' => 'sometimes|in:pending,in_progress,approved,rejected,returned',
                 'institution_id' => 'sometimes|integer|exists:institutions,id',
                 'institution_type' => 'sometimes|string',
@@ -471,7 +471,7 @@ class SurveyResponseApprovalController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'status' => 'sometimes|in:draft,submitted,approved,rejected',
+                'status' => 'sometimes|in:draft,submitted,approved,rejected,returned',
                 'institution_type' => 'sometimes|string',
                 'search' => 'sometimes|string|max:255',
                 'per_page' => 'sometimes|integer|min:10|max:100',
@@ -551,6 +551,61 @@ class SurveyResponseApprovalController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error performing batch update',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Export survey responses to Excel format
+     * GET /api/survey-response-approval/surveys/{survey}/export
+     */
+    public function exportSurveyResponses(Survey $survey, Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'format' => 'sometimes|in:xlsx,csv',
+                'status' => 'sometimes|in:draft,submitted,approved,rejected,returned',
+                'approval_status' => 'sometimes|in:pending,in_progress,approved,rejected,returned',
+                'institution_id' => 'sometimes|integer|exists:institutions,id',
+                'institution_type' => 'sometimes|string',
+                'date_from' => 'sometimes|date',
+                'date_to' => 'sometimes|date|after_or_equal:date_from',
+                'search' => 'sometimes|string|max:255',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation error',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // Check user has permission for export
+            if (!Auth::user()->can('survey_responses.export')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient permissions for export operations'
+                ], 403);
+            }
+
+            $result = $this->getApprovalService()->exportSurveyResponses(
+                $survey,
+                $request,
+                Auth::user()
+            );
+
+            // Return Excel file for download
+            $format = $request->input('format', 'xlsx');
+            $filename = "survey_{$survey->id}_responses_" . date('Y-m-d_H-i-s') . ".{$format}";
+
+            return response()->download($result['file_path'], $filename)->deleteFileAfterSend();
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error exporting survey responses',
                 'error' => $e->getMessage()
             ], 500);
         }

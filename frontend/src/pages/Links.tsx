@@ -122,6 +122,9 @@ export default function Links() {
 
   const linksData = links?.data?.data || [];
 
+  console.log('DEBUG: Raw query response (links):', links);
+  console.log('DEBUG: Derived linksData:', linksData);
+
   const getLinkIcon = (linkType: string) => {
     switch (linkType) {
       case 'video': return <Video className="h-5 w-5 text-red-500" />;
@@ -215,12 +218,21 @@ export default function Links() {
   };
 
   const handleLinkCreated = () => {
-    // Refresh all link queries
-    queryClient.invalidateQueries({ queryKey: ['links'] });
-    queryClient.invalidateQueries({ queryKey: ['link-stats'] });
-    queryClient.invalidateQueries({ queryKey: ['popular-links'] });
-    queryClient.invalidateQueries({ queryKey: ['featured-links'] });
-    
+    // Reset filters to default state so the new link is visible
+    setSearchTerm('');
+    setSelectedType('all');
+    setSelectedScope('all');
+    setSortBy('created_at');
+    setSortDirection('desc');
+
+    // Give React a moment to process state updates before invalidating
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['links'] });
+      queryClient.invalidateQueries({ queryKey: ['link-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['popular-links'] });
+      queryClient.invalidateQueries({ queryKey: ['featured-links'] });
+    }, 50);
+
     toast({
       title: 'Uğurlu',
       description: 'Link uğurla yaradıldı və siyahıya əlavə edildi',
@@ -228,7 +240,7 @@ export default function Links() {
   };
 
   const handleLinkUpdated = () => {
-    // Refresh all link queries
+    // Refresh all link queries to show updated info
     queryClient.invalidateQueries({ queryKey: ['links'] });
     queryClient.invalidateQueries({ queryKey: ['link-stats'] });
     queryClient.invalidateQueries({ queryKey: ['popular-links'] });
@@ -476,19 +488,6 @@ export default function Links() {
               </CardContent>
             </Card>
           ))}
-
-          {/* Add New Link Card */}
-          {canCreateLinks && (
-            <Card 
-              className="border-dashed hover:border-solid hover:shadow-lg transition-all cursor-pointer"
-              onClick={() => setCreateModalOpen(true)}
-            >
-              <CardContent className="flex flex-col items-center justify-center h-48">
-                <Plus className="h-12 w-12 text-muted-foreground mb-3" />
-                <p className="text-sm text-muted-foreground">Yeni link əlavə et</p>
-              </CardContent>
-            </Card>
-          )}
         </div>
       ) : (
         <div className="text-center py-12">
@@ -592,13 +591,11 @@ export default function Links() {
       </div>
 
       {/* Modals */}
-      {canCreateLinks && (
-        <LinkCreateModal
-          isOpen={createModalOpen}
-          onClose={() => setCreateModalOpen(false)}
-          onLinkCreated={handleLinkCreated}
-        />
-      )}
+      <LinkCreateModal
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onLinkCreated={handleLinkCreated}
+      />
 
       <LinkViewModal
         isOpen={viewModalOpen}

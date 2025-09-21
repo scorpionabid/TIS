@@ -9,6 +9,7 @@ use App\Services\BaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Exception;
@@ -26,7 +27,7 @@ class LinkSharingService extends BaseService
         $this->applyRegionalFilter($query, $user);
 
         // Apply filters
-        $query = $this->applyFilters($query, $request);
+        $query = $this->applyRequestFilters($query, $request);
 
         // Apply search
         if ($request->filled('search')) {
@@ -52,15 +53,7 @@ class LinkSharingService extends BaseService
 
         // Paginate results
         $perPage = $request->get('per_page', 15);
-        $links = $query->paginate($perPage);
-
-        return [
-            'links' => $links,
-            'total' => $links->total(),
-            'current_page' => $links->currentPage(),
-            'last_page' => $links->lastPage(),
-            'per_page' => $links->perPage()
-        ];
+        return $query->paginate($perPage);
     }
 
     /**
@@ -83,7 +76,7 @@ class LinkSharingService extends BaseService
             $linkData = [
                 'title' => $data['title'],
                 'description' => $data['description'] ?? null,
-                'link_url' => $data['link_url'],
+                'url' => $data['url'],
                 'link_type' => $data['link_type'],
                 'share_scope' => $data['share_scope'],
                 'target_roles' => $data['target_roles'] ?? null,
@@ -99,6 +92,8 @@ class LinkSharingService extends BaseService
                 'access_restrictions' => $data['access_restrictions'] ?? null,
                 'metadata' => $data['metadata'] ?? null
             ];
+
+            Log::info('Creating LinkShare with data:', $linkData);
 
             $linkShare = LinkShare::create($linkData);
 
@@ -128,7 +123,7 @@ class LinkSharingService extends BaseService
             $updateData = array_filter([
                 'title' => $data['title'] ?? null,
                 'description' => $data['description'] ?? null,
-                'link_url' => $data['link_url'] ?? null,
+                'url' => $data['url'] ?? null,
                 'link_type' => $data['link_type'] ?? null,
                 'share_scope' => $data['share_scope'] ?? null,
                 'target_roles' => $data['target_roles'] ?? null,
@@ -331,7 +326,7 @@ class LinkSharingService extends BaseService
     /**
      * Apply filters to query
      */
-    private function applyFilters($query, Request $request)
+    protected function applyRequestFilters($query, Request $request)
     {
         if ($request->filled('link_type')) {
             $query->where('link_type', $request->link_type);
@@ -624,5 +619,59 @@ class LinkSharingService extends BaseService
             'referer' => $request->header('referer'),
             'accessed_at' => now()
         ]);
+    }
+
+    /**
+     * Get popular links
+     */
+    public function getPopularLinks(Request $request, $user)
+    {
+        $query = LinkShare::query()->active();
+        $this->applyRegionalFilter($query, $user);
+
+        return $query->orderBy('click_count', 'desc')
+            ->limit($request->input('limit', 5))
+            ->get();
+    }
+
+    /**
+     * Get featured links
+     */
+    public function getFeaturedLinks(Request $request, $user)
+    {
+        $query = LinkShare::query()->active()->where('is_featured', true);
+        $this->applyRegionalFilter($query, $user);
+
+        return $query->orderBy('created_at', 'desc')
+            ->limit($request->input('limit', 5))
+            ->get();
+    }
+
+    /**
+     * Get global link statistics
+     */
+    public function getGlobalLinkStats(Request $request, $user)
+    {
+        // Base query respecting user's visibility scope
+        $query = LinkShare::query();
+        $this->applyRegionalFilter($query, $user);
+
+        // Total links
+        $totalLinks = (clone $query)->count();
+
+        // Featured links
+        $featuredLinks = (clone $query)->where('is_featured', true)->count();
+
+        // Links by type
+        $byType = (clone $query)
+            ->select('link_type', DB::raw('count(*) as count'))
+            ->groupBy('link_type')
+            ->pluck('count', 'link_type');
+
+        return [
+            'total_links' => $totalLinks,
+            'featured_links' => $featuredLinks,
+            'by_type' => $byType,
+        ];
     }
 }

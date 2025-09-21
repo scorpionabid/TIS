@@ -8,7 +8,7 @@ export interface SurveyResponseForApproval {
   department_id?: number;
   respondent_id?: number;
   respondent_role?: string;
-  status: 'draft' | 'submitted' | 'approved' | 'rejected';
+  status: 'draft' | 'submitted' | 'approved' | 'rejected' | 'returned';
   responses: Record<string, any>;
   progress_percentage: number;
   is_complete: boolean;
@@ -118,7 +118,7 @@ export interface ResponsesForApprovalData {
 }
 
 export interface ResponseFilters {
-  status?: 'draft' | 'submitted' | 'approved' | 'rejected';
+  status?: 'draft' | 'submitted' | 'approved' | 'rejected' | 'returned';
   approval_status?: 'pending' | 'in_progress' | 'approved' | 'rejected' | 'returned';
   institution_id?: number;
   institution_type?: string;
@@ -476,6 +476,136 @@ class SurveyResponseApprovalService {
   }
 
   /**
+   * Export survey responses to Excel/CSV format
+   */
+  async exportSurveyResponses(
+    surveyId: number,
+    filters: ResponseFilters & { format?: 'xlsx' | 'csv' } = {}
+  ): Promise<Blob> {
+    console.log('🔍 [SurveyResponseApproval] Exporting survey responses:', { surveyId, filters });
+
+    // Extract format from filters (default to xlsx)
+    const format = filters.format || 'xlsx';
+
+    const params = new URLSearchParams();
+
+    // Add all filters as URL parameters
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.append(key, String(value));
+      }
+    });
+
+    try {
+      console.log('🚀 [SurveyResponseApproval] Making export API call...');
+
+      // Add cache-busting timestamp to prevent caching of export requests
+      params.append('_t', Date.now().toString());
+
+      // Use direct fetch for file downloads instead of apiClient to avoid response wrapping issues
+      // Get CSRF token from cookie (Sanctum uses cookies for authentication)
+      const csrfToken = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('XSRF-TOKEN='))
+        ?.split('=')[1];
+
+      const headers: Record<string, string> = {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Accept': format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'X-Requested-With': 'XMLHttpRequest' // Required for Laravel Sanctum
+      };
+
+      if (csrfToken) {
+        headers['X-XSRF-TOKEN'] = decodeURIComponent(csrfToken);
+      }
+
+      // Use absolute URL to ensure request goes to backend server (localhost:8000)
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+      const exportURL = `${apiBaseUrl}${this.baseURL}/surveys/${surveyId}/export?${params.toString()}`;
+      console.log('🌐 [SurveyResponseApproval] Export URL:', exportURL);
+      console.log('📋 [SurveyResponseApproval] Headers:', headers);
+
+      const fetchResponse = await fetch(exportURL, {
+        method: 'GET',
+        headers,
+        credentials: 'include'
+      });
+
+      if (!fetchResponse.ok) {
+        throw new Error(`HTTP ${fetchResponse.status}: ${fetchResponse.statusText}`);
+      }
+
+      const blob = await fetchResponse.blob();
+
+      console.log('✅ [SurveyResponseApproval] Export response received:', {
+        size: blob.size,
+        type: blob.type,
+        status: fetchResponse.status,
+        statusText: fetchResponse.statusText
+      });
+
+      // Validate blob
+      if (!blob || blob.size === 0) {
+        throw new Error('Received empty file response');
+      }
+
+      return blob;
+
+    } catch (error: any) {
+      console.error('💥 [SurveyResponseApproval] Error exporting survey responses:', {
+        surveyId,
+        filters,
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        error
+      });
+
+      // Provide user-friendly error messages
+      if (error.response?.status === 403) {
+        throw new Error('İxrac etmək üçün icazəniz yoxdur');
+      } else if (error.response?.status === 404) {
+        throw new Error('Sorğu tapılmadı');
+      } else if (error.response?.status === 422) {
+        throw new Error('Yanlış filtr parametrləri');
+      } else {
+        throw new Error('İxrac zamanı xəta baş verdi: ' + error.message);
+      }
+    }
+  }
+
+  /**
+   * Download exported file with proper filename
+   */
+  downloadExportedFile(blob: Blob, surveyId: number, format: string = 'xlsx'): void {
+    try {
+      // Create download URL
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+
+      // Generate filename
+      const timestamp = new Date().toISOString().replace(/[:]/g, '-').split('.')[0];
+      link.download = `survey_${surveyId}_responses_${timestamp}.${format}`;
+
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      console.log('✅ [SurveyResponseApproval] File download triggered successfully');
+
+    } catch (error: any) {
+      console.error('💥 [SurveyResponseApproval] Error downloading file:', error);
+      throw new Error('Fayl yüklənmədi: ' + error.message);
+    }
+  }
+
+  /**
    * Get institutions list for filtering (cached)
    */
   async getInstitutions(): Promise<Array<{
@@ -486,14 +616,14 @@ class SurveyResponseApprovalService {
     parent_id?: number;
   }>> {
     const response = await apiClient.get('/institutions');
-    
+
     // Handle different response formats
     if (Array.isArray(response.data)) {
       return response.data;
     } else if (response.data.data) {
       return Array.isArray(response.data.data) ? response.data.data : response.data.data.data || [];
     }
-    
+
     return [];
   }
 }

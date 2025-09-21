@@ -76,6 +76,7 @@ interface ResponseManagementTableProps {
   onResponseEdit?: (response: SurveyResponseForApproval) => void;
   onResponseViewTab?: (response: SurveyResponseForApproval, tab: 'details' | 'responses' | 'history') => void;
   onUpdate?: () => void;
+  selectedSurvey?: { id: number; title: string }; // Survey info for export
 }
 const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
   responses,
@@ -89,7 +90,8 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
   filters,
   onResponseEdit,
   onResponseViewTab,
-  onUpdate
+  onUpdate,
+  selectedSurvey
 }) => {
   const { currentUser: user } = useAuth();
   const { toast } = useToast();
@@ -99,6 +101,7 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
   const [processingApprovals, setProcessingApprovals] = useState<Set<number>>(new Set());
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedResponseForEdit, setSelectedResponseForEdit] = useState<SurveyResponseForApproval | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   // Helper function to check if user can edit a response
   const canEditResponse = useCallback((response: SurveyResponseForApproval) => {
     if (!user || !onResponseEdit) return false;
@@ -209,7 +212,131 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
     if (onUpdate) {
       onUpdate();
     }
-  }, [onUpdate]);
+  }, [onUpdate, handleCloseEditModal]);
+
+  // Bulk approval handler
+  const handleBulkApproval = useCallback(async (action: 'approve' | 'reject' | 'return', comments?: string) => {
+    if (selectedResponses.length === 0) {
+      toast({
+        title: "Xəta",
+        description: "Heç bir cavab seçilməyib",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      console.log(`🚀 Starting bulk ${action} for ${selectedResponses.length} responses`);
+
+      const actionMessages = {
+        approve: 'Toplu təsdiq əməliyyatı başladı',
+        reject: 'Toplu rədd əməliyyatı başladı',
+        return: 'Toplu qaytarma əməliyyatı başladı'
+      };
+
+      toast({
+        title: "Prosses başladı",
+        description: `${actionMessages[action]}... (${selectedResponses.length} cavab)`,
+      });
+
+      const result = await surveyResponseApprovalService.bulkApprovalOperation({
+        response_ids: selectedResponses,
+        action,
+        comments: comments || '',
+        metadata: { action_source: 'bulk_table_approval', total_selected: selectedResponses.length }
+      });
+
+      console.log(`✅ Bulk ${action} completed:`, result);
+
+      const successMessages = {
+        approve: 'Toplu təsdiq tamamlandı',
+        reject: 'Toplu rədd tamamlandı',
+        return: 'Toplu qaytarma tamamlandı'
+      };
+
+      toast({
+        title: "Uğurlu əməliyyat",
+        description: `${successMessages[action]}: ${result.successful} uğurlu, ${result.failed} uğursuz`,
+        variant: "default",
+      });
+
+      // Clear selections and refresh data
+      onBulkSelect([]);
+      setSelectAll(false);
+
+      if (onUpdate) {
+        onUpdate();
+      }
+
+    } catch (error: any) {
+      console.error(`❌ Bulk ${action} failed:`, error);
+
+      const errorMessages = {
+        approve: 'Toplu təsdiq zamanı xəta',
+        reject: 'Toplu rədd zamanı xəta',
+        return: 'Toplu qaytarma zamanı xəta'
+      };
+
+      toast({
+        title: "Xəta baş verdi",
+        description: error?.response?.data?.message || errorMessages[action],
+        variant: "destructive",
+      });
+    }
+  }, [selectedResponses, onBulkSelect, onUpdate, toast]);
+
+  // Handle export functionality
+  const handleExport = useCallback(async (format: 'xlsx' | 'csv' = 'xlsx') => {
+    if (!selectedSurvey) {
+      toast({
+        title: "Xəta",
+        description: "Export üçün sorğu seçilməyib",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsExporting(true);
+
+      // Show loading toast
+      toast({
+        title: "Export başladı",
+        description: `Sorğu cavabları ${format.toUpperCase()} formatında hazırlanır...`,
+      });
+
+      // Export with current filters
+      const exportFilters = {
+        ...filters,
+        format
+      };
+
+      const blob = await surveyResponseApprovalService.exportSurveyResponses(
+        selectedSurvey.id,
+        exportFilters
+      );
+
+      // Download the file
+      surveyResponseApprovalService.downloadExportedFile(blob, selectedSurvey.id, format);
+
+      // Show success toast
+      toast({
+        title: "Export uğurlu",
+        description: `Sorğu cavabları ${format.toUpperCase()} formatında yükləndi`,
+        variant: "default",
+      });
+
+    } catch (error: any) {
+      console.error('Export error:', error);
+      toast({
+        title: "Export xətası",
+        description: error.message || 'Export zamanı xəta baş verdi',
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [selectedSurvey, filters, toast]);
 
   // Approval Actions Component
   const ApprovalActions = React.memo(({ response }: { response: SurveyResponseForApproval }) => {
@@ -346,6 +473,11 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
         dotColor: 'bg-red-500',
         label: 'Rədd edildi',
         tooltip: 'Təkrar işləmə tələb olunur'
+      },
+      returned: {
+        dotColor: 'bg-purple-500',
+        label: 'Qaytarıldı',
+        tooltip: 'Yenidən işləmə üçün qaytarıldı'
       },
     } as const;
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.draft;
@@ -835,6 +967,7 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
       </div>
     );
   }
+
   // Advanced bulk actions component with enterprise features
   const BulkActionsBar = () => {
     if (selectedResponses.length === 0) return null;
@@ -922,10 +1055,7 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
                 variant="outline"
                 size="sm"
                 className="h-7 text-green-700 border-green-300 hover:bg-green-50 text-xs"
-                onClick={() => {
-                  console.log('Bulk approve:', selectedResponses);
-                  // Here will be the actual bulk approve logic
-                }}
+                onClick={() => handleBulkApproval('approve')}
               >
                 <CheckCircle className="h-3 w-3 mr-1" />
                 Toplu Təsdiq ({pendingCount})
@@ -936,10 +1066,7 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
                 variant="outline"
                 size="sm"
                 className="h-7 text-red-700 border-red-300 hover:bg-red-50 text-xs"
-                onClick={() => {
-                  console.log('Bulk reject:', selectedResponses);
-                  // Here will be the actual bulk reject logic
-                }}
+                onClick={() => handleBulkApproval('reject')}
               >
                 <XCircle className="h-3 w-3 mr-1" />
                 Toplu Rədd ({pendingCount})
@@ -954,13 +1081,19 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onClick={() => console.log('Bulk export:', selectedResponses)}>
-                  <Download className="h-4 w-4 mr-2 text-blue-600" />
-                  Excel formatında ixrac et
+                <DropdownMenuItem
+                  onClick={() => handleExport('xlsx')}
+                  disabled={isExporting || !selectedSurvey}
+                >
+                  <Download className={`h-4 w-4 mr-2 ${isExporting ? 'text-gray-400' : 'text-blue-600'}`} />
+                  {isExporting ? 'İxrac edilir...' : 'Excel formatında ixrac et'}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => console.log('Bulk PDF export:', selectedResponses)}>
-                  <FileText className="h-4 w-4 mr-2 text-red-600" />
-                  PDF formatında ixrac et
+                <DropdownMenuItem
+                  onClick={() => handleExport('csv')}
+                  disabled={isExporting || !selectedSurvey}
+                >
+                  <FileText className={`h-4 w-4 mr-2 ${isExporting ? 'text-gray-400' : 'text-green-600'}`} />
+                  {isExporting ? 'İxrac edilir...' : 'CSV formatında ixrac et'}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => console.log('Bulk assign:', selectedResponses)}>

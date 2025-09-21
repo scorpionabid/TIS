@@ -43,7 +43,7 @@ class LinkShareControllerRefactored extends BaseController
             ]);
 
             $user = Auth::user();
-            $result = $this->linkSharingService->getLinkShares($request, $user);
+            $result = $this->linkSharingService->getAccessibleLinks($request, $user);
             
             return $this->successResponse($result, 'Bağlantılar uğurla alındı');
         }, 'linkshare.index');
@@ -74,14 +74,12 @@ class LinkShareControllerRefactored extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($request) {
             $validated = $request->validate([
-                'document_id' => 'required|exists:documents,id',
-                'password' => 'nullable|string|min:6|max:50',
-                'expires_at' => 'nullable|date|after:now',
-                'access_limit' => 'nullable|integer|min:1|max:10000',
+                'title' => 'required|string|max:255',
+                'url' => 'required|url',
                 'description' => 'nullable|string|max:500',
-                'allow_download' => 'boolean',
-                'notify_on_access' => 'boolean',
-                'custom_message' => 'nullable|string|max:1000'
+                'link_type' => 'required|string|in:external,video,form,document',
+                'share_scope' => 'required|string|in:public,regional,sectoral,institutional',
+                'is_featured' => 'boolean',
             ]);
 
             $user = Auth::user();
@@ -198,10 +196,34 @@ class LinkShareControllerRefactored extends BaseController
             ]);
 
             $user = Auth::user();
-            $stats = $this->linkSharingService->getLinkStats($request, $user);
+            $stats = $this->linkSharingService->getGlobalLinkStats($request, $user);
             
             return $this->successResponse($stats, 'Statistika alındı');
         }, 'linkshare.stats');
+    }
+
+    /**
+     * Get popular links
+     */
+    public function getPopularLinks(Request $request): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $user = Auth::user();
+            $popularLinks = $this->linkSharingService->getPopularLinks($request, $user);
+            return $this->successResponse($popularLinks, 'Popular links fetched successfully');
+        }, 'linkshare.popular');
+    }
+
+    /**
+     * Get featured links
+     */
+    public function getFeaturedLinks(Request $request): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $user = Auth::user();
+            $featuredLinks = $this->linkSharingService->getFeaturedLinks($request, $user);
+            return $this->successResponse($featuredLinks, 'Featured links fetched successfully');
+        }, 'linkshare.featured');
     }
 
     /**

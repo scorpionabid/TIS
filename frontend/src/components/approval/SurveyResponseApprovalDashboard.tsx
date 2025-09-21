@@ -202,14 +202,6 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
     }
   };
 
-  // Handle export functionality
-  const handleExport = () => {
-    toast({
-      title: "İxrac Başladı",
-      description: "Məlumatlar CSV formatında yüklənir...",
-    });
-    // Implementation will be added in next phase
-  };
 
   // Get unique institution types for filtering
   const institutionTypes = institutions ? [
@@ -255,14 +247,6 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={handleExport}
-            disabled={!selectedSurvey || !responsesData?.responses?.length}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            İxrac
-          </Button>
           <Button
             variant="outline"
             onClick={handleRefresh}
@@ -554,6 +538,7 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
                 filters={filters}
                 onResponseEdit={handleResponseEdit}
                 onResponseViewTab={handleResponseViewTab}
+                selectedSurvey={selectedSurvey}
               />
             </CardContent>
           </Card>

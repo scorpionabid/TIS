@@ -37,6 +37,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('surveys/{survey}/table-view', [SurveyResponseApprovalController::class, 'getTableEditingView'])
             ->middleware('permission:survey_responses.read')
             ->name('table-view');
+
+        // Export survey responses to Excel
+        Route::get('surveys/{survey}/export', [SurveyResponseApprovalController::class, 'exportSurveyResponses'])
+            ->middleware('permission:survey_responses.export')
+            ->name('export');
     });
     
     // Individual Survey Response Operations
@@ -134,6 +139,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
 |     - Bulk approval operations (up to 500 responses)
 |     - Body: {response_ids: number[], action: 'approve|reject|return', comments?: string}
 |     - Returns: {success, data: {successful, failed, results, errors}, message}
+|
+| 11. GET /api/survey-response-approval/surveys/{survey}/export
+|     - Export survey responses to Excel/CSV format
+|     - Params: format=xlsx|csv, status, approval_status, institution_id, date_from, date_to, search
+|     - Returns: Excel/CSV file download
 |
 |--------------------------------------------------------------------------
 | Performance Features:
