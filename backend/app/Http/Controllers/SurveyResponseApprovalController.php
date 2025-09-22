@@ -563,6 +563,17 @@ class SurveyResponseApprovalController extends Controller
     public function exportSurveyResponses(Survey $survey, Request $request)
     {
         try {
+            // Production optimization for large datasets (600+ schools)
+            ini_set('memory_limit', '2G');        // Increase to 2GB for large exports
+            ini_set('max_execution_time', 300);   // Allow 5 minutes for processing
+
+            \Log::info('🚀 [EXPORT] Starting production export', [
+                'survey_id' => $survey->id,
+                'memory_limit' => ini_get('memory_limit'),
+                'max_execution_time' => ini_get('max_execution_time'),
+                'current_memory_mb' => round(memory_get_usage(true) / 1024 / 1024, 2)
+            ]);
+
             $validator = Validator::make($request->all(), [
                 'format' => 'sometimes|in:xlsx,csv',
                 'status' => 'sometimes|in:draft,submitted,approved,rejected,returned',
@@ -572,6 +583,8 @@ class SurveyResponseApprovalController extends Controller
                 'date_from' => 'sometimes|date',
                 'date_to' => 'sometimes|date|after_or_equal:date_from',
                 'search' => 'sometimes|string|max:255',
+                'response_ids' => 'sometimes|array',
+                'response_ids.*' => 'integer|exists:survey_responses,id',
             ]);
 
             if ($validator->fails()) {
@@ -583,18 +596,41 @@ class SurveyResponseApprovalController extends Controller
             }
 
             // Check user has permission for export
-            if (!Auth::user()->can('survey_responses.export')) {
+            $user = Auth::user();
+            \Log::info('🔐 [CONTROLLER] Export permission check', [
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+                'user_role' => $user->role,
+                'user_institution_id' => $user->institution_id,
+                'user_institution_name' => $user->institution?->name,
+                'has_export_permission' => $user->can('survey_responses.export')
+            ]);
+
+            if (!$user->can('survey_responses.export')) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Insufficient permissions for export operations'
                 ], 403);
             }
 
+            // Clear any previous output to prevent memory buildup
+            if (ob_get_level()) {
+                ob_end_clean();
+            }
+
+            $startTime = microtime(true);
             $result = $this->getApprovalService()->exportSurveyResponses(
                 $survey,
                 $request,
                 Auth::user()
             );
+
+            $processingTime = round((microtime(true) - $startTime) * 1000, 2);
+            \Log::info('📊 [EXPORT] Processing completed', [
+                'processing_time_ms' => $processingTime,
+                'memory_usage_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
+                'peak_memory_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2)
+            ]);
 
             // Return Excel file for download
             $format = $request->input('format', 'xlsx');

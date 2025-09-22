@@ -30,13 +30,38 @@ class SurveyResponseApprovalExport implements FromCollection, WithHeadings, With
 
     public function collection()
     {
+        // Load survey questions to ensure they're available for export
+        $this->survey->load(['questions' => function($query) {
+            $query->orderBy('order_index')->select('id', 'survey_id', 'title', 'text', 'question', 'order_index');
+        }]);
+
+        // Production: Only log essential information
+        if (app()->environment('local', 'development')) {
+            \Log::info('Survey questions loaded for export', [
+                'survey_id' => $this->survey->id,
+                'questions_count' => $this->survey->questions->count(),
+                'memory_usage_mb' => round(memory_get_usage(true) / 1024 / 1024, 2)
+            ]);
+        }
+
+        // Optimize query for large datasets - select only necessary fields
         $query = SurveyResponse::where('survey_id', $this->survey->id)
+            ->select([
+                'id', 'survey_id', 'institution_id', 'department_id', 'respondent_id',
+                'responses', 'status', 'submitted_at', 'approved_at', 'created_at'
+            ])
             ->with([
                 'institution:id,name,type,short_name',
                 'department:id,name',
                 'respondent:id,name,email',
-                'approvalRequest:id,approvalable_id,current_status,submitted_at,completed_at',
-                'approvalRequest.approvalActions:id,approval_request_id,approver_id,action,comments,action_taken_at',
+                'approvalRequest' => function($query) {
+                    $query->select('id', 'approvalable_id', 'current_status', 'submitted_at', 'completed_at');
+                },
+                'approvalRequest.approvalActions' => function($query) {
+                    $query->select('id', 'approval_request_id', 'approver_id', 'action', 'comments', 'action_taken_at')
+                          ->latest('action_taken_at')
+                          ->limit(1); // Only get latest action per response
+                },
                 'approvalRequest.approvalActions.approver:id,name'
             ]);
 
@@ -79,54 +104,116 @@ class SurveyResponseApprovalExport implements FromCollection, WithHeadings, With
             });
         }
 
-        return $query->orderBy('created_at', 'desc')->get();
+        // Filter by specific response IDs if provided (for bulk exports)
+        if (!empty($this->filters['response_ids']) && is_array($this->filters['response_ids'])) {
+            $responseIds = array_map('intval', $this->filters['response_ids']);
+            $query->whereIn('id', $responseIds);
+        }
+
+        // Use chunk for large datasets to prevent memory issues
+        $results = collect();
+        $chunkSize = 100; // Process in chunks of 100 for memory efficiency
+
+        $query->orderBy('created_at', 'desc')->chunk($chunkSize, function ($responses) use ($results) {
+            foreach ($responses as $response) {
+                $results->push($response);
+            }
+        });
+
+        // Production: Only log essential export statistics
+        \Log::info('[EXPORT] Survey export completed', [
+            'survey_id' => $this->survey->id,
+            'total_responses' => $results->count(),
+            'memory_usage_mb' => round(memory_get_usage(true) / 1024 / 1024, 2)
+        ]);
+
+        return $results;
     }
 
     public function map($response): array
     {
-        // Get latest approval action
+        // Production: Minimal logging for mapping process
+        if (app()->environment('local', 'development')) {
+            \Log::debug('[EXPORT] Mapping response', [
+                'response_id' => $response->id,
+                'institution_name' => $response->institution?->name
+            ]);
+        }
+
+        // Start with institution info - the institution that responded to the survey
+        $institutionName = $response->institution?->name ?? 'N/A';
+        $row = [$institutionName];
+
+        // Get survey questions and add response for each question
+        $questions = $this->survey->questions;
+        $responses = $response->responses ?? [];
+
+        \Log::info('📊 [EXPORT] Processing questions for response', [
+            'response_id' => $response->id,
+            'questions_count' => $questions->count(),
+            'question_ids' => $questions->pluck('id')->toArray(),
+            'responses_keys' => is_array($responses) ? array_keys($responses) : 'not_array',
+            'responses_values' => is_array($responses) ? array_values($responses) : 'not_array'
+        ]);
+
+        foreach ($questions as $question) {
+            $questionId = (string) $question->id;
+            $answer = $responses[$questionId] ?? '';
+
+            // Format the answer based on question type
+            if (is_array($answer)) {
+                // For multiple choice questions, join selected options
+                $answer = implode(', ', $answer);
+            } elseif (is_string($answer)) {
+                $answer = trim($answer);
+            }
+
+            $row[] = $answer;
+        }
+
+        // Add metadata columns at the end
         $latestApprovalAction = $response->approvalRequest?->approvalActions?->sortByDesc('action_taken_at')?->first();
 
-        return [
-            $response->institution?->name ?? '',
-            $response->institution?->type ?? '',
-            $response->institution?->short_name ?? '',
-            $response->department?->name ?? '',
-            $response->respondent?->name ?? '',
-            $response->respondent?->email ?? '',
+        $row = array_merge($row, [
             $this->getStatusText($response->status),
-            $this->getApprovalStatusText($response->approvalRequest?->current_status),
-            $response->progress_percentage . '%',
             $response->submitted_at ? \Carbon\Carbon::parse($response->submitted_at)->format('d.m.Y H:i') : '',
             $response->approved_at ? \Carbon\Carbon::parse($response->approved_at)->format('d.m.Y H:i') : '',
             $latestApprovalAction?->approver?->name ?? '',
             $latestApprovalAction?->comments ?? '',
-            $latestApprovalAction?->action_taken_at ? \Carbon\Carbon::parse($latestApprovalAction->action_taken_at)->format('d.m.Y H:i') : '',
-            $response->created_at->format('d.m.Y H:i'),
-            $response->updated_at->format('d.m.Y H:i'),
-        ];
+        ]);
+
+        // Production: Removed verbose row logging for performance
+
+        return $row;
     }
 
     public function headings(): array
     {
-        return [
-            'Müəssisə',
-            'Müəssisə Tipi',
-            'Qısa Ad',
-            'Şöbə',
-            'Cavablayan',
-            'Email',
+        // Start with institution column
+        $headings = ['Müəssisə'];
+
+        // Add column for each survey question
+        $questions = $this->survey->questions;
+        foreach ($questions as $question) {
+            // Use question title/text as column header, truncate if too long
+            $questionText = $question->title ?? $question->text ?? $question->question ?? ('Sual ' . ($question->order_index ?? $question->id));
+            $questionText = strip_tags($questionText);
+            if (strlen($questionText) > 50) {
+                $questionText = substr($questionText, 0, 50) . '...';
+            }
+            $headings[] = $questionText;
+        }
+
+        // Add metadata columns at the end
+        $headings = array_merge($headings, [
             'Status',
-            'Təsdiq Status',
-            'Tamamlanma %',
             'Təqdim Tarixi',
             'Təsdiq Tarixi',
             'Təsdiq Edən',
-            'Qeydlər',
-            'Son Əməliyyat',
-            'Yaradılma',
-            'Yenilənmə'
-        ];
+            'Qeydlər'
+        ]);
+
+        return $headings;
     }
 
     public function styles(Worksheet $sheet)
@@ -145,31 +232,74 @@ class SurveyResponseApprovalExport implements FromCollection, WithHeadings, With
 
     public function columnWidths(): array
     {
-        return [
-            'A' => 30, // Müəssisə
-            'B' => 20, // Müəssisə Tipi
-            'C' => 15, // Qısa Ad
-            'D' => 20, // Şöbə
-            'E' => 25, // Cavablayan
-            'F' => 30, // Email
-            'G' => 12, // Status
-            'H' => 15, // Təsdiq Status
-            'I' => 12, // Tamamlanma %
-            'J' => 16, // Təqdim Tarixi
-            'K' => 16, // Təsdiq Tarixi
-            'L' => 20, // Təsdiq Edən
-            'M' => 35, // Qeydlər
-            'N' => 16, // Son Əməliyyat
-            'O' => 16, // Yaradılma
-            'P' => 16, // Yenilənmə
-        ];
+        $widths = [];
+        $columns = range('A', 'Z');
+
+        // First column - Institution name
+        $widths['A'] = 30;
+
+        // Dynamic columns for questions
+        $questions = $this->survey->questions;
+        $columnIndex = 1; // Start from B (A=0, B=1)
+
+        foreach ($questions as $question) {
+            if ($columnIndex < count($columns)) {
+                // Set width based on question type
+                $width = match($question->type ?? 'text') {
+                    'textarea' => 40,
+                    'multiple_choice' => 25,
+                    'single_choice' => 20,
+                    'number' => 15,
+                    'email' => 25,
+                    'date' => 15,
+                    default => 20
+                };
+                $widths[$columns[$columnIndex]] = $width;
+                $columnIndex++;
+            }
+        }
+
+        // Metadata columns at the end
+        $metadataColumns = ['Status', 'Təqdim Tarixi', 'Təsdiq Tarixi', 'Təsdiq Edən', 'Qeydlər'];
+        $metadataWidths = [15, 16, 16, 20, 35];
+
+        for ($i = 0; $i < count($metadataColumns); $i++) {
+            if ($columnIndex + $i < count($columns)) {
+                $widths[$columns[$columnIndex + $i]] = $metadataWidths[$i];
+            }
+        }
+
+        return $widths;
     }
 
     private function applyUserAccessControl($query): void
     {
-        $userRole = $this->user->role;
+        // Get role name properly - might be object or string
+        $userRoleName = is_object($this->user->role) ? $this->user->role->name : $this->user->role;
 
-        switch ($userRole) {
+        \Log::info('🔐 [EXPORT] Applying user access control', [
+            'user_id' => $this->user->id,
+            'user_role_object' => $this->user->role,
+            'user_role_name' => $userRoleName,
+            'user_role_type' => gettype($this->user->role),
+            'user_institution_id' => $this->user->institution_id,
+            'user_institution_name' => $this->user->institution?->name,
+            'has_specific_response_ids' => !empty($this->filters['response_ids']),
+            'response_ids_count' => !empty($this->filters['response_ids']) ? count($this->filters['response_ids']) : 0
+        ]);
+
+        // Special case: If specific response IDs are provided for export and user has appropriate permissions,
+        // allow export of those specific responses (this is for bulk export functionality)
+        if (!empty($this->filters['response_ids']) && in_array($userRoleName, ['superadmin', 'regionadmin', 'sektoradmin'])) {
+            \Log::info('📋 [EXPORT] Allowing export of specific response IDs for authorized user', [
+                'user_role_name' => $userRoleName,
+                'response_ids' => $this->filters['response_ids']
+            ]);
+            // Don't apply additional institution restrictions when specific response IDs are provided
+            return;
+        }
+
+        switch ($userRoleName) {
             case 'superadmin':
                 // SuperAdmin can see all responses
                 break;
@@ -177,6 +307,9 @@ class SurveyResponseApprovalExport implements FromCollection, WithHeadings, With
             case 'regionadmin':
                 if ($this->user->institution) {
                     $childInstitutionIds = $this->user->institution->getAllChildrenIds();
+                    \Log::info('🌐 [EXPORT] RegionAdmin access control', [
+                        'allowed_institution_ids' => $childInstitutionIds
+                    ]);
                     $query->whereIn('institution_id', $childInstitutionIds);
                 }
                 break;
@@ -184,18 +317,29 @@ class SurveyResponseApprovalExport implements FromCollection, WithHeadings, With
             case 'sektoradmin':
                 if ($this->user->institution) {
                     $childInstitutionIds = $this->user->institution->getAllChildrenIds();
+                    \Log::info('🏢 [EXPORT] SektorAdmin access control', [
+                        'allowed_institution_ids' => $childInstitutionIds
+                    ]);
                     $query->whereIn('institution_id', $childInstitutionIds);
                 }
                 break;
 
             case 'schooladmin':
                 if ($this->user->institution) {
+                    \Log::info('🏫 [EXPORT] SchoolAdmin access control', [
+                        'allowed_institution_id' => $this->user->institution->id
+                    ]);
                     $query->where('institution_id', $this->user->institution->id);
                 }
                 break;
 
             default:
                 // For other roles, restrict to their own institution
+                \Log::info('👤 [EXPORT] Default role access control', [
+                    'role_name' => $userRoleName,
+                    'has_institution' => !!$this->user->institution,
+                    'allowed_institution_id' => $this->user->institution?->id
+                ]);
                 if ($this->user->institution) {
                     $query->where('institution_id', $this->user->institution->id);
                 }

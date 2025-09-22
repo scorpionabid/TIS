@@ -695,9 +695,19 @@ class SurveyResponseApprovalService extends BaseService
      */
     public function exportSurveyResponses(Survey $survey, Request $request, User $user): array
     {
+        \Log::info('🚀 [SERVICE] Starting export operation', [
+            'survey_id' => $survey->id,
+            'survey_title' => $survey->title,
+            'user_id' => $user->id,
+            'request_params' => $request->all(),
+            'format' => $request->input('format', 'xlsx')
+        ]);
+
         try {
             // Import the export class
             $export = new \App\Exports\SurveyResponseApprovalExport($survey, $request, $user);
+
+            \Log::info('✅ [SERVICE] Export class instantiated successfully');
 
             // Determine format
             $format = $request->input('format', 'xlsx');

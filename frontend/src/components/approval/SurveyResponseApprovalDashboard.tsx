@@ -137,10 +137,24 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
 
   // Handle survey selection
   const handleSurveySelect = (survey: PublishedSurvey) => {
+    console.log('📋 [DASHBOARD] Survey selection changing:', {
+      previousSurvey: selectedSurvey?.id,
+      newSurvey: survey.id,
+      hasSelectedResponses: selectedResponses.length > 0,
+      selectedResponseIds: selectedResponses
+    });
+
+    // Only reset selections if actually changing to a different survey
+    if (selectedSurvey?.id !== survey.id) {
+      console.log('🔄 [DASHBOARD] Different survey selected - clearing selections');
+      setSelectedResponses([]);
+      setFilters({ per_page: 25 }); // Reset filters
+      setSearchTerm('');
+    } else {
+      console.log('✅ [DASHBOARD] Same survey reselected - keeping selections');
+    }
+
     setSelectedSurvey(survey);
-    setSelectedResponses([]);
-    setFilters({ per_page: 25 }); // Reset filters
-    setSearchTerm('');
   };
 
   // Handle response selection
@@ -171,6 +185,13 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
 
   // Handle bulk selection
   const handleBulkSelect = (responseIds: number[]) => {
+    console.log('🔄 [DASHBOARD] Bulk selection changed:', {
+      previousCount: selectedResponses.length,
+      newCount: responseIds.length,
+      previousIds: selectedResponses,
+      newIds: responseIds,
+      surveyId: selectedSurvey?.id
+    });
     setSelectedResponses(responseIds);
   };
 

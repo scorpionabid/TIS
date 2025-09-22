@@ -126,6 +126,7 @@ export interface ResponseFilters {
   date_to?: string;
   search?: string;
   per_page?: number;
+  response_ids?: number[];
 }
 
 export interface BulkApprovalRequest {
@@ -492,7 +493,14 @@ class SurveyResponseApprovalService {
     // Add all filters as URL parameters
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
-        params.append(key, String(value));
+        // Handle array values (like response_ids) properly
+        if (Array.isArray(value)) {
+          value.forEach(item => {
+            params.append(`${key}[]`, String(item));
+          });
+        } else {
+          params.append(key, String(value));
+        }
       }
     });
 
@@ -518,6 +526,12 @@ class SurveyResponseApprovalService {
 
       if (csrfToken) {
         headers['X-XSRF-TOKEN'] = decodeURIComponent(csrfToken);
+      }
+
+      // Add Bearer token for authentication (same as apiClient)
+      const authToken = localStorage.getItem('atis_auth_token');
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
       }
 
       // Use absolute URL to ensure request goes to backend server (localhost:8000)

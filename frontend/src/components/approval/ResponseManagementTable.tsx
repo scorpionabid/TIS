@@ -287,7 +287,18 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
 
   // Handle export functionality
   const handleExport = useCallback(async (format: 'xlsx' | 'csv' = 'xlsx') => {
+    console.log('📤 [EXPORT] Export started:', {
+      format,
+      surveyId: selectedSurvey?.id,
+      surveyTitle: selectedSurvey?.title,
+      selectedResponsesCount: selectedResponses.length,
+      selectedResponseIds: selectedResponses,
+      currentFilters: filters,
+      totalResponsesInTable: responses.length
+    });
+
     if (!selectedSurvey) {
+      console.error('❌ [EXPORT] No survey selected');
       toast({
         title: "Xəta",
         description: "Export üçün sorğu seçilməyib",
@@ -296,14 +307,24 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
       return;
     }
 
-    try {
-      setIsExporting(true);
-
-      // Show loading toast
+    // Enhanced validation and user feedback
+    if (selectedResponses.length === 0) {
+      console.warn('⚠️ [EXPORT] No responses selected - will export all matching current filters');
+      toast({
+        title: "Məlumat",
+        description: "Heç bir cavab seçilməyib. Bütün mövcud filtrlənmiş cavablar export ediləcək.",
+        variant: "default",
+      });
+    } else {
+      console.log('✅ [EXPORT] Exporting selected responses only:', selectedResponses);
       toast({
         title: "Export başladı",
-        description: `Sorğu cavabları ${format.toUpperCase()} formatında hazırlanır...`,
+        description: `${selectedResponses.length} seçilmiş cavab ${format.toUpperCase()} formatında hazırlanır...`,
       });
+    }
+
+    try {
+      setIsExporting(true);
 
       // Export with current filters
       const exportFilters = {
@@ -311,32 +332,64 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
         format
       };
 
+      // If specific responses are selected, export only those
+      if (selectedResponses.length > 0) {
+        exportFilters.response_ids = selectedResponses;
+        console.log('🎯 [EXPORT] Adding response_ids filter:', selectedResponses);
+      } else {
+        console.log('📄 [EXPORT] No selection - using current table filters only');
+      }
+
+
       const blob = await surveyResponseApprovalService.exportSurveyResponses(
         selectedSurvey.id,
         exportFilters
       );
 
+      console.log('✅ [EXPORT] Successfully received blob:', {
+        blobSize: blob.size,
+        blobType: blob.type,
+        surveyId: selectedSurvey.id,
+        format
+      });
+
       // Download the file
       surveyResponseApprovalService.downloadExportedFile(blob, selectedSurvey.id, format);
 
       // Show success toast
+      const successMessage = selectedResponses.length > 0
+        ? `${selectedResponses.length} seçilmiş cavab ${format.toUpperCase()} formatında yükləndi`
+        : `Sorğu cavabları ${format.toUpperCase()} formatında yükləndi`;
+
       toast({
         title: "Export uğurlu",
-        description: `Sorğu cavabları ${format.toUpperCase()} formatında yükləndi`,
+        description: successMessage,
         variant: "default",
       });
 
+      console.log('🎉 [EXPORT] Export completed successfully');
+
     } catch (error: any) {
-      console.error('Export error:', error);
+      console.error('💥 [EXPORT] Export failed:', {
+        error,
+        errorMessage: error?.message,
+        surveyId: selectedSurvey?.id,
+        selectedResponsesCount: selectedResponses.length,
+        selectedResponseIds: selectedResponses,
+        format,
+        filters
+      });
+
       toast({
         title: "Export xətası",
-        description: error.message || 'Export zamanı xəta baş verdi',
+        description: error.message || 'Export zamanı xəta baş verdi. Console-da daha ətraflı məlumat var.',
         variant: "destructive",
       });
     } finally {
       setIsExporting(false);
+      console.log('🔚 [EXPORT] Export process finished, isExporting set to false');
     }
-  }, [selectedSurvey, filters, toast]);
+  }, [selectedSurvey, filters, selectedResponses, toast, responses.length]);
 
   // Approval Actions Component
   const ApprovalActions = React.memo(({ response }: { response: SurveyResponseForApproval }) => {
@@ -533,10 +586,29 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
   };
   // Handle individual checkbox
   const handleResponseCheckbox = useCallback((responseId: number, checked: boolean) => {
+    console.log('☑️ [CHECKBOX] Individual checkbox changed:', {
+      responseId,
+      checked,
+      currentSelections: selectedResponses.length,
+      currentSelectionIds: selectedResponses
+    });
+
     if (checked) {
-      onBulkSelect([...selectedResponses, responseId]);
+      const newSelections = [...selectedResponses, responseId];
+      console.log('➕ [CHECKBOX] Adding response to selection:', {
+        addedId: responseId,
+        newSelections,
+        newCount: newSelections.length
+      });
+      onBulkSelect(newSelections);
     } else {
-      onBulkSelect(selectedResponses.filter(id => id !== responseId));
+      const newSelections = selectedResponses.filter(id => id !== responseId);
+      console.log('➖ [CHECKBOX] Removing response from selection:', {
+        removedId: responseId,
+        newSelections,
+        newCount: newSelections.length
+      });
+      onBulkSelect(newSelections);
       setSelectAll(false);
     }
   }, [selectedResponses, onBulkSelect]);
