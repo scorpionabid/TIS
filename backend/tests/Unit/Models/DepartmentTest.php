@@ -70,7 +70,11 @@ class DepartmentTest extends ModelTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed(\Database\Seeders\InstitutionHierarchySeeder::class);
+        // Create basic test data instead of using missing seeder
+        Institution::factory()->create([
+            'name' => 'Test Institution',
+            'institution_type_id' => 1,
+        ]);
     }
 
     /**
