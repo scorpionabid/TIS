@@ -20,6 +20,7 @@ Route::prefix('links')->group(function () {
     Route::get('/{linkShare}', [LinkShareController::class, 'show'])->middleware('permission:links.read');
     Route::put('/{linkShare}', [LinkShareController::class, 'update'])->middleware('permission:links.update');
     Route::delete('/{linkShare}', [LinkShareController::class, 'destroy'])->middleware('permission:links.delete');
+    Route::post('/{linkShare}/access', [LinkShareController::class, 'access'])->middleware('permission:links.read');
     Route::post('/{linkShare}/click', [LinkShareController::class, 'recordClick'])->middleware('permission:links.read');
     Route::get('/popular/list', [LinkShareController::class, 'getPopularLinks'])->middleware('permission:links.read');
     Route::get('/featured/list', [LinkShareController::class, 'getFeaturedLinks'])->middleware('permission:links.read');

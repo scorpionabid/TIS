@@ -129,7 +129,7 @@ export const useLinkCreate = ({ onLinkCreated, onClose }: UseLinkCreateProps) =>
   const availableInstitutionTypes = useMemo(() => {
     if (!institutions?.data?.data) return [];
     const types = [...new Set(institutions.data.data.map(institution => institution.type))];
-    return types.map(type => ({ value: type, label: type }));
+    return types.map(type => ({ value: type as string, label: type as string }));
   }, [institutions?.data?.data]);
 
   const validateURL = (url: string): boolean => {

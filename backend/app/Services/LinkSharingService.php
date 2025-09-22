@@ -674,4 +674,26 @@ class LinkSharingService extends BaseService
             'by_type' => $byType,
         ];
     }
+
+    /**
+     * Access link by ID
+     */
+    public function accessLinkById(int $id, $user, Request $request)
+    {
+        $linkShare = LinkShare::findOrFail($id);
+
+        // Check if link can be accessed by user
+        if (!$linkShare->canBeAccessedBy($user)) {
+            throw new Exception('Bu linkə giriş icazəniz yoxdur', 403);
+        }
+
+        // Record access
+        $linkShare->recordAccess($user, $request->ip(), $request->userAgent());
+
+        return [
+            'redirect_url' => $linkShare->url,
+            'link' => $linkShare,
+            'access_logged' => true
+        ];
+    }
 }

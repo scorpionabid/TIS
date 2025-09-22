@@ -127,9 +127,22 @@ class LinkShareControllerRefactored extends BaseController
     }
 
     /**
-     * Access shared link
+     * Access shared link by ID
      */
-    public function access(Request $request, string $token): JsonResponse
+    public function access(Request $request, int $id): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request, $id) {
+            $user = Auth::user();
+            $result = $this->linkSharingService->accessLinkById($id, $user, $request);
+
+            return $this->successResponse($result, 'Bağlantıya giriş uğurludur');
+        }, 'linkshare.access');
+    }
+
+    /**
+     * Access shared link by token
+     */
+    public function accessByToken(Request $request, string $token): JsonResponse
     {
         return $this->executeWithErrorHandling(function () use ($request, $token) {
             $validated = $request->validate([
@@ -139,9 +152,9 @@ class LinkShareControllerRefactored extends BaseController
             ]);
 
             $result = $this->linkSharingService->accessLink($token, $validated, $request);
-            
+
             return $this->successResponse($result, 'Bağlantıya giriş uğurludur');
-        }, 'linkshare.access');
+        }, 'linkshare.access_by_token');
     }
 
     /**
