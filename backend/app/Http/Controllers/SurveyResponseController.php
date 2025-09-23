@@ -120,14 +120,25 @@ class SurveyResponseController extends BaseController
         }
     }
 
+    /**
+     * @deprecated Use SurveyResponseApprovalController::approveResponse instead
+     * This method will be removed in v2.0
+     */
     public function approve(Request $request, SurveyResponse $response): JsonResponse
     {
+        \Log::warning('DEPRECATED: SurveyResponseController::approve called', [
+            'response_id' => $response->id,
+            'user_id' => auth()->id(),
+            'migration_note' => 'Use SurveyResponseApprovalController::approveResponse instead'
+        ]);
+
         try {
             $approvedResponse = $this->responseService->approveResponse($response->id);
 
             return $this->successResponse(
                 ['response' => $approvedResponse],
-                'Survey response approved successfully'
+                'Survey response approved successfully',
+                ['deprecation_warning' => 'This endpoint is deprecated. Use /api/survey-responses/{response}/approve instead']
             );
         } catch (\InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);
@@ -136,8 +147,18 @@ class SurveyResponseController extends BaseController
         }
     }
 
+    /**
+     * @deprecated Use SurveyResponseApprovalController::rejectResponse instead
+     * This method will be removed in v2.0
+     */
     public function reject(Request $request, SurveyResponse $response): JsonResponse
     {
+        \Log::warning('DEPRECATED: SurveyResponseController::reject called', [
+            'response_id' => $response->id,
+            'user_id' => auth()->id(),
+            'migration_note' => 'Use SurveyResponseApprovalController::rejectResponse instead'
+        ]);
+
         try {
             $validated = $request->validate([
                 'reason' => 'required|string|max:1000'
@@ -150,7 +171,8 @@ class SurveyResponseController extends BaseController
 
             return $this->successResponse(
                 ['response' => $rejectedResponse],
-                'Survey response rejected successfully'
+                'Survey response rejected successfully',
+                ['deprecation_warning' => 'This endpoint is deprecated. Use /api/survey-responses/{response}/reject instead']
             );
         } catch (\InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);

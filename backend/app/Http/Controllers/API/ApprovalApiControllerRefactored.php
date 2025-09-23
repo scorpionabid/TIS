@@ -323,10 +323,17 @@ class ApprovalApiControllerRefactored extends BaseController
     }
 
     /**
+     * @deprecated Use SurveyResponseApprovalController::bulkApprovalOperation instead
+     * This method will be removed in v2.0
      * Bulk approve survey responses
      */
     public function bulkApproveSurveyResponses(Request $request): JsonResponse
     {
+        \Log::warning('DEPRECATED: ApprovalApiControllerRefactored::bulkApproveSurveyResponses called', [
+            'user_id' => auth()->id(),
+            'migration_note' => 'Use SurveyResponseApprovalController::bulkApprovalOperation instead'
+        ]);
+
         return $this->executeWithErrorHandling(function () use ($request) {
             $validated = $request->validate([
                 'response_ids' => 'required|array|min:1',
@@ -336,12 +343,15 @@ class ApprovalApiControllerRefactored extends BaseController
 
             $user = Auth::user();
             $results = $this->approvalAnalyticsService->bulkApproveSurveyResponses(
-                $validated['response_ids'], 
-                $user, 
+                $validated['response_ids'],
+                $user,
                 $validated['comments'] ?? null
             );
-            
-            return $this->successResponse($results, 'Survey cavabları bulk təsdiq edildi');
+
+            return $this->successResponse(
+                array_merge($results, ['deprecation_warning' => 'This endpoint is deprecated. Use /api/survey-responses/bulk-approval instead']),
+                'Survey cavabları bulk təsdiq edildi'
+            );
         }, 'approval.bulk_approve_survey_responses');
     }
 
