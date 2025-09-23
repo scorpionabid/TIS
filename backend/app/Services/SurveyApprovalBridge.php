@@ -51,6 +51,9 @@ class SurveyApprovalBridge extends ApprovalWorkflowService
                     'response_count' => count($response->responses ?? []),
                 ], $additionalData['metadata'] ?? []),
                 'priority' => $this->determineSurveyPriority($response),
+                // Polymorphic relationship data
+                'approvalable_type' => SurveyResponse::class,
+                'approvalable_id' => $response->id,
             ], auth()->user());
 
             // Survey response-ı approval request ilə əlaqələndir
@@ -160,9 +163,13 @@ class SurveyApprovalBridge extends ApprovalWorkflowService
         foreach ($surveyResponseIds as $responseId) {
             try {
                 $response = SurveyResponse::findOrFail($responseId);
-                
-                // Approval request tap
-                $approvalRequest = DataApprovalRequest::where('request_data->survey_response_id', $responseId)
+
+                // Ensure approval request exists for this response
+                $response->ensureApprovalRequestExists();
+
+                // Find approval request using polymorphic relationship
+                $approvalRequest = DataApprovalRequest::where('approvalable_type', SurveyResponse::class)
+                    ->where('approvalable_id', $responseId)
                     ->where('current_status', 'pending')
                     ->first();
 
@@ -176,13 +183,27 @@ class SurveyApprovalBridge extends ApprovalWorkflowService
                         'institution' => $response->institution->name,
                     ];
                 } else {
+                    // If still no approval request, log detailed error
                     $results['failed']++;
-                    $results['errors'][] = "Response ID {$responseId}: Approval request tapılmadı";
+                    $results['errors'][] = "Response ID {$responseId}: Approval request could not be created or found";
+
+                    Log::warning('Bulk approval failed - no approval request', [
+                        'response_id' => $responseId,
+                        'response_status' => $response->status,
+                        'institution_id' => $response->institution_id,
+                        'survey_id' => $response->survey_id
+                    ]);
                 }
-                
+
             } catch (Exception $e) {
                 $results['failed']++;
                 $results['errors'][] = "Response ID {$responseId}: " . $e->getMessage();
+
+                Log::error('Bulk approval exception', [
+                    'response_id' => $responseId,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
             }
         }
 

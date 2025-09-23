@@ -366,25 +366,30 @@ class ApprovalWorkflowService extends BaseService
         return DB::transaction(function () use ($data, $user) {
             // Find workflow
             $workflow = ApprovalWorkflow::where('workflow_type', $data['workflow_type'])
-                ->where('is_active', true)
+                ->where('status', 'active')
                 ->firstOrFail();
 
             // Create approval request
-            $approval = DataApprovalRequest::create([
+            $approvalData = [
                 'workflow_id' => $workflow->id,
                 'institution_id' => $data['institution_id'],
-                'submitter_id' => $user->id,
-                'request_title' => $data['request_title'],
-                'request_description' => $data['request_description'],
-                'request_data' => $data['request_data'] ?? null,
-                'priority' => $data['priority'] ?? 'normal',
+                'submitted_by' => $user->id,
+                'request_metadata' => $data['request_data'] ?? null,
                 'current_status' => 'pending',
-                'current_approver_role' => $this->getFirstApproverRole($workflow),
+                'current_approval_level' => 1,
                 'submitted_at' => now()
-            ]);
+            ];
 
-            // Create initial notification
-            $this->createInitialNotification($approval);
+            // Add polymorphic relationship fields if provided
+            if (isset($data['approvalable_type']) && isset($data['approvalable_id'])) {
+                $approvalData['approvalable_type'] = $data['approvalable_type'];
+                $approvalData['approvalable_id'] = $data['approvalable_id'];
+            }
+
+            $approval = DataApprovalRequest::create($approvalData);
+
+            // Create initial notification (temporarily disabled to fix approval request creation)
+            // $this->createInitialNotification($approval);
 
             return $approval->load(['workflow', 'institution']);
         });

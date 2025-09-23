@@ -539,9 +539,12 @@ class ApprovalAnalyticsService extends BaseService
         foreach ($responseIds as $responseId) {
             try {
                 $response = \App\Models\SurveyResponse::findOrFail($responseId);
-                
+
                 // Check if user has permission to approve this response
                 if ($this->canUserApproveResponse($user, $response)) {
+                    // Ensure approval request exists before approving
+                    $response->ensureApprovalRequestExists();
+
                     $response->approve($user);
                     $approvedCount++;
                 } else {
@@ -575,9 +578,12 @@ class ApprovalAnalyticsService extends BaseService
         foreach ($responseIds as $responseId) {
             try {
                 $response = \App\Models\SurveyResponse::findOrFail($responseId);
-                
+
                 // Check if user has permission to reject this response
                 if ($this->canUserApproveResponse($user, $response)) {
+                    // Ensure approval request exists before rejecting
+                    $response->ensureApprovalRequestExists();
+
                     $response->reject($reason, $user);
                     $rejectedCount++;
                 } else {

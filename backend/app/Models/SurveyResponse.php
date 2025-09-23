@@ -210,6 +210,43 @@ class SurveyResponse extends Model
         $this->status = 'submitted';
         $this->submitted_at = now();
         $this->save();
+
+        // Auto-create approval request for submitted responses
+        $this->ensureApprovalRequestExists();
+    }
+
+    /**
+     * Ensure approval request exists for this survey response
+     */
+    public function ensureApprovalRequestExists(): void
+    {
+        // Check if approval request already exists
+        if ($this->approvalRequest) {
+            return;
+        }
+
+        // Only create approval request for submitted responses that need approval
+        if (!in_array($this->status, ['submitted', 'pending_approval'])) {
+            return;
+        }
+
+        try {
+            // Use the SurveyApprovalBridge to create approval request
+            $approvalBridge = app(\App\Services\SurveyApprovalBridge::class);
+            $approvalBridge->initiateSurveyResponseApproval($this, [
+                'description' => "Avtomatik yaradılmış təsdiq tələbi - {$this->survey->title}",
+                'priority' => 'normal',
+                'metadata' => [
+                    'auto_created' => true,
+                    'created_reason' => 'missing_approval_request_fix'
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to create approval request for survey response', [
+                'survey_response_id' => $this->id,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 
     /**
