@@ -127,6 +127,8 @@ export interface ResponseFilters {
   search?: string;
   per_page?: number;
   response_ids?: number[];
+  sort_by?: string;
+  sort_direction?: 'asc' | 'desc';
 }
 
 export interface BulkApprovalRequest {
@@ -387,8 +389,20 @@ class SurveyResponseApprovalService {
     responseId: number,
     data: { comments?: string; metadata?: any }
   ): Promise<{ status: string; message: string }> {
-    const response = await apiClient.post(`${this.responseURL}/${responseId}/approve`, data);
-    return response.data.data;
+    console.log('🚀 [IndividualApproval] Starting approve operation:', { responseId, data });
+
+    try {
+      const response = await apiClient.post(`${this.responseURL}/${responseId}/approve`, data);
+      console.log('✅ [IndividualApproval] Approve API response received:', response);
+
+      const result = response?.data?.data || response?.data || { status: 'success', message: 'Approved' };
+      console.log('📊 [IndividualApproval] Approve result:', result);
+
+      return result;
+    } catch (error: any) {
+      console.error('❌ [IndividualApproval] Error in approve operation:', error);
+      throw error;
+    }
   }
 
   /**
@@ -398,8 +412,20 @@ class SurveyResponseApprovalService {
     responseId: number,
     data: { comments: string; metadata?: any }
   ): Promise<{ status: string; message: string }> {
-    const response = await apiClient.post(`${this.responseURL}/${responseId}/reject`, data);
-    return response.data.data;
+    console.log('🚀 [IndividualApproval] Starting reject operation:', { responseId, data });
+
+    try {
+      const response = await apiClient.post(`${this.responseURL}/${responseId}/reject`, data);
+      console.log('✅ [IndividualApproval] Reject API response received:', response);
+
+      const result = response?.data?.data || response?.data || { status: 'success', message: 'Rejected' };
+      console.log('📊 [IndividualApproval] Reject result:', result);
+
+      return result;
+    } catch (error: any) {
+      console.error('❌ [IndividualApproval] Error in reject operation:', error);
+      throw error;
+    }
   }
 
   /**
@@ -409,29 +435,67 @@ class SurveyResponseApprovalService {
     responseId: number,
     data: { comments: string; metadata?: any }
   ): Promise<{ status: string; message: string }> {
-    const response = await apiClient.post(`${this.responseURL}/${responseId}/return`, data);
-    return response.data.data;
+    console.log('🚀 [IndividualApproval] Starting return operation:', { responseId, data });
+
+    try {
+      const response = await apiClient.post(`${this.responseURL}/${responseId}/return`, data);
+      console.log('✅ [IndividualApproval] Return API response received:', response);
+
+      const result = response?.data?.data || response?.data || { status: 'success', message: 'Returned' };
+      console.log('📊 [IndividualApproval] Return result:', result);
+
+      return result;
+    } catch (error: any) {
+      console.error('❌ [IndividualApproval] Error in return operation:', error);
+      throw error;
+    }
   }
 
   /**
    * Bulk approval operations with background job support
    */
   async bulkApprovalOperation(data: BulkApprovalRequest): Promise<BulkApprovalResult> {
-    const response = await apiClient.post(`${this.responseURL}/bulk-approval`, data);
-    const result = response.data.data;
-    
-    // If operation was queued as a background job, return job info
-    if (result.status === 'queued' && result.job_id) {
-      return {
-        ...result,
-        successful: 0,
-        failed: 0,
-        errors: []
-      } as BulkApprovalResult;
+    console.log('🚀 [BulkApproval] Starting bulk approval operation:', data);
+
+    try {
+      const response = await apiClient.post(`${this.responseURL}/bulk-approval`, data);
+      console.log('✅ [BulkApproval] API response received:', response);
+
+      const result = response?.data?.data || response?.data || {};
+      console.log('📊 [BulkApproval] Extracted result:', result);
+
+      // Log errors in detail if any
+      if (result.errors && result.errors.length > 0) {
+        console.error('❌ [BulkApproval] Detailed errors:', JSON.stringify(result.errors, null, 2));
+      }
+
+      // If operation was queued as a background job, return job info
+      if (result.status === 'queued' && result.job_id) {
+        console.log('⏰ [BulkApproval] Operation queued as background job');
+        return {
+          ...result,
+          successful: 0,
+          failed: 0,
+          errors: [],
+          results: []
+        } as BulkApprovalResult;
+      }
+
+      // For synchronous operations, ensure we have required properties
+      const bulkResult: BulkApprovalResult = {
+        successful: result.successful || result.success_count || 0,
+        failed: result.failed || result.error_count || 0,
+        results: result.results || [],
+        errors: result.errors || []
+      };
+
+      console.log('✅ [BulkApproval] Final result:', bulkResult);
+      return bulkResult;
+
+    } catch (error: any) {
+      console.error('❌ [BulkApproval] Error in bulk approval operation:', error);
+      throw error;
     }
-    
-    // For synchronous operations, return the result directly
-    return result;
   }
 
   /**
@@ -535,8 +599,9 @@ class SurveyResponseApprovalService {
       }
 
       // Use absolute URL to ensure request goes to backend server (localhost:8000)
+      // NOTE: Export route is on survey-approval endpoint, not survey-response-approval
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-      const exportURL = `${apiBaseUrl}${this.baseURL}/surveys/${surveyId}/export?${params.toString()}`;
+      const exportURL = `${apiBaseUrl}/survey-approval/export?${params.toString()}`;
       console.log('🌐 [SurveyResponseApproval] Export URL:', exportURL);
       console.log('📋 [SurveyResponseApproval] Headers:', headers);
 
@@ -550,6 +615,7 @@ class SurveyResponseApprovalService {
         throw new Error(`HTTP ${fetchResponse.status}: ${fetchResponse.statusText}`);
       }
 
+      // Backend now returns file blob directly, not JSON
       const blob = await fetchResponse.blob();
 
       console.log('✅ [SurveyResponseApproval] Export response received:', {
@@ -639,6 +705,29 @@ class SurveyResponseApprovalService {
     }
 
     return [];
+  }
+
+  /**
+   * Perform bulk approval operation - wrapper for bulkApprovalOperation
+   */
+  async performBulkApproval(
+    responseIds: number[],
+    action: 'approve' | 'reject' | 'return',
+    comments?: string
+  ): Promise<BulkApprovalResult> {
+    console.log('🚀 [performBulkApproval] Starting bulk approval:', {
+      responseIds,
+      action,
+      comments
+    });
+
+    const data: BulkApprovalRequest = {
+      response_ids: responseIds,
+      action,
+      comments: comments || `Bulk ${action} operation`
+    };
+
+    return await this.bulkApprovalOperation(data);
   }
 }
 

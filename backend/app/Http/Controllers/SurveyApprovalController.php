@@ -376,21 +376,52 @@ class SurveyApprovalController extends BaseController
     /**
      * Export approval data
      */
-    public function exportApprovalData(Request $request): JsonResponse
+    public function exportApprovalData(Request $request)
     {
         try {
             $validated = $request->validate([
-                'format' => 'required|string|in:xlsx,csv,pdf',
+                'format' => 'required|string|in:xlsx,csv',
+                'surveyId' => 'nullable|integer|exists:surveys,id',
+                'status' => 'nullable|string',
+                'institution_id' => 'nullable|integer',
                 'date_from' => 'nullable|date',
                 'date_to' => 'nullable|date|after_or_equal:date_from',
+                'response_ids' => 'nullable|array',
+                'response_ids.*' => 'integer|exists:survey_responses,id',
             ]);
 
-            return $this->successResponse([
-                'download_url' => '/exports/approvals_' . time() . '.' . $validated['format'],
-                'format' => $validated['format'],
-            ], 'Export prepared');
+            // Prepare filters for export
+            $filters = array_filter([
+                'status' => $validated['status'] ?? null,
+                'institution_id' => $validated['institution_id'] ?? null,
+                'date_from' => $validated['date_from'] ?? null,
+                'date_to' => $validated['date_to'] ?? null,
+                'response_ids' => $validated['response_ids'] ?? null,
+            ]);
+
+            $surveyId = $validated['surveyId'] ?? null;
+            $format = $validated['format'];
+
+            // Generate filename with timestamp
+            $timestamp = now()->format('Y-m-d_H-i-s');
+            $filename = $surveyId ? "survey_{$surveyId}_responses_{$timestamp}" : "survey_responses_{$timestamp}";
+
+            // Import the export class
+            $export = new \App\Exports\SurveyResponsesExport($surveyId, $filters);
+
+            // Return the Excel file directly as a download
+            return \Maatwebsite\Excel\Facades\Excel::download(
+                $export,
+                "{$filename}.{$format}",
+                $format === 'xlsx' ? \Maatwebsite\Excel\Excel::XLSX : \Maatwebsite\Excel\Excel::CSV
+            );
 
         } catch (\Exception $e) {
+            \Log::error('Export error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
+            ]);
+
             return $this->errorResponse($e->getMessage(), 500);
         }
     }

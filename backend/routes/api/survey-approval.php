@@ -23,11 +23,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
             ->middleware('permission:survey_responses.write')
             ->name('survey-approval.submit-response');
             
-        Route::post('requests/{approval}/approve', [SurveyApprovalController::class, 'approveResponse'])
+        Route::post('requests/{dataApprovalRequest}/approve', [SurveyApprovalController::class, 'approveResponse'])
             ->middleware('permission:survey_responses.approve')
             ->name('survey-approval.approve-response');
-            
-        Route::post('requests/{approval}/delegate', [SurveyApprovalController::class, 'delegateApproval'])
+
+        Route::post('requests/{dataApprovalRequest}/delegate', [SurveyApprovalController::class, 'delegateApproval'])
             ->middleware('permission:survey_responses.approve')
             ->name('survey-approval.delegate');
             
@@ -47,12 +47,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
             ->name('survey-approval.dashboard-stats');
             
         // Rejection
-        Route::post('requests/{approval}/reject', [SurveyApprovalController::class, 'rejectResponse'])
+        Route::post('requests/{dataApprovalRequest}/reject', [SurveyApprovalController::class, 'rejectResponse'])
             ->middleware('permission:survey_responses.approve')
             ->name('survey-approval.reject-response');
-            
+
         // Cancel approval request
-        Route::post('requests/{approval}/cancel', [SurveyApprovalController::class, 'cancelApprovalRequest'])
+        Route::post('requests/{dataApprovalRequest}/cancel', [SurveyApprovalController::class, 'cancelApprovalRequest'])
             ->middleware('permission:survey_responses.write')
             ->name('survey-approval.cancel-request');
             
@@ -92,7 +92,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     
     // Delegation Management
     Route::prefix('approval-delegation')->group(function () {
-        Route::get('requests/{approval}/status', [SurveyApprovalController::class, 'checkDelegationStatus'])
+        Route::get('requests/{dataApprovalRequest}/status', [SurveyApprovalController::class, 'checkDelegationStatus'])
             ->middleware('permission:survey_responses.read')
             ->name('approval-delegation.status');
     });

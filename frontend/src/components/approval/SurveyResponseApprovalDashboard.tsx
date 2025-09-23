@@ -23,13 +23,14 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../hooks/use-toast';
-import surveyResponseApprovalService, { 
-  PublishedSurvey, 
-  ResponseFilters, 
+import surveyResponseApprovalService, {
+  PublishedSurvey,
+  ResponseFilters,
   ApprovalStats,
-  SurveyResponseForApproval 
+  SurveyResponseForApproval
 } from '../../services/surveyResponseApproval';
-import ResponseManagementTable from './ResponseManagementTable';
+import { apiClient } from '../../services/apiOptimized';
+import ResponseManagementTable from './table/ResponseManagementTable';
 import ResponseDetailModal from './ResponseDetailModal';
 import BulkApprovalInterface from './BulkApprovalInterface';
 
@@ -172,8 +173,7 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
 
   // Handle response editing
   const handleResponseEdit = useCallback((response: SurveyResponseForApproval) => {
-    // For now, we'll use the same modal as viewing but we can add edit functionality later
-    // TODO: Implement dedicated edit modal or inline editing
+    // Edit functionality is handled by UnifiedResponseEditModal in the table component
     setSelectedResponse(response);
     setShowResponseModal(true);
 
@@ -196,7 +196,14 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
   };
 
   // Handle bulk operations
-  const handleBulkAction = (_action: 'approve' | 'reject' | 'return') => {
+  const handleBulkAction = async (action: 'approve' | 'reject' | 'return', comments?: string) => {
+    console.log('🚨 [DASHBOARD handleBulkAction] CALLED with:', {
+      action,
+      comments,
+      selectedResponsesCount: selectedResponses.length,
+      selectedResponses
+    });
+
     if (selectedResponses.length === 0) {
       toast({
         title: "Xəta",
@@ -205,7 +212,99 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
       });
       return;
     }
-    setShowBulkModal(true);
+
+    try {
+      console.log('🚨 [DASHBOARD BULK ACTION] Starting direct bulk action:', {
+        action,
+        selectedResponses,
+        comments
+      });
+
+      const result = await surveyResponseApprovalService.performBulkApproval(
+        selectedResponses,
+        action,
+        comments || `Dashboard vasitəsilə ${action === 'approve' ? 'təsdiqləndi' : action === 'reject' ? 'rədd edildi' : 'geri qaytarıldı'}`
+      );
+
+      console.log('✅ [DASHBOARD BULK ACTION] Bulk action completed:', result);
+      console.log('📊 [DASHBOARD BULK ACTION] Detailed result:', {
+        successful: result.successful,
+        failed: result.failed,
+        total: selectedResponses.length,
+        results: result.results,
+        errors: result.errors
+      });
+
+      // Check if operation was actually successful
+      if (result.successful > 0) {
+        // Clear API cache first
+        console.log('🧹 [DASHBOARD] Clearing API cache...');
+        apiClient.clearCache();
+
+        // Clear both React Query cache and API cache immediately
+        console.log('🔄 [DASHBOARD] Invalidating queries immediately...');
+        await queryClient.invalidateQueries();
+
+        // Force refetch all approval data with correct query key including filters
+        console.log('🔄 [DASHBOARD] Force refetching data with filters...', { filters });
+        await queryClient.refetchQueries({
+          queryKey: ['survey-responses-approval', selectedSurvey?.id, filters]
+        });
+
+        // Also invalidate without filters to catch any partial matches
+        await queryClient.invalidateQueries({
+          queryKey: ['survey-responses-approval', selectedSurvey?.id]
+        });
+
+        // Also force a second refetch after a delay
+        setTimeout(async () => {
+          console.log('🔄 [DASHBOARD] Second refetch after delay...');
+          await queryClient.refetchQueries({
+            queryKey: ['survey-responses-approval', selectedSurvey?.id, filters]
+          });
+
+          // Final invalidation of all related queries
+          await queryClient.invalidateQueries({
+            predicate: (query) => {
+              return query.queryKey[0] === 'survey-responses-approval' &&
+                     query.queryKey[1] === selectedSurvey?.id;
+            }
+          });
+        }, 500);
+
+        // Clear selection
+        setSelectedResponses([]);
+
+        // Show success toast
+        toast({
+          title: "Uğurlu əməliyyat",
+          description: `${result.successful} cavab ${action === 'approve' ? 'təsdiqləndi' : action === 'reject' ? 'rədd edildi' : 'geri qaytarıldı'}`,
+          variant: "default",
+        });
+      }
+
+      // Show error details if any failed
+      if (result.failed > 0) {
+        const errorDetails = result.errors?.map((error: any) =>
+          `ID ${error.response_id}: ${error.message || error.error}`
+        ).join(', ') || 'Naməlum xəta';
+
+        toast({
+          title: "Qismən uğursuz",
+          description: `${result.failed} cavab uğursuz: ${errorDetails}`,
+          variant: "destructive",
+        });
+      }
+
+    } catch (error: any) {
+      console.error('❌ [DASHBOARD BULK ACTION] Failed:', error);
+
+      toast({
+        title: "Xəta",
+        description: error.message || "Bulk əməliyyat zamanı xəta baş verdi",
+        variant: "destructive",
+      });
+    }
   };
 
   // Handle refresh
@@ -560,6 +659,13 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
                 onResponseEdit={handleResponseEdit}
                 onResponseViewTab={handleResponseViewTab}
                 selectedSurvey={selectedSurvey}
+                onBulkAction={handleBulkAction}
+                onUpdate={() => {
+                  refetchResponses();
+                  queryClient.invalidateQueries({
+                    queryKey: ['survey-responses-approval', selectedSurvey?.id]
+                  });
+                }}
               />
             </CardContent>
           </Card>
