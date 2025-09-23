@@ -554,6 +554,9 @@ class SurveyResponseApprovalService {
 
     const params = new URLSearchParams();
 
+    // Add surveyId as a required parameter
+    params.append('surveyId', String(surveyId));
+
     // Add all filters as URL parameters
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
