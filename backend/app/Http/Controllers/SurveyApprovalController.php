@@ -381,7 +381,7 @@ class SurveyApprovalController extends BaseController
         try {
             $validated = $request->validate([
                 'format' => 'required|string|in:xlsx,csv',
-                'surveyId' => 'nullable|integer|exists:surveys,id',
+                'surveyId' => 'required|integer|exists:surveys,id',
                 'status' => 'nullable|string',
                 'institution_id' => 'nullable|integer',
                 'date_from' => 'nullable|date',
@@ -399,15 +399,24 @@ class SurveyApprovalController extends BaseController
                 'response_ids' => $validated['response_ids'] ?? null,
             ]);
 
-            $surveyId = $validated['surveyId'] ?? null;
+            $surveyId = $validated['surveyId'];
             $format = $validated['format'];
 
             // Generate filename with timestamp
             $timestamp = now()->format('Y-m-d_H-i-s');
-            $filename = $surveyId ? "survey_{$surveyId}_responses_{$timestamp}" : "survey_responses_{$timestamp}";
+            $filename = "survey_{$surveyId}_responses_{$timestamp}";
 
-            // Import the export class
-            $export = new \App\Exports\SurveyResponsesExport($surveyId, $filters);
+            // Get the survey for detailed export
+            $survey = \App\Models\Survey::findOrFail($surveyId);
+
+            // Get authenticated user with error handling
+            $user = auth()->user();
+            if (!$user) {
+                return $this->errorResponse('Authentication required for export', 401);
+            }
+
+            // Use the original detailed export class that exports institutions + questions + responses matrix
+            $export = new \App\Exports\SurveyResponseApprovalExport($survey, $request, $user);
 
             // Return the Excel file directly as a download
             return \Maatwebsite\Excel\Facades\Excel::download(
