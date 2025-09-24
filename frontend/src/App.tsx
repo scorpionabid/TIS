@@ -1,6 +1,5 @@
 import React, { lazy, Suspense, useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
@@ -122,35 +121,141 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Login Page Component
+// Login Page Component with Enhanced Error Handling
 const LoginPage = () => {
   const { login, loading, isAuthenticated } = useAuth();
   const [loginError, setLoginError] = useState<string | undefined>();
+  const [retryCount, setRetryCount] = useState<number>(0);
+  const [isRetrying, setIsRetrying] = useState<boolean>(false);
   const location = useLocation();
-  
+
   if (isAuthenticated) {
     // Get the intended URL from state, or default to "/"
     const intendedUrl = (location.state as any)?.from?.pathname || "/";
     return <Navigate to={intendedUrl} replace />;
   }
-  
+
+  // Enhanced error categorization
+  const categorizeError = (error: unknown): { message: string; canRetry: boolean; isNetwork: boolean } => {
+    const errorMessage = error instanceof Error ? error.message : 'Giriş xətası';
+
+    // Network/Connection errors (retriable)
+    if (errorMessage.includes('fetch') ||
+        errorMessage.includes('NetworkError') ||
+        errorMessage.includes('Failed to fetch') ||
+        errorMessage.includes('timeout') ||
+        errorMessage.includes('Unable to initialize authentication')) {
+      return {
+        message: 'Şəbəkə əlaqəsi problemi. Zəhmət olmasa bir az sonra cəhd edin.',
+        canRetry: true,
+        isNetwork: true
+      };
+    }
+
+    // Authentication errors (not retriable)
+    if (errorMessage.includes('credentials') ||
+        errorMessage.includes('yanlışdır') ||
+        errorMessage.includes('401')) {
+      return {
+        message: 'İstifadəçi adı və ya şifrə yanlışdır.',
+        canRetry: false,
+        isNetwork: false
+      };
+    }
+
+    // Server errors (partially retriable)
+    if (errorMessage.includes('500') || errorMessage.includes('server')) {
+      return {
+        message: 'Server xətası baş verdi. Zəhmət olmasa bir az sonra cəhd edin.',
+        canRetry: true,
+        isNetwork: false
+      };
+    }
+
+    // Default fallback
+    return {
+      message: errorMessage,
+      canRetry: false,
+      isNetwork: false
+    };
+  };
+
+  // Smart retry logic with exponential backoff
+  const handleRetry = async (email: string, password: string, attemptNumber: number = 1) => {
+    const maxRetries = 3;
+    const baseDelay = 1000; // 1 second base delay
+
+    if (attemptNumber > maxRetries) {
+      setLoginError('Çox sayda uğursuz cəhd. Zəhmət olmasa bir az gözləyin.');
+      return false;
+    }
+
+    try {
+      if (attemptNumber > 1) {
+        setIsRetrying(true);
+        const delay = baseDelay * Math.pow(2, attemptNumber - 1); // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, delay));
+        setIsRetrying(false);
+      }
+
+      const success = await login({ email, password });
+
+      if (success) {
+        setRetryCount(0);
+        return true;
+      } else {
+        setLoginError('Giriş məlumatları yanlışdır');
+        return false;
+      }
+    } catch (error) {
+      const { message, canRetry, isNetwork } = categorizeError(error);
+
+      if (canRetry && isNetwork && attemptNumber < maxRetries) {
+        setRetryCount(attemptNumber);
+        return handleRetry(email, password, attemptNumber + 1);
+      } else {
+        setLoginError(message);
+        setRetryCount(0);
+        return false;
+      }
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+
   const handleLogin = async (email: string, password: string) => {
     try {
       setLoginError(undefined);
-      const success = await login({ email, password });
-      if (!success) {
-        setLoginError('Giriş məlumatları yanlışdır');
-      }
+      setRetryCount(0);
+      await handleRetry(email, password, 1);
     } catch (error) {
-      setLoginError(error instanceof Error ? error.message : 'Giriş xətası');
+      const { message } = categorizeError(error);
+      setLoginError(message);
     }
   };
   
+  // Enhanced loading message based on state
+  const getLoadingMessage = () => {
+    if (isRetrying && retryCount > 0) {
+      return `Yenidən cəhd edilir... (${retryCount}/3)`;
+    }
+    if (loading) {
+      return 'Məlumatlar yoxlanılır...';
+    }
+    return undefined;
+  };
+
+  const handleErrorDismiss = () => {
+    setLoginError(undefined);
+  };
+
   return (
-    <LoginForm 
-      onLogin={handleLogin} 
-      isLoading={loading} 
-      error={loginError} 
+    <LoginForm
+      onLogin={handleLogin}
+      isLoading={loading || isRetrying}
+      error={loginError}
+      loadingMessage={getLoadingMessage()}
+      onErrorDismiss={handleErrorDismiss}
     />
   );
 };
@@ -195,7 +300,6 @@ const App = () => {
         <WebSocketProvider>
           <TooltipProvider>
             <Toaster />
-            <Sonner />
             <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />

@@ -1,17 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { EyeIcon, EyeOffIcon, ShieldIcon } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { EyeIcon, EyeOffIcon, ShieldIcon, AlertTriangle } from "lucide-react";
 
 interface LoginFormProps {
   onLogin: (email: string, password: string) => Promise<void>;
   isLoading?: boolean;
   error?: string;
+  loadingMessage?: string;
+  onErrorDismiss?: () => void;
 }
 
-export const LoginForm = ({ onLogin, isLoading = false, error }: LoginFormProps) => {
+export const LoginForm = ({ onLogin, isLoading = false, error, loadingMessage, onErrorDismiss }: LoginFormProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -19,6 +22,39 @@ export const LoginForm = ({ onLogin, isLoading = false, error }: LoginFormProps)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await onLogin(email, password);
+  };
+
+  // Enhanced keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Dismiss error with Escape key
+      if (e.key === 'Escape' && error && onErrorDismiss) {
+        e.preventDefault();
+        onErrorDismiss();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [error, onErrorDismiss]);
+
+  // Handle input field navigation
+  const handleEmailKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !isLoading) {
+      e.preventDefault();
+      // Focus on password field
+      const passwordInput = document.getElementById('password') as HTMLInputElement;
+      if (passwordInput) {
+        passwordInput.focus();
+      }
+    }
+  };
+
+  const handlePasswordKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !isLoading && email && password) {
+      e.preventDefault();
+      handleSubmit(e as any);
+    }
   };
 
   return (
@@ -48,6 +84,13 @@ export const LoginForm = ({ onLogin, isLoading = false, error }: LoginFormProps)
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {error && (
+              <Alert variant="destructive" className="mb-4" role="alert" aria-live="polite">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Giriş Xətası</AlertTitle>
+                <AlertDescription id="login-error">{error}</AlertDescription>
+              </Alert>
+            )}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">İstifadəçi adı və ya E-poçt ünvanı</Label>
@@ -57,7 +100,10 @@ export const LoginForm = ({ onLogin, isLoading = false, error }: LoginFormProps)
                   placeholder="superadmin və ya admin@edu.gov.az"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={handleEmailKeyDown}
                   required
+                  aria-describedby={error ? "login-error" : undefined}
+                  aria-invalid={!!error}
                   className="focus:ring-input-focus focus:border-input-focus"
                 />
               </div>
@@ -70,7 +116,10 @@ export const LoginForm = ({ onLogin, isLoading = false, error }: LoginFormProps)
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={handlePasswordKeyDown}
                     required
+                    aria-describedby={error ? "login-error" : undefined}
+                    aria-invalid={!!error}
                     className="pr-10 focus:ring-input-focus focus:border-input-focus"
                   />
                   <Button
@@ -95,7 +144,7 @@ export const LoginForm = ({ onLogin, isLoading = false, error }: LoginFormProps)
                 size="lg"
                 disabled={isLoading}
               >
-                {isLoading ? "Gözləyin..." : "Giriş"}
+                {isLoading ? (loadingMessage || "Gözləyin...") : "Giriş"}
               </Button>
             </form>
             
