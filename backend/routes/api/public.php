@@ -24,6 +24,10 @@ Route::get('test', function () {
 Route::post('login', [AuthController::class, 'login'])->name('login');
 Route::post('register', [PasswordController::class, 'register']);
 
+// Password reset routes (no auth required)
+Route::post('password/reset/request', [PasswordController::class, 'requestReset']);
+Route::post('password/reset/confirm', [PasswordController::class, 'resetWithToken']);
+
 // Setup wizard routes (public for initial setup)
 Route::prefix('setup')->group(function () {
     Route::get('status', [App\Http\Controllers\SetupWizardController::class, 'checkSetupStatus']);

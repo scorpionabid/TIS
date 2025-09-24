@@ -48,6 +48,7 @@ const SubjectManagement = lazy(() => import("./pages/SubjectManagement"));
 const Approvals = lazy(() => import("./pages/Approvals"));
 const SurveyAnalytics = lazy(() => import("./pages/SurveyAnalytics"));
 const SurveyExport = lazy(() => import("./pages/SurveyExport"));
+const PasswordReset = lazy(() => import("./pages/PasswordReset"));
 
 // RegionAdmin pages
 const RegionAdminIndex = lazy(() => import("./pages/regionadmin/RegionAdminIndex"));
@@ -305,6 +306,7 @@ const App = () => {
             <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/password-reset" element={<LazyWrapper><PasswordReset /></LazyWrapper>} />
             <Route
               path="/"
               element={

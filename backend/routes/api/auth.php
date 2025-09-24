@@ -46,9 +46,8 @@ Route::prefix('user')->group(function () {
     Route::put('dashboard-config', [UserController::class, 'updateDashboardConfig']);
 });
 
-// Password management
-Route::put('password/change', [PasswordController::class, 'change']);
-Route::post('password/reset/request', [PasswordController::class, 'requestReset']);
+// Password management (authenticated users only)
+Route::put('password/change', [PasswordController::class, 'changePassword']);
 
 // Session management
 Route::prefix('sessions')->group(function () {

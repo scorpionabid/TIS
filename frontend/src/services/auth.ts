@@ -231,6 +231,31 @@ class AuthService {
     }
   }
 
+  async requestPasswordReset(email: string): Promise<void> {
+    try {
+      await apiClient.post('/password/reset/request', { email });
+      this.log('✅ Auth Service: Password reset requested successfully');
+    } catch (error) {
+      this.log('❌ Auth Service: Password reset request failed:', error);
+      throw error;
+    }
+  }
+
+  async resetPasswordWithToken(data: {
+    token: string;
+    email: string;
+    password: string;
+    password_confirmation: string;
+  }): Promise<void> {
+    try {
+      await apiClient.post('/password/reset/confirm', data);
+      this.log('✅ Auth Service: Password reset completed successfully');
+    } catch (error) {
+      this.log('❌ Auth Service: Password reset completion failed:', error);
+      throw error;
+    }
+  }
+
   isAuthenticated(): boolean {
     const hasToken = apiClient.isAuthenticated();
     this.log('🔍 Auth Service: isAuthenticated check:', hasToken);

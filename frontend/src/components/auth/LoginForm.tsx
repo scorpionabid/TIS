@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { EyeIcon, EyeOffIcon, ShieldIcon, AlertTriangle, X } from "lucide-react";
+import { ForgotPasswordModal } from "./ForgotPasswordModal";
 
 interface LoginFormProps {
   onLogin: (email: string, password: string) => Promise<void>;
@@ -22,6 +23,7 @@ export const LoginForm = ({ onLogin, isLoading = false, error, loadingMessage, o
   const [showPassword, setShowPassword] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
   const [emailError, setEmailError] = useState("");
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   // Real-time email validation
   const validateEmail = (email: string) => {
@@ -268,7 +270,12 @@ export const LoginForm = ({ onLogin, isLoading = false, error, loadingMessage, o
             </form>
             
             <div className="mt-4 text-center">
-              <Button variant="link" className="text-sm text-muted-foreground">
+              <Button
+                variant="link"
+                className="text-sm text-muted-foreground hover:text-primary"
+                onClick={() => setShowForgotPassword(true)}
+                disabled={isLoading}
+              >
                 Şifrəni unutmusunuz?
               </Button>
             </div>
@@ -280,6 +287,12 @@ export const LoginForm = ({ onLogin, isLoading = false, error, loadingMessage, o
           <p>© 2025 Azərbaycan Respublikası Təhsil Nazirliyi</p>
           <p>Versiya 2.0 Enhanced</p>
         </div>
+
+        {/* Forgot Password Modal */}
+        <ForgotPasswordModal
+          isOpen={showForgotPassword}
+          onClose={() => setShowForgotPassword(false)}
+        />
       </div>
     </div>
   );
