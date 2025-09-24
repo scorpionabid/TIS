@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { EyeIcon, EyeOffIcon, ShieldIcon, AlertTriangle } from "lucide-react";
+import { EyeIcon, EyeOffIcon, ShieldIcon, AlertTriangle, X } from "lucide-react";
 
 interface LoginFormProps {
   onLogin: (email: string, password: string) => Promise<void>;
@@ -12,12 +12,67 @@ interface LoginFormProps {
   error?: string;
   loadingMessage?: string;
   onErrorDismiss?: () => void;
+  retryCount?: number;
+  showHelpfulHints?: boolean;
 }
 
-export const LoginForm = ({ onLogin, isLoading = false, error, loadingMessage, onErrorDismiss }: LoginFormProps) => {
+export const LoginForm = ({ onLogin, isLoading = false, error, loadingMessage, onErrorDismiss, retryCount = 0, showHelpfulHints = true }: LoginFormProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [capsLockOn, setCapsLockOn] = useState(false);
+  const [emailError, setEmailError] = useState("");
+
+  // Real-time email validation
+  const validateEmail = (email: string) => {
+    if (!email) return "";
+
+    // Check if it looks like an email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const isEmail = emailRegex.test(email);
+
+    // If it contains @ but isn't valid email format
+    if (email.includes("@") && !isEmail) {
+      return "Email formatı düzgün deyil";
+    }
+
+    return "";
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setEmail(value);
+    setEmailError(validateEmail(value));
+  };
+
+  // Generate helpful hints based on retry count and error state
+  const getHelpfulHints = () => {
+    if (!showHelpfulHints || !error) return [];
+
+    const hints = [];
+
+    // Base hints (always shown)
+    hints.push("📧 İstifadəçi adınızı və ya email ünvanınızı yoxlayın");
+    hints.push("🔒 Şifrənizi diqqətlə yenidən daxil edin");
+
+    // Progressive hints based on retry count
+    if (retryCount >= 1) {
+      hints.push("💡 Email formatının düzgün olduğunu yoxlayın (@domain.com)");
+    }
+
+    if (retryCount >= 2) {
+      hints.push("⚠️ Böyük və kiçik hərflərin düzgün olduğunu yoxlayın");
+      if (capsLockOn) {
+        hints.push("🔤 Caps Lock açıq görünür!");
+      }
+    }
+
+    if (retryCount >= 3) {
+      hints.push("🔄 'Şifrəni unutmusunuz?' linkindən istifadə etməyi sınayın");
+    }
+
+    return hints;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,9 +106,30 @@ export const LoginForm = ({ onLogin, isLoading = false, error, loadingMessage, o
   };
 
   const handlePasswordKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Caps Lock detection
+    if (e.getModifierState && e.getModifierState('CapsLock')) {
+      setCapsLockOn(true);
+    } else {
+      setCapsLockOn(false);
+    }
+
     if (e.key === 'Enter' && !isLoading && email && password) {
       e.preventDefault();
       handleSubmit(e as any);
+    }
+  };
+
+  // Additional Caps Lock detection on password input
+  const handlePasswordInput = (e: React.FormEvent<HTMLInputElement>) => {
+    const value = (e.target as HTMLInputElement).value;
+    setPassword(value);
+
+    // Simple caps detection - if typing and all letters are uppercase
+    if (value.length > 0) {
+      const lastChar = value.slice(-1);
+      if (lastChar.match(/[A-Z]/) && e.nativeEvent instanceof InputEvent) {
+        setCapsLockOn(true);
+      }
     }
   };
 
@@ -85,11 +161,42 @@ export const LoginForm = ({ onLogin, isLoading = false, error, loadingMessage, o
           </CardHeader>
           <CardContent>
             {error && (
-              <Alert variant="destructive" className="mb-4" role="alert" aria-live="polite">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Giriş Xətası</AlertTitle>
-                <AlertDescription id="login-error">{error}</AlertDescription>
-              </Alert>
+              <div className="space-y-3">
+                <Alert variant="destructive" role="alert" aria-live="polite" className="relative">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Giriş Xətası</AlertTitle>
+                  <AlertDescription id="login-error">{error}</AlertDescription>
+                  {onErrorDismiss && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={onErrorDismiss}
+                      className="absolute top-2 right-2 h-6 w-6 p-0 hover:bg-red-100"
+                      aria-label="Xətanı bağla"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  )}
+                </Alert>
+
+                {/* Helpful Hints */}
+                {getHelpfulHints().length > 0 && (
+                  <Alert variant="default" className="border-blue-200 bg-blue-50">
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium text-blue-800">
+                        Tövsiyələr:
+                      </div>
+                      <ul className="text-sm text-blue-700 space-y-1">
+                        {getHelpfulHints().map((hint, index) => (
+                          <li key={index} className="flex items-start gap-2">
+                            <span>{hint}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </Alert>
+                )}
+              </div>
             )}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
@@ -99,13 +206,20 @@ export const LoginForm = ({ onLogin, isLoading = false, error, loadingMessage, o
                   type="text"
                   placeholder="superadmin və ya admin@edu.gov.az"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={handleEmailChange}
                   onKeyDown={handleEmailKeyDown}
                   required
-                  aria-describedby={error ? "login-error" : undefined}
-                  aria-invalid={!!error}
-                  className="focus:ring-input-focus focus:border-input-focus"
+                  aria-describedby={error || emailError ? "login-error email-error" : undefined}
+                  aria-invalid={!!(error || emailError)}
+                  className={`focus:ring-input-focus focus:border-input-focus ${
+                    emailError ? 'border-yellow-300 focus:border-yellow-400' : ''
+                  }`}
                 />
+                {emailError && (
+                  <p id="email-error" className="text-sm text-yellow-600" role="alert">
+                    ⚠️ {emailError}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Şifrə</Label>
@@ -115,7 +229,7 @@ export const LoginForm = ({ onLogin, isLoading = false, error, loadingMessage, o
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onInput={handlePasswordInput}
                     onKeyDown={handlePasswordKeyDown}
                     required
                     aria-describedby={error ? "login-error" : undefined}
@@ -136,6 +250,11 @@ export const LoginForm = ({ onLogin, isLoading = false, error, loadingMessage, o
                     )}
                   </Button>
                 </div>
+                {capsLockOn && (
+                  <p className="text-sm text-yellow-600" role="alert">
+                    🔤 Caps Lock açıqdır! Şifrənizi yenidən yoxlayın.
+                  </p>
+                )}
               </div>
               <Button
                 type="submit"

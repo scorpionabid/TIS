@@ -256,6 +256,8 @@ const LoginPage = () => {
       error={loginError}
       loadingMessage={getLoadingMessage()}
       onErrorDismiss={handleErrorDismiss}
+      retryCount={retryCount}
+      showHelpfulHints={true}
     />
   );
 };
