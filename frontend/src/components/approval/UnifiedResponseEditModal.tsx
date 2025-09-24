@@ -19,9 +19,9 @@ import {
 } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { useAuth } from '../../contexts/AuthContext';
-import surveyResponseApprovalService, {
+import surveyApprovalService, {
   SurveyResponseForApproval
-} from '../../services/surveyResponseApproval';
+} from '../../services/surveyApproval';
 
 interface UnifiedResponseEditModalProps {
   open: boolean;
@@ -97,7 +97,7 @@ const UnifiedResponseEditModal: React.FC<UnifiedResponseEditModalProps> = ({
   const handleSave = async () => {
     try {
       setIsProcessing(true);
-      await surveyResponseApprovalService.updateResponseData(response.id, editedResponses);
+      await surveyApprovalService.updateResponseData(response.id, editedResponses);
 
       toast({
         title: "Uğurlu",

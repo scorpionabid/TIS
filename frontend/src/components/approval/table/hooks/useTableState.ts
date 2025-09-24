@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { ResponseFilters } from '../../../../services/surveyResponseApproval';
+import { ResponseFilters } from "../../../../services/surveyApproval";
 
 interface PaginationData {
   current_page: number;

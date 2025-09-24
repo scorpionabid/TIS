@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { az } from 'date-fns/locale';
-import { SurveyResponseForApproval } from '../../../../services/surveyResponseApproval';
+import { SurveyResponseForApproval } from "../../../../services/surveyApproval";
 import { getStatusDot, getProgressColor } from '../utils/statusHelpers';
 import ApprovalActions from './ApprovalActions';
 

@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '../../../ui/dropdown-menu';
-import { SurveyResponseForApproval } from '../../../../services/surveyResponseApproval';
+import { SurveyResponseForApproval } from "../../../../services/surveyApproval";
 
 interface ApprovalActionsProps {
   response: SurveyResponseForApproval;

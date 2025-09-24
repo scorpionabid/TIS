@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import ApprovalDashboard from '../components/approval/ApprovalDashboard';
-import SurveyResponseApprovalDashboard from '../components/approval/SurveyResponseApprovalDashboard';
+import SurveyApprovalDashboard from '../components/approval/SurveyApprovalDashboard';
 import { Card, CardContent } from '../components/ui/card';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -85,7 +85,7 @@ const Approvals: React.FC = () => {
         </TabsList>
 
         <TabsContent value="survey-responses">
-          <SurveyResponseApprovalDashboard />
+          <SurveyApprovalDashboard />
         </TabsContent>
 
         <TabsContent value="general-approvals">

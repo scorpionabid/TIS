@@ -24,7 +24,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from '../../../ui/dropdown-menu';
-import { SurveyResponseForApproval } from '../../../../services/surveyResponseApproval';
+import { SurveyResponseForApproval } from "../../../../services/surveyApproval";
 import { canPerformBulkAction } from '../utils/permissionHelpers';
 
 interface BulkActionsBarProps {

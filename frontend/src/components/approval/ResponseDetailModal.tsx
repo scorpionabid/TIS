@@ -33,10 +33,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { useToast } from '../../hooks/use-toast';
-import surveyResponseApprovalService, { 
+import surveyApprovalService, {
   SurveyResponseForApproval,
-  ApprovalAction 
-} from '../../services/surveyResponseApproval';
+  ApprovalAction
+} from '../../services/surveyApproval';
 
 interface ResponseDetailModalProps {
   open: boolean;
@@ -70,7 +70,7 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
     refetch 
   } = useQuery({
     queryKey: ['response-detail', responseId],
-    queryFn: () => surveyResponseApprovalService.getResponseDetail(responseId),
+    queryFn: () => surveyApprovalService.getResponseDetail(responseId),
     enabled: open && !!responseId,
     staleTime: 30 * 1000, // 30 seconds
   });
@@ -78,7 +78,7 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
   // Update response mutation
   const updateResponseMutation = useMutation({
     mutationFn: (data: Record<string, any>) =>
-      surveyResponseApprovalService.updateResponseData(responseId, data),
+      surveyApprovalService.updateResponseData(responseId, data),
     onSuccess: () => {
       toast({
         title: "Uğurlu",
@@ -100,7 +100,7 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
   // Approval actions mutations
   const approveMutation = useMutation({
     mutationFn: (data: { comments?: string }) =>
-      surveyResponseApprovalService.approveResponse(responseId, data),
+      surveyApprovalService.approveResponse(responseId, data),
     onSuccess: () => {
       toast({
         title: "Uğurlu",
@@ -122,7 +122,7 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
 
   const rejectMutation = useMutation({
     mutationFn: (data: { comments: string }) =>
-      surveyResponseApprovalService.rejectResponse(responseId, data),
+      surveyApprovalService.rejectResponse(responseId, data),
     onSuccess: () => {
       toast({
         title: "Uğurlu",
@@ -144,7 +144,7 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
 
   const returnMutation = useMutation({
     mutationFn: (data: { comments: string }) =>
-      surveyResponseApprovalService.returnForRevision(responseId, data),
+      surveyApprovalService.returnForRevision(responseId, data),
     onSuccess: () => {
       toast({
         title: "Uğurlu",

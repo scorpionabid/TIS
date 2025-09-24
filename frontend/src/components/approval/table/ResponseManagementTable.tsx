@@ -5,7 +5,7 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 import {
   SurveyResponseForApproval,
   ResponseFilters
-} from '../../../services/surveyResponseApproval';
+} from "../../../../services/surveyApproval";
 import { useAuth } from '../../../contexts/AuthContext';
 
 // Import hooks

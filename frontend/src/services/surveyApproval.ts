@@ -1,313 +1,738 @@
-import { BaseService, PaginationParams } from './BaseService';
 import { apiClient } from './api';
+import bulkJobService, { BulkJobResult, BulkJobProgress } from './bulkJobService';
 
-export interface ApprovalRequest {
+export interface SurveyResponseForApproval {
   id: number;
-  request_title: string;
-  request_description: string;
-  current_status: 'pending' | 'in_progress' | 'approved' | 'rejected' | 'cancelled';
-  priority: 'low' | 'normal' | 'high';
+  survey_id: number;
+  institution_id: number;
+  department_id?: number;
+  respondent_id?: number;
+  respondent_role?: string;
+  status: 'draft' | 'submitted' | 'approved' | 'rejected' | 'returned';
+  responses: Record<string, any>;
+  progress_percentage: number;
+  is_complete: boolean;
+  submitted_at?: string;
+  approved_by?: number;
+  approved_at?: string;
+  rejection_reason?: string;
   created_at: string;
-  deadline?: string;
-  survey_info?: {
-    survey_title: string;
-    survey_category: string;
-    institution_name: string;
-    respondent_name: string;
-    progress_percentage: number;
-    response_count: number;
-  };
-  workflow?: {
+  updated_at: string;
+  
+  // Relationships
+  survey?: {
     id: number;
-    name: string;
-    workflow_type: string;
+    title: string;
+    description?: string;
   };
   institution?: {
     id: number;
     name: string;
-    type: string;
+    short_name?: string;
+    type?: string;
+    level?: number;
   };
-  submitter?: {
+  department?: {
     id: number;
     name: string;
-    email: string;
+  };
+  respondent?: {
+    id: number;
+    name: string;
+    email?: string;
+  };
+  approvalRequest?: ApprovalRequestData;
+}
+
+export interface ApprovalRequestData {
+  id: number;
+  workflow_id: number;
+  current_status: 'pending' | 'in_progress' | 'approved' | 'rejected' | 'returned';
+  current_approval_level: number;
+  submission_notes?: string;
+  deadline?: string;
+  submitted_at: string;
+  completed_at?: string;
+  
+  workflow?: {
+    id: number;
+    name: string;
+    workflow_type: string;
+    approval_chain: ApprovalLevel[];
+  };
+  
+  approvalActions?: ApprovalAction[];
+}
+
+export interface ApprovalLevel {
+  level: number;
+  role: string;
+  required: boolean;
+  title: string;
+}
+
+export interface ApprovalAction {
+  id: number;
+  approval_request_id: number;
+  approver_id: number;
+  approval_level: number;
+  action: 'approved' | 'rejected' | 'returned' | 'delegated' | 'edited';
+  comments?: string;
+  action_metadata?: any;
+  action_taken_at: string;
+  
+  approver?: {
+    id: number;
+    name: string;
+    email?: string;
   };
 }
 
-export interface DelegationRequest {
-  delegate_to: number;
-  reason: string;
-  expiration_days: number;
+export interface PublishedSurvey {
+  id: number;
+  title: string;
+  description?: string;
+  start_date?: string;
+  end_date?: string;
+  target_institutions?: number[];
+}
+
+export interface ApprovalStats {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+  draft: number;
+  completion_rate: number;
+}
+
+export interface ResponsesForApprovalData {
+  responses: SurveyResponseForApproval[];
+  pagination: {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+  };
+  stats: ApprovalStats;
+}
+
+export interface ResponseFilters {
+  status?: 'draft' | 'submitted' | 'approved' | 'rejected' | 'returned';
+  approval_status?: 'pending' | 'in_progress' | 'approved' | 'rejected' | 'returned';
+  institution_id?: number;
+  institution_type?: string;
+  date_from?: string;
+  date_to?: string;
+  search?: string;
+  per_page?: number;
+  response_ids?: number[];
+  sort_by?: string;
+  sort_direction?: 'asc' | 'desc';
 }
 
 export interface BulkApprovalRequest {
   response_ids: number[];
+  action: 'approve' | 'reject' | 'return';
   comments?: string;
-  approval_level?: number;
+  metadata?: any;
 }
 
-export interface ApprovalAnalytics {
-  overview: {
-    total_approvals: number;
-    pending_approvals: number;
-    completed_approvals: number;
-    rejected_approvals: number;
-  };
-  survey_metrics: {
-    survey_response_approvals: {
-      total_submissions: number;
-      pending_approvals: number;
-      approved_responses: number;
-      rejection_rate: number;
-      average_approval_time_hours: number;
-    };
-    template_approvals: {
-      templates_submitted: number;
-      templates_approved: number;
-      templates_in_review: number;
-    };
-    institution_performance: {
-      top_performing_institutions: Array<{
-        institution_name: string;
-        approval_rate: number;
-        average_response_time: number;
-      }>;
-      institutions_with_delays: Array<{
-        institution_name: string;
-        pending_count: number;
-        average_delay_days: number;
-      }>;
-    };
-    approval_bottlenecks: {
-      bottleneck_levels: Array<{
-        level: string;
-        pending_count: number;
-        average_wait_time: number;
-      }>;
-      slow_approvers: Array<{
-        approver_name: string;
-        pending_count: number;
-        average_response_time: number;
-      }>;
-      recommendations: string[];
-    };
-  };
+export interface BulkApprovalResult {
+  successful: number;
+  failed: number;
+  results: Array<{
+    response_id: number;
+    status: string;
+    result: any;
+  }>;
+  errors: Array<{
+    response_id: number;
+    error: string;
+  }>;
 }
 
-class SurveyApprovalService extends BaseService<ApprovalRequest> {
-  constructor() {
-    super('/survey-approval');
+class SurveyApprovalService {
+  private baseURL = '/survey-approval';
+  private responseURL = '/responses';
+
+  /**
+   * Get all published surveys available for approval
+   */
+  async getPublishedSurveys(): Promise<PublishedSurvey[]> {
+    console.log('🔍 [SurveyApproval] Fetching published surveys...');
+    console.log('📡 API URL:', `${this.baseURL}/surveys/published`);
+    console.log('🔗 Full API URL will be:', `${this.baseURL}/surveys/published`);
+    console.log('🔑 Will use apiClient.get with URL:', `${this.baseURL}/surveys/published`);
+    
+    try {
+      console.log('🚀 [SurveyApproval] Making API call...');
+      const response = await apiClient.get(`${this.baseURL}/surveys/published`);
+      
+      console.log('✅ [SurveyApproval] Published surveys response received:', {
+        response,
+        responseType: typeof response,
+        responseKeys: response ? Object.keys(response) : null,
+        successField: response?.success,
+        dataField: response?.data,
+        messageField: response?.message
+      });
+      
+      if (!response) {
+        console.error('❌ [SurveyApproval] No response received');
+        throw new Error('No response received from server');
+      }
+      
+      if (!response.success) {
+        console.error('❌ [SurveyApproval] API returned failure:', response);
+        throw new Error(response.message || 'API request failed');
+      }
+      
+      const surveys = response.data || [];
+      console.log('📊 [SurveyApproval] Published surveys count:', surveys.length);
+      console.log('📋 [SurveyApproval] Surveys data:', surveys);
+      return surveys;
+      
+    } catch (error: any) {
+      console.error('💥 [SurveyApproval] Error fetching published surveys:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        config: error.config,
+        stack: error.stack
+      });
+      
+      // Re-throw the error for the calling component to handle
+      throw error;
+    }
   }
 
   /**
-   * Submit survey response for approval
+   * Get survey responses for approval with filtering and pagination
    */
-  async submitResponseForApproval(responseId: number, data?: {
-    description?: string;
-    priority?: string;
-    metadata?: Record<string, any>;
-  }) {
-    const response = await apiClient.post(`${this.baseEndpoint}/responses/${responseId}/submit`, data);
-    return response.data;
+  async getResponsesForApproval(
+    surveyId: number,
+    filters: ResponseFilters = {}
+  ): Promise<ResponsesForApprovalData> {
+    console.log('🔍 [SurveyApproval] Getting responses for approval:', { surveyId, filters });
+    
+    const params = new URLSearchParams();
+    
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.append(key, String(value));
+      }
+    });
+
+    try {
+      const response = await apiClient.get(
+        `${this.baseURL}/surveys/${surveyId}/responses?${params.toString()}`
+      );
+      
+      console.log('✅ [SurveyApproval] Responses response received:', {
+        response,
+        responseType: typeof response,
+        successField: response?.success,
+        dataField: response?.data,
+        messageField: response?.message
+      });
+      
+      if (!response) {
+        console.error('❌ [SurveyApproval] No response received for responses');
+        throw new Error('No response received from server');
+      }
+      
+      if (!response.success) {
+        console.error('❌ [SurveyApproval] API returned failure for responses:', response);
+        throw new Error(response.message || 'Failed to fetch survey responses');
+      }
+      
+      const responsesData = response.data || { responses: [], pagination: {}, stats: {} };
+      console.log('📊 [SurveyApproval] Responses data:', responsesData);
+      return responsesData;
+      
+    } catch (error: any) {
+      console.error('💥 [SurveyApproval] Error fetching responses:', {
+        surveyId,
+        filters,
+        message: error.message,
+        error
+      });
+      throw error;
+    }
   }
 
   /**
-   * Approve survey response
+   * Get approval statistics for a survey
    */
-  async approveResponse(approvalRequestId: number, data?: {
-    comments?: string;
-    approval_level?: number;
-  }) {
-    const response = await apiClient.post(`${this.baseEndpoint}/requests/${approvalRequestId}/approve`, data);
-    return response.data;
+  async getApprovalStats(surveyId: number): Promise<ApprovalStats> {
+    console.log('🔍 [SurveyApproval] Getting approval stats:', { surveyId });
+    
+    try {
+      const response = await apiClient.get(`${this.baseURL}/surveys/${surveyId}/stats`);
+      
+      console.log('✅ [SurveyApproval] Stats response received:', {
+        response,
+        responseType: typeof response,
+        successField: response?.success,
+        dataField: response?.data
+      });
+      
+      if (!response || !response.success) {
+        console.error('❌ [SurveyApproval] API returned failure for stats:', response);
+        throw new Error(response?.message || 'Failed to fetch approval stats');
+      }
+      
+      const stats = response.data || {};
+      console.log('📊 [SurveyApproval] Stats data:', stats);
+      return stats;
+      
+    } catch (error: any) {
+      console.error('💥 [SurveyApproval] Error fetching stats:', {
+        surveyId,
+        message: error.message,
+        error
+      });
+      throw error;
+    }
   }
 
   /**
-   * Delegate approval to another user
+   * Get detailed response data with approval history
    */
-  async delegateApproval(approvalRequestId: number, data: DelegationRequest) {
-    const response = await apiClient.post(`${this.baseEndpoint}/requests/${approvalRequestId}/delegate`, data);
-    return response.data;
+  async getResponseDetail(responseId: number): Promise<{
+    response: SurveyResponseForApproval;
+    approval_history: ApprovalAction[];
+    can_edit: boolean;
+    can_approve: boolean;
+  }> {
+    console.log('🔍 [SurveyApproval] Getting response detail:', { responseId });
+    
+    try {
+      const response = await apiClient.get(`${this.responseURL}/${responseId}/detail`);
+      
+      console.log('✅ [SurveyApproval] Detail response received:', {
+        response,
+        responseType: typeof response,
+        successField: response?.success,
+        dataField: response?.data
+      });
+      
+      if (!response || !response.success) {
+        console.error('❌ [SurveyApproval] API returned failure for detail:', response);
+        throw new Error(response?.message || 'Failed to fetch response detail');
+      }
+      
+      const detailData = response.data || {};
+      console.log('📊 [SurveyApproval] Detail data:', detailData);
+      return detailData;
+      
+    } catch (error: any) {
+      console.error('💥 [SurveyApproval] Error fetching detail:', {
+        responseId,
+        message: error.message,
+        error
+      });
+      throw error;
+    }
   }
 
   /**
-   * Bulk approve survey responses
+   * Update survey response data
    */
-  async bulkApprove(data: BulkApprovalRequest) {
-    const response = await apiClient.post(`${this.baseEndpoint}/bulk-approve`, data);
-    return response.data;
+  async updateResponseData(
+    responseId: number,
+    responseData: Record<string, any>
+  ): Promise<SurveyResponseForApproval> {
+    console.log('🔍 [SurveyApproval] Updating response data:', { responseId, responseData });
+    
+    try {
+      const response = await apiClient.put(`${this.responseURL}/${responseId}/update`, {
+        responses: responseData
+      });
+      
+      console.log('✅ [SurveyApproval] Update response received:', response);
+      
+      if (!response || !response.success) {
+        console.error('❌ [SurveyApproval] API returned failure for update:', response);
+        throw new Error(response?.message || 'Failed to update response data');
+      }
+      
+      return response.data;
+      
+    } catch (error: any) {
+      console.error('💥 [SurveyApproval] Error updating response:', {
+        responseId,
+        message: error.message,
+        error
+      });
+      throw error;
+    }
   }
 
   /**
-   * Get pending approvals for current user
+   * Create approval request for a response
    */
-  async getPendingApprovals(params?: PaginationParams & {
-    priority?: string;
-    institution_id?: number;
-    survey_category?: string;
-  }) {
-    const response = await apiClient.get(`${this.baseEndpoint}/pending`, { params });
-    return response.data;
+  async createApprovalRequest(
+    responseId: number,
+    data: { notes?: string; deadline?: string }
+  ): Promise<ApprovalRequestData> {
+    const response = await apiClient.post(`${this.responseURL}/${responseId}/submit-approval`, data);
+    return response.data.data;
   }
 
   /**
-   * Submit survey template for approval
+   * Approve a survey response
    */
-  async submitTemplateForApproval(surveyId: number) {
-    const response = await apiClient.post(`/survey-templates/${surveyId}/submit-for-approval`);
-    return response.data;
+  async approveResponse(
+    responseId: number,
+    data: { comments?: string; metadata?: any }
+  ): Promise<{ status: string; message: string }> {
+    console.log('🚀 [IndividualApproval] Starting approve operation:', { responseId, data });
+
+    try {
+      const response = await apiClient.post(`${this.responseURL}/${responseId}/approve`, data);
+      console.log('✅ [IndividualApproval] Approve API response received:', response);
+
+      const result = response?.data?.data || response?.data || { status: 'success', message: 'Approved' };
+      console.log('📊 [IndividualApproval] Approve result:', result);
+
+      return result;
+    } catch (error: any) {
+      console.error('❌ [IndividualApproval] Error in approve operation:', error);
+      throw error;
+    }
   }
 
   /**
-   * Get approval analytics
+   * Reject a survey response
    */
-  async getApprovalAnalytics(params?: {
-    period?: string;
-    institution_id?: number;
-    include_details?: boolean;
-  }): Promise<ApprovalAnalytics> {
-    const response = await apiClient.get('/survey-approval-analytics', { params });
-    return response.data;
+  async rejectResponse(
+    responseId: number,
+    data: { comments: string; metadata?: any }
+  ): Promise<{ status: string; message: string }> {
+    console.log('🚀 [IndividualApproval] Starting reject operation:', { responseId, data });
+
+    try {
+      const response = await apiClient.post(`${this.responseURL}/${responseId}/reject`, data);
+      console.log('✅ [IndividualApproval] Reject API response received:', response);
+
+      const result = response?.data?.data || response?.data || { status: 'success', message: 'Rejected' };
+      console.log('📊 [IndividualApproval] Reject result:', result);
+
+      return result;
+    } catch (error: any) {
+      console.error('❌ [IndividualApproval] Error in reject operation:', error);
+      throw error;
+    }
   }
 
   /**
-   * Get approval history for a survey
+   * Return response for revision
    */
-  async getApprovalHistory(surveyId: number, params?: PaginationParams) {
-    const response = await apiClient.get(`/survey-approval-analytics/surveys/${surveyId}/history`, { params });
-    return response.data;
+  async returnForRevision(
+    responseId: number,
+    data: { comments: string; metadata?: any }
+  ): Promise<{ status: string; message: string }> {
+    console.log('🚀 [IndividualApproval] Starting return operation:', { responseId, data });
+
+    try {
+      const response = await apiClient.post(`${this.responseURL}/${responseId}/return`, data);
+      console.log('✅ [IndividualApproval] Return API response received:', response);
+
+      const result = response?.data?.data || response?.data || { status: 'success', message: 'Returned' };
+      console.log('📊 [IndividualApproval] Return result:', result);
+
+      return result;
+    } catch (error: any) {
+      console.error('❌ [IndividualApproval] Error in return operation:', error);
+      throw error;
+    }
   }
 
   /**
-   * Check delegation status
+   * Bulk approval operations with background job support
    */
-  async checkDelegationStatus(approvalRequestId: number) {
-    const response = await apiClient.get(`/approval-delegation/requests/${approvalRequestId}/status`);
-    return response.data;
+  async bulkApprovalOperation(data: BulkApprovalRequest): Promise<BulkApprovalResult> {
+    console.log('🚀 [BulkApproval] Starting bulk approval operation:', data);
+
+    try {
+      const response = await apiClient.post(`${this.responseURL}/bulk-approval`, data);
+      console.log('✅ [BulkApproval] API response received:', response);
+
+      const result = response?.data?.data || response?.data || {};
+      console.log('📊 [BulkApproval] Extracted result:', result);
+
+      // Log errors in detail if any
+      if (result.errors && result.errors.length > 0) {
+        console.error('❌ [BulkApproval] Detailed errors:', JSON.stringify(result.errors, null, 2));
+      }
+
+      // If operation was queued as a background job, return job info
+      if (result.status === 'queued' && result.job_id) {
+        console.log('⏰ [BulkApproval] Operation queued as background job');
+        return {
+          ...result,
+          successful: 0,
+          failed: 0,
+          errors: [],
+          results: []
+        } as BulkApprovalResult;
+      }
+
+      // For synchronous operations, ensure we have required properties
+      const bulkResult: BulkApprovalResult = {
+        successful: result.successful || result.success_count || 0,
+        failed: result.failed || result.error_count || 0,
+        results: result.results || [],
+        errors: result.errors || []
+      };
+
+      console.log('✅ [BulkApproval] Final result:', bulkResult);
+      return bulkResult;
+
+    } catch (error: any) {
+      console.error('❌ [BulkApproval] Error in bulk approval operation:', error);
+      throw error;
+    }
   }
 
   /**
-   * Get approval request details
+   * Monitor bulk approval job progress
    */
-  async getApprovalDetails(approvalRequestId: number) {
-    const response = await apiClient.get(`${this.baseEndpoint}/requests/${approvalRequestId}`);
-    return response.data;
+  async monitorBulkApprovalJob(
+    jobId: string,
+    onProgress?: (progress: BulkJobProgress) => void,
+    onComplete?: (result: BulkJobResult) => void,
+    onError?: (error: Error) => void
+  ): Promise<BulkJobResult> {
+    return bulkJobService.pollJobStatus(
+      jobId,
+      onProgress,
+      onComplete,
+      onError
+    );
   }
 
   /**
-   * Reject approval request
+   * Cancel a running bulk approval job
    */
-  async rejectRequest(approvalRequestId: number, data: {
-    comments: string;
-    rejection_reason?: string;
-  }) {
-    const response = await apiClient.post(`${this.baseEndpoint}/requests/${approvalRequestId}/reject`, data);
-    return response.data;
+  async cancelBulkApprovalJob(jobId: string): Promise<{ message: string; job_id: string }> {
+    return bulkJobService.cancelJob(jobId);
   }
 
   /**
-   * Return for revision
+   * Get user's bulk approval job history
    */
-  async returnForRevision(approvalRequestId: number, data: {
-    comments: string;
-    revision_notes?: string;
-  }) {
-    const response = await apiClient.post(`${this.baseEndpoint}/requests/${approvalRequestId}/return`, data);
-    return response.data;
-  }
-
-  /**
-   * Get approval workflow templates
-   */
-  async getWorkflowTemplates() {
-    const response = await apiClient.get('/approval-workflows/templates');
-    return response.data;
-  }
-
-  /**
-   * Get users available for delegation
-   */
-  async getUsersForDelegation(params?: {
-    role_level?: string;
-    search?: string;
+  async getBulkApprovalHistory(params?: {
+    page?: number;
     per_page?: number;
-  }) {
-    const response = await apiClient.get('/users/for-delegation', { params });
-    return response.data;
+  }): Promise<{
+    jobs: BulkJobResult[];
+    pagination: {
+      current_page: number;
+      per_page: number;
+      total: number;
+      last_page: number;
+    };
+  }> {
+    return bulkJobService.getUserJobHistory(params);
   }
 
   /**
-   * Cancel approval request
+   * Export survey responses to Excel/CSV format
    */
-  async cancelRequest(approvalRequestId: number, reason?: string) {
-    const response = await apiClient.post(`${this.baseEndpoint}/requests/${approvalRequestId}/cancel`, {
-      reason
+  async exportSurveyResponses(
+    surveyId: number,
+    filters: ResponseFilters & { format?: 'xlsx' | 'csv' } = {}
+  ): Promise<Blob> {
+    console.log('🔍 [SurveyApproval] Exporting survey responses:', { surveyId, filters });
+
+    // Extract format from filters (default to xlsx)
+    const format = filters.format || 'xlsx';
+
+    const params = new URLSearchParams();
+
+    // Add surveyId as a required parameter
+    params.append('surveyId', String(surveyId));
+
+    // Add all filters as URL parameters
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        // Handle array values (like response_ids) properly
+        if (Array.isArray(value)) {
+          value.forEach(item => {
+            params.append(`${key}[]`, String(item));
+          });
+        } else {
+          params.append(key, String(value));
+        }
+      }
     });
-    return response.data;
+
+    try {
+      console.log('🚀 [SurveyApproval] Making export API call...');
+
+      // Add cache-busting timestamp to prevent caching of export requests
+      params.append('_t', Date.now().toString());
+
+      // Use direct fetch for file downloads instead of apiClient to avoid response wrapping issues
+      // Get CSRF token from cookie (Sanctum uses cookies for authentication)
+      const csrfToken = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('XSRF-TOKEN='))
+        ?.split('=')[1];
+
+      const headers: Record<string, string> = {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Accept': format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'X-Requested-With': 'XMLHttpRequest' // Required for Laravel Sanctum
+      };
+
+      if (csrfToken) {
+        headers['X-XSRF-TOKEN'] = decodeURIComponent(csrfToken);
+      }
+
+      // Add Bearer token for authentication (same as apiClient)
+      const authToken = localStorage.getItem('atis_auth_token');
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+
+      // Use absolute URL to ensure request goes to backend server (localhost:8000)
+      // NOTE: Export route is on survey-approval endpoint, not survey-response-approval
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+      const exportURL = `${apiBaseUrl}/survey-approval/surveys/${surveyId}/export?${params.toString()}`;
+      console.log('🌐 [SurveyApproval] Export URL:', exportURL);
+      console.log('📋 [SurveyApproval] Headers:', headers);
+
+      const fetchResponse = await fetch(exportURL, {
+        method: 'GET',
+        headers,
+        credentials: 'include'
+      });
+
+      if (!fetchResponse.ok) {
+        throw new Error(`HTTP ${fetchResponse.status}: ${fetchResponse.statusText}`);
+      }
+
+      // Backend now returns file blob directly, not JSON
+      const blob = await fetchResponse.blob();
+
+      console.log('✅ [SurveyApproval] Export response received:', {
+        size: blob.size,
+        type: blob.type,
+        status: fetchResponse.status,
+        statusText: fetchResponse.statusText
+      });
+
+      // Validate blob
+      if (!blob || blob.size === 0) {
+        throw new Error('Received empty file response');
+      }
+
+      return blob;
+
+    } catch (error: any) {
+      console.error('💥 [SurveyApproval] Error exporting survey responses:', {
+        surveyId,
+        filters,
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        error
+      });
+
+      // Provide user-friendly error messages
+      if (error.response?.status === 403) {
+        throw new Error('İxrac etmək üçün icazəniz yoxdur');
+      } else if (error.response?.status === 404) {
+        throw new Error('Sorğu tapılmadı');
+      } else if (error.response?.status === 422) {
+        throw new Error('Yanlış filtr parametrləri');
+      } else {
+        throw new Error('İxrac zamanı xəta baş verdi: ' + error.message);
+      }
+    }
   }
 
   /**
-   * Get approval statistics for dashboard
+   * Download exported file with proper filename
    */
-  async getDashboardStats() {
-    const response = await apiClient.get(`${this.baseEndpoint}/dashboard-stats`);
-    return response.data;
+  downloadExportedFile(blob: Blob, surveyId: number, format: string = 'xlsx'): void {
+    try {
+      // Create download URL
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+
+      // Generate filename
+      const timestamp = new Date().toISOString().replace(/[:]/g, '-').split('.')[0];
+      link.download = `survey_${surveyId}_responses_${timestamp}.${format}`;
+
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      console.log('✅ [SurveyApproval] File download triggered successfully');
+
+    } catch (error: any) {
+      console.error('💥 [SurveyApproval] Error downloading file:', error);
+      throw new Error('Fayl yüklənmədi: ' + error.message);
+    }
   }
 
   /**
-   * Get approval trends over time
+   * Get institutions list for filtering (cached)
    */
-  async getApprovalTrends(params?: {
-    period?: string;
-    group_by?: 'day' | 'week' | 'month';
-  }) {
-    const response = await apiClient.get(`${this.baseEndpoint}/trends`, { params });
-    return response.data;
+  async getInstitutions(): Promise<Array<{
+    id: number;
+    name: string;
+    type?: string;
+    level?: number;
+    parent_id?: number;
+  }>> {
+    const response = await apiClient.get('/institutions');
+
+    // Handle different response formats
+    if (Array.isArray(response.data)) {
+      return response.data;
+    } else if (response.data.data) {
+      return Array.isArray(response.data.data) ? response.data.data : response.data.data.data || [];
+    }
+
+    return [];
   }
 
   /**
-   * Get performance metrics by institution
+   * Perform bulk approval operation - wrapper for bulkApprovalOperation
    */
-  async getInstitutionPerformance(params?: {
-    period?: string;
-    institution_type?: string;
-  }) {
-    const response = await apiClient.get(`${this.baseEndpoint}/institution-performance`, { params });
-    return response.data;
-  }
-
-  /**
-   * Export approval data
-   */
-  async exportApprovalData(params: {
-    format: 'xlsx' | 'csv' | 'pdf';
-    date_from?: string;
-    date_to?: string;
-    status?: string;
-    institution_id?: number;
-  }) {
-    const response = await apiClient.get(`${this.baseEndpoint}/export`, {
-      params,
-      responseType: 'blob'
+  async performBulkApproval(
+    responseIds: number[],
+    action: 'approve' | 'reject' | 'return',
+    comments?: string
+  ): Promise<BulkApprovalResult> {
+    console.log('🚀 [performBulkApproval] Starting bulk approval:', {
+      responseIds,
+      action,
+      comments
     });
-    return response.data;
-  }
 
-  /**
-   * Get approval workflow configuration
-   */
-  async getWorkflowConfig(workflowType: string) {
-    const response = await apiClient.get(`/approval-workflows/config/${workflowType}`);
-    return response.data;
-  }
+    const data: BulkApprovalRequest = {
+      response_ids: responseIds,
+      action,
+      comments: comments || `Bulk ${action} operation`
+    };
 
-  /**
-   * Update approval workflow configuration
-   */
-  async updateWorkflowConfig(workflowType: string, config: any) {
-    const response = await apiClient.put(`/approval-workflows/config/${workflowType}`, config);
-    return response.data;
+    return await this.bulkApprovalOperation(data);
   }
 }
 
 export const surveyApprovalService = new SurveyApprovalService();
+export default surveyApprovalService;

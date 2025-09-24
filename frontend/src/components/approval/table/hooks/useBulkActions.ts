@@ -3,8 +3,8 @@ import { useToast } from '../../../../hooks/use-toast';
 import { useAuth } from '../../../../contexts/AuthContext';
 import {
   SurveyResponseForApproval,
-  surveyResponseApprovalService
-} from '../../../../services/surveyResponseApproval';
+  surveyApprovalService
+} from "../../../../services/surveyApproval";
 import { getValidResponsesForBulkAction } from '../utils/permissionHelpers';
 
 interface UseBulkActionsProps {
@@ -138,7 +138,7 @@ export const useBulkActions = ({
         return;
       }
 
-      const result = await surveyResponseApprovalService.bulkApprovalOperation({
+      const result = await surveyApprovalService.bulkApprovalOperation({
         response_ids: finalResponseIds,
         action,
         comments: comments || '',

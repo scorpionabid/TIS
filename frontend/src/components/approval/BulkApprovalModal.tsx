@@ -12,11 +12,12 @@ import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Check, X, AlertTriangle, Users } from 'lucide-react';
-import approvalService from '../../services/approvalService';
+// MIGRATION: Updated from approvalService to surveyApprovalService for consolidated API
+import surveyApprovalService from '../../services/surveyApproval';
 import { toast } from 'sonner';
 
 interface BulkApprovalModalProps {
-  approvalIds: number[];
+  responseIds: number[];
   action: 'approve' | 'reject';
   isOpen: boolean;
   onClose: () => void;
@@ -24,7 +25,7 @@ interface BulkApprovalModalProps {
 }
 
 const BulkApprovalModal: React.FC<BulkApprovalModalProps> = ({
-  approvalIds,
+  responseIds,
   action,
   isOpen,
   onClose,
@@ -38,7 +39,7 @@ const BulkApprovalModal: React.FC<BulkApprovalModalProps> = ({
       case 'approve':
         return {
           title: 'Kütləvi Təsdiq',
-          description: `${approvalIds.length} sorğunu təsdiq etmək istədiyinizə əminsiniz?`,
+          description: `${responseIds.length} sorğunu təsdiq etmək istədiyinizə əminsiniz?`,
           icon: <Check className="h-6 w-6 text-green-500" />,
           buttonText: 'Hamısını Təsdiq Et',
           buttonVariant: 'default' as const,
@@ -47,7 +48,7 @@ const BulkApprovalModal: React.FC<BulkApprovalModalProps> = ({
       case 'reject':
         return {
           title: 'Kütləvi Rədd',
-          description: `${approvalIds.length} sorğunu rədd etmək istədiyinizə əminsiniz?`,
+          description: `${responseIds.length} sorğunu rədd etmək istədiyinizə əminsiniz?`,
           icon: <X className="h-6 w-6 text-red-500" />,
           buttonText: 'Hamısını Rədd Et',
           buttonVariant: 'destructive' as const,
@@ -77,40 +78,32 @@ const BulkApprovalModal: React.FC<BulkApprovalModalProps> = ({
 
     try {
       const bulkData = {
-        approval_ids: approvalIds,
+        response_ids: responseIds,
         action,
         comments: comments.trim() || undefined
       };
 
-      let response;
-      switch (action) {
-        case 'approve':
-          response = await approvalService.bulkApprove(bulkData);
-          break;
-        case 'reject':
-          response = await approvalService.bulkReject(bulkData);
-          break;
-        default:
-          throw new Error('Naməlum əməliyyat');
+      console.log('🚀 [BulkApprovalModal] Starting bulk operation:', bulkData);
+      const result = await surveyApprovalService.bulkApprovalOperation(bulkData);
+      console.log('✅ [BulkApprovalModal] Bulk operation result:', result);
+
+      const { successful, failed, errors } = result;
+
+      if (failed > 0) {
+        // Show detailed error information if available
+        const errorMessages = errors.map(err => `ID ${err.response_id}: ${err.error}`).join('\n');
+        toast.success(
+          `${successful} sorğu uğurla ${getActionSuccessMessage()}, ${failed} sorğu alınmadı`,
+          {
+            duration: 8000,
+            description: errorMessages ? `Xətalar:\n${errorMessages}` : undefined
+          }
+        );
+      } else {
+        toast.success(`${successful} sorğu uğurla ${getActionSuccessMessage()}`);
       }
 
-      if (response.success) {
-        const { approved, rejected, failed } = response.data;
-        const successCount = action === 'approve' ? approved : rejected;
-        
-        if (failed > 0) {
-          toast.success(
-            `${successCount} sorğu uğurla ${getActionSuccessMessage()}, ${failed} sorğu alınmadı`,
-            { duration: 5000 }
-          );
-        } else {
-          toast.success(`${successCount} sorğu uğurla ${getActionSuccessMessage()}`);
-        }
-        
-        onSuccess();
-      } else {
-        toast.error(response.message || 'Kütləvi əməliyyat zamanı xəta baş verdi');
-      }
+      onSuccess();
     } catch (error: any) {
       console.error('Bulk action error:', error);
       toast.error(error.response?.data?.message || 'Kütləvi əməliyyat zamanı xəta baş verdi');
@@ -149,7 +142,7 @@ const BulkApprovalModal: React.FC<BulkApprovalModalProps> = ({
             <div className="flex items-center space-x-2">
               <Users className="h-5 w-5 text-gray-500" />
               <span className="text-sm font-medium text-gray-900">
-                Seçilmiş sorğular: {approvalIds.length}
+                Seçilmiş sorğular: {responseIds.length}
               </span>
             </div>
             <p className="text-xs text-gray-600">
@@ -189,7 +182,7 @@ const BulkApprovalModal: React.FC<BulkApprovalModalProps> = ({
           </Alert>
 
           {/* Performance Note */}
-          {approvalIds.length > 10 && (
+          {responseIds.length > 10 && (
             <Alert>
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>

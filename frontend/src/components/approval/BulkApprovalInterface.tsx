@@ -25,10 +25,10 @@ import {
 import { useMutation } from '@tanstack/react-query';
 import { useToast } from '../../hooks/use-toast';
 import { useBulkApprovalJob } from '../../hooks/useBulkApprovalJob';
-import surveyResponseApprovalService, { 
+import surveyApprovalService, { 
   BulkApprovalRequest,
   BulkApprovalResult 
-} from '../../services/surveyResponseApproval';
+} from '../../services/surveyApproval';
 
 interface BulkApprovalInterfaceProps {
   open: boolean;

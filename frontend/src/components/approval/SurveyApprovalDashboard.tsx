@@ -23,18 +23,18 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../hooks/use-toast';
-import surveyResponseApprovalService, {
+import surveyApprovalService, {
   PublishedSurvey,
   ResponseFilters,
   ApprovalStats,
   SurveyResponseForApproval
-} from '../../services/surveyResponseApproval';
+} from '../../services/surveyApproval';
 import { apiClient } from '../../services/apiOptimized';
 import ResponseManagementTable from './table/ResponseManagementTable';
 import ResponseDetailModal from './ResponseDetailModal';
 import BulkApprovalInterface from './BulkApprovalInterface';
 
-const SurveyResponseApprovalDashboard: React.FC = () => {
+const SurveyApprovalDashboard: React.FC = () => {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -70,7 +70,7 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
     queryKey: ['published-surveys'],
     queryFn: () => {
       console.log('🚀 [Dashboard] Fetching published surveys...');
-      return surveyResponseApprovalService.getPublishedSurveys();
+      return surveyApprovalService.getPublishedSurveys();
     },
     staleTime: 5 * 60 * 1000 // 5 minutes
   });
@@ -84,7 +84,7 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
   } = useQuery({
     queryKey: ['survey-responses-approval', selectedSurvey?.id, filters],
     queryFn: () => selectedSurvey ? 
-      surveyResponseApprovalService.getResponsesForApproval(selectedSurvey.id, filters) : 
+      surveyApprovalService.getResponsesForApproval(selectedSurvey.id, filters) : 
       null,
     enabled: !!selectedSurvey,
     staleTime: 30 * 1000, // 30 seconds
@@ -93,7 +93,7 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
   // Fetch institutions for filtering
   const { data: institutions } = useQuery({
     queryKey: ['institutions-for-filters'],
-    queryFn: surveyResponseApprovalService.getInstitutions,
+    queryFn: surveyApprovalService.getInstitutions,
     staleTime: 10 * 60 * 1000, // 10 minutes
   });
 
@@ -220,7 +220,7 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
         comments
       });
 
-      const result = await surveyResponseApprovalService.performBulkApproval(
+      const result = await surveyApprovalService.performBulkApproval(
         selectedResponses,
         action,
         comments || `Dashboard vasitəsilə ${action === 'approve' ? 'təsdiqləndi' : action === 'reject' ? 'rədd edildi' : 'geri qaytarıldı'}`
@@ -709,4 +709,4 @@ const SurveyResponseApprovalDashboard: React.FC = () => {
   );
 };
 
-export default SurveyResponseApprovalDashboard;
+export default SurveyApprovalDashboard;

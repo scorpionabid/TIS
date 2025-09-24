@@ -2,8 +2,8 @@ import { useState, useCallback } from 'react';
 import { useToast } from '../../../../hooks/use-toast';
 import {
   ResponseFilters,
-  surveyResponseApprovalService
-} from '../../../../services/surveyResponseApproval';
+  surveyApprovalService
+} from "../../../../services/surveyApproval";
 
 interface UseExportActionsProps {
   selectedSurvey?: { id: number; title: string };
@@ -48,7 +48,7 @@ export const useExportActions = ({
 
       console.log('📤 [EXPORT] Calling API with filters:', exportFilters);
 
-      const blob = await surveyResponseApprovalService.exportSurveyResponses(
+      const blob = await surveyApprovalService.exportSurveyResponses(
         selectedSurvey.id,
         exportFilters
       );
@@ -59,7 +59,7 @@ export const useExportActions = ({
       });
 
       // Download the file
-      surveyResponseApprovalService.downloadExportedFile(blob, selectedSurvey.id, format);
+      surveyApprovalService.downloadExportedFile(blob, selectedSurvey.id, format);
 
       const formatText = format === 'xlsx' ? 'Excel' : 'CSV';
       const selectionText = selectedResponses.length > 0

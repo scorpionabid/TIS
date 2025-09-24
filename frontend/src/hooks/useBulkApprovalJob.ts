@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useToast } from './use-toast';
 import { useWebSocket } from '../contexts/WebSocketContext';
-import surveyResponseApprovalService from '../services/surveyResponseApproval';
+import surveyApprovalService from '../services/surveyApproval';
 import { BulkJobResult, BulkJobProgress } from '../services/bulkJobService';
 
 export interface BulkJobState {
@@ -117,7 +117,7 @@ export function useBulkApprovalJob(options: UseBulkApprovalJobOptions = {}) {
         canCancel: false
       }));
 
-      const initialResult = await surveyResponseApprovalService.bulkApprovalOperation({
+      const initialResult = await surveyApprovalService.bulkApprovalOperation({
         response_ids: responseIds,
         action,
         comments
@@ -190,7 +190,7 @@ export function useBulkApprovalJob(options: UseBulkApprovalJobOptions = {}) {
           // Fallback to polling if WebSocket is not connected
           console.log('WebSocket not connected, using polling fallback for job:', initialResult.job_id);
           abortController.current = new AbortController();
-          const result = await surveyResponseApprovalService.monitorBulkApprovalJob(
+          const result = await surveyApprovalService.monitorBulkApprovalJob(
             initialResult.job_id,
             handleProgress,
             handleComplete,
@@ -216,7 +216,7 @@ export function useBulkApprovalJob(options: UseBulkApprovalJobOptions = {}) {
     }
 
     try {
-      await surveyResponseApprovalService.cancelBulkApprovalJob(state.jobId);
+      await surveyApprovalService.cancelBulkApprovalJob(state.jobId);
       
       setState(prev => ({
         ...prev,

@@ -22,13 +22,14 @@ import {
   Users
 } from 'lucide-react';
 import approvalService, { ApprovalRequest, ApprovalStats } from '../../services/approvalService';
+// Note: For survey-specific approvals, use SurveyApprovalDashboard component instead
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { az } from 'date-fns/locale';
 import ApprovalDetailsModal from './ApprovalDetailsModal';
 import ApprovalActionModal from './ApprovalActionModal';
 import BulkApprovalModal from './BulkApprovalModal';
-import SurveyResponsesTab from './SurveyResponsesTab';
+// MIGRATION: SurveyResponsesTab removed - survey approvals now handled by SurveyApprovalDashboard
 import { toast } from 'sonner';
 
 const ApprovalDashboard: React.FC = () => {
@@ -108,8 +109,9 @@ const ApprovalDashboard: React.FC = () => {
   }, [fetchData]);
 
   const handleApprovalAction = async (approval: ApprovalRequest, action: 'approve' | 'reject' | 'return') => {
-    // Handle survey response approvals differently
+    // MIGRATION NOTE: Survey response approvals should use SurveyApprovalDashboard
     if (approval.type === 'survey_response') {
+      console.warn('DEPRECATED: Survey response approvals in ApprovalDashboard. Use SurveyApprovalDashboard instead.');
       await handleSurveyResponseAction(approval, action);
     } else {
       setSelectedApproval(approval);
@@ -118,6 +120,9 @@ const ApprovalDashboard: React.FC = () => {
     }
   };
 
+  /**
+   * @deprecated Use SurveyApprovalDashboard for survey-specific approvals
+   */
   const handleSurveyResponseAction = async (approval: ApprovalRequest, action: 'approve' | 'reject' | 'return') => {
     const responseId = approval.id.toString().replace('survey_', '');
 
@@ -349,20 +354,17 @@ const ApprovalDashboard: React.FC = () => {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="pending">Gözləyən Təsdiqlər</TabsTrigger>
-          <TabsTrigger value="survey-responses">Sorğu Cavabları</TabsTrigger>
+          {/* REMOVED: Survey responses tab - use SurveyApprovalDashboard component */}
           <TabsTrigger value="my-requests">Mənim Sorğularım</TabsTrigger>
           <TabsTrigger value="approved">Təsdiqlənmiş</TabsTrigger>
           <TabsTrigger value="rejected">Rədd edilmiş</TabsTrigger>
           <TabsTrigger value="all">Hamısı</TabsTrigger>
         </TabsList>
 
-        {/* Survey Responses Tab */}
-        <TabsContent value="survey-responses" className="space-y-4">
-          <SurveyResponsesTab />
-        </TabsContent>
+        {/* NOTE: Survey Responses Tab removed - use SurveyApprovalDashboard instead */}
 
-        {/* Other Tabs */}
-        {activeTab !== 'survey-responses' && (
+        {/* All Tabs */}
+        {(
           <TabsContent value={activeTab} className="space-y-4">
             {/* Select All Checkbox */}
             {activeTab === 'pending' && approvals.length > 0 && (
@@ -405,11 +407,7 @@ const ApprovalDashboard: React.FC = () => {
                             {getPriorityIcon(approval.priority)}
                             <h3 className="text-lg font-medium text-gray-900">
                               {approval.workflow.name}
-                              {approval.type === 'survey_response' && (
-                                <Badge variant="secondary" className="ml-2">
-                                  Sorğu Cavabı
-                                </Badge>
-                              )}
+                              {/* REMOVED: Survey response badge - use SurveyApprovalDashboard for survey-specific items */}
                             </h3>
                             <Badge 
                               variant={approvalService.getStatusColor(approval.status) as any}

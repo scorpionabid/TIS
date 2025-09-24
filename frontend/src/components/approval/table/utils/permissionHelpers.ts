@@ -1,4 +1,4 @@
-import { SurveyResponseForApproval } from '../../../../services/surveyResponseApproval';
+import { SurveyResponseForApproval } from "../../../../services/surveyApproval";
 import { User } from '../../../../types/user';
 
 /**

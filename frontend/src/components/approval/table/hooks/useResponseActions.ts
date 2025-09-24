@@ -3,8 +3,8 @@ import { useToast } from '../../../../hooks/use-toast';
 import { useAuth } from '../../../../contexts/AuthContext';
 import {
   SurveyResponseForApproval,
-  surveyResponseApprovalService
-} from '../../../../services/surveyResponseApproval';
+  surveyApprovalService
+} from "../../../../services/surveyApproval";
 import { canEditResponse, canApproveResponse, canRejectResponse } from '../utils/permissionHelpers';
 
 interface UseResponseActionsProps {
@@ -56,16 +56,16 @@ export const useResponseActions = ({ onUpdate, onResponseEdit }: UseResponseActi
       let result;
       switch (action) {
         case 'approve':
-          result = await surveyResponseApprovalService.approveResponse(responseId, data);
+          result = await surveyApprovalService.approveResponse(responseId, data);
           break;
         case 'reject':
-          result = await surveyResponseApprovalService.rejectResponse(responseId, {
+          result = await surveyApprovalService.rejectResponse(responseId, {
             ...data,
             comments: comments || 'Rədd edildi'
           });
           break;
         case 'return':
-          result = await surveyResponseApprovalService.returnForRevision(responseId, {
+          result = await surveyApprovalService.returnForRevision(responseId, {
             ...data,
             comments: comments || 'Yenidən işləmə üçün qaytarıldı'
           });
