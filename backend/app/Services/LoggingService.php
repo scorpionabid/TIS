@@ -286,7 +286,7 @@ class LoggingService
     /**
      * Log survey response approval events specifically
      */
-    public static function surveyResponseApproval(string $action, int $responseId, array $data = []): void
+    public static function surveyApproval(string $action, int $responseId, array $data = []): void
     {
         $context = [
             'action' => $action,

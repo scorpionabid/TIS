@@ -5,117 +5,157 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| Survey Approval Routes
+| Survey Approval Routes (Simplified)
 |--------------------------------------------------------------------------
 |
-| Enhanced survey approval system routes
-| Bu routes mövcud surveys.php routes-ni tamamlayır, əvəz etmir
+| Consolidated survey approval system routes
+| Handles 600+ institutions with hierarchical approval workflows
 |
 */
 
 Route::middleware(['auth:sanctum'])->group(function () {
     
-    // Survey Response Approval Operations
-    Route::prefix('survey-approval')->group(function () {
+    // Survey Management
+    Route::prefix('survey-approval')->name('survey-approval.')->group(function () {
         
-        // Response approval workflow
-        Route::post('responses/{response}/submit', [SurveyApprovalController::class, 'submitForApproval'])
-            ->middleware('permission:survey_responses.write')
-            ->name('survey-approval.submit-response');
+        // Get published surveys for approval dashboard
+        Route::get('surveys/published', [SurveyApprovalController::class, 'getPublishedSurveys'])
+            ->middleware('permission:survey_responses.read')
+            ->name('published-surveys');
             
-        Route::post('requests/{dataApprovalRequest}/approve', [SurveyApprovalController::class, 'approveResponse'])
-            ->middleware('permission:survey_responses.approve')
-            ->name('survey-approval.approve-response');
+        // Get survey responses for approval with advanced filtering
+        Route::get('surveys/{survey}/responses', [SurveyApprovalController::class, 'getResponsesForApproval'])
+            ->middleware('permission:survey_responses.read')
+            ->name('responses');
+            
+        // Get approval statistics for dashboard
+        Route::get('surveys/{survey}/stats', [SurveyApprovalController::class, 'getApprovalStats'])
+            ->middleware('permission:survey_responses.read')
+            ->name('stats');
 
-        Route::post('requests/{dataApprovalRequest}/delegate', [SurveyApprovalController::class, 'delegateApproval'])
-            ->middleware('permission:survey_responses.approve')
-            ->name('survey-approval.delegate');
-            
-        // Bulk operations
-        Route::post('bulk-approve', [SurveyApprovalController::class, 'bulkApprove'])
-            ->middleware('permission:survey_responses.approve')
-            ->name('survey-approval.bulk-approve');
-            
-        // Pending approvals
-        Route::get('pending', [SurveyApprovalController::class, 'getPendingApprovals'])
+        // Get table editing view for responses
+        Route::get('surveys/{survey}/table-view', [SurveyApprovalController::class, 'getTableEditingView'])
             ->middleware('permission:survey_responses.read')
-            ->name('survey-approval.pending');
-            
-        // Dashboard stats
-        Route::get('dashboard-stats', [SurveyApprovalController::class, 'getDashboardStats'])
-            ->middleware('permission:survey_responses.read')
-            ->name('survey-approval.dashboard-stats');
-            
-        // Rejection
-        Route::post('requests/{dataApprovalRequest}/reject', [SurveyApprovalController::class, 'rejectResponse'])
-            ->middleware('permission:survey_responses.approve')
-            ->name('survey-approval.reject-response');
+            ->name('table-view');
 
-        // Cancel approval request
-        Route::post('requests/{dataApprovalRequest}/cancel', [SurveyApprovalController::class, 'cancelApprovalRequest'])
+        // Export survey responses to Excel
+        Route::get('surveys/{survey}/export', [SurveyApprovalController::class, 'exportSurveyResponses'])
+            ->middleware('permission:survey_responses.read')
+            ->name('export');
+    });
+    
+    // Response Operations
+    Route::prefix('responses')->name('responses.')->group(function () {
+        
+        // Response detail and management
+        Route::get('{response}/detail', [SurveyApprovalController::class, 'getResponseDetail'])
+            ->middleware('permission:survey_responses.read')
+            ->name('detail');
+            
+        Route::put('{response}/update', [SurveyApprovalController::class, 'updateResponseData'])
             ->middleware('permission:survey_responses.write')
-            ->name('survey-approval.cancel-request');
+            ->name('update');
             
-        // Trends
-        Route::get('trends', [SurveyApprovalController::class, 'getApprovalTrends'])
-            ->middleware('permission:survey_responses.read')
-            ->name('survey-approval.trends');
+        // Approval workflow operations
+        Route::post('{response}/submit-approval', [SurveyApprovalController::class, 'createApprovalRequest'])
+            ->middleware('permission:survey_responses.write')
+            ->name('submit-approval');
             
-        // Export
-        Route::get('export', [SurveyApprovalController::class, 'exportApprovalData'])
-            ->middleware('permission:survey_responses.read')
-            ->name('survey-approval.export');
-            
-        // Institution performance
-        Route::get('institution-performance', [SurveyApprovalController::class, 'getInstitutionPerformance'])
-            ->middleware('permission:survey_responses.read')
-            ->name('survey-approval.institution-performance');
-    });
-    
-    // Survey Template Approval
-    Route::prefix('survey-templates')->group(function () {
-        Route::post('{survey}/submit-for-approval', [SurveyApprovalController::class, 'submitTemplateForApproval'])
-            ->middleware('permission:surveys.write')
-            ->name('survey-templates.submit-approval');
-    });
-    
-    // Analytics & Reporting
-    Route::prefix('survey-approval-analytics')->group(function () {
-        Route::get('/', [SurveyApprovalController::class, 'getApprovalAnalytics'])
-            ->middleware('permission:surveys.read')
-            ->name('survey-approval.analytics');
-            
-        Route::get('surveys/{survey}/history', [SurveyApprovalController::class, 'getApprovalHistory'])
-            ->middleware('permission:surveys.read')
-            ->name('survey-approval.history');
-    });
-    
-    // Delegation Management
-    Route::prefix('approval-delegation')->group(function () {
-        Route::get('requests/{dataApprovalRequest}/status', [SurveyApprovalController::class, 'checkDelegationStatus'])
-            ->middleware('permission:survey_responses.read')
-            ->name('approval-delegation.status');
-    });
-    
-    // Workflow Templates
-    Route::prefix('approval-workflows')->group(function () {
-        Route::get('templates', [SurveyApprovalController::class, 'getWorkflowTemplates'])
-            ->middleware('permission:survey_responses.read')
-            ->name('approval-workflows.templates');
-            
-        Route::get('config/{type}', [SurveyApprovalController::class, 'getWorkflowConfig'])
-            ->middleware('permission:survey_responses.read')
-            ->name('approval-workflows.config.get');
-            
-        Route::put('config/{type}', [SurveyApprovalController::class, 'updateWorkflowConfig'])
+        Route::post('{response}/approve', [SurveyApprovalController::class, 'approveResponse'])
             ->middleware('permission:survey_responses.approve')
-            ->name('approval-workflows.config.update');
-    });
-    
-    // User Management for delegation
-    Route::prefix('users')->group(function () {
-        Route::get('for-delegation', [SurveyApprovalController::class, 'getUsersForDelegation'])
-            ->middleware('permission:survey_responses.read')
-            ->name('users.for-delegation');
+            ->name('approve');
+            
+        Route::post('{response}/reject', [SurveyApprovalController::class, 'rejectResponse'])
+            ->middleware('permission:survey_responses.approve')
+            ->name('reject');
+            
+        Route::post('{response}/return', [SurveyApprovalController::class, 'returnForRevision'])
+            ->middleware('permission:survey_responses.approve')
+            ->name('return');
+            
+        // Bulk operations for enterprise scalability
+        Route::post('bulk-approval', [SurveyApprovalController::class, 'bulkApprovalOperation'])
+            ->middleware(['permission:survey_responses.approve', 'permission:survey_responses.bulk_approve'])
+            ->name('bulk-approval');
+
+        // Batch update multiple responses
+        Route::post('batch-update', [SurveyApprovalController::class, 'batchUpdateResponses'])
+            ->middleware('permission:survey_responses.write')
+            ->name('batch-update');
     });
 });
+
+/*
+|--------------------------------------------------------------------------
+| API Endpoint Documentation
+|--------------------------------------------------------------------------
+|
+| Survey Approval Endpoints (Simplified):
+|
+| 1. GET /api/survey-approval/surveys/published
+|    - Get all published surveys available for response approval
+|    - Returns: {success, data: surveys[], message}
+|
+| 2. GET /api/survey-approval/surveys/{survey}/responses
+|    - Get paginated survey responses with advanced filtering
+|    - Filters: status, approval_status, institution_id, institution_type, 
+|              date_from, date_to, search, per_page
+|    - Returns: {success, data: {responses, pagination, stats}, message}
+|
+| 3. GET /api/survey-approval/surveys/{survey}/stats  
+|    - Get approval statistics for dashboard
+|    - Returns: {success, data: {total, pending, approved, rejected, draft, completion_rate}, message}
+|
+| 4. GET /api/responses/{response}/detail
+|    - Get detailed response with approval history
+|    - Returns: {success, data: {response, approval_history, can_edit, can_approve}, message}
+|
+| 5. PUT /api/responses/{response}/update
+|    - Update survey response data
+|    - Body: {responses: {question_id: answer, ...}}
+|    - Returns: {success, data: updated_response, message}
+|
+| 6. POST /api/responses/{response}/submit-approval
+|    - Submit response for approval
+|    - Body: {notes?: string, deadline?: date}
+|    - Returns: {success, data: approval_request, message}
+|
+| 7. POST /api/responses/{response}/approve
+|    - Approve a survey response
+|    - Body: {comments?: string, metadata?: object}
+|    - Returns: {success, data: {status, message}, message}
+|
+| 8. POST /api/responses/{response}/reject
+|    - Reject a survey response
+|    - Body: {comments: string, metadata?: object}
+|    - Returns: {success, data: {status, message}, message}
+|
+| 9. POST /api/responses/{response}/return
+|    - Return response for revision
+|    - Body: {comments: string, metadata?: object}
+|    - Returns: {success, data: {status, message}, message}
+|
+| 10. POST /api/responses/bulk-approval
+|     - Bulk approval operations (up to 500 responses)
+|     - Body: {response_ids: number[], action: 'approve|reject|return', comments?: string}
+|     - Returns: {success, data: {successful, failed, results, errors}, message}
+|
+| 11. GET /api/survey-approval/surveys/{survey}/export
+|     - Export survey responses to Excel/CSV format
+|     - Params: format=xlsx|csv, status, approval_status, institution_id, date_from, date_to, search
+|     - Returns: Excel/CSV file download
+|
+|--------------------------------------------------------------------------
+| Performance Features:
+|--------------------------------------------------------------------------
+|
+| - Optimized database queries with composite indexes
+| - Hierarchical role-based access control
+| - Pagination support (10-100 results per page)
+| - Advanced filtering and search capabilities
+| - Bulk operations with transaction safety
+| - Permission-based API access control
+| - Enterprise scalability for 600+ institutions
+|
+|--------------------------------------------------------------------------
+*/

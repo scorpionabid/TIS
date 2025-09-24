@@ -322,61 +322,9 @@ class ApprovalApiControllerRefactored extends BaseController
         }, 'approval.surveys_for_approval');
     }
 
-    /**
-     * @deprecated Use SurveyResponseApprovalController::bulkApprovalOperation instead
-     * This method will be removed in v2.0
-     * Bulk approve survey responses
-     */
-    public function bulkApproveSurveyResponses(Request $request): JsonResponse
-    {
-        \Log::warning('DEPRECATED: ApprovalApiControllerRefactored::bulkApproveSurveyResponses called', [
-            'user_id' => auth()->id(),
-            'migration_note' => 'Use SurveyResponseApprovalController::bulkApprovalOperation instead'
-        ]);
+    // REMOVED: bulkApproveSurveyResponses() - use SurveyApprovalController::bulkApprovalOperation instead
 
-        return $this->executeWithErrorHandling(function () use ($request) {
-            $validated = $request->validate([
-                'response_ids' => 'required|array|min:1',
-                'response_ids.*' => 'required|integer|exists:survey_responses,id',
-                'comments' => 'nullable|string|max:1000'
-            ]);
-
-            $user = Auth::user();
-            $results = $this->approvalAnalyticsService->bulkApproveSurveyResponses(
-                $validated['response_ids'],
-                $user,
-                $validated['comments'] ?? null
-            );
-
-            return $this->successResponse(
-                array_merge($results, ['deprecation_warning' => 'This endpoint is deprecated. Use /api/survey-responses/bulk-approval instead']),
-                'Survey cavabları bulk təsdiq edildi'
-            );
-        }, 'approval.bulk_approve_survey_responses');
-    }
-
-    /**
-     * Bulk reject survey responses
-     */
-    public function bulkRejectSurveyResponses(Request $request): JsonResponse
-    {
-        return $this->executeWithErrorHandling(function () use ($request) {
-            $validated = $request->validate([
-                'response_ids' => 'required|array|min:1',
-                'response_ids.*' => 'required|integer|exists:survey_responses,id',
-                'reason' => 'required|string|max:1000'
-            ]);
-
-            $user = Auth::user();
-            $results = $this->approvalAnalyticsService->bulkRejectSurveyResponses(
-                $validated['response_ids'], 
-                $user, 
-                $validated['reason']
-            );
-            
-            return $this->successResponse($results, 'Survey cavabları bulk rədd edildi');
-        }, 'approval.bulk_reject_survey_responses');
-    }
+    // REMOVED: bulkRejectSurveyResponses() - use SurveyApprovalController::bulkApprovalOperation instead
 
     /**
      * Event Approval Methods - Consolidated from EventApprovalController

@@ -13,7 +13,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Illuminate\Http\Request;
 use App\Models\User;
 
-class SurveyResponseApprovalExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths
+class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths
 {
     protected Survey $survey;
     protected Request $request;

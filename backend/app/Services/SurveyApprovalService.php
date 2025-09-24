@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 
-class SurveyResponseApprovalService extends BaseService
+class SurveyApprovalService extends BaseService
 {
     protected string $modelClass = SurveyResponse::class;
     protected array $relationships = ['institution', 'department', 'respondent', 'approvalRequest'];
@@ -705,7 +705,7 @@ class SurveyResponseApprovalService extends BaseService
 
         try {
             // Import the export class
-            $export = new \App\Exports\SurveyResponseApprovalExport($survey, $request, $user);
+            $export = new \App\Exports\SurveyApprovalExport($survey, $request, $user);
 
             \Log::info('✅ [SERVICE] Export class instantiated successfully');
 
@@ -790,7 +790,7 @@ class SurveyResponseApprovalService extends BaseService
         // Clear approval stats cache for all users and roles
         $patterns = [
             "service_SurveyResponse_approval_stats_*survey_id*{$surveyId}*",
-            "service_SurveyResponseApprovalService_*"
+            "service_SurveyApprovalService_*"
         ];
 
         // Use cache tags if available, otherwise clear all cache

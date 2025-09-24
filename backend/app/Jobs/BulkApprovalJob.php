@@ -9,7 +9,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use App\Models\User;
 use App\Models\Survey;
-use App\Services\SurveyResponseApprovalService;
+use App\Services\SurveyApprovalService;
 use App\Services\SimpleCacheService;
 use App\Events\BulkApprovalProgress;
 use App\Events\BulkApprovalCompleted;
@@ -55,7 +55,7 @@ class BulkApprovalJob implements ShouldQueue
      * Execute the job
      */
     public function handle(
-        SurveyResponseApprovalService $approvalService,
+        SurveyApprovalService $approvalService,
         SimpleCacheService $cacheService
     ): void {
         $correlationId = LoggingService::createCorrelationId();
@@ -195,7 +195,7 @@ class BulkApprovalJob implements ShouldQueue
      */
     protected function processResponseChunk(
         array $responseIds,
-        SurveyResponseApprovalService $approvalService,
+        SurveyApprovalService $approvalService,
         User $user
     ): array {
         $successful = 0;

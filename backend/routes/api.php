@@ -34,8 +34,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Survey Approval Routes (Enhanced)
     require __DIR__ . '/api/survey-approval.php';
     
-    // Survey Response Approval Routes (Enterprise)
-    require __DIR__ . '/api/survey-response-approval.php';
+    // [REMOVED] Old survey-response-approval.php - consolidated into survey-approval.php
     
     // Educational Management Routes
     require __DIR__ . '/api/educational.php';

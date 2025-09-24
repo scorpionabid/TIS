@@ -87,17 +87,11 @@ Route::middleware('permission:survey_responses.write')->group(function () {
     Route::post('survey-responses/{response}/reopen', [SurveyResponseController::class, 'reopen']);
 });
 
-// Survey response approval workflow (DEPRECATED - Use survey-response-approval.php routes)
-Route::middleware('permission:survey_responses.approve')->group(function () {
-    Route::get('survey-responses/pending-approval', [SurveyResponseController::class, 'getPendingApproval']);
-    // DEPRECATED: Use /api/survey-responses/{response}/approve (SurveyResponseApprovalController)
-    Route::post('survey-responses/{response}/approve', [SurveyResponseController::class, 'approve'])
-        ->name('surveys.approve-response.deprecated');
-    // DEPRECATED: Use /api/survey-responses/{response}/reject (SurveyResponseApprovalController)
-    Route::post('survey-responses/{response}/reject', [SurveyResponseController::class, 'reject'])
-        ->name('surveys.reject-response.deprecated');
-    Route::get('survey-responses/{response}/approval-history', [SurveyResponseController::class, 'getApprovalHistory']);
-});
+// REMOVED: Survey response approval routes - use survey-response-approval.php routes instead
+// The following routes have been consolidated:
+// - survey-responses/{response}/approve -> /api/survey-responses/{response}/approve
+// - survey-responses/{response}/reject -> /api/survey-responses/{response}/reject
+// - Bulk approval routes -> /api/survey-responses/bulk-approval
 
 // Bulk job management routes
 Route::middleware('auth:sanctum')->group(function () {
