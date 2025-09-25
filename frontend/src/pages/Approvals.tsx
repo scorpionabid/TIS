@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import ApprovalDashboard from '../components/approval/ApprovalDashboard';
 import SurveyApprovalDashboard from '../components/approval/SurveyApprovalDashboard';
 import { Card, CardContent } from '../components/ui/card';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Shield, AlertTriangle, Target, FileCheck, BarChart3 } from 'lucide-react';
+import { Shield, AlertTriangle, Target, Eye, BarChart3 } from 'lucide-react';
 
 // Inline SurveyResults component
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -29,6 +28,7 @@ import {
 } from 'lucide-react';
 import { surveyService, Survey } from '../services/surveys';
 import { useToast } from '../hooks/use-toast';
+import surveyApprovalService, { PublishedSurvey, SurveyResponseForApproval } from '../services/surveyApproval';
 
 const Approvals: React.FC = () => {
   const { currentUser: user } = useAuth();
@@ -105,9 +105,9 @@ const Approvals: React.FC = () => {
             <BarChart3 className="h-4 w-4" />
             Sorğu Nəticələri
           </TabsTrigger>
-          <TabsTrigger value="general-approvals" className="flex items-center gap-2">
-            <FileCheck className="h-4 w-4" />
-            Ümumi Təsdiqlər
+          <TabsTrigger value="survey-view" className="flex items-center gap-2">
+            <Eye className="h-4 w-4" />
+            Sorğulara Baxış
           </TabsTrigger>
         </TabsList>
 
@@ -119,8 +119,8 @@ const Approvals: React.FC = () => {
           <SurveyResultsTab />
         </TabsContent>
 
-        <TabsContent value="general-approvals">
-          <ApprovalDashboard />
+        <TabsContent value="survey-view">
+          <SurveyViewDashboard />
         </TabsContent>
       </Tabs>
     </div>
@@ -580,5 +580,293 @@ function SurveyResultCard({ survey, onExport, isExporting, getStatusColor, getSt
     </div>
   );
 }
+
+// Survey View Dashboard Component
+const SurveyViewDashboard: React.FC = () => {
+  const [selectedSurvey, setSelectedSurvey] = useState<PublishedSurvey | null>(null);
+
+  // Fetch published surveys
+  const { data: publishedSurveys, isLoading: surveysLoading } = useQuery({
+    queryKey: ['published-surveys-view'],
+    queryFn: () => surveyApprovalService.getPublishedSurveys(),
+    staleTime: 5 * 60 * 1000
+  });
+
+  // Fetch survey responses when survey is selected
+  const { data: responsesData, isLoading: responsesLoading } = useQuery({
+    queryKey: ['survey-responses-view', selectedSurvey?.id],
+    queryFn: () => selectedSurvey ? surveyApprovalService.getResponsesForApproval(selectedSurvey.id, { per_page: 100 }) : null,
+    enabled: !!selectedSurvey,
+    staleTime: 30 * 1000
+  });
+
+  // Auto-select first survey if none selected
+  React.useEffect(() => {
+    if (Array.isArray(publishedSurveys) && publishedSurveys.length > 0 && !selectedSurvey) {
+      setSelectedSurvey(publishedSurveys[0]);
+    }
+  }, [publishedSurveys, selectedSurvey]);
+
+  const responses = responsesData?.responses || [];
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <Eye className="h-8 w-8 text-primary" />
+          Sorğulara Baxış
+        </h1>
+        <p className="text-muted-foreground mt-1">
+          Sorğulara verilən cavabları görüntüləyin və analiz edin
+        </p>
+      </div>
+
+      {/* Survey Selection */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5" />
+            Sorğu Seçimi
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {surveysLoading ? (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+              Sorğular yüklənir...
+            </div>
+          ) : !Array.isArray(publishedSurveys) || publishedSurveys.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Target className="h-12 w-12 mx-auto mb-4" />
+              <p>Hazırda yayımlanmış sorğu yoxdur</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <Select
+                value={selectedSurvey?.id?.toString() || ""}
+                onValueChange={(value) => {
+                  const survey = publishedSurveys.find((s: any) => s.id.toString() === value);
+                  if (survey) setSelectedSurvey(survey);
+                }}
+              >
+                <SelectTrigger className="w-full max-w-md">
+                  <SelectValue placeholder="Sorğu seçin..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.isArray(publishedSurveys) && publishedSurveys.map((survey: any) => (
+                    <SelectItem key={survey.id} value={survey.id.toString()}>
+                      {survey.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {selectedSurvey && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
+                    <div className="flex items-center gap-1">
+                      <Target className="h-4 w-4" />
+                      {selectedSurvey.questions_count || 0} sual
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Users className="h-4 w-4" />
+                      {selectedSurvey.target_institutions?.length || 0} müəssisə
+                    </div>
+                  </div>
+                  {selectedSurvey.description && (
+                    <p className="text-sm text-muted-foreground">
+                      {selectedSurvey.description}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Survey Responses Data Table */}
+      {selectedSurvey && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Sorğu Cavabları
+              {responses.length > 0 && (
+                <Badge variant="outline" className="ml-2">
+                  {responses.length} müəssisə
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>
+              {selectedSurvey.title} sorğusuna verilən cavablar
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {responsesLoading ? (
+              <div className="flex items-center justify-center p-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <span className="ml-2 text-muted-foreground">Cavablar yüklənir...</span>
+              </div>
+            ) : responses.length === 0 ? (
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  Bu sorğuya hələ cavab verilməyib.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <SurveyResponsesDataTable responses={responses} selectedSurvey={selectedSurvey} />
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+};
+
+// Survey Responses Data Table Component
+interface SurveyResponsesDataTableProps {
+  responses: SurveyResponseForApproval[];
+  selectedSurvey: PublishedSurvey;
+}
+
+const SurveyResponsesDataTable: React.FC<SurveyResponsesDataTableProps> = ({
+  responses,
+  selectedSurvey
+}) => {
+  // Get questions from the first response or survey
+  const questions = selectedSurvey.questions || [];
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'approved': return 'bg-green-100 text-green-800';
+      case 'submitted': return 'bg-blue-100 text-blue-800';
+      case 'draft': return 'bg-gray-100 text-gray-800';
+      case 'rejected': return 'bg-red-100 text-red-800';
+      case 'returned': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'approved': return 'Təsdiqlənib';
+      case 'submitted': return 'Təqdim edilib';
+      case 'draft': return 'Qaralama';
+      case 'rejected': return 'Rədd edilib';
+      case 'returned': return 'Geri qaytarılıb';
+      default: return status;
+    }
+  };
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse border border-gray-200">
+        <thead>
+          <tr className="bg-gray-50">
+            <th className="border border-gray-200 px-4 py-3 text-left font-medium text-gray-900 min-w-[200px]">
+              Müəssisə
+            </th>
+            <th className="border border-gray-200 px-4 py-3 text-left font-medium text-gray-900 min-w-[120px]">
+              Status
+            </th>
+            {questions.map((question: any, index: number) => (
+              <th
+                key={question.id || index}
+                className="border border-gray-200 px-4 py-3 text-left font-medium text-gray-900 min-w-[150px] max-w-[250px]"
+              >
+                <div className="truncate" title={question.text}>
+                  {question.text}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {question.type}
+                </div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {responses.map((response) => (
+            <tr key={response.id} className="hover:bg-gray-50">
+              {/* Institution Name */}
+              <td className="border border-gray-200 px-4 py-3">
+                <div className="font-medium text-gray-900">
+                  {response.institution?.name}
+                </div>
+                <div className="text-sm text-gray-500">
+                  {response.institution?.type}
+                </div>
+              </td>
+
+              {/* Status */}
+              <td className="border border-gray-200 px-4 py-3">
+                <Badge className={getStatusColor(response.approval_status || response.status)}>
+                  {getStatusText(response.approval_status || response.status)}
+                </Badge>
+              </td>
+
+              {/* Question Responses */}
+              {questions.map((question: any, qIndex: number) => {
+                const answer = response.survey_answers?.find((a: any) =>
+                  a.question_id === question.id || a.question_key === question.key
+                );
+
+                return (
+                  <td
+                    key={question.id || qIndex}
+                    className="border border-gray-200 px-4 py-3 max-w-[250px]"
+                  >
+                    <div className="text-sm text-gray-900 break-words">
+                      {answer ? (
+                        typeof answer.answer === 'object'
+                          ? JSON.stringify(answer.answer, null, 2)
+                          : answer.answer || '-'
+                      ) : '-'}
+                    </div>
+                    {answer && answer.updated_at && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        {new Date(answer.updated_at).toLocaleDateString('az-AZ')}
+                      </div>
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Summary */}
+      <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div>
+            <div className="font-medium text-gray-600">Ümumi cavab</div>
+            <div className="text-lg font-bold text-gray-900">{responses.length}</div>
+          </div>
+          <div>
+            <div className="font-medium text-gray-600">Təsdiqlənmiş</div>
+            <div className="text-lg font-bold text-green-600">
+              {responses.filter(r => r.approval_status === 'approved' || r.status === 'approved').length}
+            </div>
+          </div>
+          <div>
+            <div className="font-medium text-gray-600">Gözləyir</div>
+            <div className="text-lg font-bold text-blue-600">
+              {responses.filter(r => r.approval_status === 'submitted' || r.status === 'submitted').length}
+            </div>
+          </div>
+          <div>
+            <div className="font-medium text-gray-600">Rədd edilmiş</div>
+            <div className="text-lg font-bold text-red-600">
+              {responses.filter(r => r.approval_status === 'rejected' || r.status === 'rejected').length}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default Approvals;
