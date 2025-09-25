@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { CalendarIcon, Loader2, Plus, X, Target, Users, Building2, Clock, AlertTriangle, Edit } from 'lucide-react';
+import { CalendarIcon, Loader2, Plus, X, Target, Users, Building2, Clock, AlertTriangle, Edit, Layout } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { Survey, CreateSurveyData, SurveyQuestionRestrictions, QuestionRestrictions, surveyService } from '@/services/surveys';
 import { institutionService } from '@/services/institutions';
@@ -15,6 +15,19 @@ import { departmentService } from '@/services/departments';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { USER_ROLES } from '@/constants/roles';
+import { SurveyTemplateGallery } from '@/components/surveys/SurveyTemplateGallery';
+
+// Template type import (SurveyTemplateGallery-dən)
+interface SurveyTemplate extends Survey {
+  is_featured: boolean;
+  usage_count: number;
+  last_used_at: string | null;
+  success_rate: number;
+  average_completion_time: number;
+  template_tags: string[];
+  created_by_name: string;
+  institution_name: string;
+}
 
 interface SurveyModalProps {
   open: boolean;
@@ -56,6 +69,9 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [isStepChanging, setIsStepChanging] = useState(false);
+
+  // Template Gallery state
+  const [showTemplateGallery, setShowTemplateGallery] = useState(false);
   
   const [formData, setFormData] = useState<CreateSurveyData>({
     title: '',
@@ -660,6 +676,64 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
     return true;
   };
 
+  // Template selection handler
+  const handleTemplateSelect = (template: SurveyTemplate) => {
+    try {
+      console.log('🎨 Template selected:', template);
+
+      // Form data-nı template ilə doldurmaq
+      setFormData(prev => ({
+        ...prev,
+        title: template.title,
+        description: template.description || '',
+        is_anonymous: template.is_anonymous || false,
+        allow_multiple_responses: template.allow_multiple_responses || false,
+        start_date: template.start_date || new Date().toISOString().split('T')[0],
+        end_date: template.end_date || undefined,
+        max_responses: template.max_responses || undefined,
+        target_institutions: template.target_institutions || [],
+        target_roles: template.target_roles || [],
+      }));
+
+      // Template questions-ları kopyalamaq
+      if (template.questions && Array.isArray(template.questions)) {
+        const templateQuestions: Question[] = template.questions.map((q: any, index: number) => ({
+          id: `template_${Date.now()}_${index}`,
+          question: q.title || q.question || q.text || '',
+          description: q.description || '',
+          type: q.type || 'text',
+          options: q.options || [],
+          required: q.required || q.is_required || false,
+          order: q.order || q.order_index || index,
+          validation: q.validation_rules || {}
+        }));
+        setQuestions(templateQuestions);
+      } else {
+        setQuestions([]);
+      }
+
+      // Step 1-ə qayıtmaq (user-ə görmək üçün)
+      setCurrentStep(1);
+
+      // Template Gallery modal bağlamaq
+      setShowTemplateGallery(false);
+
+      // Success toast
+      toast({
+        title: "Template seçildi!",
+        description: `"${template.title}" template-i əsasında sorğu hazırlanır.`,
+      });
+
+    } catch (error) {
+      console.error('Error selecting template:', error);
+      toast({
+        title: "Xəta",
+        description: "Template seçərkən xəta baş verdi. Yenidən cəhd edin.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleNextStep = () => {
     console.log('🚀 handleNextStep called, currentStep:', currentStep);
     if (currentStep === 1 && !validateStep1()) return;
@@ -676,6 +750,7 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -1535,6 +1610,24 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                   placeholder="Məhdudiyyət qoyulmur"
                 />
               </div>
+
+              {/* Template Gallery Button */}
+              <div className="space-y-2 pt-4 border-t">
+                <Label>Sürətli Başlama</Label>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Hazır template-lərdən birini seçərək sorğunu tez yaradın
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowTemplateGallery(true)}
+                  disabled={isLoading}
+                  className="w-full flex items-center justify-center gap-2 h-12"
+                >
+                  <Layout className="h-5 w-5" />
+                  <span>Template Qaleriyasından Seç</span>
+                </Button>
+              </div>
             </div>
           )}
 
@@ -1583,5 +1676,13 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
         </form>
       </DialogContent>
     </Dialog>
+
+    {/* Template Gallery Modal */}
+    <SurveyTemplateGallery
+      open={showTemplateGallery}
+      onClose={() => setShowTemplateGallery(false)}
+      onSelectTemplate={handleTemplateSelect}
+    />
+  </>
   );
 }
