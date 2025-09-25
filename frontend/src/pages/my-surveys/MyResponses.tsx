@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Edit, Eye, Save, AlertCircle, Clock, Calendar, BarChart3 } from 'lucide-react';
+import { Search, Edit, Eye, Save, AlertCircle, Clock, Calendar, BarChart3, Download, CheckCircle } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
@@ -34,9 +34,8 @@ const MyResponses: React.FC = () => {
     queryKey: ['my-survey-responses'],
     queryFn: async () => {
       const response = await surveyService.getMyResponses();
-      return response.data.filter((resp: ResponseWithSurvey) =>
-        resp.status === 'in_progress' || resp.status === 'draft'
-      );
+      // YENİ: Show all responses, let client-side filtering handle status
+      return response.data;
     },
     refetchInterval: 30000,
   });
@@ -51,16 +50,24 @@ const MyResponses: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'in_progress': return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'draft': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'in_progress': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'submitted': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'approved': return 'bg-green-100 text-green-800 border-green-200';
+      case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
+      case 'completed': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'in_progress': return 'Davam edir';
       case 'draft': return 'Qaralama';
+      case 'in_progress': return 'Davam edir';
+      case 'submitted': return 'Göndərilmiş';
+      case 'approved': return 'Təsdiqlənmiş';
+      case 'rejected': return 'Rədd edilmiş';
+      case 'completed': return 'Tamamlanmış';
       default: return status;
     }
   };
@@ -88,6 +95,24 @@ const MyResponses: React.FC = () => {
       } catch (error) {
         console.error('Error deleting draft:', error);
       }
+    }
+  };
+
+  // YENİ: Export response report
+  const handleDownloadReport = async (responseId: number) => {
+    try {
+      const blob = await surveyService.downloadResponseReport(responseId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `survey-response-${responseId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading report:', error);
+      // TODO: Add toast notification for error
     }
   };
 
@@ -119,7 +144,7 @@ const MyResponses: React.FC = () => {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Mənim Cavablarım</h1>
         <p className="text-gray-600 mt-1">
-          Davam edən və qaralama vəziyyətində olan sorğu cavablarınız
+          Cavablandırdığınız bütün sorğuların tarixçəsi və mövcud durumu
         </p>
       </div>
 
@@ -143,8 +168,12 @@ const MyResponses: React.FC = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Bütün statuslar</SelectItem>
-                <SelectItem value="in_progress">Davam edir</SelectItem>
                 <SelectItem value="draft">Qaralama</SelectItem>
+                <SelectItem value="in_progress">Davam edir</SelectItem>
+                <SelectItem value="submitted">Göndərilmiş</SelectItem>
+                <SelectItem value="approved">Təsdiqlənmiş</SelectItem>
+                <SelectItem value="rejected">Rədd edilmiş</SelectItem>
+                <SelectItem value="completed">Tamamlanmış</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -158,10 +187,12 @@ const MyResponses: React.FC = () => {
             <div className="text-center py-8">
               <Edit className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Davam edən cavab yoxdur
+                {statusFilter === 'all' ? 'Cavab tapılmadı' : 'Seçilmiş statusda cavab yoxdur'}
               </h3>
               <p className="text-gray-600">
-                Hazırda davam edən sorğu cavabınız yoxdur.
+                {statusFilter === 'all'
+                  ? 'Hazırda heç bir sorğu cavabınız yoxdur.'
+                  : 'Seçilmiş filtrlərə uyğun cavab tapılmadı.'}
               </p>
             </div>
           </CardContent>
@@ -250,6 +281,7 @@ const MyResponses: React.FC = () => {
                   </div>
                 )}
 
+                {/* YENİ: Dynamic button layout based on status */}
                 <div className="flex justify-between items-center">
                   <div className="flex space-x-2">
                     <Button
@@ -261,6 +293,7 @@ const MyResponses: React.FC = () => {
                       Baxış
                     </Button>
 
+                    {/* Delete button only for draft status */}
                     {response.status === 'draft' && (
                       <Button
                         variant="outline"
@@ -271,15 +304,37 @@ const MyResponses: React.FC = () => {
                         Sil
                       </Button>
                     )}
+
+                    {/* Export button for completed responses */}
+                    {['submitted', 'approved', 'completed'].includes(response.status) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadReport(response.id)}
+                        className="text-green-600 hover:text-green-700 hover:border-green-300"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Export
+                      </Button>
+                    )}
                   </div>
 
-                  <Button
-                    onClick={() => handleContinueResponse(response.id, response.survey.id)}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    <Edit className="h-4 w-4 mr-2" />
-                    Davam et
-                  </Button>
+                  {/* Continue button only for editable statuses */}
+                  {['draft', 'in_progress'].includes(response.status) ? (
+                    <Button
+                      onClick={() => handleContinueResponse(response.id, response.survey.id)}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Davam et
+                    </Button>
+                  ) : (
+                    // Status indicator for completed responses
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-medium text-gray-700">Tamamlanmış</span>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -287,19 +342,19 @@ const MyResponses: React.FC = () => {
         </div>
       )}
 
-      {/* Quick Stats */}
+      {/* Enhanced Stats */}
       {responses.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Statistika</CardTitle>
+            <CardTitle className="text-lg">Cavab Statistikaları</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">
-                  {responses.filter(r => r.status === 'in_progress').length}
+                  {responses.length}
                 </div>
-                <div className="text-sm text-gray-600">Davam edən</div>
+                <div className="text-sm text-gray-600">Ümumi</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-yellow-600">
@@ -308,14 +363,46 @@ const MyResponses: React.FC = () => {
                 <div className="text-sm text-gray-600">Qaralama</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {Math.round(
-                    responses.reduce((sum, r) => sum + (r.progress_percentage || 0), 0) / responses.length
-                  )}%
+                <div className="text-2xl font-bold text-blue-500">
+                  {responses.filter(r => r.status === 'in_progress').length}
                 </div>
-                <div className="text-sm text-gray-600">Orta tərəqqi</div>
+                <div className="text-sm text-gray-600">Davam edən</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-600">
+                  {responses.filter(r => r.status === 'submitted').length}
+                </div>
+                <div className="text-sm text-gray-600">Göndərilmiş</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {responses.filter(r => r.status === 'approved').length}
+                </div>
+                <div className="text-sm text-gray-600">Təsdiqlənmiş</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-emerald-600">
+                  {responses.filter(r => ['approved', 'completed'].includes(r.status)).length}
+                </div>
+                <div className="text-sm text-gray-600">Bitmiş</div>
               </div>
             </div>
+
+            {/* Additional insight */}
+            {responses.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="text-center">
+                  <div className="text-lg font-semibold text-gray-700">
+                    Tamamlanma oranı: {Math.round(
+                      (responses.filter(r => ['approved', 'completed', 'submitted'].includes(r.status)).length / responses.length) * 100
+                    )}%
+                  </div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    {responses.filter(r => ['approved', 'completed', 'submitted'].includes(r.status)).length} / {responses.length} cavab tamamlanmış
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
