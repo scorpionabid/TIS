@@ -23,7 +23,12 @@ import {
   Users,
   CheckCircle2,
   Clock,
-  BarChart
+  BarChart,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { surveyService, Survey } from '../services/surveys';
 import { useToast } from '../hooks/use-toast';
@@ -591,12 +596,6 @@ const SurveyViewDashboard: React.FC = () => {
     staleTime: 5 * 60 * 1000
   });
 
-  console.log('🔍 [SurveyViewDashboard] Published surveys debug:', {
-    publishedSurveys,
-    surveysLoading,
-    firstSurvey: Array.isArray(publishedSurveys) ? publishedSurveys[0] : null,
-    firstSurveyQuestions: Array.isArray(publishedSurveys) && publishedSurveys[0] ? publishedSurveys[0].questions : null
-  });
 
   // Fetch survey responses when survey is selected
   const { data: responsesData, isLoading: responsesLoading } = useQuery({
@@ -745,47 +744,109 @@ const SurveyResponsesDataTable: React.FC<SurveyResponsesDataTableProps> = ({
   // Get questions from the first response or survey
   const questions = selectedSurvey.questions || [];
 
-  console.log('🔍 [SurveyResponsesDataTable] Debug info:', {
-    selectedSurvey,
-    selectedSurveyId: selectedSurvey.id,
-    selectedSurveyTitle: selectedSurvey.title,
-    questionsFromSurvey: selectedSurvey.questions,
-    questionsCount: questions.length,
-    questions: questions
+
+  // State for filters and pagination
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  // Filter responses based on search term
+  const filteredResponses = responses.filter(response => {
+    if (!searchTerm) return true;
+    const institutionName = response.institution?.name?.toLowerCase() || '';
+    const institutionType = response.institution?.type?.toLowerCase() || '';
+    return institutionName.includes(searchTerm.toLowerCase()) ||
+           institutionType.includes(searchTerm.toLowerCase());
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved': return 'bg-green-100 text-green-800';
-      case 'submitted': return 'bg-blue-100 text-blue-800';
-      case 'draft': return 'bg-gray-100 text-gray-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
-      case 'returned': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+  // Sort responses
+  const sortedResponses = [...filteredResponses].sort((a, b) => {
+    const nameA = a.institution?.name || '';
+    const nameB = b.institution?.name || '';
+    const comparison = nameA.localeCompare(nameB, 'az-AZ');
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'approved': return 'Təsdiqlənib';
-      case 'submitted': return 'Təqdim edilib';
-      case 'draft': return 'Qaralama';
-      case 'rejected': return 'Rədd edilib';
-      case 'returned': return 'Geri qaytarılıb';
-      default: return status;
-    }
-  };
+  // Paginated responses
+  const totalPages = Math.ceil(sortedResponses.length / pageSize);
+  const paginatedResponses = sortedResponses.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse border border-gray-200">
+    <div className="space-y-4">
+      {/* Professional Filter/Search Bar */}
+      <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+          {/* Search & Filter Section */}
+          <div className="flex flex-col sm:flex-row gap-3 flex-1">
+            {/* Search Input */}
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Müəssisə adı və ya tipini axtarın..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1); // Reset to first page on search
+                }}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Sort Direction Toggle */}
+            <Button
+              variant="outline"
+              onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
+              className="flex items-center gap-2"
+            >
+              {sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+              A-Z {sortDirection === 'asc' ? '↓' : '↑'}
+            </Button>
+
+            {/* Page Size Selector */}
+            <Select value={pageSize.toString()} onValueChange={(value) => {
+              setPageSize(Number(value));
+              setCurrentPage(1);
+            }}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10 sətir</SelectItem>
+                <SelectItem value="25">25 sətir</SelectItem>
+                <SelectItem value="50">50 sətir</SelectItem>
+                <SelectItem value="100">100 sətir</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Results Info */}
+          <div className="flex items-center gap-4 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              <span>
+                {filteredResponses.length} / {responses.length} müəssisə
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <BarChart className="h-4 w-4" />
+              <span>{questions.length} sual</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Professional Table with Sticky Columns */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse border border-gray-200">
         <thead>
           <tr className="bg-gray-50">
-            <th className="border border-gray-200 px-4 py-3 text-left font-medium text-gray-900 min-w-[200px]">
+            <th className="border border-gray-200 px-4 py-3 text-left font-medium text-gray-900 min-w-[200px] sticky left-0 bg-gray-50 z-10">
               Müəssisə
-            </th>
-            <th className="border border-gray-200 px-4 py-3 text-left font-medium text-gray-900 min-w-[120px]">
-              Status
             </th>
             {questions.map((question: any, index: number) => (
               <th
@@ -803,10 +864,10 @@ const SurveyResponsesDataTable: React.FC<SurveyResponsesDataTableProps> = ({
           </tr>
         </thead>
         <tbody>
-          {responses.map((response) => (
+          {paginatedResponses.map((response) => (
             <tr key={response.id} className="hover:bg-gray-50">
-              {/* Institution Name */}
-              <td className="border border-gray-200 px-4 py-3">
+              {/* Institution Name - Sticky Column */}
+              <td className="border border-gray-200 px-4 py-3 sticky left-0 bg-white z-10">
                 <div className="font-medium text-gray-900">
                   {response.institution?.name}
                 </div>
@@ -815,26 +876,11 @@ const SurveyResponsesDataTable: React.FC<SurveyResponsesDataTableProps> = ({
                 </div>
               </td>
 
-              {/* Status */}
-              <td className="border border-gray-200 px-4 py-3">
-                <Badge className={getStatusColor(response.approval_status || response.status)}>
-                  {getStatusText(response.approval_status || response.status)}
-                </Badge>
-              </td>
-
               {/* Question Responses */}
               {questions.map((question: any, qIndex: number) => {
                 // Get answer from responses object using question ID
                 const answer = response.responses?.[question.id.toString()];
 
-                console.log('🔍 [Answer Debug]:', {
-                  questionId: question.id,
-                  questionTitle: question.title,
-                  responseResponses: response.responses,
-                  answer: answer,
-                  responseId: response.id,
-                  institutionName: response.institution?.name
-                });
 
                 return (
                   <td
@@ -854,32 +900,111 @@ const SurveyResponsesDataTable: React.FC<SurveyResponsesDataTableProps> = ({
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+        </div>
 
-      {/* Summary */}
-      <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+        {/* Professional Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
+            <div className="flex items-center justify-between">
+              {/* Page Info */}
+              <div className="flex items-center gap-4 text-sm text-gray-600">
+                <span>
+                  Səhifə {currentPage} / {totalPages}
+                </span>
+                <span>
+                  {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, filteredResponses.length)} / {filteredResponses.length}
+                </span>
+              </div>
+
+              {/* Navigation Controls */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                >
+                  İlk
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+
+                {/* Page Numbers */}
+                <div className="flex gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className="w-8 h-8 p-0"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                >
+                  Sonuncu
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Updated Summary with Filtered Data */}
+      <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Statistikalar</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div>
-            <div className="font-medium text-gray-600">Ümumi cavab</div>
+          <div className="text-center">
+            <div className="font-medium text-gray-600">Cari Səhifə</div>
+            <div className="text-lg font-bold text-gray-900">{paginatedResponses.length}</div>
+          </div>
+          <div className="text-center">
+            <div className="font-medium text-gray-600">Filterlənmiş</div>
+            <div className="text-lg font-bold text-blue-600">{filteredResponses.length}</div>
+          </div>
+          <div className="text-center">
+            <div className="font-medium text-gray-600">Ümumi Cavab</div>
             <div className="text-lg font-bold text-gray-900">{responses.length}</div>
           </div>
-          <div>
-            <div className="font-medium text-gray-600">Təsdiqlənmiş</div>
-            <div className="text-lg font-bold text-green-600">
-              {responses.filter(r => r.approval_status === 'approved' || r.status === 'approved').length}
-            </div>
-          </div>
-          <div>
-            <div className="font-medium text-gray-600">Gözləyir</div>
-            <div className="text-lg font-bold text-blue-600">
-              {responses.filter(r => r.approval_status === 'submitted' || r.status === 'submitted').length}
-            </div>
-          </div>
-          <div>
-            <div className="font-medium text-gray-600">Rədd edilmiş</div>
-            <div className="text-lg font-bold text-red-600">
-              {responses.filter(r => r.approval_status === 'rejected' || r.status === 'rejected').length}
-            </div>
+          <div className="text-center">
+            <div className="font-medium text-gray-600">Sual Sayı</div>
+            <div className="text-lg font-bold text-green-600">{questions.length}</div>
           </div>
         </div>
       </div>
