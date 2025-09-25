@@ -210,7 +210,8 @@ class ApiClientOptimized {
   public clearCache(pattern?: string): void {
     if (!pattern) {
       this.cache.clear();
-      log('info', 'All cache cleared');
+      this.pendingRequests.clear();
+      log('info', 'All cache and pending requests cleared');
       return;
     }
 
@@ -219,7 +220,13 @@ class ApiClientOptimized {
         this.cache.delete(key);
       }
     }
-    
+
+    for (const key of this.pendingRequests.keys()) {
+      if (key.includes(pattern)) {
+        this.pendingRequests.delete(key);
+      }
+    }
+
     log('info', 'Pattern-based cache cleared', { pattern });
   }
 
@@ -310,26 +317,38 @@ class ApiClientOptimized {
 
   // Optimized GET with caching and deduplication
   async get<T>(
-    endpoint: string, 
-    params?: Record<string, any>, 
-    options?: { 
+    endpoint: string,
+    params?: Record<string, any>,
+    options?: {
       responseType?: 'json' | 'blob';
       cache?: boolean;
       cacheTtl?: number;
     }
   ): Promise<ApiResponse<T>> {
-    // Handle blob responses (no caching)
+    // Handle blob responses (no caching, no deduplication)
     if (options?.responseType === 'blob') {
+      if (isDevelopment) {
+        log('info', 'Blob request - bypassing cache and deduplication', { endpoint });
+      }
+
+      // Clear any existing cache for this blob endpoint to prevent issues
+      const blobCacheKey = this.getCacheKey(endpoint, params);
+      this.cache.delete(blobCacheKey);
+      this.pendingRequests.delete(blobCacheKey);
+
       return this.performRequest<T>('GET', endpoint, undefined, params, options);
     }
 
     const cacheKey = this.getCacheKey(endpoint, params);
-    
+
     // Check cache first (if caching is enabled, default true for GET)
     const useCache = options?.cache !== false;
     if (useCache) {
       const cachedData = this.getCachedData<ApiResponse<T>>(cacheKey);
       if (cachedData) {
+        if (isDevelopment) {
+          log('info', 'Data cached', { key: cacheKey, ttl: this.DEFAULT_CACHE_TTL });
+        }
         return cachedData;
       }
     }
@@ -479,7 +498,7 @@ class ApiClientOptimized {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
       }
-      
+
       const blob = await response.blob();
       return { data: blob } as ApiResponse<T>;
     }

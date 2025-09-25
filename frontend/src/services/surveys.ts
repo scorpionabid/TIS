@@ -304,10 +304,46 @@ class SurveyService extends BaseService<Survey> {
   }
 
   async downloadResponseReport(responseId: number) {
-    const response = await apiClient.get(`/survey-responses/${responseId}/report`, {
-      responseType: 'blob'
-    });
-    return response.data;
+    try {
+      // Clear any cached blob data for this endpoint to prevent null data issues
+      const endpoint = `/survey-responses/${responseId}/report`;
+
+      // Clear cache patterns to ensure fresh blob data
+      apiClient.clearCache(endpoint);
+      const params = { responseType: 'blob' };
+      const exactCacheKey = endpoint + JSON.stringify(params);
+      apiClient.clearCache(exactCacheKey);
+
+      const response = await apiClient.get(`/survey-responses/${responseId}/report`, undefined, {
+        responseType: 'blob'
+      });
+
+      // Ensure we received a proper blob
+      if (!(response.data instanceof Blob)) {
+        throw new Error('Server returned invalid file format');
+      }
+
+      // Check if the blob contains error JSON (sometimes servers return JSON errors as blobs)
+      if (response.data.type === 'application/json') {
+        const text = await response.data.text();
+        const errorData = JSON.parse(text);
+        throw new Error(errorData.message || 'Server error occurred');
+      }
+
+      return response.data;
+    } catch (error: any) {
+      // If the error response contains JSON, extract the error message
+      if (error.response?.data instanceof Blob && error.response.data.type === 'application/json') {
+        try {
+          const text = await error.response.data.text();
+          const errorData = JSON.parse(text);
+          throw new Error(errorData.message || 'Server error occurred');
+        } catch {
+          // Fall back to original error if parsing fails
+        }
+      }
+      throw error;
+    }
   }
 }
 

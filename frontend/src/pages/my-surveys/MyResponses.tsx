@@ -82,8 +82,8 @@ const MyResponses: React.FC = () => {
     navigate(`/survey-response/${surveyId}/${responseId}`);
   };
 
-  const handleViewResponse = (responseId: number) => {
-    navigate(`/survey-responses/${responseId}/view`);
+  const handleViewResponse = (responseId: number, surveyId: number) => {
+    navigate(`/survey-response/${surveyId}/${responseId}`);
   };
 
   const handleDeleteDraft = async (responseId: number) => {
@@ -102,13 +102,20 @@ const MyResponses: React.FC = () => {
   const handleDownloadReport = async (responseId: number) => {
     try {
       const blob = await surveyService.downloadResponseReport(responseId);
+
+      // Verify we have a valid blob
+      if (!blob || !(blob instanceof Blob)) {
+        throw new Error('Invalid file data received from server');
+      }
+
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = url;
-      a.download = `survey-response-${responseId}.pdf`;
+      a.download = `survey-response-${responseId}.xlsx`;
       document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error downloading report:', error);
@@ -287,7 +294,7 @@ const MyResponses: React.FC = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleViewResponse(response.id)}
+                      onClick={() => handleViewResponse(response.id, response.survey.id)}
                     >
                       <Eye className="h-4 w-4 mr-2" />
                       Baxış

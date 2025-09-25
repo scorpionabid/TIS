@@ -57,6 +57,15 @@ class User extends Authenticatable
     ];
 
     /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array<string>
+     */
+    protected $appends = [
+        'name',
+    ];
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -333,33 +342,34 @@ class User extends Authenticatable
      */
     public function getNameAttribute(): string
     {
-        $firstName = trim($this->first_name ?? '');
-        $lastName = trim($this->last_name ?? '');
-        
+        // Access name fields through profile relationship
+        $firstName = trim($this->profile?->first_name ?? '');
+        $lastName = trim($this->profile?->last_name ?? '');
+
         // If both first and last name exist, combine them
         if ($firstName && $lastName) {
             return "{$firstName} {$lastName}";
         }
-        
+
         // If only first name exists
         if ($firstName) {
             return $firstName;
         }
-        
+
         // If only last name exists
         if ($lastName) {
             return $lastName;
         }
-        
+
         // Fallback to username or email
         if ($this->username) {
             return $this->username;
         }
-        
+
         if ($this->email) {
             return explode('@', $this->email)[0];
         }
-        
+
         return 'Anonim İstifadəçi';
     }
 

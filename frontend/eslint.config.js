@@ -5,17 +5,32 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist"] },
+  { ignores: ["dist", "node_modules"] },
   {
-    extends: [js.configs.recommended],
+    extends: [
+      js.configs.recommended,
+      ...tseslint.configs.recommended
+    ],
     files: ["**/*.{ts,tsx}"],
     languageOptions: {
       ecmaVersion: 2020,
-      globals: globals.browser,
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        vi: "readonly",
+        global: "readonly",
+      },
+      parser: tseslint.parser,
+      parserOptions: {
+        ecmaFeatures: {
+          jsx: true,
+        },
+      },
     },
     plugins: {
       "react-hooks": reactHooks,
       "react-refresh": reactRefresh,
+      "@typescript-eslint": tseslint.plugin,
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
@@ -30,6 +45,7 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-expressions": "off",
       "no-unused-vars": "off",
       "no-unused-expressions": "off",
+      "no-undef": "off", // TypeScript handles this
       "react-hooks/exhaustive-deps": "warn",
     },
   }

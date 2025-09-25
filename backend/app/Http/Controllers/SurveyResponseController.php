@@ -241,33 +241,41 @@ class SurveyResponseController extends BaseController
     }
 
     /**
-     * Download survey response report
+     * Download survey response report (Excel format)
      */
     public function downloadReport(Request $request, SurveyResponse $response)
     {
         try {
             // Check if user can view this response
             if (!$this->canViewResponse($response)) {
-                return $this->errorResponse('Unauthorized', 403);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 403);
             }
 
             // Load relationships
-            $response->load(['survey.questions', 'respondent', 'institution']);
+            $response->load(['survey.questions', 'respondent.profile', 'institution']);
 
-            // Generate PDF report
-            $pdf = \PDF::loadView('reports.survey-response', [
-                'response' => $response,
-                'survey' => $response->survey,
-                'respondent' => $response->respondent,
-                'institution' => $response->institution,
-                'generated_at' => now()
+            // Create Excel export for single response
+            $export = new \App\Exports\SingleSurveyResponseExport($response);
+
+            $filename = "survey-response-{$response->id}-" . now()->format('Y-m-d') . ".xlsx";
+
+            // Generate Excel file and return as download
+            return \Maatwebsite\Excel\Facades\Excel::download($export, $filename, \Maatwebsite\Excel\Excel::XLSX);
+
+        } catch (\Exception $e) {
+            \Log::error('Excel export error', [
+                'response_id' => $response->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
 
-            $filename = "survey-response-{$response->id}-" . now()->format('Y-m-d') . ".pdf";
-
-            return $pdf->download($filename);
-        } catch (\Exception $e) {
-            return $this->errorResponse('Failed to generate report: ' . $e->getMessage(), 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate report: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

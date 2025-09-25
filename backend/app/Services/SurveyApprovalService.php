@@ -30,7 +30,10 @@ class SurveyApprovalService extends BaseService
             ->with([
                 'institution:id,name,type,parent_id',
                 'department:id,name',
-                'respondent:id,name,email',
+                'respondent' => function($query) {
+                    $query->select('id', 'username', 'email')
+                          ->with('profile:user_id,first_name,last_name');
+                },
                 'approvalRequest:id,approvalable_id,current_status,current_approval_level,submitted_at,completed_at',
                 'approvalRequest.approvalActions:id,approval_request_id,approver_id,action,comments,action_taken_at'
             ])
@@ -80,6 +83,15 @@ class SurveyApprovalService extends BaseService
         // Pagination
         $perPage = $request->get('per_page', 25);
         $responses = $query->orderBy('submitted_at', 'desc')->paginate($perPage);
+
+        // Ensure respondent names are properly loaded
+        foreach ($responses->items() as $response) {
+            if ($response->respondent) {
+                // Make sure the name attribute is properly included
+                $response->respondent->makeVisible(['name']);
+                $response->respondent->append('name');
+            }
+        }
 
         return [
             'responses' => $responses->items(),
@@ -638,6 +650,12 @@ class SurveyApprovalService extends BaseService
                     'value' => $responseValue,
                     'is_editable' => true
                 ];
+            }
+
+            // Ensure respondent name is available
+            if ($response->respondent) {
+                $response->respondent->makeVisible(['name']);
+                $response->respondent->append('name');
             }
 
             $responseMatrix[] = [
