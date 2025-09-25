@@ -68,8 +68,9 @@ class SurveyController extends BaseController
     public function show(Survey $survey): JsonResponse
     {
         try {
-            // Load questions relationship
+            // Load questions relationship and responses count
             $survey->load('questions');
+            $survey->loadCount('responses');
             $surveyWithRelations = $this->crudService->getWithRelations($survey);
             $formattedSurvey = $this->crudService->formatDetailedForResponse($surveyWithRelations);
             
@@ -153,9 +154,17 @@ class SurveyController extends BaseController
         ]);
 
         try {
-            // Check if survey can be updated
+            // YENİ: Published survey üçün creator-ə məhdud edit icazəsi
             if ($survey->status === 'published' && $survey->responses()->count() > 0) {
-                return $this->errorResponse('Cannot update published survey with responses', 400);
+                // Əgər user creator deyilsə, qadağan et
+                if ($survey->creator_id !== auth()->id() && !auth()->user()->can('surveys.write')) {
+                    return $this->errorResponse('Bu yayımlanmış sorğunu dəyişmək üçün icazəniz yoxdur', 403);
+                }
+
+                // Creator üçün təhlükəsiz edit-ə yönləndir
+                if ($survey->creator_id === auth()->id()) {
+                    return $this->validatePublishedSurveyEdit($request, $survey);
+                }
             }
 
             // Debug: Log update data
@@ -302,6 +311,31 @@ class SurveyController extends BaseController
         try {
             $surveyData = $this->crudService->getSurveyForResponse($survey);
             return $this->successResponse($surveyData, 'Survey form retrieved successfully');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * Get question restrictions for survey editing
+     */
+    public function getQuestionRestrictions(Survey $survey): JsonResponse
+    {
+        try {
+            // Check if user can access this survey
+            if (!auth()->user()->can('surveys.read') && $survey->creator_id !== auth()->id()) {
+                return $this->errorResponse('Bu sorğunun məhdudiyyətlərinə baxmaq üçün icazəniz yoxdur', 403);
+            }
+
+            $restrictions = $survey->getQuestionRestrictions();
+
+            return $this->successResponse([
+                'survey_id' => $survey->id,
+                'survey_status' => $survey->status,
+                'total_responses' => $survey->responses()->count(),
+                'question_restrictions' => $restrictions,
+                'editing_allowed' => $survey->status === 'published' && $survey->creator_id === auth()->id(),
+            ], 'Sual məhdudiyyətləri uğurla alındı');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
         }
@@ -578,6 +612,162 @@ class SurveyController extends BaseController
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
+    }
+
+    /**
+     * YENİ: Published survey-ləri təhlükəsiz şəkildə edit etmək üçün validation
+     */
+    private function validatePublishedSurveyEdit(Request $request, Survey $survey): JsonResponse
+    {
+        // Yalnız təhlükəsiz sahələri qəbul et
+        $validated = $request->validate([
+            'title' => 'sometimes|required|string|max:255',
+            'description' => 'nullable|string|max:2000',
+            'questions' => 'sometimes|array',
+            'questions.*.id' => 'required|exists:survey_questions,id',
+            'questions.*.title' => 'sometimes|string|max:1000',
+            'questions.*.description' => 'nullable|string|max:2000',
+            'questions.*.options' => 'nullable|array',
+            'questions.*.options.*' => 'string|max:500',
+        ]);
+
+        try {
+            // Sual səviyyəsində məhdudiyyətləri yoxla
+            $questionRestrictions = $survey->getQuestionRestrictions();
+
+            // Question edit validation
+            if (isset($validated['questions'])) {
+                foreach ($validated['questions'] as $questionData) {
+                    $existingQuestion = \App\Models\SurveyQuestion::find($questionData['id']);
+
+                    if (!$existingQuestion || $existingQuestion->survey_id !== $survey->id) {
+                        return $this->errorResponse('Sual tapılmadı və ya bu sorğuya aid deyil', 400);
+                    }
+
+                    $questionId = (string) $existingQuestion->id;
+                    $restrictions = $questionRestrictions[$questionId] ?? null;
+
+                    if (!$restrictions) {
+                        return $this->errorResponse('Sual məhdudiyyətləri müəyyən edilə bilmədi', 400);
+                    }
+
+                    // Approved responses varsa text edit əngirməsi
+                    if (isset($questionData['title']) && !$restrictions['can_edit_text']) {
+                        return $this->errorResponse(
+                            'Bu sualın artıq təsdiq edilmiş cavabları var. Sualın mətnini dəyişmək mümkün deyil. ' .
+                            'Təsdiq edilmiş cavablar: ' . $restrictions['approved_responses_count'],
+                            400
+                        );
+                    }
+
+                    // Type dəyişməsini qadağan et (həmişə)
+                    if (isset($questionData['type']) && $questionData['type'] !== $existingQuestion->type) {
+                        return $this->errorResponse('Yayımlanmış sorğuda sual növünü dəyişmək olmaz', 400);
+                    }
+
+                    // Required status dəyişməsi yalnız approved responses yoxsa
+                    if (isset($questionData['is_required']) && !$restrictions['can_edit_required']) {
+                        return $this->errorResponse(
+                            'Bu sualın artıq təsdiq edilmiş cavabları var. Tələb olunma statusunu dəyişmək mümkün deyil.',
+                            400
+                        );
+                    }
+
+                    // Options üçün məhdudiyyətlər
+                    if (isset($questionData['options']) && $existingQuestion->options) {
+                        $existingOptionIds = collect($existingQuestion->options)->pluck('id')->filter()->toArray();
+                        $newOptions = collect($questionData['options']);
+
+                        // Əgər approved responses varsa, mövcud options-ı silmək olmaz
+                        if (!$restrictions['can_remove_options']) {
+                            foreach ($existingOptionIds as $existingId) {
+                                $found = $newOptions->contains(function($option) use ($existingId) {
+                                    return (isset($option['id']) && $option['id'] == $existingId);
+                                });
+
+                                if (!$found) {
+                                    return $this->errorResponse(
+                                        'Bu sualın artıq təsdiq edilmiş cavabları var. Mövcud seçimləri silmək olmaz, yalnız yeni əlavə edə bilərsiniz. ' .
+                                        'Təsdiq edilmiş cavablar: ' . $restrictions['approved_responses_count'],
+                                        400
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Təhlükəsiz update
+            $updatedSurvey = $this->updatePublishedSurveySafely($survey, $validated);
+            $formattedSurvey = $this->crudService->formatDetailedForResponse($updatedSurvey);
+
+            return $this->successResponse($formattedSurvey, 'Sorğu təhlükəsiz yeniləndi');
+
+        } catch (\Exception $e) {
+            \Log::error('Published survey edit error:', [
+                'survey_id' => $survey->id,
+                'user_id' => auth()->id(),
+                'error' => $e->getMessage()
+            ]);
+            return $this->errorResponse('Yeniləmə zamanı səhv baş verdi: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * YENİ: Published survey-i təhlükəsiz yeniləmək
+     */
+    private function updatePublishedSurveySafely(Survey $survey, array $data): Survey
+    {
+        \DB::transaction(function() use ($survey, $data) {
+            // Survey meta məlumatlarını yenilə
+            $survey->update(\Illuminate\Support\Arr::only($data, ['title', 'description']));
+
+            // Question-ları təhlükəsiz yenilə
+            if (isset($data['questions'])) {
+                foreach ($data['questions'] as $questionData) {
+                    $question = \App\Models\SurveyQuestion::find($questionData['id']);
+
+                    // Yalnız title, description və options (əlavə) yenilə
+                    $updateData = \Illuminate\Support\Arr::only($questionData, ['title', 'description']);
+
+                    // Options əlavəsi
+                    if (isset($questionData['options'])) {
+                        $newOptions = [];
+                        foreach ($questionData['options'] as $option) {
+                            if (is_array($option)) {
+                                $newOptions[] = $option;
+                            } else {
+                                // Simple string option üçün ID yarat
+                                $newOptions[] = [
+                                    'id' => isset($option['id']) ? $option['id'] : uniqid(),
+                                    'label' => is_string($option) ? $option : $option['label'],
+                                ];
+                            }
+                        }
+                        $updateData['options'] = $newOptions;
+                    }
+
+                    $question->update($updateData);
+                }
+            }
+
+            // Audit log yarat
+            \App\Models\SurveyAuditLog::create([
+                'survey_id' => $survey->id,
+                'user_id' => auth()->id(),
+                'action' => 'safe_published_edit',
+                'old_data' => $survey->getOriginal(),
+                'new_data' => $data,
+                'metadata' => [
+                    'published_edit' => true,
+                    'response_count' => $survey->responses()->count(),
+                    'edit_timestamp' => now(),
+                ]
+            ]);
+        });
+
+        return $survey->fresh();
     }
 
     /**

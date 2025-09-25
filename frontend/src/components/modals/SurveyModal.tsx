@@ -7,12 +7,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { CalendarIcon, Loader2, Plus, X, Target, Users, Building2, Clock } from 'lucide-react';
+import { CalendarIcon, Loader2, Plus, X, Target, Users, Building2, Clock, AlertTriangle, Edit } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { Survey, CreateSurveyData, surveyService } from '@/services/surveys';
+import { Survey, CreateSurveyData, SurveyQuestionRestrictions, QuestionRestrictions, surveyService } from '@/services/surveys';
 import { institutionService } from '@/services/institutions';
 import { departmentService } from '@/services/departments';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { USER_ROLES } from '@/constants/roles';
 
 interface SurveyModalProps {
   open: boolean;
@@ -24,6 +26,7 @@ interface SurveyModalProps {
 interface Question {
   id?: string;
   question: string;
+  description?: string; // YENİ: Question description support
   type: 'text' | 'number' | 'date' | 'single_choice' | 'multiple_choice' | 'file_upload' | 'rating' | 'table_matrix';
   options?: string[];
   required: boolean;
@@ -49,6 +52,7 @@ const questionTypes = [
 
 export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps) {
   const { toast } = useToast();
+  const { currentUser, hasPermission, hasRole } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [isStepChanging, setIsStepChanging] = useState(false);
@@ -70,6 +74,14 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
     type: 'text',
     required: false,
   });
+
+  // YENİ: Question editing state
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
+
+  // YENİ: Question restrictions state
+  const [questionRestrictions, setQuestionRestrictions] = useState<Record<string, any>>({});
+  const [restrictionsLoading, setRestrictionsLoading] = useState(false);
 
   // Character limits
   const MAX_TITLE_LENGTH = 200;
@@ -122,19 +134,107 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
   // Check if survey is editable
   const isEditable = (survey: Survey | null) => {
     if (!survey) return true; // New surveys are always editable
-    
-    // Draft surveys can always be edited
+
+    // Draft surveys can always be edited by creator or those with permissions
     if (survey.status === 'draft') return true;
-    
+
     // Active surveys can be edited
     if (survey.status === 'active') return true;
-    
-    // Published surveys can only be edited if they have no responses
+
+    // YENİ: Published surveys - creator və ya surveys.write permissions olanlar edit edə bilər
     if (survey.status === 'published') {
-      return (survey.response_count || 0) === 0;
+      // Creator check - əgər survey yaradanıdırsa, edit edə bilər
+      const isCreator = survey.creator?.id === currentUser?.id;
+      console.log('🔍 Published survey isEditable check:', {
+        surveyId: survey.id,
+        creatorId: survey.creator?.id,
+        currentUserId: currentUser?.id,
+        isCreator
+      });
+
+      // SuperAdmin check - SuperAdmin hər şeyi edə bilər
+      const isSuperAdmin = hasRole(USER_ROLES.SUPERADMIN);
+      // Permission check - surveys.write permission varsa edit edə bilər
+      const hasWritePermission = hasPermission('surveys.write');
+
+      console.log('🔍 Permission checks:', {
+        isCreator,
+        isSuperAdmin,
+        hasWritePermission,
+        canEdit: isCreator || isSuperAdmin || hasWritePermission
+      });
+
+      return isCreator || isSuperAdmin || hasWritePermission;
     }
-    
+
+    // Completed, archived və digər statuslar üçün edit edilə bilməz
     return false;
+  };
+
+  // YENİ: Published survey-də responses varsa məhdudlaşdırılmış edit rejimi
+  const isPublishedWithResponses = survey?.status === 'published' &&
+                                   (survey?.response_count || 0) > 0 &&
+                                   survey?.creator?.id === currentUser?.id;
+
+  // YENİ: Get restrictions for specific question
+  const getQuestionRestrictions = (questionId: string | undefined) => {
+    if (!questionId) {
+      return {
+        approved_responses_count: 0,
+        can_edit_text: true,
+        can_edit_type: false, // Type always disabled for published surveys
+        can_edit_required: true,
+        can_add_options: true,
+        can_remove_options: true,
+      };
+    }
+
+    // Əgər bu published survey deyil, hər şeyə icazə ver
+    if (survey?.status !== 'published') {
+      return {
+        approved_responses_count: 0,
+        can_edit_text: true,
+        can_edit_type: true,
+        can_edit_required: true,
+        can_add_options: true,
+        can_remove_options: true,
+      };
+    }
+
+    // Published survey üçün restrictions yüklənibsə, onu istifadə et
+    if (questionRestrictions[questionId]) {
+      return questionRestrictions[questionId];
+    }
+
+    // Əgər restrictions hələ yüklənməyibsə, default olaraq edit-ə icazə ver
+    // (restrictions yükləndikdən sonra düzgün limitations tətbiq ediləcək)
+    return {
+      approved_responses_count: 0,
+      can_edit_text: true,
+      can_edit_type: false, // Type always disabled for published surveys
+      can_edit_required: true,
+      can_add_options: true,
+      can_remove_options: true,
+    };
+  };
+
+  // YENİ: Load question restrictions
+  const loadQuestionRestrictions = async (surveyId: number) => {
+    try {
+      setRestrictionsLoading(true);
+      const restrictionsData = await surveyService.getQuestionRestrictions(surveyId);
+      setQuestionRestrictions(restrictionsData.question_restrictions || {});
+      console.log('🔐 Question restrictions loaded:', restrictionsData);
+    } catch (error) {
+      console.error('Failed to load question restrictions:', error);
+      toast({
+        title: "Xəta",
+        description: "Sual məhdudiyyətləri yüklənə bilmədi",
+        variant: "destructive",
+      });
+    } finally {
+      setRestrictionsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -145,6 +245,18 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
         title: survey.title,
         target_institutions: survey.target_institutions,
         questions_count: survey.questions?.length || 0
+      });
+
+      // Debug: Check complete survey structure including critical fields
+      console.log('🔍 Complete survey data:', {
+        id: survey.id,
+        title: survey.title,
+        status: survey.status,
+        creator: survey.creator,
+        institution: survey.institution,
+        response_count: survey.response_count,
+        questions_count: survey.questions_count,
+        allFields: Object.keys(survey)
       });
       
       const newFormData = {
@@ -173,11 +285,12 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
         
         return {
           id: q.id?.toString(),
-          question: q.question,
+          question: q.title || q.question, // Backend might return 'title' field
+          description: q.description, // Question description support
           type: q.type,
           options: Array.isArray(q.options) ? q.options : [],
-          required: q.required,
-          order: q.order,
+          required: q.required || q.is_required, // Handle both field names
+          order: q.order_index || q.order, // Handle both field names
         };
       });
       
@@ -194,6 +307,30 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
         ...prev,
         questions: mappedQuestions,
       }));
+
+      // YENİ: Load question restrictions for published surveys
+
+      // Load restrictions for published surveys if user can edit them
+      if (survey.status === 'published') {
+        const isCreator = survey.creator?.id === currentUser?.id;
+        const isSuperAdmin = hasRole(USER_ROLES.SUPERADMIN);
+        const hasWritePermission = hasPermission('surveys.write');
+        const canEdit = isCreator || isSuperAdmin || hasWritePermission;
+
+        console.log('🔐 Question restrictions loading check:', {
+          surveyId: survey.id,
+          status: survey.status,
+          isCreator,
+          isSuperAdmin,
+          hasWritePermission,
+          canEdit
+        });
+
+        if (canEdit) {
+          console.log('🔐 Loading question restrictions for published survey');
+          loadQuestionRestrictions(survey.id);
+        }
+      }
     } else {
       setFormData({
         title: '',
@@ -262,7 +399,11 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
       const surveyData: CreateSurveyData = {
         ...formData,
         questions: questions.map(q => ({
-          question: q.question,
+          // Map frontend field names to backend field names
+          id: q.id, // Include ID for existing questions (for backend validation)
+          title: q.question, // Backend expects 'title', frontend uses 'question'
+          question: q.question, // Keep both for compatibility
+          description: q.description, // Question description
           type: q.type,
           options: q.options,
           required: q.required,
@@ -341,6 +482,134 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
     setFormData(prev => ({ ...prev, questions: updatedQuestions }));
   };
 
+  // YENİ: Question editing methods
+  const startEditingQuestion = (question: Question) => {
+    setEditingQuestionId(question.id!);
+    setEditingQuestion({ ...question }); // Deep copy
+  };
+
+  const cancelEditingQuestion = () => {
+    setEditingQuestionId(null);
+    setEditingQuestion(null);
+  };
+
+  const saveEditingQuestion = async () => {
+    if (!editingQuestion || !editingQuestionId || !survey?.id) return;
+
+    try {
+      setIsLoading(true);
+
+      console.log('💾 Saving question edit:', {
+        surveyId: survey.id,
+        questionId: editingQuestionId,
+        changes: editingQuestion,
+        surveyStatus: survey.status
+      });
+
+      // API call to update the survey with the modified question
+      const surveyData = {
+        title: survey.title,
+        description: survey.description || '',
+        questions: questions.map(q => {
+          const isEditedQuestion = q.id === editingQuestionId;
+          const questionData = isEditedQuestion ? editingQuestion : q;
+
+          return {
+            id: q.id, // Include ID for existing questions
+            title: questionData.question, // Backend expects 'title' for published surveys
+            question: questionData.question, // Backend expects 'question' for regular surveys
+            description: questionData.description,
+            type: questionData.type,
+            options: questionData.options,
+            required: questionData.required,
+            is_required: questionData.required, // Both field names for compatibility
+            order: q.order || 0,
+          };
+        }),
+        target_institutions: survey.target_institutions || [],
+        target_roles: survey.target_roles || [],
+        is_anonymous: survey.is_anonymous,
+        allow_multiple_responses: survey.allow_multiple_responses,
+        max_responses: survey.max_responses,
+      };
+
+      console.log('🚀 API call data:', surveyData);
+      const result = await surveyService.update(survey.id, surveyData);
+      console.log('✅ API response:', result);
+
+      // Update local state only after successful API call
+      const updatedQuestions = questions.map(q =>
+        q.id === editingQuestionId ? editingQuestion : q
+      );
+
+      setQuestions(updatedQuestions);
+      setFormData(prev => ({ ...prev, questions: updatedQuestions }));
+
+      setEditingQuestionId(null);
+      setEditingQuestion(null);
+
+      toast({
+        title: "Uğurlu",
+        description: "Sual uğurla yeniləndi və yadda saxlanıldı",
+      });
+
+    } catch (error: any) {
+      console.error('❌ Question edit save error:', error);
+
+      toast({
+        title: "Xəta",
+        description: error.response?.data?.message || "Sual yenilənməsində xəta baş verdi",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateEditingQuestion = (field: keyof Question, value: any) => {
+    if (!editingQuestion) return;
+
+    setEditingQuestion(prev => ({
+      ...prev!,
+      [field]: value,
+    }));
+  };
+
+  // YENİ: Safe option operations for published surveys
+  const addOptionToEditingQuestion = () => {
+    if (!editingQuestion) return;
+
+    const newOptions = [...(editingQuestion.options || []), ''];
+    updateEditingQuestion('options', newOptions);
+  };
+
+  const updateEditingQuestionOption = (index: number, value: string) => {
+    if (!editingQuestion) return;
+
+    const updatedOptions = [...(editingQuestion.options || [])];
+    updatedOptions[index] = value;
+    updateEditingQuestion('options', updatedOptions);
+  };
+
+  const removeEditingQuestionOption = (index: number) => {
+    if (!editingQuestion) return;
+
+    // YENİ: Use question-specific restrictions
+    const restrictions = getQuestionRestrictions(editingQuestionId || '');
+
+    if (!restrictions.can_remove_options) {
+      toast({
+        title: "Xəta",
+        description: `Bu sualın ${restrictions.approved_responses_count} təsdiq edilmiş cavabı var. Mövcud seçimləri silmək olmaz, yalnız yeni əlavə edə bilərsiniz.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const updatedOptions = editingQuestion.options?.filter((_, i) => i !== index) || [];
+    updateEditingQuestion('options', updatedOptions);
+  };
+
   const addOption = () => {
     setNewQuestion(prev => ({
       ...prev,
@@ -412,23 +681,57 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Target className="h-5 w-5" />
-            {isEditMode ? 
-              (isEditable(survey) ? 
-                `${survey?.title} sorğusunu redaktə et` : 
+            {isEditMode ?
+              (isEditable(survey) ?
+                (survey?.status === 'published' ?
+                  `${survey?.title} sorğusunu redaktə et (Məhdud rejim)` :
+                  `${survey?.title} sorğusunu redaktə et`
+                ) :
                 `${survey?.title} sorğusuna baxış (Redaktə edilə bilməz)`
-              ) : 
+              ) :
               'Yeni sorğu yarat'
             }
           </DialogTitle>
           <DialogDescription>
-            {isEditMode ? 
-              (isEditable(survey) ? 
-                'Sorğu məlumatlarını dəyişdirin və yenidən yadda saxlayın' : 
-                'Bu sorğu yayımlanıb və cavabları var. Məlumat tamlığını qorumaq üçün redaktə edilə bilməz.'
-              ) : 
+            {isEditMode ?
+              (isEditable(survey) ?
+                (survey?.status === 'published' ?
+                  (isPublishedWithResponses ?
+                    'Bu sorğu yayımlanmış və cavabları var. Sual-cavab tamlığını qoruyaraq məhdudlaşdırılmış redaktə edə bilərsiniz.' :
+                    'Bu sorğu yayımlanmış, amma hələ cavab yoxdur. Sualları təhlükəsiz redaktə edə bilərsiniz.'
+                  ) :
+                  'Sorğu məlumatlarını dəyişdirin və yenidən yadda saxlayın'
+                ) :
+                'Bu sorğunu redaktə etmək üçün icazəniz yoxdur.'
+              ) :
               'Yeni sorğu yaratmaq üçün aşağıdakı formu doldurun'
             }
           </DialogDescription>
+
+          {/* YENİ: Enhanced warning for published surveys */}
+          {survey?.status === 'published' && isEditable(survey) && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+              <div className="flex items-start">
+                <AlertTriangle className="h-5 w-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h4 className="text-sm font-medium text-blue-800 mb-1">
+                    Yayımlanmış Sorğu - Məhdud Redaktə Rejimi
+                  </h4>
+                  <p className="text-sm text-blue-700">
+                    Bu sorğu yayımlanmış və <strong>{survey?.response_count || 0} cavabı</strong> var.
+                    Hər sualın təsdiq edilmiş cavablarına əsasən müxtəlif məhdudiyyətlər tətbiq edilir:
+                  </p>
+                  <ul className="text-sm text-blue-700 mt-2 ml-4 list-disc space-y-1">
+                    <li>✅ Sorğu başlığı və təsviri həmişə dəyişdirilə bilər</li>
+                    <li>✅ Sualların mətni və təsviri (təsdiq edilmiş cavabı olmayan suallar üçün)</li>
+                    <li>✅ Mövcud seçimlərə <strong>yeni seçimlər əlavə etmək</strong></li>
+                    <li>⚠️ Sual növləri və təsdiq edilmiş cavabı olan sual mətnləri dəyişdirilə bilməz</li>
+                    <li>🚫 Mövcud seçimləri silmək qadağandır</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogHeader>
 
         {/* Warning banner for non-editable surveys */}
@@ -487,6 +790,8 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                   onChange={(e) => handleInputChange('title', e.target.value)}
                   placeholder="Sorğunun başlığını daxil edin"
                   required
+                  className={isPublishedWithResponses ? "bg-blue-50 border-blue-200" : ""}
+                  disabled={!isEditable(survey)}
                 />
                 {formData.title.length > MAX_TITLE_LENGTH * 0.9 && (
                   <p className="text-xs text-amber-600">Başlıq uzunluq limitinə yaxındır</p>
@@ -507,6 +812,8 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                   onChange={(e) => handleInputChange('description', e.target.value)}
                   placeholder="Sorğunun təsvirini daxil edin..."
                   rows={4}
+                  className={isPublishedWithResponses ? "bg-blue-50 border-blue-200" : ""}
+                  disabled={!isEditable(survey)}
                 />
                 {(formData.description || '').length > MAX_DESCRIPTION_LENGTH * 0.9 && (
                   <p className="text-xs text-amber-600">Təsvir uzunluq limitinə yaxındır</p>
@@ -567,49 +874,313 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
           {currentStep === 2 && (
             <div className="space-y-6">
               <div className="space-y-4">
-                <h3 className="text-lg font-medium">Mövcud Suallar ({questions.length})</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium">Mövcud Suallar ({questions.length})</h3>
+                  {restrictionsLoading && isPublishedWithResponses && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Məhdudiyyətlər yüklənir...
+                    </div>
+                  )}
+                </div>
+
+                {/* YENİ: Restrictions summary */}
+                {!restrictionsLoading && Object.keys(questionRestrictions).length > 0 && isPublishedWithResponses && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-blue-900 mb-2">Məhdud Edit Rejimi</h4>
+                        <div className="text-sm text-blue-800 space-y-1">
+                          {(() => {
+                            const totalQuestions = questions.length;
+                            const restrictedQuestions = questions.filter(q =>
+                              getQuestionRestrictions(q.id)?.approved_responses_count > 0
+                            ).length;
+                            const editableQuestions = totalQuestions - restrictedQuestions;
+
+                            return (
+                              <>
+                                <p>• <strong>{editableQuestions}</strong> sual tam dəyişdirilə bilər</p>
+                                <p>• <strong>{restrictedQuestions}</strong> sualın təsdiq edilmiş cavabları var və məhdudiyyətlidir</p>
+                                <p>• Yeni suallar əlavə edilə bilər</p>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
                 {questions.map((question, index) => (
-                  <div key={question.id} className="p-4 border rounded-lg space-y-2">
+                  <div
+                    key={question.id}
+                    className={`p-4 border rounded-lg space-y-3 ${
+                      editingQuestionId === question.id ? 'border-blue-300 bg-blue-50' : ''
+                    }`}
+                  >
                     <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="outline">{index + 1}</Badge>
-                          <Badge variant="secondary">{questionTypes.find(t => t.value === question.type)?.label}</Badge>
-                          {question.required && <Badge variant="destructive">Məcburi</Badge>}
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{index + 1}</Badge>
+                        <Badge variant="secondary">{questionTypes.find(t => t.value === question.type)?.label}</Badge>
+                        {question.required && <Badge variant="destructive">Məcburi</Badge>}
+                        {isPublishedWithResponses && (
+                          <Badge variant="outline" className="text-blue-600 border-blue-300">
+                            {restrictionsLoading ? 'Yüklənir...' : 'Məhdud Edit'}
+                          </Badge>
+                        )}
+                        {!restrictionsLoading && Object.keys(questionRestrictions).length > 0 && getQuestionRestrictions(question.id)?.approved_responses_count > 0 && (
+                          <Badge variant="outline" className="text-amber-600 border-amber-300">
+                            {getQuestionRestrictions(question.id)?.approved_responses_count} Təsdiq
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {editingQuestionId === question.id ? (
+                          <>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={saveEditingQuestion}
+                              disabled={!editingQuestion?.question?.trim() || isLoading}
+                            >
+                              {isLoading ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  Saxlanır...
+                                </>
+                              ) : (
+                                'Saxla'
+                              )}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={cancelEditingQuestion}
+                            >
+                              İmtina
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => startEditingQuestion(question)}
+                              disabled={
+                                !isEditable(survey) ||
+                                (restrictionsLoading && isPublishedWithResponses)
+                              }
+                              title={
+                                restrictionsLoading && isPublishedWithResponses
+                                  ? 'Məhdudiyyətlər yüklənir...'
+                                  : !isEditable(survey)
+                                    ? 'Bu sorğunu redaktə etmək üçün icazəniz yoxdur'
+                                    : isPublishedWithResponses
+                                      ? 'Məhdud redaktə rejimi - sual mətnini və seçimlərini dəyişə bilərsiniz'
+                                      : 'Suali redaktə et'
+                              }
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeQuestion(question.id!)}
+                              disabled={
+                                isPublishedWithResponses ||
+                                (restrictionsLoading && survey?.status === 'published') ||
+                                (!restrictionsLoading && getQuestionRestrictions(question.id)?.approved_responses_count > 0)
+                              }
+                              title={
+                                restrictionsLoading && survey?.status === 'published'
+                                  ? 'Məhdudiyyətlər yüklənir...'
+                                  : getQuestionRestrictions(question.id)?.approved_responses_count > 0
+                                    ? `Bu sualın ${getQuestionRestrictions(question.id)?.approved_responses_count} təsdiq edilmiş cavabı var - silmək olmaz`
+                                    : isPublishedWithResponses
+                                      ? 'Yayımlanmış sorğuda sualları silmək olmaz'
+                                      : 'Suali sil'
+                              }
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Question Content - Either Display or Edit Mode */}
+                    {editingQuestionId === question.id && editingQuestion ? (
+                      // EDIT MODE
+                      <div className="space-y-4">
+                        {/* Question Text Edit */}
+                        <div className="space-y-2">
+                          <Label>Sual mətni *</Label>
+                          <Input
+                            value={editingQuestion.question}
+                            onChange={(e) => updateEditingQuestion('question', e.target.value)}
+                            placeholder="Sual mətnini daxil edin"
+                            maxLength={MAX_QUESTION_LENGTH}
+                            className={getQuestionRestrictions(question.id)?.can_edit_text ? "bg-white" : "bg-gray-100"}
+                            disabled={!getQuestionRestrictions(question.id)?.can_edit_text}
+                          />
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            {getQuestionRestrictions(question.id)?.can_edit_text ? (
+                              <span className="text-green-600">✓ Bu sahə dəyişdirilə bilər</span>
+                            ) : (
+                              <span className="text-amber-600">⚠️ Təsdiq edilmiş cavablar var ({getQuestionRestrictions(question.id)?.approved_responses_count} cavab)</span>
+                            )}
+                            <span>{editingQuestion.question.length}/{MAX_QUESTION_LENGTH}</span>
+                          </div>
                         </div>
-                        <p className="font-medium">{question.question}</p>
-                        {question.options && question.options.length > 0 && (
-                          <div className="mt-2">
-                            <p className="text-sm text-muted-foreground">Seçimlər:</p>
-                            <ul className="list-disc list-inside text-sm text-muted-foreground">
-                              {(() => {
-                                console.log('🐛 Debug question.options:', {
-                                  questionId: question.id,
-                                  options: question.options,
-                                  optionsType: typeof question.options,
-                                  isArray: Array.isArray(question.options),
-                                  value: question.options
-                                });
-                                
-                                const safeOptions = Array.isArray(question.options) ? question.options : [];
-                                return safeOptions.map((option, i) => (
-                                  <li key={i}>{option}</li>
-                                ));
-                              })()}
-                            </ul>
+
+                        {/* Question Description Edit */}
+                        <div className="space-y-2">
+                          <Label>Sual təsviri (İxtiyari)</Label>
+                          <Textarea
+                            value={editingQuestion.description || ''}
+                            onChange={(e) => updateEditingQuestion('description', e.target.value)}
+                            placeholder="Sualın təsvirini daxil edin (ixtiyari)"
+                            rows={2}
+                            maxLength={MAX_DESCRIPTION_LENGTH}
+                            className="bg-white"
+                          />
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Bu sahə dəyişdirilə bilər</span>
+                            <span>{(editingQuestion.description || '').length}/{MAX_DESCRIPTION_LENGTH}</span>
+                          </div>
+                        </div>
+
+                        {/* Question Type - READONLY for published surveys */}
+                        <div className="space-y-2">
+                          <Label>Sual növü</Label>
+                          <Select
+                            value={editingQuestion.type}
+                            onValueChange={(value) => updateEditingQuestion('type', value)}
+                            disabled={isPublishedWithResponses}
+                          >
+                            <SelectTrigger className={isPublishedWithResponses ? "bg-gray-100" : "bg-white"}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {questionTypes.map((type) => (
+                                <SelectItem key={type.value} value={type.value}>
+                                  {type.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {isPublishedWithResponses && (
+                            <p className="text-xs text-amber-600">⚠️ Yayımlanmış sorğuda sual növü dəyişdirilə bilməz</p>
+                          )}
+                        </div>
+
+                        {/* Required Toggle */}
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`required-${question.id}`}
+                            checked={editingQuestion.required}
+                            onCheckedChange={(checked) => updateEditingQuestion('required', checked)}
+                            disabled={!getQuestionRestrictions(question.id)?.can_edit_required}
+                          />
+                          <Label
+                            htmlFor={`required-${question.id}`}
+                            className={!getQuestionRestrictions(question.id)?.can_edit_required ? "text-gray-500" : ""}
+                          >
+                            Məcburi sual
+                          </Label>
+                          {!getQuestionRestrictions(question.id)?.can_edit_required && (
+                            <span className="text-xs text-amber-600">
+                              ⚠️ Təsdiq edilmiş cavablar var ({getQuestionRestrictions(question.id)?.approved_responses_count} cavab)
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Options Editing for Choice Questions */}
+                        {['single_choice', 'multiple_choice'].includes(editingQuestion.type) && (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <Label>Seçimlər</Label>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={addOptionToEditingQuestion}
+                              >
+                                <Plus className="h-4 w-4 mr-1" />
+                                Yeni seçim
+                              </Button>
+                            </div>
+
+                            {editingQuestion.options?.map((option, optionIndex) => (
+                              <div key={optionIndex} className="flex items-center space-x-2">
+                                <Badge variant="outline" className="text-xs min-w-[24px] text-center">
+                                  {optionIndex + 1}
+                                </Badge>
+                                <Input
+                                  value={option}
+                                  onChange={(e) => updateEditingQuestionOption(optionIndex, e.target.value)}
+                                  placeholder={`Seçim ${optionIndex + 1}`}
+                                  className="flex-1 bg-white"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeEditingQuestionOption(optionIndex)}
+                                  disabled={!getQuestionRestrictions(question.id)?.can_remove_options}
+                                  title={!getQuestionRestrictions(question.id)?.can_remove_options ? 'Təsdiq edilmiş cavablar var - seçimi silmək olmaz' : 'Seçimi sil'}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+
+                            {!getQuestionRestrictions(question.id)?.can_remove_options && getQuestionRestrictions(question.id)?.approved_responses_count > 0 && (
+                              <div className="bg-amber-50 border border-amber-200 rounded p-3">
+                                <p className="text-xs text-amber-700">
+                                  <strong>Məhdud rejim:</strong> Bu sualın {getQuestionRestrictions(question.id)?.approved_responses_count} təsdiq edilmiş cavabı var.
+                                  Yeni seçimlər əlavə edə bilərsiniz, lakin mövcud seçimləri silə bilməzsiniz.
+                                </p>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeQuestion(question.id!)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    ) : (
+                      // DISPLAY MODE
+                      <div className="space-y-3">
+                        <div>
+                          <p className="font-medium text-lg">{question.question}</p>
+                          {question.description && (
+                            <p className="text-sm text-muted-foreground mt-1 italic">{question.description}</p>
+                          )}
+                        </div>
+                        {question.options && question.options.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-sm font-medium text-muted-foreground mb-2">Seçimlər:</p>
+                            <div className="grid grid-cols-1 gap-2">
+                              {(() => {
+                                const safeOptions = Array.isArray(question.options) ? question.options : [];
+                                return safeOptions.map((option, i) => (
+                                  <div key={i} className="flex items-center space-x-2 text-sm">
+                                    <Badge variant="outline" className="text-xs min-w-[24px] text-center">
+                                      {i + 1}
+                                    </Badge>
+                                    <span>{option}</span>
+                                  </div>
+                                ));
+                              })()}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
 
@@ -780,7 +1351,12 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                     </div>
                   )}
 
-                  <Button type="button" onClick={addQuestion}>
+                  <Button
+                    type="button"
+                    onClick={addQuestion}
+                    disabled={isPublishedWithResponses}
+                    title={isPublishedWithResponses ? 'Yayımlanmış sorğuda yeni sual əlavə etmək olmaz' : 'Yeni sual əlavə et'}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Sualı əlavə et
                   </Button>

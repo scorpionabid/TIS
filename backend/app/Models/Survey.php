@@ -599,4 +599,78 @@ class Survey extends Model
     {
         return $query->where('title', 'ILIKE', "%{$search}%");
     }
+
+    /**
+     * YENİ: Get approved responses count for each question
+     * Returns array with question_id => approved_count
+     */
+    public function getQuestionApprovedResponsesCounts(): array
+    {
+        $approvedResponses = $this->responses()
+            ->where('status', 'approved')
+            ->where('is_complete', true)
+            ->get();
+
+        $questionCounts = [];
+
+        foreach ($this->questions as $question) {
+            $questionId = (string) $question->id;
+            $count = 0;
+
+            foreach ($approvedResponses as $response) {
+                $responseData = $response->responses ?? [];
+                // Check if this approved response has data for this question
+                if (isset($responseData[$questionId]) &&
+                    $responseData[$questionId] !== null &&
+                    $responseData[$questionId] !== '') {
+                    $count++;
+                }
+            }
+
+            $questionCounts[$questionId] = $count;
+        }
+
+        return $questionCounts;
+    }
+
+    /**
+     * YENİ: Check if a specific question can be edited (text-wise)
+     * Returns false if question has approved responses
+     */
+    public function canEditQuestionText(int $questionId): bool
+    {
+        $approvedCount = $this->responses()
+            ->where('status', 'approved')
+            ->where('is_complete', true)
+            ->whereRaw("JSON_EXTRACT(responses, '$.\"$questionId\"') IS NOT NULL")
+            ->whereRaw("JSON_EXTRACT(responses, '$.\"$questionId\"') != ''")
+            ->count();
+
+        return $approvedCount === 0;
+    }
+
+    /**
+     * YENİ: Get detailed question restriction info for frontend
+     */
+    public function getQuestionRestrictions(): array
+    {
+        $restrictions = [];
+        $approvedCounts = $this->getQuestionApprovedResponsesCounts();
+
+        foreach ($this->questions as $question) {
+            $questionId = (string) $question->id;
+            $approvedCount = $approvedCounts[$questionId] ?? 0;
+
+            $restrictions[$questionId] = [
+                'approved_responses_count' => $approvedCount,
+                'can_edit_text' => $approvedCount === 0,
+                'can_edit_type' => false, // Never allow type changes in published surveys
+                'can_edit_required' => $approvedCount === 0, // Only if no approved responses
+                'can_add_options' => true, // Always allow adding new options
+                'can_remove_options' => $approvedCount === 0, // Only if no approved responses
+            ];
+        }
+
+        return $restrictions;
+    }
 }

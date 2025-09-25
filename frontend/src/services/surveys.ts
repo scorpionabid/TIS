@@ -126,6 +126,23 @@ export interface SurveyStats {
   demographic_breakdown?: Record<string, number>;
 }
 
+export interface QuestionRestrictions {
+  approved_responses_count: number;
+  can_edit_text: boolean;
+  can_edit_type: boolean;
+  can_edit_required: boolean;
+  can_add_options: boolean;
+  can_remove_options: boolean;
+}
+
+export interface SurveyQuestionRestrictions {
+  survey_id: number;
+  survey_status: string;
+  total_responses: number;
+  question_restrictions: Record<string, QuestionRestrictions>;
+  editing_allowed: boolean;
+}
+
 class SurveyService extends BaseService<Survey> {
   constructor() {
     super('/surveys');
@@ -236,6 +253,11 @@ class SurveyService extends BaseService<Survey> {
 
   async getAvailableTargets() {
     const response = await apiClient.get(`${this.baseEndpoint}/targets`);
+    return response.data;
+  }
+
+  async getQuestionRestrictions(id: number) {
+    const response = await apiClient.get(`${this.baseEndpoint}/${id}/question-restrictions`);
     return response.data;
   }
 

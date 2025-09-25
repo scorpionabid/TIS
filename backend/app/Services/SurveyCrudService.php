@@ -55,7 +55,7 @@ class SurveyCrudService
      */
     public function getWithRelations(Survey $survey): Survey
     {
-        $survey->load(['creator.profile', 'versions', 'responses.respondent', 'questions']);
+        $survey->load(['creator.profile', 'institution', 'versions', 'responses.respondent', 'questions']);
         
         // Format questions for API response (backward compatibility)
         if ($survey->questions->count() > 0) {
