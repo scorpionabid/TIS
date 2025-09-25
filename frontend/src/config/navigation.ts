@@ -496,12 +496,6 @@ export const improvedNavigationConfig: MenuGroup[] = [
             path: '/approvals',
             roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN]
           },
-          {
-            id: 'survey-results',
-            label: 'Sorğu Nəticələri',
-            path: '/survey-results',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN]
-          },
         ]
       },
       {

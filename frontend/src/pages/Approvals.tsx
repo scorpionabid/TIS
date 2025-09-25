@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import ApprovalDashboard from '../components/approval/ApprovalDashboard';
 import SurveyApprovalDashboard from '../components/approval/SurveyApprovalDashboard';
+import SurveyResults from './SurveyResults';
 import { Card, CardContent } from '../components/ui/card';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Shield, AlertTriangle, Target, FileCheck } from 'lucide-react';
+import { Shield, AlertTriangle, Target, FileCheck, BarChart3 } from 'lucide-react';
 
 const Approvals: React.FC = () => {
   const { currentUser: user } = useAuth();
@@ -73,10 +74,14 @@ const Approvals: React.FC = () => {
       </div>
 
       <Tabs defaultValue="survey-responses" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="survey-responses" className="flex items-center gap-2">
             <Target className="h-4 w-4" />
             Sorğu Cavabları
+          </TabsTrigger>
+          <TabsTrigger value="survey-results" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Sorğu Nəticələri
           </TabsTrigger>
           <TabsTrigger value="general-approvals" className="flex items-center gap-2">
             <FileCheck className="h-4 w-4" />
@@ -86,6 +91,10 @@ const Approvals: React.FC = () => {
 
         <TabsContent value="survey-responses">
           <SurveyApprovalDashboard />
+        </TabsContent>
+
+        <TabsContent value="survey-results">
+          <SurveyResults />
         </TabsContent>
 
         <TabsContent value="general-approvals">

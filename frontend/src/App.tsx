@@ -25,7 +25,6 @@ const Regions = lazy(() => import("./pages/Regions"));
 const Sectors = lazy(() => import("./pages/Sectors"));
 const Hierarchy = lazy(() => import("./pages/Hierarchy"));
 const Surveys = lazy(() => import("./pages/Surveys"));
-const SurveyResults = lazy(() => import("./pages/SurveyResults"));
 const SurveyArchive = lazy(() => import("./pages/SurveyArchive"));
 const SurveyResponse = lazy(() => import("./pages/SurveyResponse"));
 const Tasks = lazy(() => import("./pages/Tasks"));
@@ -334,7 +333,6 @@ const App = () => {
                   </RoleProtectedRoute>
                 </LazyWrapper>
               } />
-              <Route path="survey-results" element={<LazyWrapper><SurveyResults /></LazyWrapper>} />
               <Route path="survey-archive" element={<LazyWrapper><SurveyArchive /></LazyWrapper>} />
               <Route path="survey-analytics" element={
                 <LazyWrapper>
