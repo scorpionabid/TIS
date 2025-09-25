@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { Plus, ClipboardList, Calendar, TrendingUp, Eye, Edit, Trash2, Play, Pause, BarChart3, AlertTriangle, Archive, MoreHorizontal, Layout, UserCheck2 } from "lucide-react";
+import { Plus, ClipboardList, Calendar, TrendingUp, Eye, Edit, Trash2, Play, Pause, BarChart3, AlertTriangle, Archive, MoreHorizontal, Layout, UserCheck2, Copy } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { surveyService, Survey, CreateSurveyData } from "@/services/surveys";
 import { Badge } from "@/components/ui/badge";
@@ -89,6 +89,27 @@ export default function Surveys() {
       toast({
         title: "Uğurlu",
         description: "Sorğu silindi",
+      });
+    },
+  });
+
+  // Create template from survey mutation
+  const createTemplateMutation = useMutation({
+    mutationFn: (surveyId: number) => apiClient.post(`/survey-templates/create-from-survey`, {
+      survey_id: surveyId
+    }),
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ['survey-templates'] });
+      toast({
+        title: "Uğurlu!",
+        description: `"${response.data?.template?.title || 'Template'}" template kimi yaradıldı`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Xəta",
+        description: error.response?.data?.message || "Template yaradarkən xəta baş verdi",
+        variant: "destructive",
       });
     },
   });
@@ -298,6 +319,16 @@ export default function Surveys() {
         description: "Sorğu dayandırılarkən xəta baş verdi",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleCreateTemplate = async (survey: Survey) => {
+    if (window.confirm(`"${survey.title}" sorğusundan template yaratmaq istəyirsiniz?`)) {
+      try {
+        await createTemplateMutation.mutateAsync(survey.id);
+      } catch (error) {
+        // Error handling done by mutation
+      }
     }
   };
 
@@ -556,12 +587,17 @@ export default function Surveys() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleCreateTemplate(survey)}>
+                                <Copy className="h-4 w-4 mr-2" />
+                                Template kimi saxla
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => handleDeleteSurvey(survey.id, false)}>
                                 <Archive className="h-4 w-4 mr-2" />
                                 Arxivə göndər
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 onClick={() => handleDeleteSurvey(survey.id, true)}
                                 className="text-red-600"
                               >
