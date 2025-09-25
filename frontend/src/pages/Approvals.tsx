@@ -17,7 +17,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Progress } from '../components/ui/progress';
 import {
   Download,
-  Eye,
   TrendingUp,
   Search,
   Filter,
