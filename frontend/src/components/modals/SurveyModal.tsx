@@ -942,6 +942,29 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                   </Label>
                 </div>
               </div>
+
+              {/* Template Selection - Only for new surveys */}
+              {!isEditMode && (
+                <div className="space-y-3 pt-4 border-t">
+                  <div className="flex items-center gap-2">
+                    <Layout className="h-5 w-5 text-primary" />
+                    <Label className="text-base font-medium">Sürətli Başlama</Label>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Hazır template-lərdən birini seçərək sorğunu tez yaradın
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowTemplateGallery(true)}
+                    disabled={isLoading}
+                    className="w-full flex items-center justify-center gap-2 h-11 border-dashed hover:border-solid hover:bg-muted/50"
+                  >
+                    <Layout className="h-4 w-4" />
+                    <span>Template Qaleriyasından Seç</span>
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
@@ -1609,24 +1632,6 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                   onChange={(e) => handleInputChange('max_responses', e.target.value ? parseInt(e.target.value) : undefined)}
                   placeholder="Məhdudiyyət qoyulmur"
                 />
-              </div>
-
-              {/* Template Gallery Button */}
-              <div className="space-y-2 pt-4 border-t">
-                <Label>Sürətli Başlama</Label>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Hazır template-lərdən birini seçərək sorğunu tez yaradın
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowTemplateGallery(true)}
-                  disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-2 h-12"
-                >
-                  <Layout className="h-5 w-5" />
-                  <span>Template Qaleriyasından Seç</span>
-                </Button>
               </div>
             </div>
           )}
