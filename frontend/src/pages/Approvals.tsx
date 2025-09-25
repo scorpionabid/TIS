@@ -591,6 +591,13 @@ const SurveyViewDashboard: React.FC = () => {
     staleTime: 5 * 60 * 1000
   });
 
+  console.log('🔍 [SurveyViewDashboard] Published surveys debug:', {
+    publishedSurveys,
+    surveysLoading,
+    firstSurvey: Array.isArray(publishedSurveys) ? publishedSurveys[0] : null,
+    firstSurveyQuestions: Array.isArray(publishedSurveys) && publishedSurveys[0] ? publishedSurveys[0].questions : null
+  });
+
   // Fetch survey responses when survey is selected
   const { data: responsesData, isLoading: responsesLoading } = useQuery({
     queryKey: ['survey-responses-view', selectedSurvey?.id],
@@ -666,7 +673,7 @@ const SurveyViewDashboard: React.FC = () => {
                   <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
                     <div className="flex items-center gap-1">
                       <Target className="h-4 w-4" />
-                      {selectedSurvey.questions_count || 0} sual
+                      {selectedSurvey.current_questions_count || selectedSurvey.questions?.length || 0} sual
                     </div>
                     <div className="flex items-center gap-1">
                       <Users className="h-4 w-4" />
@@ -738,6 +745,15 @@ const SurveyResponsesDataTable: React.FC<SurveyResponsesDataTableProps> = ({
   // Get questions from the first response or survey
   const questions = selectedSurvey.questions || [];
 
+  console.log('🔍 [SurveyResponsesDataTable] Debug info:', {
+    selectedSurvey,
+    selectedSurveyId: selectedSurvey.id,
+    selectedSurveyTitle: selectedSurvey.title,
+    questionsFromSurvey: selectedSurvey.questions,
+    questionsCount: questions.length,
+    questions: questions
+  });
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'approved': return 'bg-green-100 text-green-800';
@@ -776,8 +792,8 @@ const SurveyResponsesDataTable: React.FC<SurveyResponsesDataTableProps> = ({
                 key={question.id || index}
                 className="border border-gray-200 px-4 py-3 text-left font-medium text-gray-900 min-w-[150px] max-w-[250px]"
               >
-                <div className="truncate" title={question.text}>
-                  {question.text}
+                <div className="truncate" title={question.title}>
+                  {question.title}
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
                   {question.type}
@@ -808,9 +824,17 @@ const SurveyResponsesDataTable: React.FC<SurveyResponsesDataTableProps> = ({
 
               {/* Question Responses */}
               {questions.map((question: any, qIndex: number) => {
-                const answer = response.survey_answers?.find((a: any) =>
-                  a.question_id === question.id || a.question_key === question.key
-                );
+                // Get answer from responses object using question ID
+                const answer = response.responses?.[question.id.toString()];
+
+                console.log('🔍 [Answer Debug]:', {
+                  questionId: question.id,
+                  questionTitle: question.title,
+                  responseResponses: response.responses,
+                  answer: answer,
+                  responseId: response.id,
+                  institutionName: response.institution?.name
+                });
 
                 return (
                   <td
@@ -819,16 +843,11 @@ const SurveyResponsesDataTable: React.FC<SurveyResponsesDataTableProps> = ({
                   >
                     <div className="text-sm text-gray-900 break-words">
                       {answer ? (
-                        typeof answer.answer === 'object'
-                          ? JSON.stringify(answer.answer, null, 2)
-                          : answer.answer || '-'
+                        typeof answer === 'object'
+                          ? JSON.stringify(answer, null, 2)
+                          : answer || '-'
                       ) : '-'}
                     </div>
-                    {answer && answer.updated_at && (
-                      <div className="text-xs text-gray-500 mt-1">
-                        {new Date(answer.updated_at).toLocaleDateString('az-AZ')}
-                      </div>
-                    )}
                   </td>
                 );
               })}

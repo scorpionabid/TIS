@@ -438,12 +438,13 @@ class SurveyApprovalController extends Controller
     public function getPublishedSurveys(): JsonResponse
     {
         try {
-            $surveys = Survey::where('status', 'published')
+            $surveys = Survey::with('questions')
+                ->where('status', 'published')
                 ->where(function($query) {
                     $query->whereNull('end_date')
                           ->orWhere('end_date', '>=', now());
                 })
-                ->select(['id', 'title', 'description', 'start_date', 'end_date', 'target_institutions'])
+                ->select(['id', 'title', 'description', 'start_date', 'end_date', 'target_institutions', 'current_questions_count'])
                 ->orderBy('created_at', 'desc')
                 ->get();
 

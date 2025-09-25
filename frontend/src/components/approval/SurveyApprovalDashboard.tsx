@@ -29,7 +29,7 @@ import surveyApprovalService, {
   ApprovalStats,
   SurveyResponseForApproval
 } from '../../services/surveyApproval';
-import { surveyService, SurveyQuestion } from '../../services/surveys';
+import { surveyService } from '../../services/surveys';
 import { apiClient } from '../../services/apiOptimized';
 import ResponseManagementTable from './table/ResponseManagementTable';
 import ResponseDetailModal from './ResponseDetailModal';
@@ -40,9 +40,11 @@ const SurveyApprovalDashboard: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Component lifecycle logging (reduced)
+  // Component lifecycle logging (development only)
   useEffect(() => {
-    console.log('🔧 [Dashboard] Component mounted, user role:', currentUser?.role);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 [Dashboard] Component mounted, user role:', currentUser?.role);
+    }
   }, [currentUser]);
 
   // State management
@@ -70,7 +72,9 @@ const SurveyApprovalDashboard: React.FC = () => {
   } = useQuery({
     queryKey: ['published-surveys'],
     queryFn: () => {
-      console.log('🚀 [Dashboard] Fetching published surveys...');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🚀 [Dashboard] Fetching published surveys...');
+      }
       return surveyApprovalService.getPublishedSurveys();
     },
     staleTime: 5 * 60 * 1000 // 5 minutes
@@ -105,26 +109,30 @@ const SurveyApprovalDashboard: React.FC = () => {
     // If the published survey already has questions loaded, use them
     const questions = (selectedSurvey as any)?.questions || [];
 
-    console.log('🎯 [DEBUG] Survey questions from published survey:', {
-      selectedSurveyId: selectedSurvey?.id,
-      questionsCount: questions.length,
-      questions: questions
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🎯 [DEBUG] Survey questions from published survey:', {
+        selectedSurveyId: selectedSurvey?.id,
+        questionsCount: questions.length,
+        questions: questions
+      });
+    }
 
     return questions;
   }, [selectedSurvey]);
 
-  // Log query states
+  // Log query states (development only)
   useEffect(() => {
-    console.log('📊 [Dashboard] Query states updated:', {
-      surveysLoading,
-      surveysError: surveysError ? {
-        message: surveysError.message,
-        response: (surveysError as any).response?.data,
-        status: (surveysError as any).response?.status
-      } : null,
-      publishedSurveysCount: Array.isArray(publishedSurveys) ? publishedSurveys.length : 0
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📊 [Dashboard] Query states updated:', {
+        surveysLoading,
+        surveysError: surveysError ? {
+          message: surveysError.message,
+          response: (surveysError as any).response?.data,
+          status: (surveysError as any).response?.status
+        } : null,
+        publishedSurveysCount: Array.isArray(publishedSurveys) ? publishedSurveys.length : 0
+      });
+    }
   }, [surveysLoading, surveysError, publishedSurveys]);
 
   // Auto-select first survey if none selected

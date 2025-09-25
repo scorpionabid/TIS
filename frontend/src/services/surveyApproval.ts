@@ -95,6 +95,15 @@ export interface PublishedSurvey {
   start_date?: string;
   end_date?: string;
   target_institutions?: number[];
+  current_questions_count?: number;
+  questions?: Array<{
+    id: number;
+    title: string;
+    type: string;
+    options?: string[];
+    required?: boolean;
+    order_index?: number;
+  }>;
 }
 
 export interface ApprovalStats {
