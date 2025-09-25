@@ -50,18 +50,20 @@ export function SurveyTemplateGallery({
   const [searchTerm, setSearchTerm] = useState('');
 
   // Template gallery məlumatlarını əldə et
-  const { data: templatesData, isLoading } = useQuery({
+  const { data: templatesData, isLoading, error, refetch } = useQuery({
     queryKey: ['survey-templates'],
     queryFn: async () => {
       try {
         const response = await apiClient.get('/survey-templates');
-        return response.data || { templates: [], total: 0 };
-      } catch (error) {
-        console.error('Template fetch error:', error);
-        return { templates: [], total: 0 };
+        return response || { templates: [], total: 0 };
+      } catch (error: any) {
+        console.error('❌ Template fetch error:', error);
+        throw error;
       }
     },
     enabled: open,
+    retry: 1,
+    refetchOnWindowFocus: false,
   });
 
 
@@ -125,9 +127,6 @@ export function SurveyTemplateGallery({
               <Layout className="h-5 w-5 text-primary" />
               Template Qaleriyası
             </DialogTitle>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
           </div>
         </DialogHeader>
 
@@ -150,6 +149,15 @@ export function SurveyTemplateGallery({
             <div className="flex items-center justify-center h-64">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <span className="ml-2 text-muted-foreground">Template-lər yüklənir...</span>
+            </div>
+          ) : error ? (
+            <div className="text-center py-16">
+              <Layout className="h-16 w-16 text-red-400 mx-auto mb-4 opacity-50" />
+              <h3 className="text-lg font-medium mb-2 text-red-600">Xəta baş verdi</h3>
+              <p className="text-sm text-muted-foreground mb-4">Template-lər yüklənə bilmədi</p>
+              <Button onClick={() => refetch()} variant="outline">
+                Yenidən cəhd et
+              </Button>
             </div>
           ) : filteredTemplates.length === 0 ? (
             <div className="text-center py-16">
