@@ -521,12 +521,6 @@ export const improvedNavigationConfig: MenuGroup[] = [
             label: 'Mənim Cavablarım',
             path: '/my-surveys/responses',
             roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]
-          },
-          {
-            id: 'completed-surveys',
-            label: 'Tamamlanmış Sorğular',
-            path: '/my-surveys/completed',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]
           }
         ]
       },

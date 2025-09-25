@@ -90,7 +90,7 @@ export const SurveyDashboardWidget: React.FC<SurveyDashboardWidgetProps> = ({
   };
 
   const handleViewCompleted = () => {
-    navigate('/my-surveys/completed');
+    navigate('/my-surveys/responses?status=completed');
   };
 
   if (isLoading) {

@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Edit, Eye, Save, AlertCircle, Clock, Calendar, BarChart3, Download, CheckCircle } from 'lucide-react';
+import { Search, Edit, Eye, Save, AlertCircle, Clock, Calendar, BarChart3, Download, CheckCircle, Star, Award } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { az } from 'date-fns/locale';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { surveyService } from '@/services/surveys';
 import { SurveyResponse } from '@/services/surveys';
 import { Loader2 } from 'lucide-react';
@@ -20,15 +20,25 @@ interface ResponseWithSurvey extends SurveyResponse {
     description?: string;
     due_date?: string;
     questions_count?: number;
+    type?: string;
   };
   last_saved_at?: string;
   progress_percentage?: number;
+  completion_time?: string;
+  score?: number;
+  feedback?: string;
+  approval_status?: 'pending' | 'approved' | 'rejected';
+  submitted_on_time?: boolean;
 }
 
 const MyResponses: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'all');
+  const [periodFilter, setPeriodFilter] = useState<string>('all');
+  const [approvalFilter, setApprovalFilter] = useState<string>('all');
 
   const { data: responses = [], isLoading, error } = useQuery({
     queryKey: ['my-survey-responses'],
@@ -45,7 +55,31 @@ const MyResponses: React.FC = () => {
                          response.survey.description?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || response.status === statusFilter;
 
-    return matchesSearch && matchesStatus;
+    // Period filtering
+    let matchesPeriod = true;
+    if (periodFilter !== 'all' && response.completion_time) {
+      const completionDate = new Date(response.completion_time);
+      const now = new Date();
+      const daysDiff = Math.floor((now.getTime() - completionDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      switch (periodFilter) {
+        case 'week':
+          matchesPeriod = daysDiff <= 7;
+          break;
+        case 'month':
+          matchesPeriod = daysDiff <= 30;
+          break;
+        case 'quarter':
+          matchesPeriod = daysDiff <= 90;
+          break;
+      }
+    } else if (periodFilter !== 'all' && !response.completion_time) {
+      matchesPeriod = false; // If no completion time, exclude from period filter
+    }
+
+    const matchesApproval = approvalFilter === 'all' || response.approval_status === approvalFilter;
+
+    return matchesSearch && matchesStatus && matchesPeriod && matchesApproval;
   });
 
   const getStatusColor = (status: string) => {
@@ -76,6 +110,38 @@ const MyResponses: React.FC = () => {
     if (percentage >= 80) return 'bg-green-500';
     if (percentage >= 50) return 'bg-yellow-500';
     return 'bg-red-500';
+  };
+
+  const getApprovalStatusColor = (status?: string) => {
+    switch (status) {
+      case 'approved': return 'bg-green-100 text-green-800 border-green-200';
+      case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
+      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const getApprovalStatusText = (status?: string) => {
+    switch (status) {
+      case 'approved': return 'Təsdiqlənib';
+      case 'rejected': return 'Rədd edilib';
+      case 'pending': return 'Gözləyir';
+      default: return 'Naməlum';
+    }
+  };
+
+  const getScoreColor = (score?: number) => {
+    if (!score) return 'text-gray-500';
+    if (score >= 90) return 'text-green-600';
+    if (score >= 70) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getScoreIcon = (score?: number) => {
+    if (!score) return null;
+    if (score >= 90) return <Award className="h-4 w-4 text-yellow-500" />;
+    if (score >= 70) return <Star className="h-4 w-4 text-blue-500" />;
+    return <BarChart3 className="h-4 w-4 text-gray-500" />;
   };
 
   const handleContinueResponse = (responseId: number, surveyId: number) => {
@@ -155,10 +221,10 @@ const MyResponses: React.FC = () => {
         </p>
       </div>
 
-      {/* Filters */}
+      {/* Enhanced Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
@@ -181,6 +247,30 @@ const MyResponses: React.FC = () => {
                 <SelectItem value="approved">Təsdiqlənmiş</SelectItem>
                 <SelectItem value="rejected">Rədd edilmiş</SelectItem>
                 <SelectItem value="completed">Tamamlanmış</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={periodFilter} onValueChange={setPeriodFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Dövr" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Bütün vaxtlar</SelectItem>
+                <SelectItem value="week">Son həftə</SelectItem>
+                <SelectItem value="month">Son ay</SelectItem>
+                <SelectItem value="quarter">Son rüb</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={approvalFilter} onValueChange={setApprovalFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Təsdiq statusu" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Bütün təsdiq statusları</SelectItem>
+                <SelectItem value="approved">Təsdiqlənmiş</SelectItem>
+                <SelectItem value="pending">Gözləyir</SelectItem>
+                <SelectItem value="rejected">Rədd edilmiş</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -220,9 +310,30 @@ const MyResponses: React.FC = () => {
                   </div>
 
                   <div className="flex flex-col items-end space-y-2">
-                    <Badge className={getStatusColor(response.status)}>
-                      {getStatusText(response.status)}
-                    </Badge>
+                    <div className="flex space-x-2">
+                      {response.submitted_on_time && (
+                        <Badge className="bg-green-100 text-green-800 border-green-200">
+                          Vaxtında
+                        </Badge>
+                      )}
+                      <Badge className={getStatusColor(response.status)}>
+                        {getStatusText(response.status)}
+                      </Badge>
+                      {response.approval_status && (
+                        <Badge className={getApprovalStatusColor(response.approval_status)}>
+                          {getApprovalStatusText(response.approval_status)}
+                        </Badge>
+                      )}
+                    </div>
+
+                    {response.score && (
+                      <div className="flex items-center space-x-1">
+                        {getScoreIcon(response.score)}
+                        <span className={`text-sm font-medium ${getScoreColor(response.score)}`}>
+                          {response.score}%
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardHeader>
@@ -245,7 +356,17 @@ const MyResponses: React.FC = () => {
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  {response.last_saved_at && (
+                  {response.completion_time && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <span className="text-gray-600">Tamamlanıb:</span>
+                      <span className="text-gray-900">
+                        {format(new Date(response.completion_time), 'dd.MM.yyyy HH:mm')}
+                      </span>
+                    </div>
+                  )}
+
+                  {response.last_saved_at && !response.completion_time && (
                     <div className="flex items-center space-x-2 text-sm">
                       <Save className="h-4 w-4 text-gray-500" />
                       <span className="text-gray-600">Son saxlanma:</span>
@@ -277,7 +398,33 @@ const MyResponses: React.FC = () => {
                   )}
                 </div>
 
-                {response.created_at && (
+                {response.feedback && (
+                  <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                    <div className="flex items-start space-x-2">
+                      <Star className="h-4 w-4 text-blue-500 mt-0.5" />
+                      <div>
+                        <span className="text-sm font-medium text-blue-900">Rəy:</span>
+                        <p className="text-sm text-blue-800 mt-1">{response.feedback}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {response.completion_time && (
+                  <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <Clock className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm text-gray-600">
+                        {formatDistanceToNow(new Date(response.completion_time), {
+                          addSuffix: true,
+                          locale: az
+                        })} tamamlandı
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {response.created_at && !response.completion_time && (
                   <div className="mb-4 p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center space-x-2">
                       <Clock className="h-4 w-4 text-blue-500" />
@@ -395,18 +542,40 @@ const MyResponses: React.FC = () => {
               </div>
             </div>
 
-            {/* Additional insight */}
+            {/* Enhanced insights */}
             {responses.length > 0 && (
               <div className="mt-4 pt-4 border-t border-gray-200">
-                <div className="text-center">
-                  <div className="text-lg font-semibold text-gray-700">
-                    Tamamlanma oranı: {Math.round(
-                      (responses.filter(r => ['approved', 'completed', 'submitted'].includes(r.status)).length / responses.length) * 100
-                    )}%
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                  <div>
+                    <div className="text-lg font-semibold text-gray-700">
+                      {Math.round(
+                        (responses.filter(r => ['approved', 'completed', 'submitted'].includes(r.status)).length / responses.length) * 100
+                      )}%
+                    </div>
+                    <div className="text-sm text-gray-500">Tamamlanma oranı</div>
                   </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    {responses.filter(r => ['approved', 'completed', 'submitted'].includes(r.status)).length} / {responses.length} cavab tamamlanmış
-                  </div>
+
+                  {responses.filter(r => r.submitted_on_time).length > 0 && (
+                    <div>
+                      <div className="text-lg font-semibold text-green-600">
+                        {Math.round(
+                          (responses.filter(r => r.submitted_on_time).length / responses.filter(r => ['approved', 'completed', 'submitted'].includes(r.status)).length) * 100
+                        )}%
+                      </div>
+                      <div className="text-sm text-gray-500">Vaxtında təhvil oranı</div>
+                    </div>
+                  )}
+
+                  {responses.filter(r => r.score).length > 0 && (
+                    <div>
+                      <div className="text-lg font-semibold text-purple-600">
+                        {Math.round(
+                          responses.filter(r => r.score).reduce((sum, r) => sum + (r.score || 0), 0) / responses.filter(r => r.score).length
+                        )}%
+                      </div>
+                      <div className="text-sm text-gray-500">Orta bal</div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

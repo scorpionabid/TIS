@@ -73,7 +73,6 @@ const TeacherSchedule = lazy(() => import("./pages/teacher/TeacherSchedule"));
 // My Surveys pages
 const PendingSurveys = lazy(() => import("./pages/my-surveys/PendingSurveys"));
 const MyResponses = lazy(() => import("./pages/my-surveys/MyResponses"));
-const CompletedSurveys = lazy(() => import("./pages/my-surveys/CompletedSurveys"));
 
 // Advanced Schedule Management pages
 const ScheduleBuilderPage = lazy(() => import("./components/schedules/ScheduleBuilderPage"));
@@ -513,7 +512,6 @@ const App = () => {
               {/* My Surveys Routes */}
               <Route path="my-surveys/pending" element={<LazyWrapper><PendingSurveys /></LazyWrapper>} />
               <Route path="my-surveys/responses" element={<LazyWrapper><MyResponses /></LazyWrapper>} />
-              <Route path="my-surveys/completed" element={<LazyWrapper><CompletedSurveys /></LazyWrapper>} />
             </Route>
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
