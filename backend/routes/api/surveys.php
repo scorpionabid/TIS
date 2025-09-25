@@ -126,3 +126,14 @@ Route::middleware('auth:sanctum')->prefix('my-surveys')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('survey-responses/{response}/report', [SurveyResponseController::class, 'downloadReport']);
 });
+
+// Survey Template Routes
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('survey-templates', [\App\Http\Controllers\SurveyTemplateController::class, 'index']);
+    Route::get('survey-templates/stats', [\App\Http\Controllers\SurveyTemplateController::class, 'getStats']);
+    Route::post('survey-templates', [\App\Http\Controllers\SurveyTemplateController::class, 'store'])->middleware('permission:surveys.write');
+    Route::get('survey-templates/{template}', [\App\Http\Controllers\SurveyTemplateController::class, 'show']);
+    Route::put('survey-templates/{template}', [\App\Http\Controllers\SurveyTemplateController::class, 'update'])->middleware('permission:surveys.write');
+    Route::delete('survey-templates/{template}', [\App\Http\Controllers\SurveyTemplateController::class, 'destroy'])->middleware('permission:surveys.write');
+    Route::post('survey-templates/create-from-survey', [\App\Http\Controllers\SurveyTemplateController::class, 'createFromSurvey'])->middleware('permission:surveys.write');
+});

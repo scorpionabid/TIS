@@ -100,6 +100,7 @@ export default function Surveys() {
     }),
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['survey-templates'] });
+      queryClient.invalidateQueries({ queryKey: ['survey-template-stats'] });
       toast({
         title: "Uğurlu!",
         description: `"${response.data?.template?.title || 'Template'}" template kimi yaradıldı`,
