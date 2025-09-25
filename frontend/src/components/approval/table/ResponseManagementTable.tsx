@@ -182,7 +182,9 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
 
       {/* Desktop Table Layout - hidden on small screens */}
       <div className="hidden md:block rounded-md border overflow-hidden">
-        <Table>
+        <div className="overflow-x-auto">
+          <div className="min-w-full inline-block align-middle">
+            <Table className="min-w-full">
           <ResponseTableHeader
             selectAll={tableState.selectAll}
             onSelectAll={tableState.handleSelectAll}
@@ -209,7 +211,9 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
               />
             ))}
           </TableBody>
-        </Table>
+            </Table>
+          </div>
+        </div>
       </div>
 
       {/* Pagination */}

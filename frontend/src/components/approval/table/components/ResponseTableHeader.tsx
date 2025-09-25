@@ -67,6 +67,7 @@ const ResponseTableHeader: React.FC<ResponseTableHeaderProps> = ({
   selectedCount,
   totalCount
 }) => {
+
   return (
     <TableHeader>
       <TableRow className="hover:bg-transparent border-b-2">

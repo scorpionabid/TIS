@@ -17,6 +17,7 @@ import { SurveyResponseForApproval } from "../../../../services/surveyApproval";
 import { getStatusDot, getProgressColor } from '../utils/statusHelpers';
 import ApprovalActions from './ApprovalActions';
 
+
 interface ResponseTableRowProps {
   response: SurveyResponseForApproval;
   isSelected: boolean;

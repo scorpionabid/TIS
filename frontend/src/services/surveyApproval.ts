@@ -160,50 +160,16 @@ class SurveyApprovalService {
    * Get all published surveys available for approval
    */
   async getPublishedSurveys(): Promise<PublishedSurvey[]> {
-    console.log('🔍 [SurveyApproval] Fetching published surveys...');
-    console.log('📡 API URL:', `${this.baseURL}/surveys/published`);
-    console.log('🔗 Full API URL will be:', `${this.baseURL}/surveys/published`);
-    console.log('🔑 Will use apiClient.get with URL:', `${this.baseURL}/surveys/published`);
-    
     try {
-      console.log('🚀 [SurveyApproval] Making API call...');
       const response = await apiClient.get(`${this.baseURL}/surveys/published`);
-      
-      console.log('✅ [SurveyApproval] Published surveys response received:', {
-        response,
-        responseType: typeof response,
-        responseKeys: response ? Object.keys(response) : null,
-        successField: response?.success,
-        dataField: response?.data,
-        messageField: response?.message
-      });
-      
-      if (!response) {
-        console.error('❌ [SurveyApproval] No response received');
-        throw new Error('No response received from server');
+
+      if (!response || !response.success) {
+        throw new Error(response?.message || 'Failed to fetch published surveys');
       }
-      
-      if (!response.success) {
-        console.error('❌ [SurveyApproval] API returned failure:', response);
-        throw new Error(response.message || 'API request failed');
-      }
-      
-      const surveys = response.data || [];
-      console.log('📊 [SurveyApproval] Published surveys count:', surveys.length);
-      console.log('📋 [SurveyApproval] Surveys data:', surveys);
-      return surveys;
-      
+
+      return response.data || [];
     } catch (error: any) {
-      console.error('💥 [SurveyApproval] Error fetching published surveys:', {
-        message: error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        config: error.config,
-        stack: error.stack
-      });
-      
-      // Re-throw the error for the calling component to handle
+      console.error('Error fetching published surveys:', error);
       throw error;
     }
   }

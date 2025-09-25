@@ -29,6 +29,7 @@ import surveyApprovalService, {
   ApprovalStats,
   SurveyResponseForApproval
 } from '../../services/surveyApproval';
+import { surveyService, SurveyQuestion } from '../../services/surveys';
 import { apiClient } from '../../services/apiOptimized';
 import ResponseManagementTable from './table/ResponseManagementTable';
 import ResponseDetailModal from './ResponseDetailModal';
@@ -97,6 +98,22 @@ const SurveyApprovalDashboard: React.FC = () => {
     staleTime: 10 * 60 * 1000, // 10 minutes
   });
 
+  // Get survey questions from the selected published survey
+  const surveyQuestions = React.useMemo(() => {
+    if (!selectedSurvey) return [];
+
+    // If the published survey already has questions loaded, use them
+    const questions = (selectedSurvey as any)?.questions || [];
+
+    console.log('🎯 [DEBUG] Survey questions from published survey:', {
+      selectedSurveyId: selectedSurvey?.id,
+      questionsCount: questions.length,
+      questions: questions
+    });
+
+    return questions;
+  }, [selectedSurvey]);
+
   // Log query states
   useEffect(() => {
     console.log('📊 [Dashboard] Query states updated:', {
@@ -115,6 +132,7 @@ const SurveyApprovalDashboard: React.FC = () => {
     if (Array.isArray(publishedSurveys) && publishedSurveys.length > 0 && !selectedSurvey) {
       console.log('🎯 [Dashboard] Published surveys data:', publishedSurveys);
       console.log('🎯 [Dashboard] First survey:', publishedSurveys[0]);
+      console.log('🎯 [Dashboard] First survey questions:', publishedSurveys[0]?.questions);
       setSelectedSurvey(publishedSurveys[0]);
     }
   }, [publishedSurveys, selectedSurvey]);
