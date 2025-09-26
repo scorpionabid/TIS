@@ -84,7 +84,7 @@ export function useResourceForm({
   // Load institutions for targeting
   const { data: institutions } = useQuery({
     queryKey: ['institutions'],
-    queryFn: () => institutionService.getAll({ per_page: 200 }),
+    queryFn: () => institutionService.getAll({ per_page: 1000 }),
     enabled: isOpen,
   });
 
