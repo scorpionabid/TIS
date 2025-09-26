@@ -80,7 +80,7 @@ class InstitutionService extends BaseService<Institution> {
   async getAll(params?: PaginationParams) {
     try {
       const response = await apiClient.get<Institution[]>(this.baseEndpoint, params);
-      return response as any; // PaginatedResponse
+      return response; // Response structure: { data: Institution[] }
     } catch (error) {
       console.error('❌ InstitutionService.getAll failed:', error);
       throw error;
