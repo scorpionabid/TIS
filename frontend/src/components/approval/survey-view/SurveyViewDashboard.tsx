@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/card';
 import { Alert, AlertDescription } from '../../ui/alert';
@@ -14,8 +14,32 @@ import {
 import surveyApprovalService, { PublishedSurvey } from '../../../services/surveyApproval';
 import SurveyResponsesDataTable from './SurveyResponsesDataTable';
 
+const STORAGE_KEY = 'surveyViewDashboard_selectedSurveyId';
+
 const SurveyViewDashboard: React.FC = () => {
   const [selectedSurvey, setSelectedSurvey] = useState<PublishedSurvey | null>(null);
+
+  // Helper functions for localStorage
+  const getStoredSurveyId = (): string | null => {
+    try {
+      return localStorage.getItem(STORAGE_KEY);
+    } catch (error) {
+      console.warn('Failed to read from localStorage:', error);
+      return null;
+    }
+  };
+
+  const storeSurveyId = (surveyId: string | null) => {
+    try {
+      if (surveyId) {
+        localStorage.setItem(STORAGE_KEY, surveyId);
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    } catch (error) {
+      console.warn('Failed to write to localStorage:', error);
+    }
+  };
 
   // Fetch published surveys
   const { data: publishedSurveys, isLoading: surveysLoading } = useQuery({
@@ -33,10 +57,29 @@ const SurveyViewDashboard: React.FC = () => {
     staleTime: 30 * 1000
   });
 
-  // Auto-select first survey if none selected
-  React.useEffect(() => {
+  // Restore selected survey from localStorage or auto-select first survey
+  useEffect(() => {
     if (Array.isArray(publishedSurveys) && publishedSurveys.length > 0 && !selectedSurvey) {
-      setSelectedSurvey(publishedSurveys[0]);
+      const storedSurveyId = getStoredSurveyId();
+
+      if (storedSurveyId) {
+        // Try to find the stored survey in the current list
+        const storedSurvey = publishedSurveys.find(
+          (survey: any) => survey.id.toString() === storedSurveyId
+        );
+
+        if (storedSurvey) {
+          setSelectedSurvey(storedSurvey);
+          return;
+        }
+        // If stored survey not found, clear it from storage
+        storeSurveyId(null);
+      }
+
+      // Default to first survey if no valid stored survey
+      const firstSurvey = publishedSurveys[0];
+      setSelectedSurvey(firstSurvey);
+      storeSurveyId(firstSurvey.id.toString()); // Save default selection
     }
   }, [publishedSurveys, selectedSurvey]);
 
@@ -80,7 +123,10 @@ const SurveyViewDashboard: React.FC = () => {
                 value={selectedSurvey?.id?.toString() || ""}
                 onValueChange={(value) => {
                   const survey = publishedSurveys.find((s: any) => s.id.toString() === value);
-                  if (survey) setSelectedSurvey(survey);
+                  if (survey) {
+                    setSelectedSurvey(survey);
+                    storeSurveyId(value); // Save selection to localStorage
+                  }
                 }}
               >
                 <SelectTrigger className="w-full max-w-md">
