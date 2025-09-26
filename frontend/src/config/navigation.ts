@@ -32,6 +32,7 @@ import {
   LucideIcon,
 } from 'lucide-react';
 import { UserRole, USER_ROLES } from '@/constants/roles';
+import { SidebarPanel } from '@/types/sidebar';
 
 export interface MenuItem {
   id: string;
@@ -48,6 +49,7 @@ export interface MenuGroup {
   label: string;
   items: MenuItem[];
   roles?: UserRole[];
+  panel: SidebarPanel;
 }
 
 // Improved navigation structure - cleaner and more logical
@@ -56,6 +58,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
   {
     id: 'dashboard',
     label: 'Ana Səhifə',
+    panel: 'work',
     roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM],
     items: [
       {
@@ -72,6 +75,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
   {
     id: 'system-structure',
     label: 'Sistem İdarəetməsi',
+    panel: 'management',
     roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN],
     items: [
       {
@@ -152,6 +156,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
   {
     id: 'sector-management',
     label: 'Sektor İdarəetməsi',
+    panel: 'work',
     roles: [USER_ROLES.SEKTORADMIN],
     items: [
       {
@@ -275,6 +280,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
   {
     id: 'school-management',
     label: 'Məktəb İdarəsi',
+    panel: 'work',
     roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM],
     items: [
       {
@@ -340,6 +346,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
   {
     id: 'academic-tracking',
     label: 'Akademik İzləmə',
+    panel: 'work',
     roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM],
     items: [
       {
@@ -416,6 +423,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
   {
     id: 'schedule-management',
     label: 'Cədvəl İdarəetməsi',
+    panel: 'work',
     roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM],
     items: [
       {
@@ -463,6 +471,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
   {
     id: 'content',
     label: 'Məzmun İdarəetməsi',
+    panel: 'work',
     roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
     items: [
       {
@@ -542,6 +551,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
   {
     id: 'analytics',
     label: 'Hesabat və Analitika',
+    panel: 'management',
     roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
     items: [
       {
@@ -565,6 +575,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
   {
     id: 'notifications',
     label: 'Bildirişlər',
+    panel: 'management',
     roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN],
     items: [
       {
@@ -581,6 +592,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
   {
     id: 'system-settings',
     label: 'Sistem Tənzimləmələri',
+    panel: 'management',
     roles: [USER_ROLES.SUPERADMIN],
     items: [
       {
@@ -619,6 +631,27 @@ export const getMenuForRole = (role: UserRole): MenuGroup[] => {
       items: filterMenuItems(group.items, role)
     }))
     .filter(group => group.items.length > 0);
+};
+
+// Panel əsaslı menu alımı
+export const getMenuForRoleAndPanel = (role: UserRole, panel: SidebarPanel): MenuGroup[] => {
+  return universalNavigationConfig
+    .filter(group => group.panel === panel)
+    .filter(group => !group.roles || group.roles.includes(role))
+    .map(group => ({
+      ...group,
+      items: filterMenuItems(group.items, role)
+    }))
+    .filter(group => group.items.length > 0);
+};
+
+// Panel dəstəyi ilə navigation helper funksiyaları
+export const getManagementMenuForRole = (role: UserRole): MenuGroup[] => {
+  return getMenuForRoleAndPanel(role, 'management');
+};
+
+export const getWorkMenuForRole = (role: UserRole): MenuGroup[] => {
+  return getMenuForRoleAndPanel(role, 'work');
 };
 
 // Helper function to recursively filter menu items based on role

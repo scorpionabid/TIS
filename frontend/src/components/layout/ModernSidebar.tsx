@@ -1,11 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { SidebarContainer } from '@/components/layout/components/Sidebar/SidebarContainer';
 import { SidebarHeader } from '@/components/layout/components/Sidebar/SidebarHeader';
+import { SidebarPanelSwitch } from '@/components/layout/components/Sidebar/SidebarPanelSwitch';
 import { SidebarMenu } from '@/components/layout/components/Sidebar/SidebarMenu';
 import { SidebarFooter } from '@/components/layout/components/Sidebar/SidebarFooter';
 import { useSidebarBehavior } from '@/hooks/useSidebar';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNavigationCache, useNavigationPerformance } from '@/hooks/useNavigationCache';
+import { useLayout } from '@/contexts/LayoutContext';
+import { getMenuForRoleAndPanel } from '@/config/navigation';
 
 interface ModernSidebarProps {
   onLogout: () => void;
@@ -14,32 +16,34 @@ interface ModernSidebarProps {
 export const ModernSidebar: React.FC<ModernSidebarProps> = ({ onLogout }) => {
   const { isExpanded } = useSidebarBehavior();
   const { currentUser } = useAuth();
-  const { navigationMenu, getCacheStats, cacheKey } = useNavigationCache();
-  const { measureMenuGeneration } = useNavigationPerformance();
+  const { sidebarPreferences } = useLayout();
 
-  // Debug user role and menu groups with performance monitoring
+  // Panel əsaslı navigation menu
+  const navigationMenu = useMemo(() => {
+    if (!currentUser) return [];
+
+    return getMenuForRoleAndPanel(
+      currentUser.role as any,
+      sidebarPreferences.activePanel
+    );
+  }, [currentUser, sidebarPreferences.activePanel]);
+
+  // Debug panel-based navigation
   useEffect(() => {
     if (currentUser && navigationMenu.length > 0) {
       console.log('Current User Role:', currentUser.role);
-      console.log('Cache Key:', cacheKey);
-      
-      // Measure performance
-      const perfStats = measureMenuGeneration(navigationMenu);
-      console.log('Navigation Performance:', perfStats);
-      
-      // Cache statistics
-      const cacheStats = getCacheStats();
-      console.log('Navigation Cache Stats:', cacheStats);
-      
-      // Debug each menu group
+      console.log('Active Panel:', sidebarPreferences.activePanel);
+      console.log('Panel Menu Groups:', navigationMenu.length);
+
+      // Debug each menu group for current panel
       navigationMenu.forEach((group, index) => {
-        console.log(`Menu Group ${index + 1}:`, group.label, 'Items:', group.items.length);
+        console.log(`Panel[${sidebarPreferences.activePanel}] Group ${index + 1}:`, group.label, 'Items:', group.items.length);
         group.items.forEach((item, itemIndex) => {
           console.log(`  Item ${itemIndex + 1}:`, item.label, 'Path:', item.path, 'Children:', item.children?.length || 0);
         });
       });
     }
-  }, [currentUser, navigationMenu, cacheKey, measureMenuGeneration, getCacheStats]);
+  }, [currentUser, navigationMenu, sidebarPreferences.activePanel]);
 
   if (!currentUser) return null;
 
@@ -47,6 +51,7 @@ export const ModernSidebar: React.FC<ModernSidebarProps> = ({ onLogout }) => {
     <SidebarContainer>
       <div className="flex flex-col h-full">
         <SidebarHeader isExpanded={isExpanded} />
+        <SidebarPanelSwitch isExpanded={isExpanded} />
         <SidebarMenu menuGroups={navigationMenu} />
         <SidebarFooter isExpanded={isExpanded} onLogout={onLogout} />
       </div>

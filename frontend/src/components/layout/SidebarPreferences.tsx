@@ -9,8 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { SidebarPreferences as SidebarPreferencesType, SidebarBehavior } from '@/types/sidebar';
-import { MousePointer, Hand } from 'lucide-react';
+import { SidebarPreferences as SidebarPreferencesType, SidebarBehavior, SidebarPanel } from '@/types/sidebar';
+import { MousePointer, Hand, Settings, Briefcase } from 'lucide-react';
 
 interface SidebarPreferencesProps {
   open: boolean;
@@ -36,6 +36,13 @@ export const SidebarPreferences: React.FC<SidebarPreferencesProps> = ({
     });
   };
 
+  const handlePanelChange = (panel: SidebarPanel) => {
+    onPreferencesChange({
+      ...preferences,
+      activePanel: panel,
+    });
+  };
+
   const handleSwitchChange = (key: keyof SidebarPreferencesType) => (checked: boolean) => {
     onPreferencesChange({
       ...preferences,
@@ -51,6 +58,31 @@ export const SidebarPreferences: React.FC<SidebarPreferencesProps> = ({
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Active Panel */}
+          <div>
+            <Label className="text-sm font-medium mb-3 block">Aktiv Panel</Label>
+            <RadioGroup
+              value={preferences.activePanel}
+              onValueChange={handlePanelChange}
+              className="space-y-2"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="work" id="work" className="h-4 w-4" />
+                <Label htmlFor="work" className="flex items-center gap-2 cursor-pointer text-sm">
+                  <Briefcase className="h-3 w-3" />
+                  İş Paneli
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="management" id="management" className="h-4 w-4" />
+                <Label htmlFor="management" className="flex items-center gap-2 cursor-pointer text-sm">
+                  <Settings className="h-3 w-3" />
+                  İdarə Paneli
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
           {/* Behavior Mode */}
           <div>
             <Label className="text-sm font-medium mb-3 block">Davranış</Label>
