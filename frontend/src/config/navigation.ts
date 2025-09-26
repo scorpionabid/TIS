@@ -28,6 +28,7 @@ import {
   Clock,
   CheckCircle,
   TrendingUp,
+  Archive,
   LucideIcon,
 } from 'lucide-react';
 import { UserRole, USER_ROLES } from '@/constants/roles';
@@ -519,18 +520,20 @@ export const improvedNavigationConfig: MenuGroup[] = [
         ]
       },
       {
-        id: 'documents',
-        label: 'Sənədlər',
-        path: '/documents',
-        icon: FileText,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]
+        id: 'resources',
+        label: 'Resurslər',
+        path: '/resources',
+        icon: Archive,
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN],
+        description: 'Linklər və sənədlərin vahid idarə edilməsi'
       },
       {
-        id: 'links',
-        label: 'Faydalı Linklər',
-        path: '/links',
-        icon: Link,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]
+        id: 'my-resources',
+        label: 'Mənim Resurslarım',
+        path: '/my-resources',
+        icon: BookOpen,
+        roles: [USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM],
+        description: 'Mənə təyin edilmiş linklər və sənədlər'
       }
     ]
   },
