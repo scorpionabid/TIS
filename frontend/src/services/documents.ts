@@ -95,10 +95,10 @@ class DocumentService extends BaseService<Document> {
 
   async uploadDocument(data: CreateDocumentData): Promise<Document> {
     const formData = new FormData();
-    
+
     // Add file
     formData.append('file', data.file);
-    
+
     // Add other fields with proper boolean handling
     Object.keys(data).forEach(key => {
       if (key !== 'file' && data[key as keyof CreateDocumentData] !== undefined) {
@@ -131,17 +131,37 @@ class DocumentService extends BaseService<Document> {
       fileType: data.file.type
     });
 
-    console.log('🔑 Request headers:', (apiClient as any).getHeaders());
+    // Use apiClient's internal method for FormData uploads with proper CSRF and credentials
+    const response = await this.uploadFormData(formData);
+    return response.data;
+  }
 
+  // Custom FormData upload method that uses apiClient infrastructure
+  private async uploadFormData(formData: FormData): Promise<{ data: Document }> {
+    // Ensure CSRF cookie is initialized (same as apiClient does)
+    const sanctumUrl = `${(apiClient as any).baseURL.replace('/api', '')}/sanctum/csrf-cookie`;
 
-    // Get headers but exclude Content-Type for FormData
+    try {
+      await fetch(sanctumUrl, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' },
+      });
+      console.log('🔐 CSRF cookie initialized for file upload');
+    } catch (error) {
+      console.error('❌ Failed to initialize CSRF cookie:', error);
+      throw new Error('Unable to initialize secure session for file upload');
+    }
+
+    // Get headers from apiClient but exclude Content-Type for FormData
     const headers = { ...((apiClient as any).getHeaders()) };
     delete headers['Content-Type']; // Let browser set multipart/form-data with boundary
 
-    console.log('🚀 Final request details:', {
+    console.log('🚀 FormData upload request:', {
       url: `${(apiClient as any).baseURL}${this.baseEndpoint}`,
       method: 'POST',
       headers: headers,
+      credentials: 'include',
       formDataEntries: [...formData.entries()].map(([key, value]) => ({
         key,
         value: value instanceof File ? `File(${value.name}, ${value.size} bytes)` : value
@@ -151,6 +171,7 @@ class DocumentService extends BaseService<Document> {
     const response = await fetch(`${(apiClient as any).baseURL}${this.baseEndpoint}`, {
       method: 'POST',
       headers: headers,
+      credentials: 'include', // Important for Sanctum SPA
       body: formData,
     });
 
@@ -186,7 +207,7 @@ class DocumentService extends BaseService<Document> {
     }
 
     const result = await response.json();
-    return result.data;
+    return result;
   }
 
   async downloadDocument(id: number): Promise<Blob> {

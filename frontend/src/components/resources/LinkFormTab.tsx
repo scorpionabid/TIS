@@ -3,6 +3,7 @@ import { Link } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { InstitutionTargeting } from "./InstitutionTargeting";
 
 import { Institution } from "@/services/institutions";
@@ -55,6 +56,30 @@ export function LinkFormTab({
               />
               {form.formState.errors.url && (
                 <p className="text-sm text-red-600 mt-1">{form.formState.errors.url.message}</p>
+              )}
+            </div>
+
+            <div>
+              <Label>Link Növü *</Label>
+              <Select
+                value={form.watch('link_type')}
+                onValueChange={(value) => {
+                  console.log('🔗 Link type changed:', value);
+                  form.setValue('link_type', value);
+                }}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Link növünü seçin" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="external">Xarici Link</SelectItem>
+                  <SelectItem value="video">Video</SelectItem>
+                  <SelectItem value="form">Form</SelectItem>
+                  <SelectItem value="document">Sənəd</SelectItem>
+                </SelectContent>
+              </Select>
+              {form.formState.errors.link_type && (
+                <p className="text-sm text-red-600 mt-1">{form.formState.errors.link_type.message}</p>
               )}
             </div>
 

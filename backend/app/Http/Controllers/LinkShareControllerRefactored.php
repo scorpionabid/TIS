@@ -80,6 +80,13 @@ class LinkShareControllerRefactored extends BaseController
                 'link_type' => 'required|string|in:external,video,form,document',
                 'share_scope' => 'required|string|in:public,regional,sectoral,institutional',
                 'is_featured' => 'boolean',
+                'expires_at' => 'nullable|date|after:now',
+                'target_institutions' => 'nullable|array',
+                'target_institutions.*' => 'integer|exists:institutions,id',
+                'target_roles' => 'nullable|array',
+                'target_roles.*' => 'string',
+                'target_departments' => 'nullable|array',
+                'target_departments.*' => 'integer',
             ]);
 
             $user = Auth::user();
@@ -96,10 +103,21 @@ class LinkShareControllerRefactored extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($request, $id) {
             $validated = $request->validate([
-                'password' => 'nullable|string|min:6|max:50',
-                'expires_at' => 'nullable|date|after:now',
-                'access_limit' => 'nullable|integer|min:1|max:10000',
+                'title' => 'sometimes|required|string|max:255',
                 'description' => 'nullable|string|max:500',
+                'url' => 'sometimes|required|url|max:2048',
+                'link_type' => 'sometimes|required|string|in:external,video,form,document',
+                'share_scope' => 'sometimes|required|string|in:public,regional,sectoral,institutional',
+                'is_featured' => 'boolean',
+                'expires_at' => 'nullable|date|after:now',
+                'target_institutions' => 'nullable|array',
+                'target_institutions.*' => 'integer|exists:institutions,id',
+                'target_roles' => 'nullable|array',
+                'target_roles.*' => 'string',
+                'target_departments' => 'nullable|array',
+                'target_departments.*' => 'integer',
+                'password' => 'nullable|string|min:6|max:50',
+                'access_limit' => 'nullable|integer|min:1|max:10000',
                 'allow_download' => 'boolean',
                 'notify_on_access' => 'boolean',
                 'custom_message' => 'nullable|string|max:1000',

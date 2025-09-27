@@ -283,6 +283,13 @@ class ApiClientOptimized {
       if (!response.ok) {
         if (isDevelopment) {
           log('error', 'API Error', { status: response.status, data });
+          // Enhanced validation error logging
+          if (response.status === 422 && data.errors) {
+            console.error('🔍 Validation errors detail:', data.errors);
+            Object.keys(data.errors).forEach(field => {
+              console.error(`❌ ${field}:`, data.errors[field]);
+            });
+          }
         }
 
         if (response.status === 401) {

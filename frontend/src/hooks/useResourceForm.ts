@@ -14,11 +14,18 @@ const linkSchema = z.object({
   title: z.string().min(1, 'Başlıq tələb olunur'),
   description: z.string().optional(),
   url: z.string().url('Düzgün URL daxil edin'),
+  link_type: z.enum(['external', 'video', 'form', 'document'], {
+    required_error: 'Link növü seçilməlidir'
+  }),
+  share_scope: z.enum(['public', 'regional', 'sectoral', 'institutional']).optional(),
   target_institutions: z.array(z.number()).optional(),
   target_roles: z.array(z.string()).optional(),
+  target_departments: z.array(z.number()).optional(),
+  is_featured: z.boolean().optional(),
+  expires_at: z.string().optional(),
 });
 
-const documentSchema = z.object({
+const documentCreateSchema = z.object({
   type: z.literal('document'),
   title: z.string().min(1, 'Başlıq tələb olunur'),
   description: z.string().optional(),
@@ -32,8 +39,27 @@ const documentSchema = z.object({
   expires_at: z.string().optional(),
 });
 
-const resourceSchema = z.union([linkSchema, documentSchema]);
-type ResourceFormData = z.infer<typeof resourceSchema>;
+const documentEditSchema = z.object({
+  type: z.literal('document'),
+  title: z.string().min(1, 'Başlıq tələb olunur'),
+  description: z.string().optional(),
+  file: z.instanceof(File).optional(),
+  category: z.enum(['administrative', 'financial', 'educational', 'hr', 'technical', 'other']).optional(),
+  target_institutions: z.array(z.number()).optional(),
+  target_departments: z.array(z.number()).optional(),
+  target_roles: z.array(z.string()).optional(),
+  is_downloadable: z.boolean().optional(),
+  is_viewable_online: z.boolean().optional(),
+  expires_at: z.string().optional(),
+});
+
+const getResourceSchema = (mode: 'create' | 'edit') => {
+  if (mode === 'edit') {
+    return z.union([linkSchema, documentEditSchema]);
+  }
+  return z.union([linkSchema, documentCreateSchema]);
+};
+type ResourceFormData = z.infer<ReturnType<typeof getResourceSchema>>;
 
 interface UseResourceFormProps {
   isOpen: boolean;
@@ -56,23 +82,33 @@ export function useResourceForm({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [institutionSearch, setInstitutionSearch] = useState('');
 
-  // Form setup with dynamic schema based on active tab
+  // Form setup with dynamic schema based on active tab and mode
   const form = useForm<ResourceFormData>({
-    resolver: zodResolver(resourceSchema),
+    resolver: zodResolver(getResourceSchema(mode)),
     defaultValues: {
       type: activeTab === 'links' ? 'link' : 'document',
       title: '',
       description: '',
       target_institutions: [],
       target_roles: [],
+      target_departments: [],
       // Link defaults
       url: '',
+      link_type: 'external',
+      share_scope: 'institutional',
+      is_featured: false,
+      expires_at: '',
       // Document defaults
       category: 'educational',
       is_downloadable: true,
       is_viewable_online: true,
     },
   });
+
+  // Update resolver when mode changes
+  useEffect(() => {
+    form.resolver = zodResolver(getResourceSchema(mode));
+  }, [mode, form]);
 
   // Load institutions for targeting
   const { data: institutions } = useQuery({
@@ -125,9 +161,14 @@ export function useResourceForm({
         description: resource.description || '',
         target_institutions: resource.target_institutions || [],
         target_roles: resource.target_roles || [],
+        target_departments: resource.target_departments || [],
         // Link fields
         ...(resource.type === 'link' && {
           url: resource.url || '',
+          link_type: resource.link_type || 'external',
+          share_scope: resource.share_scope || 'institutional',
+          is_featured: resource.is_featured || false,
+          expires_at: resource.expires_at || '',
         }),
         // Document fields
         ...(resource.type === 'document' && {
@@ -153,11 +194,13 @@ export function useResourceForm({
       console.log('🔥 handleSubmit called with data:', data);
       console.log('📁 selectedFile:', selectedFile);
       console.log('📋 activeTab:', activeTab);
+      console.log('🔧 mode:', mode);
+      console.log('📄 editing resource:', resource);
 
-      // Ensure file is included for document uploads
+      // Ensure file is included for document uploads (create mode) or when new file selected (edit mode)
       const resourceData: CreateResourceData = {
         ...data,
-        ...(activeTab === 'documents' && selectedFile ? { file: selectedFile } : {}),
+        ...(activeTab === 'documents' && (mode === 'create' || selectedFile) ? { file: selectedFile } : {}),
       };
 
       console.log('🎯 Final resourceData:', {

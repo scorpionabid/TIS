@@ -23,7 +23,19 @@ class DocumentValidationService extends BaseService
             'file_info' => $request->hasFile('file') ? [
                 'name' => $request->file('file')->getClientOriginalName(),
                 'size' => $request->file('file')->getSize()
-            ] : null
+            ] : null,
+            'boolean_fields' => [
+                'is_downloadable' => [
+                    'value' => $request->get('is_downloadable'),
+                    'type' => gettype($request->get('is_downloadable')),
+                    'exists' => $request->has('is_downloadable')
+                ],
+                'is_viewable_online' => [
+                    'value' => $request->get('is_viewable_online'),
+                    'type' => gettype($request->get('is_viewable_online')),
+                    'exists' => $request->has('is_viewable_online')
+                ]
+            ]
         ]);
 
         return Validator::make($request->all(), [

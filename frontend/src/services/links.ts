@@ -134,7 +134,21 @@ class LinkService extends BaseService<LinkShare> {
 
   async create(data: CreateLinkData): Promise<LinkShare> {
     console.log('🔥 LinkService.create called', data);
-    
+
+    // Enhanced debug logging for link creation
+    console.log('📋 Link creation data details:', {
+      title: data.title,
+      description: data.description,
+      url: data.url,
+      link_type: data.link_type,
+      share_scope: data.share_scope,
+      target_institutions: data.target_institutions,
+      target_roles: data.target_roles,
+      target_departments: data.target_departments,
+      is_featured: data.is_featured,
+      expires_at: data.expires_at
+    });
+
     try {
       const response = await apiClient.post(this.baseEndpoint, data);
       console.log('📤 API response for link create:', response);
@@ -205,17 +219,25 @@ class LinkService extends BaseService<LinkShare> {
 
   async accessLink(id: number): Promise<{url: string; redirect_url: string}> {
     console.log('🔗 LinkService.accessLink called for:', id);
-    
+
     try {
       const response = await apiClient.post(`${this.baseEndpoint}/${id}/access`);
       console.log('✅ Link access successful:', response);
-      
-      if (!response.redirect_url) {
-        console.error('❌ No redirect URL in response:', response);
+      console.log('🔍 Response data:', response.data);
+
+      // Backend response structure: {success: true, message: '...', data: {url: '...', redirect_url: '...'}}
+      const accessData = response.data;
+
+      if (!accessData || (!accessData.url && !accessData.redirect_url)) {
+        console.error('❌ No URL data in response:', response);
         throw new Error('Link URL məlumatı tapılmadı');
       }
-      
-      return response;
+
+      // Return the URL data from response.data
+      return {
+        url: accessData.url || accessData.redirect_url,
+        redirect_url: accessData.redirect_url || accessData.url
+      };
     } catch (error) {
       console.error('❌ Link access failed:', error);
       throw error;

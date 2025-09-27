@@ -69,8 +69,18 @@ export abstract class BaseService<T extends BaseEntity> {
       action: 'getAll',
       data: { endpoint: this.baseEndpoint, params }
     });
-    
+
+    console.log(`📡 BaseService.fetchAll ${this.baseEndpoint}:`, { params });
+
     const response = await apiClient.get<T[]>(this.baseEndpoint, params);
+
+    console.log(`📡 BaseService.fetchAll ${this.baseEndpoint} response:`, {
+      hasResponse: !!response,
+      hasData: !!response?.data,
+      dataStructure: response?.data ? Object.keys(response.data) : 'no data',
+      dataLength: response?.data?.data?.length || 'no data.data array',
+      response: response
+    });
     const data = handleArrayResponse<T>(response, `BaseService.getAll(${this.baseEndpoint})`);
     
     // Handle paginated response structure

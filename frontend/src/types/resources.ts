@@ -88,6 +88,7 @@ export interface UpdateResourceData {
 
   // Link specific updates
   url?: string;
+  link_type?: 'external' | 'video' | 'form' | 'document';
   is_featured?: boolean;
   share_scope?: 'public' | 'regional' | 'sectoral' | 'institutional' | 'specific_users';
 

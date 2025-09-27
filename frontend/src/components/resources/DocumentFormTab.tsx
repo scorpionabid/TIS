@@ -20,6 +20,8 @@ interface DocumentFormTabProps {
   setInstitutionSearch: (value: string) => void;
   selectInstitutionsByLevel: (level: number) => void;
   selectInstitutionsByType: (filterFn: (inst: any) => boolean) => void;
+  mode?: 'create' | 'edit';
+  currentFileName?: string;
 }
 
 export function DocumentFormTab({
@@ -32,6 +34,8 @@ export function DocumentFormTab({
   setInstitutionSearch,
   selectInstitutionsByLevel,
   selectInstitutionsByType,
+  mode = 'create',
+  currentFileName,
 }: DocumentFormTabProps) {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -71,7 +75,17 @@ export function DocumentFormTab({
             </div>
 
             <div>
-              <Label>Fayl Seçin *</Label>
+              <Label>
+                Fayl Seçin {mode === 'create' ? '*' : '(mövcud faylı dəyişdirmək üçün)'}
+              </Label>
+
+              {mode === 'edit' && currentFileName && !selectedFile && (
+                <div className="mt-1 p-2 bg-muted rounded-md flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  <span className="text-sm">Mövcud fayl: {currentFileName}</span>
+                </div>
+              )}
+
               <div className="mt-1">
                 <input
                   type="file"

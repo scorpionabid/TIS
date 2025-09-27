@@ -106,8 +106,8 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={contentRef}
         className={cn(
-          // Base modal styles
-          "fixed left-[50%] top-[50%] z-50 grid w-full translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background shadow-lg duration-200",
+          // Base modal styles - Changed from grid to flex for better control
+          "fixed left-[50%] top-[50%] z-50 flex flex-col w-full translate-x-[-50%] translate-y-[-50%] border bg-background shadow-lg duration-200",
           // Mobile styles using existing CSS classes
           isMobile ? "modal-content inset-2 h-[90vh] w-[calc(100vw-1rem)] max-w-none rounded-lg p-4" : "max-w-lg p-6 sm:rounded-lg",
           // Animations

@@ -67,14 +67,15 @@ export function ResourceModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader className="pb-4">
+      <DialogContent className="max-w-2xl max-h-[85vh] h-fit flex flex-col">
+        <DialogHeader className="pb-4 flex-shrink-0">
           <DialogTitle className="text-lg font-semibold">
             {mode === 'create' ? 'Yeni Resurs' : 'Resurs Redaktə Et'}
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+        <div className="flex-1 overflow-y-auto">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 pb-4">
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'links' | 'documents')} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4">
               <TabsTrigger value="links" className="text-sm">
@@ -110,19 +111,27 @@ export function ResourceModal({
                 setInstitutionSearch={setInstitutionSearch}
                 selectInstitutionsByLevel={selectInstitutionsByLevel}
                 selectInstitutionsByType={selectInstitutionsByType}
+                mode={mode}
+                currentFileName={resource?.original_filename}
               />
             </TabsContent>
           </Tabs>
+          </form>
+        </div>
 
-          <DialogFooter className="pt-4 gap-2">
-            <Button type="button" variant="outline" onClick={onClose} size="sm">
-              Ləğv et
-            </Button>
-            <Button type="submit" disabled={form.formState.isSubmitting} size="sm">
-              {form.formState.isSubmitting ? 'Yüklənir...' : mode === 'create' ? 'Yaradın' : 'Yenilə'}
-            </Button>
-          </DialogFooter>
-        </form>
+        <DialogFooter className="pt-4 gap-2 flex-shrink-0 border-t">
+          <Button type="button" variant="outline" onClick={onClose} size="sm">
+            Ləğv et
+          </Button>
+          <Button
+            type="submit"
+            disabled={form.formState.isSubmitting}
+            size="sm"
+            onClick={form.handleSubmit(handleSubmit)}
+          >
+            {form.formState.isSubmitting ? 'Yüklənir...' : mode === 'create' ? 'Yaradın' : 'Yenilə'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

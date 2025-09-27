@@ -22,7 +22,19 @@ class ResourceService extends BaseService<Resource> {
    */
   async getAll(filters: ResourceFilters = {}) {
     try {
+      // Clear documents cache if fetching documents to ensure fresh data
+      if (!filters.type || filters.type === 'document') {
+        documentService.clearServiceCache();
+        console.log('🧹 Cleared documents cache for fresh data');
+      }
+
       const requests = [];
+
+      console.log('🚀 ResourceService.getAll request planning:', {
+        filterType: filters.type,
+        shouldFetchLinks: !filters.type || filters.type === 'link',
+        shouldFetchDocuments: !filters.type || filters.type === 'document'
+      });
 
       // Fetch links if needed
       if (!filters.type || filters.type === 'link') {
@@ -56,21 +68,75 @@ class ResourceService extends BaseService<Resource> {
       const responses = await Promise.all(requests);
       const allResources: Resource[] = [];
 
+      console.log('🔍 ResourceService.getAll responses:', {
+        requestCount: requests.length,
+        responseCount: responses.length,
+        filterType: filters.type,
+        responses: responses.map((r, i) => ({
+          index: i,
+          hasData: !!r?.data,
+          dataLength: r?.data?.data?.length || 0,
+          response: r
+        }))
+      });
+
+      console.log('🔍 ResourceService.getAll detailed responses:', responses);
+
       // Process links
       if (responses[0] && (!filters.type || filters.type === 'link')) {
-        const links = responses[0].data?.data || [];
+        const response = responses[0];
+        // Try both data structures for links
+        let links = [];
+        if (response.data?.data && Array.isArray(response.data.data)) {
+          links = response.data.data;
+        } else if (Array.isArray(response.data)) {
+          links = response.data;
+        }
+
+        console.log('🔗 Processing links:', links.length);
         allResources.push(...links.map((link: any) => ({
           ...link,
           type: 'link' as const,
-          created_by: link.shared_by,
+          created_by: typeof link.shared_by === 'number' ? link.shared_by : link.shared_by?.id,
           creator: link.sharedBy,
         })));
       }
 
-      // Process documents
-      const documentsIndex = filters.type === 'link' ? -1 : (filters.type === 'document' ? 0 : 1);
-      if (responses[documentsIndex] && documentsIndex >= 0) {
-        const documents = responses[documentsIndex].data?.data || [];
+      // Process documents - Fix the index logic
+      let documentsIndex = -1;
+      if (filters.type === 'document') {
+        documentsIndex = 0; // Only documents requested
+      } else if (!filters.type) {
+        documentsIndex = 1; // Both links and documents, documents are second
+      }
+      // If filters.type === 'link', documentsIndex stays -1 (no documents)
+
+      console.log('📄 Documents index calculated:', documentsIndex);
+
+      if (documentsIndex >= 0 && responses[documentsIndex]) {
+        const response = responses[documentsIndex];
+        console.log('📄 Documents response structure:', {
+          hasResponse: !!response,
+          responseKeys: Object.keys(response || {}),
+          hasData: !!response?.data,
+          dataKeys: response?.data ? Object.keys(response.data) : 'no data',
+          dataStructure: response?.data,
+          dataDataArray: response?.data?.data,
+          dataDataLength: response?.data?.data?.length || 0
+        });
+
+        // Try both data structures: paginated (response.data.data) and direct array (response.data)
+        let documents = [];
+        if (response.data?.data && Array.isArray(response.data.data)) {
+          // Paginated response structure
+          documents = response.data.data;
+        } else if (Array.isArray(response.data)) {
+          // Direct array response structure
+          documents = response.data;
+        }
+
+        console.log('📄 Processing documents:', documents.length, documents);
+
         allResources.push(...documents.map((doc: any) => ({
           ...doc,
           type: 'document' as const,
@@ -171,6 +237,11 @@ class ResourceService extends BaseService<Resource> {
         }
       }
 
+      // Clear all resource caches after successful creation
+      linkService.clearServiceCache();
+      documentService.clearServiceCache();
+      console.log('🧹 Cleared all resource caches after creation');
+
       console.log('✅ ResourceService.create successful:', result);
       return result!;
 
@@ -194,6 +265,7 @@ class ResourceService extends BaseService<Resource> {
           title: data.title,
           description: data.description,
           url: data.url,
+          link_type: data.link_type,
           share_scope: data.share_scope,
           target_institutions: data.target_institutions,
           target_roles: data.target_roles,

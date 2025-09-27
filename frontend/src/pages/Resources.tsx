@@ -23,23 +23,15 @@ import {
   Search,
   Link,
   FileText,
-  Eye,
-  Download,
-  Share,
   ExternalLink,
   Archive,
-  Filter,
   ChevronDown,
-  Building2,
-  User,
-  Clock,
-  MousePointer,
   AlertCircle,
   Loader2,
   TrendingUp,
-  Globe,
-  Bookmark,
-  Video
+  Video,
+  Edit,
+  Trash2
 } from "lucide-react";
 import { ResourceModal } from "@/components/modals/ResourceModal";
 import { useToast } from "@/hooks/use-toast";
@@ -68,6 +60,7 @@ export default function Resources() {
   // Modal states
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [selectedResourceType, setSelectedResourceType] = useState<'link' | 'document'>('link');
+  const [editingResource, setEditingResource] = useState<Resource | null>(null);
 
   // Check permissions
   const isAuthenticated = !!currentUser;
@@ -133,6 +126,15 @@ export default function Resources() {
 
   const resourcesData = resources?.data?.data || [];
 
+  // Debug resources data for tabs count
+  console.log('📊 Resources data for tabs:', {
+    resourcesData: resourcesData.length,
+    rawResources: resources,
+    activeTab,
+    linkCount: resourcesData.filter(r => r.type === 'link').length,
+    documentCount: resourcesData.filter(r => r.type === 'document').length
+  });
+
   // Helper functions
   const getResourceIcon = (resource: Resource) => {
     if (resource.type === 'link') {
@@ -158,35 +160,27 @@ export default function Resources() {
     return '';
   };
 
-  const handleResourceAction = async (resource: Resource, action: 'view' | 'access' | 'download') => {
+  const handleResourceAction = async (resource: Resource, action: 'edit' | 'delete') => {
     try {
       switch (action) {
-        case 'access':
-          if (resource.type === 'link' && resource.url) {
-            const result = await resourceService.accessResource(resource.id, 'link');
-            window.open(result.redirect_url || resource.url, '_blank', 'noopener,noreferrer');
-            // Refresh to update click counts
+        case 'edit':
+          // Open edit modal with resource data
+          setEditingResource(resource);
+          setSelectedResourceType(resource.type);
+          setCreateModalOpen(true);
+          break;
+        case 'delete':
+          // Confirm deletion
+          if (window.confirm(`"${resource.title}" resursu silinsin?`)) {
+            await resourceService.delete(resource.id, resource.type);
+            toast({
+              title: 'Uğurla silindi',
+              description: `${resource.type === 'link' ? 'Link' : 'Sənəd'} müvəffəqiyyətlə silindi`,
+            });
+            // Refresh resources list
             queryClient.invalidateQueries({ queryKey: ['resources'] });
+            queryClient.invalidateQueries({ queryKey: ['resource-stats'] });
           }
-          break;
-        case 'download':
-          if (resource.type === 'document') {
-            const result = await resourceService.accessResource(resource.id, 'document');
-            if (result.url) {
-              const a = document.createElement('a');
-              a.href = result.url;
-              a.download = resource.original_filename || resource.title;
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
-              URL.revokeObjectURL(result.url);
-              // Refresh to update download counts
-              queryClient.invalidateQueries({ queryKey: ['resources'] });
-            }
-          }
-          break;
-        case 'view':
-          // Open resource view modal (to be implemented)
           break;
       }
     } catch (error: any) {
@@ -199,21 +193,28 @@ export default function Resources() {
     }
   };
 
-  const handleResourceCreated = (resource: Resource) => {
+  const handleResourceSaved = (resource: Resource) => {
+    const isEditing = !!editingResource;
+
     toast({
-      title: 'Uğurla yaradıldı',
-      description: `${getResourceTypeLabel(resource)} uğurla yaradıldı və müəssisələrə göndərildi`,
+      title: isEditing ? 'Uğurla yeniləndi' : 'Uğurla yaradıldı',
+      description: `${getResourceTypeLabel(resource)} ${isEditing ? 'yeniləndi' : 'yaradıldı və müəssisələrə göndərildi'}`,
     });
 
     // Refresh all queries
     queryClient.invalidateQueries({ queryKey: ['resources'] });
     queryClient.invalidateQueries({ queryKey: ['resource-stats'] });
 
-    // Reset filters to show new resource
-    setSearchTerm('');
-    setActiveTab('all');
-    setSortBy('created_at');
-    setSortDirection('desc');
+    // Reset filters to show new/updated resource (only for new resources)
+    if (!isEditing) {
+      setSearchTerm('');
+      setActiveTab('all');
+      setSortBy('created_at');
+      setSortDirection('desc');
+    }
+
+    // Reset modal state
+    setEditingResource(null);
   };
 
   if (error) {
@@ -251,6 +252,7 @@ export default function Resources() {
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={() => {
+                setEditingResource(null);
                 setSelectedResourceType('link');
                 setCreateModalOpen(true);
               }}>
@@ -258,6 +260,7 @@ export default function Resources() {
                 Yeni Link
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => {
+                setEditingResource(null);
                 setSelectedResourceType('document');
                 setCreateModalOpen(true);
               }}>
@@ -359,9 +362,15 @@ export default function Resources() {
       {/* Tabbed Content */}
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="all">Hamısı ({resourcesData.length})</TabsTrigger>
-          <TabsTrigger value="links">Linklər ({resourcesData.filter(r => r.type === 'link').length})</TabsTrigger>
-          <TabsTrigger value="documents">Sənədlər ({resourcesData.filter(r => r.type === 'document').length})</TabsTrigger>
+          <TabsTrigger value="all">
+            Hamısı ({stats?.total_resources || 0})
+          </TabsTrigger>
+          <TabsTrigger value="links">
+            Linklər ({stats?.total_links || 0})
+          </TabsTrigger>
+          <TabsTrigger value="documents">
+            Sənədlər ({stats?.total_documents || 0})
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="mt-6">
@@ -401,13 +410,17 @@ export default function Resources() {
         </div>
       )}
 
-      {/* Create Resource Modal */}
+      {/* Create/Edit Resource Modal */}
       <ResourceModal
         isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
+        onClose={() => {
+          setCreateModalOpen(false);
+          setEditingResource(null);
+        }}
         resourceType={selectedResourceType}
-        mode="create"
-        onResourceSaved={handleResourceCreated}
+        resource={editingResource}
+        mode={editingResource ? 'edit' : 'create'}
+        onResourceSaved={handleResourceSaved}
       />
     </div>
   );
@@ -416,10 +429,31 @@ export default function Resources() {
 // Resource Grid Component
 interface ResourceGridProps {
   resources: Resource[];
-  onResourceAction: (resource: Resource, action: 'view' | 'access' | 'download') => void;
+  onResourceAction: (resource: Resource, action: 'edit' | 'delete') => void;
 }
 
 function ResourceGrid({ resources, onResourceAction }: ResourceGridProps) {
+  const { currentUser } = useAuth();
+
+  // Debug ResourceGrid props
+  console.log('🎯 ResourceGrid received:', {
+    resourcesCount: resources.length,
+    resources: resources.map(r => ({ id: r.id, type: r.type, title: r.title }))
+  });
+
+  // Check if current user can edit/delete resource
+  const canEditResource = (resource: Resource) => {
+    if (!currentUser) return false;
+
+    // SuperAdmin can edit everything
+    if (currentUser.role === 'superadmin') return true;
+
+    // Creator can edit their own resources
+    if (resource.created_by === currentUser.id) return true;
+
+    return false;
+  };
+
   const getResourceIcon = (resource: Resource) => {
     if (resource.type === 'link') {
       switch (resource.link_type) {
@@ -454,117 +488,101 @@ function ResourceGrid({ resources, onResourceAction }: ResourceGridProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {resources.map((resource: Resource) => (
-        <Card key={`${resource.type}-${resource.id}`} className="hover:shadow-lg transition-shadow">
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                {getResourceIcon(resource)}
-                <CardTitle className="text-base truncate">{resource.title}</CardTitle>
-              </div>
-              <div className="flex gap-1 ml-2">
-                <Badge variant="outline" className="text-xs">
-                  {resource.type === 'link' ? 'Link' : 'Sənəd'}
-                </Badge>
-                {resource.type === 'link' && resource.is_featured && (
-                  <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300 text-xs">
-                    ★
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <CardDescription className="text-xs">
-              {resource.type === 'link' && resource.url
-                ? (() => {
-                    try {
-                      return new URL(resource.url).hostname;
-                    } catch {
-                      return resource.url.length > 30 ? resource.url.substring(0, 30) + '...' : resource.url;
-                    }
-                  })()
-                : resource.type === 'document' && resource.original_filename
-                ? `${resource.mime_type?.split('/')[1]?.toUpperCase()} • ${resourceService.formatResourceSize(resource)}`
-                : 'Resurs'
-              }
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="space-y-3">
-              {resource.description && (
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {resource.description}
-                </p>
-              )}
-
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                {resource.type === 'link' && (
-                  <div className="flex items-center gap-1">
-                    <MousePointer className="h-3 w-3" />
-                    <span>{resource.click_count || 0} klik</span>
+    <div className="border rounded-lg">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-muted/50">
+            <tr>
+              <th className="text-left p-4 font-medium">Növ</th>
+              <th className="text-left p-4 font-medium">Başlıq</th>
+              <th className="text-left p-4 font-medium">Yaradıcı</th>
+              <th className="text-left p-4 font-medium">Tarix</th>
+              <th className="text-left p-4 font-medium">Əməliyyatlar</th>
+            </tr>
+          </thead>
+          <tbody>
+            {resources.map((resource: Resource) => (
+              <tr key={`${resource.type}-${resource.id}`} className="border-t hover:bg-muted/50">
+                <td className="p-4">
+                  <div className="flex items-center gap-2">
+                    {getResourceIcon(resource)}
+                    <span className="text-sm font-medium">
+                      {resource.type === 'link' ? 'Link' : 'Sənəd'}
+                    </span>
                   </div>
-                )}
-                {resource.type === 'document' && (
-                  <div className="flex items-center gap-1">
-                    <Download className="h-3 w-3" />
-                    <span>{resource.download_count || 0} yükləmə</span>
+                </td>
+                <td className="p-4">
+                  <div>
+                    <div className="font-medium">{resource.title}</div>
+                    {resource.type === 'document' && resource.original_filename && (
+                      <div className="text-sm text-muted-foreground">
+                        📎 {resource.original_filename}
+                      </div>
+                    )}
+                    {resource.type === 'document' && resource.file_extension && (
+                      <div className="text-xs text-blue-600 font-medium uppercase">
+                        {resource.file_extension} • {resourceService.formatResourceSize(resource)}
+                      </div>
+                    )}
+                    {resource.type === 'link' && resource.url && (
+                      <div className="text-sm text-muted-foreground truncate max-w-xs">
+                        🔗 {(() => {
+                          try {
+                            return new URL(resource.url).hostname;
+                          } catch {
+                            return resource.url.length > 40 ? resource.url.substring(0, 40) + '...' : resource.url;
+                          }
+                        })()}
+                      </div>
+                    )}
+                    {resource.type === 'link' && resource.link_type && (
+                      <div className="text-xs text-purple-600 font-medium uppercase">
+                        {resource.link_type} • {resource.click_count || 0} kliklər
+                      </div>
+                    )}
+                    {resource.description && (
+                      <div className="text-sm text-muted-foreground truncate max-w-xs mt-1">
+                        {resource.description}
+                      </div>
+                    )}
                   </div>
-                )}
-                <div className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  <span>{formatDate(resource.created_at)}</span>
-                </div>
-              </div>
-
-              {resource.creator && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <User className="h-3 w-3" />
-                  <span>{resource.creator.first_name} {resource.creator.last_name}</span>
-                  {resource.institution && (
-                    <>
-                      <span>•</span>
-                      <Building2 className="h-3 w-3" />
-                      <span>{resource.institution.name}</span>
-                    </>
-                  )}
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => onResourceAction(resource, 'view')}
-                >
-                  <Eye className="h-3 w-3 mr-1" />
-                  Bax
-                </Button>
-                {resource.type === 'link' ? (
-                  <Button
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => onResourceAction(resource, 'access')}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    Aç
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => onResourceAction(resource, 'download')}
-                    disabled={!resource.is_downloadable}
-                  >
-                    <Download className="h-3 w-3 mr-1" />
-                    Yüklə
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+                </td>
+                <td className="p-4">
+                  <div className="text-sm">
+                    {resource.creator?.first_name} {resource.creator?.last_name}
+                  </div>
+                </td>
+                <td className="p-4">
+                  <div className="text-sm">{formatDate(resource.created_at)}</div>
+                </td>
+                <td className="p-4">
+                  <div className="flex gap-1 flex-wrap">
+                    {canEditResource(resource) && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onResourceAction(resource, 'edit')}
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onResourceAction(resource, 'delete')}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
