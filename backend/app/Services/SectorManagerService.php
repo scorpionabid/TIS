@@ -27,7 +27,7 @@ class SectorManagerService extends BaseService
             if ($userInstitution && $userInstitution->level === 2) {
                 // RegionAdmin can only assign managers to sectors in their region
                 $sectorIds = Institution::where('parent_id', $userInstitution->id)
-                    ->where('type', 'sector')
+                    ->where('type', 'sector_education_office')
                     ->pluck('id');
 
                 $query->where(function ($q) use ($sectorIds) {
@@ -81,7 +81,7 @@ class SectorManagerService extends BaseService
     {
         return DB::transaction(function () use ($sectorId, $managerId, $user) {
             // Verify sector exists and user has access
-            $sectorQuery = Institution::where('type', 'sector')
+            $sectorQuery = Institution::where('type', 'sector_education_office')
                 ->where('level', 3);
             
             $this->applySectorAccessControl($sectorQuery, $user);
@@ -133,7 +133,7 @@ class SectorManagerService extends BaseService
     {
         return DB::transaction(function () use ($sectorId, $user) {
             // Verify sector exists and user has access
-            $sectorQuery = Institution::where('type', 'sector')
+            $sectorQuery = Institution::where('type', 'sector_education_office')
                 ->where('level', 3);
             
             $this->applySectorAccessControl($sectorQuery, $user);
@@ -166,7 +166,7 @@ class SectorManagerService extends BaseService
     public function getSectorManager(int $sectorId, $user): ?array
     {
         // Verify sector exists and user has access
-        $sectorQuery = Institution::where('type', 'sector')
+        $sectorQuery = Institution::where('type', 'sector_education_office')
             ->where('level', 3);
         
         $this->applySectorAccessControl($sectorQuery, $user);
@@ -183,7 +183,7 @@ class SectorManagerService extends BaseService
     public function getManagerHistory(int $sectorId, $user): array
     {
         // Verify sector exists and user has access
-        $sectorQuery = Institution::where('type', 'sector')
+        $sectorQuery = Institution::where('type', 'sector_education_office')
             ->where('level', 3);
         
         $this->applySectorAccessControl($sectorQuery, $user);
@@ -313,7 +313,7 @@ class SectorManagerService extends BaseService
             }
         } elseif ($user->hasRole('sektoradmin')) {
             $userInstitution = $user->institution;
-            if ($userInstitution && $userInstitution->level === 3 && $userInstitution->type === 'sector') {
+            if ($userInstitution && $userInstitution->level === 3 && $userInstitution->type === 'sector_education_office') {
                 $query->where('id', $userInstitution->id);
             }
         }
@@ -370,7 +370,7 @@ class SectorManagerService extends BaseService
             $userInstitution = $user->institution;
             if ($userInstitution && $userInstitution->level === 2) {
                 $sectorIds = Institution::where('parent_id', $userInstitution->id)
-                    ->where('type', 'sector')
+                    ->where('type', 'sector_education_office')
                     ->pluck('id');
 
                 $baseQuery->where(function ($q) use ($sectorIds) {

@@ -73,7 +73,7 @@ class InstitutionAccessMiddleware
         // SektorAdmin can access schools in their sector
         if ($user->hasRole('sektoradmin')) {
             $userInstitution = $user->institution;
-            if ($userInstitution && $userInstitution->type === 'sector') {
+            if ($userInstitution && $userInstitution->type === 'sector_education_office') {
                 $requestedInstitution = \App\Models\Institution::find($institutionId);
                 if ($requestedInstitution && $requestedInstitution->parent_id === $userInstitution->id) {
                     return true;

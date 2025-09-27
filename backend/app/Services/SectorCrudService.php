@@ -19,7 +19,7 @@ class SectorCrudService extends BaseService
     public function getSectors(Request $request, $user): array
     {
         $query = Institution::with(['parent', 'children', 'users', 'manager'])
-            ->where('type', 'sector')
+            ->where('type', 'sector_education_office')
             ->where('level', 3);
 
         // Apply role-based filtering
@@ -66,7 +66,7 @@ class SectorCrudService extends BaseService
     public function getSector(int $id, $user): array
     {
         $query = Institution::with(['parent', 'children.institutionType', 'users', 'manager'])
-            ->where('type', 'sector')
+            ->where('type', 'sector_education_office')
             ->where('level', 3);
 
         $this->applySectorAccessControl($query, $user);
@@ -92,7 +92,7 @@ class SectorCrudService extends BaseService
             $sector = Institution::create([
                 'name' => $data['name'],
                 'code' => $data['code'],
-                'type' => 'sector',
+                'type' => 'sector_education_office',
                 'level' => 3,
                 'parent_id' => $data['parent_id'],
                 'address' => $data['address'] ?? null,
@@ -118,7 +118,7 @@ class SectorCrudService extends BaseService
     public function updateSector(int $id, array $data, $user): Institution
     {
         return DB::transaction(function () use ($id, $data, $user) {
-            $query = Institution::where('type', 'sector')->where('level', 3);
+            $query = Institution::where('type', 'sector_education_office')->where('level', 3);
             $this->applySectorAccessControl($query, $user);
             
             $sector = $query->findOrFail($id);
@@ -150,7 +150,7 @@ class SectorCrudService extends BaseService
     public function deleteSector(int $id, $user): void
     {
         DB::transaction(function () use ($id, $user) {
-            $query = Institution::where('type', 'sector')->where('level', 3);
+            $query = Institution::where('type', 'sector_education_office')->where('level', 3);
             $this->applySectorAccessControl($query, $user);
             
             $sector = $query->findOrFail($id);
@@ -176,7 +176,7 @@ class SectorCrudService extends BaseService
      */
     public function toggleSectorStatus(int $id, $user): Institution
     {
-        $query = Institution::where('type', 'sector')->where('level', 3);
+        $query = Institution::where('type', 'sector_education_office')->where('level', 3);
         $this->applySectorAccessControl($query, $user);
         
         $sector = $query->findOrFail($id);
@@ -201,7 +201,7 @@ class SectorCrudService extends BaseService
             }
         } elseif ($user->hasRole('sektoradmin')) {
             $userInstitution = $user->institution;
-            if ($userInstitution && $userInstitution->level === 3 && $userInstitution->type === 'sector') {
+            if ($userInstitution && $userInstitution->level === 3 && $userInstitution->type === 'sector_education_office') {
                 $query->where('id', $userInstitution->id);
             }
         }
@@ -293,7 +293,7 @@ class SectorCrudService extends BaseService
      */
     private function getSectorsSummary($user, Request $request): array
     {
-        $baseQuery = Institution::where('type', 'sector')->where('level', 3);
+        $baseQuery = Institution::where('type', 'sector_education_office')->where('level', 3);
         $this->applySectorAccessControl($baseQuery, $user);
 
         // Apply same filters as main query

@@ -21,7 +21,7 @@ class SectorAnalyticsService extends BaseService
         $dateFrom = $request->get('date_from', Carbon::now()->subMonth()->format('Y-m-d'));
         $dateTo = $request->get('date_to', Carbon::now()->format('Y-m-d'));
 
-        $baseQuery = Institution::where('type', 'sector')->where('level', 3);
+        $baseQuery = Institution::where('type', 'sector_education_office')->where('level', 3);
         $this->applySectorAccessControl($baseQuery, $user);
 
         $overview = $this->getOverviewStatistics($baseQuery);
@@ -55,7 +55,7 @@ class SectorAnalyticsService extends BaseService
      */
     public function getSectorPerformanceMetrics(int $sectorId, $user): array
     {
-        $sectorQuery = Institution::where('type', 'sector')->where('level', 3);
+        $sectorQuery = Institution::where('type', 'sector_education_office')->where('level', 3);
         $this->applySectorAccessControl($sectorQuery, $user);
         
         $sector = $sectorQuery->findOrFail($sectorId);
@@ -79,7 +79,7 @@ class SectorAnalyticsService extends BaseService
      */
     public function getSectorComparison(array $sectorIds, $user): array
     {
-        $sectorQuery = Institution::where('type', 'sector')
+        $sectorQuery = Institution::where('type', 'sector_education_office')
             ->where('level', 3)
             ->whereIn('id', $sectorIds);
         
@@ -502,7 +502,7 @@ class SectorAnalyticsService extends BaseService
             }
         } elseif ($user->hasRole('sektoradmin')) {
             $userInstitution = $user->institution;
-            if ($userInstitution && $userInstitution->level === 3 && $userInstitution->type === 'sector') {
+            if ($userInstitution && $userInstitution->level === 3 && $userInstitution->type === 'sector_education_office') {
                 $query->where('id', $userInstitution->id);
             }
         }
@@ -603,7 +603,7 @@ class SectorAnalyticsService extends BaseService
     private function getBenchmarkingData(Institution $sector, $user): array
     {
         // Get all accessible sectors for comparison
-        $allSectorsQuery = Institution::where('type', 'sector')
+        $allSectorsQuery = Institution::where('type', 'sector_education_office')
             ->where('level', 3)
             ->where('id', '!=', $sector->id);
         
