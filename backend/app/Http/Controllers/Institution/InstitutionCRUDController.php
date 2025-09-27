@@ -51,11 +51,19 @@ class InstitutionCRUDController extends Controller
 
         if ($request->has('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('institution_code', 'like', "%{$search}%")
-                  ->orWhere('short_name', 'like', "%{$search}%");
-            });
+
+            // Check if search is in format "type:value"
+            if (strpos($search, 'type:') === 0) {
+                $typeValue = substr($search, 5); // Remove "type:" prefix
+                $query->where('type', $typeValue);
+            } else {
+                // Regular search in name, code, and short_name
+                $query->where(function($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhere('institution_code', 'like', "%{$search}%")
+                      ->orWhere('short_name', 'like', "%{$search}%");
+                });
+            }
         }
 
         // Paginate results
