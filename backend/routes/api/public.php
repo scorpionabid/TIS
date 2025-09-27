@@ -44,3 +44,16 @@ Route::get('version', [HealthController::class, 'version']);
 // Application configuration endpoints (no auth required)
 Route::get('config/app', [ConfigController::class, 'getAppConfig']);
 Route::get('config/constants', [ConfigController::class, 'getConstants']);
+
+// WebSocket configuration endpoint (no auth required)
+Route::get('test/websocket/info', function () {
+    return response()->json([
+        'success' => true,
+        'data' => [
+            'app_key' => env('REVERB_APP_KEY', 'atis-key'),
+            'reverb_host' => env('REVERB_HOST', '127.0.0.1'),
+            'reverb_port' => (int) env('REVERB_PORT', 8080),
+            'reverb_scheme' => env('REVERB_PORT', 8080) == 443 ? 'https' : 'http',
+        ]
+    ]);
+});

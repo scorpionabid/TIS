@@ -7,6 +7,7 @@ use App\Models\NotificationTemplate;
 use App\Models\User;
 use App\Models\Task;
 use App\Models\Survey;
+use App\Events\NotificationSent;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 
@@ -128,10 +129,16 @@ class NotificationService
                     $individualData = $notificationData;
                     $individualData['user_id'] = $userId;
                     unset($individualData['target_users']);
-                    
+
                     $notification = $this->send($individualData);
                     if ($notification) {
                         $notifications[] = $notification;
+
+                        // Also broadcast immediately for template-based notifications
+                        $user = User::find($userId);
+                        if ($user && $notification->channel === 'in_app') {
+                            $this->broadcastNotification($notification, $user);
+                        }
                     }
                 }
             }
@@ -162,19 +169,32 @@ class NotificationService
     public function deliver(Notification $notification): bool
     {
         try {
+            $success = false;
+
             switch ($notification->channel) {
                 case 'email':
-                    return $this->sendEmail($notification);
+                    $success = $this->sendEmail($notification);
+                    break;
                 case 'sms':
-                    return $this->sendSMS($notification);
+                    $success = $this->sendSMS($notification);
+                    break;
                 case 'in_app':
-                    return $this->sendInApp($notification);
+                    $success = $this->sendInApp($notification);
+                    break;
                 case 'push':
-                    return $this->sendPush($notification);
+                    $success = $this->sendPush($notification);
+                    break;
                 default:
                     Log::warning("Unknown notification channel: {$notification->channel}");
                     return false;
             }
+
+            // Broadcast real-time notification if successful
+            if ($success && $notification->user) {
+                $this->broadcastNotification($notification, $notification->user);
+            }
+
+            return $success;
         } catch (\Exception $e) {
             Log::error("Failed to deliver notification {$notification->id}: " . $e->getMessage());
             $notification->markAsFailed($e->getMessage());
@@ -398,109 +418,120 @@ class NotificationService
         return Notification::forUser($userId)->unread()->count();
     }
 
-    // Quick notification methods for common scenarios
+    // Unified notification methods for common scenarios
 
     /**
-     * Send task assigned notification
+     * Send task notification with action
      */
-    public function sendTaskAssigned(Task $task): array
+    public function sendTaskNotification(Task $task, string $action, array $extraData = []): array
     {
-        return $this->sendFromTemplate(
-            'task_assigned',
-            ['users' => [$task->assigned_to]],
-            [
-                'task_title' => $task->title,
-                'task_category' => $task->category_label,
-                'creator_name' => $task->creator->name,
-                'deadline' => $task->deadline ? $task->deadline->format('d.m.Y H:i') : 'Müddət təyin edilməyib',
-            ],
-            [
-                'related' => $task,
-                'priority' => $task->priority === 'tecili' ? 'high' : 'normal',
-            ]
-        );
+        $templateKey = "task_{$action}"; // task_assigned, task_updated, task_deadline, etc.
+
+        // Default variables for all task notifications
+        $variables = array_merge([
+            'task_title' => $task->title,
+            'task_category' => $task->category_label ?? '',
+            'creator_name' => $task->creator->name ?? 'Sistem',
+            'deadline' => $task->deadline ? $task->deadline->format('d.m.Y H:i') : 'Müddət təyin edilməyib',
+        ], $extraData);
+
+        // Allow recipients to be overridden via extraData, fallback to default
+        $recipients = $extraData['recipients'] ?? ['users' => [$task->assigned_to ?? $task->created_by]];
+
+        $options = [
+            'related' => $task,
+            'priority' => $this->mapTaskPriorityToNotificationPriority($task->priority ?? 'normal'),
+        ];
+
+        // Merge any additional options from extraData
+        if (isset($extraData['options'])) {
+            $options = array_merge($options, $extraData['options']);
+        }
+
+        return $this->sendFromTemplate($templateKey, $recipients, $variables, $options);
     }
 
     /**
-     * Send task deadline warning
+     * Send survey notification with action
      */
-    public function sendTaskDeadlineWarning(Task $task): array
+    public function sendSurveyNotification(Survey $survey, string $action, array $users, array $extraData = []): array
     {
-        return $this->sendFromTemplate(
-            'task_deadline',
-            ['users' => [$task->assigned_to, $task->created_by]],
-            [
-                'task_title' => $task->title,
-                'deadline' => $task->deadline->format('d.m.Y H:i'),
-                'hours_remaining' => $task->deadline->diffInHours(now()),
-            ],
-            [
-                'related' => $task,
-                'priority' => 'high',
-            ]
-        );
+        $templateKey = "survey_{$action}"; // survey_assigned, survey_published, survey_approved, etc.
+
+        // Default variables for all survey notifications
+        $variables = array_merge([
+            'survey_title' => $survey->title,
+            'survey_description' => $survey->description ?? '',
+            'creator_name' => $survey->creator->name ?? 'Sistem',
+            'deadline' => $survey->end_date ? $survey->end_date->format('d.m.Y H:i') : '',
+        ], $extraData);
+
+        $recipients = ['users' => $users];
+        $options = [
+            'related' => $survey,
+            'priority' => $this->mapSurveyPriorityToNotificationPriority($survey->priority ?? 'normal'),
+        ];
+
+        return $this->sendFromTemplate($templateKey, $recipients, $variables, $options);
     }
 
     /**
-     * Send survey published notification
+     * Map task priority to notification priority
      */
-    public function sendSurveyPublished(Survey $survey, array $targetUsers): array
+    private function mapTaskPriorityToNotificationPriority(string $taskPriority): string
     {
-        return $this->sendFromTemplate(
-            'survey_published',
-            ['users' => $targetUsers],
-            [
-                'survey_title' => $survey->title,
-                'survey_description' => $survey->description,
-                'creator_name' => $survey->creator->name,
-                'deadline' => $survey->deadline ? $survey->deadline->format('d.m.Y H:i') : '',
-            ],
-            [
-                'related' => $survey,
-                'priority' => 'normal',
-            ]
-        );
+        return match ($taskPriority) {
+            'urgent', 'tecili' => 'high',
+            'high' => 'high',
+            'medium' => 'normal',
+            'low' => 'low',
+            default => 'normal',
+        };
     }
 
     /**
-     * Send survey assignment notification
+     * Map survey priority to notification priority
      */
-    public function sendSurveyAssignment(Survey $survey, User $user): ?Notification
+    private function mapSurveyPriorityToNotificationPriority(string $surveyPriority): string
+    {
+        return match ($surveyPriority) {
+            'urgent' => 'high',
+            'high' => 'high',
+            'medium' => 'normal',
+            'low' => 'low',
+            default => 'normal',
+        };
+    }
+
+    /**
+     * Broadcast notification to WebSocket channels
+     */
+    protected function broadcastNotification(Notification $notification, User $user): void
     {
         try {
-            $notificationData = [
-                'title' => 'Yeni Survey Təyinatı',
-                'message' => "Sizə yeni survey təyin edildi: {$survey->title}",
-                'type' => 'survey_assigned',
-                'priority' => $survey->priority ?? 'normal',
-                'channel' => 'in_app',
-                'user_id' => $user->id,
-                'related_type' => 'Survey',
-                'related_id' => $survey->id,
-                'action_data' => [
-                    'action_url' => "/survey-response/{$survey->id}",
-                    'survey_id' => $survey->id,
-                    'survey_title' => $survey->title,
-                ],
-                'metadata' => [
-                    'survey_title' => $survey->title,
-                    'survey_description' => $survey->description,
-                    'survey_type' => $survey->survey_type ?? 'general',
-                    'institution_name' => $user->institution->name ?? '',
-                    'assigned_by' => $survey->creator->name ?? 'Sistem',
-                    'deadline' => $survey->end_date?->toISOString(),
-                    'priority' => $survey->priority ?? 'normal',
-                ],
-            ];
+            // Use existing NotificationSent event for broadcasting
+            NotificationSent::dispatch($notification, $user);
 
-            return $this->send($notificationData);
-        } catch (\Exception $e) {
-            Log::error('Failed to send survey assignment notification', [
-                'survey_id' => $survey->id,
+            Log::info("Notification {$notification->id} broadcasted to user {$user->id}", [
+                'notification_type' => $notification->type,
+                'channel' => $notification->channel,
                 'user_id' => $user->id,
-                'error' => $e->getMessage()
             ]);
-            return null;
+        } catch (\Exception $e) {
+            Log::error("Failed to broadcast notification {$notification->id}: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Broadcast notification to multiple users
+     */
+    protected function broadcastToMultipleUsers(Notification $notification, array $userIds): void
+    {
+        foreach ($userIds as $userId) {
+            $user = User::find($userId);
+            if ($user) {
+                $this->broadcastNotification($notification, $user);
+            }
         }
     }
 }

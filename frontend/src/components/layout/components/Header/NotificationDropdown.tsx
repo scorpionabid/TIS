@@ -18,7 +18,10 @@ import {
   Trash2,
   CheckCheck,
   RefreshCw,
-  CheckCircle2
+  CheckCircle2,
+  FileText,
+  File,
+  AlertTriangle
 } from 'lucide-react';
 import { useRealTimeNotifications } from '@/hooks/useRealTimeNotifications';
 import { toast } from 'sonner';
@@ -28,7 +31,9 @@ interface Notification {
   id: number;
   title: string;
   message: string;
-  type: 'info' | 'success' | 'warning' | 'error';
+  type: string; // Backend notification type
+  ui_type?: 'task' | 'survey' | 'document' | 'system'; // NEW: Logical grouping
+  display_type?: 'info' | 'success' | 'warning' | 'error'; // NEW: UI styling
   isRead: boolean;
   createdAt: string;
   action_url?: string;
@@ -52,17 +57,31 @@ interface NotificationDropdownProps {
   onNotificationClick?: (id: number) => void;
 }
 
-const getNotificationIcon = (type: Notification['type']) => {
-  switch (type) {
+const getNotificationIcon = (notification: Notification) => {
+  // Use ui_type first, fallback to display_type, then type
+  const iconType = notification.ui_type || notification.display_type || notification.type;
+
+  switch (iconType) {
+    case 'task': return <CheckCircle className="h-4 w-4 text-blue-500" />;
+    case 'survey': return <FileText className="h-4 w-4 text-green-500" />;
+    case 'document': return <File className="h-4 w-4 text-purple-500" />;
+    case 'system': return <AlertTriangle className="h-4 w-4 text-orange-500" />;
     case 'success': return <CheckCircle className="h-4 w-4 text-green-500" />;
     case 'warning': return <AlertCircle className="h-4 w-4 text-orange-500" />;
     case 'error': return <AlertCircle className="h-4 w-4 text-red-500" />;
-    default: return <Info className="h-4 w-4 text-blue-500" />;
+    default: return <Info className="h-4 w-4 text-gray-500" />;
   }
 };
 
-const getNotificationTypeText = (type: Notification['type']) => {
-  switch (type) {
+const getNotificationTypeText = (notification: Notification) => {
+  // Use ui_type first for better user experience
+  const typeForText = notification.ui_type || notification.display_type || notification.type;
+
+  switch (typeForText) {
+    case 'task': return 'Tapşırıq';
+    case 'survey': return 'Sorğu';
+    case 'document': return 'Sənəd';
+    case 'system': return 'Sistem';
     case 'success': return 'Uğurlu';
     case 'warning': return 'Xəbərdarlıq';
     case 'error': return 'Xəta';
@@ -292,7 +311,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                     {isNotificationCompleted(notification) ? (
                       <CheckCircle2 className="h-4 w-4 text-green-600" />
                     ) : (
-                      getNotificationIcon(notification.type)
+                      getNotificationIcon(notification)
                     )}
                   </div>
                   
@@ -319,7 +338,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                             isNotificationCompleted(notification) ? 'bg-green-100 text-green-800 border-green-200' : ''
                           }`}
                         >
-                          {completionStatus ? getCompletionText(completionStatus) : getNotificationTypeText(notification.type)}
+                          {completionStatus ? getCompletionText(completionStatus) : getNotificationTypeText(notification)}
                         </Badge>
                         <div className="flex items-center space-x-1">
                           <Clock className="h-3 w-3 text-muted-foreground" />

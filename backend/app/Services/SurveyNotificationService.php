@@ -8,11 +8,18 @@ use Carbon\Carbon;
 
 /**
  * Survey Notification Service
- * 
+ *
  * Survey assignment-ları notification kimi göstərmək üçün xidmət
+ * Həmçinin real notification göndərmək üçün NotificationService ilə inteqrasiya
  */
 class SurveyNotificationService
 {
+    protected NotificationService $notificationService;
+
+    public function __construct(NotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
     /**
      * İstifadəçinin survey assignment notification-larını əldə et
      */
@@ -158,5 +165,44 @@ class SurveyNotificationService
             'overdue' => $overdue,
             'unread_notifications' => $this->getUserUnreadSurveyCount($user)
         ];
+    }
+
+    /**
+     * Send actual notifications when survey is published/assigned
+     */
+    public function notifySurveyAssignment(Survey $survey, array $targetUserIds, array $extraData = []): array
+    {
+        return $this->notificationService->sendSurveyNotification(
+            $survey,
+            'assignment',
+            $targetUserIds,
+            $extraData
+        );
+    }
+
+    /**
+     * Send notification when survey is approved
+     */
+    public function notifySurveyApproved(Survey $survey, array $targetUserIds, array $extraData = []): array
+    {
+        return $this->notificationService->sendSurveyNotification(
+            $survey,
+            'approved',
+            $targetUserIds,
+            $extraData
+        );
+    }
+
+    /**
+     * Send notification when survey deadline is approaching
+     */
+    public function notifySurveyDeadlineApproaching(Survey $survey, array $targetUserIds, int $daysLeft): array
+    {
+        return $this->notificationService->sendSurveyNotification(
+            $survey,
+            'deadline',
+            $targetUserIds,
+            ['days_left' => $daysLeft]
+        );
     }
 }

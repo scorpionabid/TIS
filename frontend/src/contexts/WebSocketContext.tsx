@@ -1,19 +1,57 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from 'react';
+import Echo from 'laravel-echo';
+import Pusher from 'pusher-js';
 import { useAuth } from './AuthContext';
 import { WebSocketMessage, WebSocketEventHandler } from '@/types/events';
+import { logger } from '@/utils/logger';
+
+// Configure Pusher
+window.Pusher = Pusher;
+
+interface WebSocketConfig {
+  key: string;
+  cluster?: string;
+  host: string;
+  port: number;
+  scheme: string;
+  encrypted: boolean;
+  forceTLS: boolean;
+  enableLogging?: boolean;
+  authEndpoint?: string;
+  auth?: {
+    headers: {
+      Authorization?: string;
+    };
+  };
+}
 
 export interface WebSocketContextType {
+  // Laravel Echo support (primary)
+  echo: Echo | null;
+  isEchoConnected: boolean;
+
+  // Legacy WebSocket support (for backward compatibility)
   socket: WebSocket | null;
   isConnected: boolean;
   isConnecting: boolean;
   connectionError: string | null;
   lastMessage: WebSocketMessage | null;
+
+  // Unified methods
   subscribe: (channel: string, callback: WebSocketEventHandler) => () => void;
   unsubscribe: (channel: string, callback: WebSocketEventHandler) => void;
   send: (message: Record<string, unknown>) => void;
   connect: () => void;
   disconnect: () => void;
   reconnect: () => void;
+
+  // Laravel Echo specific methods
+  listenToUserChannel: (userId: number, callback: (data: any) => void) => void;
+  listenToInstitutionChannel: (institutionId: number, callback: (data: any) => void) => void;
+  listenToRoleChannel: (role: string, callback: (data: any) => void) => void;
+  stopListening: (channelName: string) => void;
+  isWebSocketConnected: () => boolean;
+  getEcho: () => Echo | null;
 }
 
 interface WebSocketProviderProps {
@@ -36,13 +74,21 @@ export const useWebSocket = (): WebSocketContextType => {
 };
 
 export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, getAuthToken } = useAuth();
+
+  // Laravel Echo state
+  const [echo, setEcho] = useState<Echo | null>(null);
+  const [isEchoConnected, setIsEchoConnected] = useState(false);
+  const [config, setConfig] = useState<WebSocketConfig | null>(null);
+
+  // Legacy WebSocket state (for backward compatibility)
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
-  
+
+  // Shared state
   const subscriptions = useRef<ChannelSubscription[]>([]);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
@@ -51,19 +97,39 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   const pingInterval = useRef<NodeJS.Timeout | null>(null);
   const reconnectTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // Get WebSocket URL - temporarily disable for Redis broadcasting
-  const getWebSocketUrl = useCallback((): string => {
-    // For now, we'll use polling instead of WebSocket since Redis broadcasting
-    // requires additional WebSocket server setup
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = process.env.NODE_ENV === 'development' 
-      ? 'localhost:6001' 
-      : window.location.host;
-    
-    const token = localStorage.getItem('auth_token');
-    const baseUrl = `${protocol}//${host}/app/atis-key`;
-    
-    return token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+  // Get WebSocket configuration from backend
+  const getWebSocketConfig = useCallback(async (): Promise<WebSocketConfig> => {
+    try {
+      const response = await fetch('/api/test/websocket/info');
+      const data = await response.json();
+
+      if (data.success) {
+        return {
+          key: data.data.app_key || 'atis-key',
+          host: data.data.reverb_host,
+          port: data.data.reverb_port,
+          scheme: data.data.reverb_port === 443 ? 'https' : 'http',
+          encrypted: data.data.reverb_port === 443,
+          forceTLS: data.data.reverb_port === 443,
+          enableLogging: process.env.NODE_ENV === 'development',
+        };
+      }
+
+      throw new Error('Failed to get WebSocket config from backend');
+    } catch (error) {
+      logger.warn('Using fallback WebSocket configuration');
+
+      // Fallback configuration
+      return {
+        key: 'atis-key',
+        host: '127.0.0.1',
+        port: 8080,
+        scheme: 'http',
+        encrypted: false,
+        forceTLS: false,
+        enableLogging: process.env.NODE_ENV === 'development',
+      };
+    }
   }, []);
 
   // Handle incoming messages
@@ -112,14 +178,88 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     }
   }, [currentUser?.id]);
 
-  // Connect to WebSocket - temporarily disabled for Redis broadcasting
-  const connect = useCallback(() => {
-    // Temporarily disable WebSocket connection until we set up proper WebSocket server
-    console.log('WebSocket connection temporarily disabled - using polling fallback');
-    setConnectionError('WebSocket server not configured - using polling fallback');
-    return;
-    
-    if (socket?.readyState === WebSocket.CONNECTING || socket?.readyState === WebSocket.OPEN) {
+  // Initialize Laravel Echo connection
+  const initializeEcho = useCallback(async (authToken?: string): Promise<void> => {
+    try {
+      logger.info('Initializing Laravel Echo connection...');
+
+      // Get configuration from backend
+      const wsConfig = await getWebSocketConfig();
+      setConfig(wsConfig);
+
+      // Create Echo instance
+      const echoInstance = new Echo({
+        broadcaster: 'reverb',
+        key: wsConfig.key,
+        wsHost: wsConfig.host,
+        wsPort: wsConfig.port,
+        wssPort: wsConfig.port,
+        forceTLS: wsConfig.forceTLS,
+        encrypted: wsConfig.encrypted,
+        enableLogging: wsConfig.enableLogging || false,
+        enabledTransports: ['ws', 'wss'],
+        authEndpoint: wsConfig.authEndpoint || '/broadcasting/auth',
+        auth: authToken ? {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        } : undefined,
+      });
+
+      setupEchoListeners(echoInstance);
+      setEcho(echoInstance);
+      setIsEchoConnected(true);
+      setIsConnected(true); // For backward compatibility
+      reconnectAttempts.current = 0;
+
+      logger.info('Laravel Echo connection established', {
+        host: wsConfig.host,
+        port: wsConfig.port,
+        scheme: wsConfig.scheme,
+      });
+    } catch (error) {
+      logger.error('Failed to initialize Laravel Echo connection', error);
+      setConnectionError('Failed to initialize Echo connection');
+      scheduleReconnect();
+    }
+  }, [getWebSocketConfig]);
+
+  // Setup Echo connection listeners
+  const setupEchoListeners = useCallback((echoInstance: Echo) => {
+    if (!echoInstance) return;
+
+    echoInstance.connector.pusher.connection.bind('connected', () => {
+      logger.info('Laravel Echo connected successfully');
+      setIsEchoConnected(true);
+      setIsConnected(true);
+      setIsConnecting(false);
+      setConnectionError(null);
+      reconnectAttempts.current = 0;
+    });
+
+    echoInstance.connector.pusher.connection.bind('disconnected', () => {
+      logger.warn('Laravel Echo disconnected');
+      setIsEchoConnected(false);
+      setIsConnected(false);
+      scheduleReconnect();
+    });
+
+    echoInstance.connector.pusher.connection.bind('error', (error: any) => {
+      logger.error('Laravel Echo connection error', error);
+      setIsEchoConnected(false);
+      setIsConnected(false);
+    });
+
+    echoInstance.connector.pusher.connection.bind('unavailable', () => {
+      logger.error('Laravel Echo connection unavailable');
+      setIsEchoConnected(false);
+      setIsConnected(false);
+    });
+  }, []);
+
+  // Connect to WebSocket (unified method for both Echo and legacy)
+  const connect = useCallback(async () => {
+    if (echo?.connector?.pusher?.connection?.state === 'connected' || isConnecting) {
       return;
     }
 
@@ -131,69 +271,9 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     setIsConnecting(true);
     setConnectionError(null);
 
-    try {
-      const ws = new WebSocket(getWebSocketUrl());
-
-      ws.onopen = () => {
-        console.log('WebSocket connected');
-        setSocket(ws);
-        setIsConnected(true);
-        setIsConnecting(false);
-        setConnectionError(null);
-        reconnectAttempts.current = 0;
-        reconnectDelay.current = 1000;
-
-        // Send authentication after connection
-        ws.send(JSON.stringify({
-          type: 'auth',
-          token: localStorage.getItem('auth_token'),
-          user_id: currentUser.id
-        }));
-
-        // Start ping interval
-        if (pingInterval.current) {
-          clearInterval(pingInterval.current);
-        }
-        pingInterval.current = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'ping' }));
-          }
-        }, 30000); // Ping every 30 seconds
-      };
-
-      ws.onmessage = handleMessage;
-
-      ws.onclose = (event) => {
-        console.log('WebSocket closed:', event.code, event.reason);
-        setSocket(null);
-        setIsConnected(false);
-        setIsConnecting(false);
-
-        if (pingInterval.current) {
-          clearInterval(pingInterval.current);
-          pingInterval.current = null;
-        }
-
-        // Attempt reconnection if not a manual close
-        if (event.code !== 1000 && reconnectAttempts.current < maxReconnectAttempts) {
-          scheduleReconnect();
-        } else if (reconnectAttempts.current >= maxReconnectAttempts) {
-          setConnectionError('Max reconnection attempts reached');
-        }
-      };
-
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        setConnectionError('Connection failed');
-        setIsConnecting(false);
-      };
-
-    } catch (error) {
-      console.error('Error creating WebSocket:', error);
-      setConnectionError('Failed to create connection');
-      setIsConnecting(false);
-    }
-  }, [currentUser, getWebSocketUrl, handleMessage]);
+    const authToken = getAuthToken ? getAuthToken() : null;
+    await initializeEcho(authToken);
+  }, [currentUser, echo, isConnecting, getAuthToken, initializeEcho]);
 
   // Schedule reconnection
   const scheduleReconnect = useCallback(() => {
@@ -282,18 +362,89 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     }
   }, [socket, currentUser?.id]);
 
-  // Send message
+  // Send message (unified for both Echo and legacy WebSocket)
   const send = useCallback((message: Record<string, unknown>) => {
-    if (socket?.readyState === WebSocket.OPEN) {
+    if (echo && isEchoConnected) {
+      // Use Echo for sending (if needed)
+      logger.debug('Sending message via Echo', message);
+    } else if (socket?.readyState === WebSocket.OPEN) {
+      // Legacy WebSocket support
       socket.send(JSON.stringify({
         ...message,
         timestamp: new Date().toISOString(),
         user_id: currentUser?.id
       }));
     } else {
-      console.warn('WebSocket is not connected');
+      logger.warn('Neither Echo nor WebSocket is connected');
     }
-  }, [socket, currentUser?.id]);
+  }, [echo, isEchoConnected, socket, currentUser?.id]);
+
+  // Laravel Echo specific methods
+  const listenToUserChannel = useCallback((userId: number, callback: (data: any) => void): void => {
+    if (!echo) {
+      logger.error('Laravel Echo not initialized');
+      return;
+    }
+
+    const channelName = `App.Models.User.${userId}`;
+
+    echo.private(channelName)
+      .listen('.notification.sent', (data: any) => {
+        logger.info('Received notification via Laravel Echo', data);
+        callback(data);
+      });
+
+    logger.info(`Subscribed to user channel: ${channelName}`);
+  }, [echo]);
+
+  const listenToInstitutionChannel = useCallback((institutionId: number, callback: (data: any) => void): void => {
+    if (!echo) {
+      logger.error('Laravel Echo not initialized');
+      return;
+    }
+
+    const channelName = `institution.${institutionId}`;
+
+    echo.private(channelName)
+      .listen('.notification.sent', (data: any) => {
+        logger.info('Received institution notification via Laravel Echo', data);
+        callback(data);
+      });
+
+    logger.info(`Subscribed to institution channel: ${channelName}`);
+  }, [echo]);
+
+  const listenToRoleChannel = useCallback((role: string, callback: (data: any) => void): void => {
+    if (!echo) {
+      logger.error('Laravel Echo not initialized');
+      return;
+    }
+
+    const channelName = `role.${role}`;
+
+    echo.private(channelName)
+      .listen('.notification.sent', (data: any) => {
+        logger.info('Received role notification via Laravel Echo', data);
+        callback(data);
+      });
+
+    logger.info(`Subscribed to role channel: ${channelName}`);
+  }, [echo]);
+
+  const stopListening = useCallback((channelName: string): void => {
+    if (!echo) return;
+
+    echo.leaveChannel(channelName);
+    logger.info(`Unsubscribed from channel: ${channelName}`);
+  }, [echo]);
+
+  const isWebSocketConnected = useCallback((): boolean => {
+    return isEchoConnected && echo !== null;
+  }, [isEchoConnected, echo]);
+
+  const getEcho = useCallback((): Echo | null => {
+    return echo;
+  }, [echo]);
 
   // Auto-connect when user is available
   useEffect(() => {
@@ -326,17 +477,32 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   }, [isConnected, socket, currentUser?.id]);
 
   const value: WebSocketContextType = {
+    // Laravel Echo support
+    echo,
+    isEchoConnected,
+
+    // Legacy WebSocket support (for backward compatibility)
     socket,
     isConnected,
     isConnecting,
     connectionError,
     lastMessage,
+
+    // Unified methods
     subscribe,
     unsubscribe,
     send,
     connect,
     disconnect,
-    reconnect
+    reconnect,
+
+    // Laravel Echo specific methods
+    listenToUserChannel,
+    listenToInstitutionChannel,
+    listenToRoleChannel,
+    stopListening,
+    isWebSocketConnected,
+    getEcho
   };
 
   return (

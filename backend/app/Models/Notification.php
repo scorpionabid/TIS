@@ -52,6 +52,11 @@ class Notification extends Model
         'action_data' => 'array',
     ];
 
+    protected $appends = [
+        'ui_type',
+        'display_type',
+    ];
+
     // Constants for notification types
     const TYPES = [
         'task_assigned' => 'Tapşırıq təyin edildi',
@@ -79,6 +84,30 @@ class Notification extends Model
         'email' => 'Email',
         'sms' => 'SMS',
         'push' => 'Push bildiriş',
+    ];
+
+    // Type mappings for frontend consistency
+    const TYPE_MAPPINGS = [
+        'task_assigned' => ['ui_type' => 'task', 'display_type' => 'info'],
+        'task_updated' => ['ui_type' => 'task', 'display_type' => 'info'],
+        'task_deadline' => ['ui_type' => 'task', 'display_type' => 'warning'],
+        'task_status_update' => ['ui_type' => 'task', 'display_type' => 'info'],
+        'task_approved' => ['ui_type' => 'task', 'display_type' => 'success'],
+        'task_rejected' => ['ui_type' => 'task', 'display_type' => 'warning'],
+        'task_overdue' => ['ui_type' => 'task', 'display_type' => 'error'],
+        'task_deadline_approaching' => ['ui_type' => 'task', 'display_type' => 'warning'],
+        'task_approval_required' => ['ui_type' => 'task', 'display_type' => 'info'],
+        'survey_published' => ['ui_type' => 'survey', 'display_type' => 'info'],
+        'survey_assigned' => ['ui_type' => 'survey', 'display_type' => 'info'],
+        'survey_assignment' => ['ui_type' => 'survey', 'display_type' => 'info'],
+        'survey_deadline' => ['ui_type' => 'survey', 'display_type' => 'warning'],
+        'survey_approved' => ['ui_type' => 'survey', 'display_type' => 'success'],
+        'survey_rejected' => ['ui_type' => 'survey', 'display_type' => 'warning'],
+        'system_alert' => ['ui_type' => 'system', 'display_type' => 'error'],
+        'maintenance' => ['ui_type' => 'system', 'display_type' => 'warning'],
+        'security_alert' => ['ui_type' => 'system', 'display_type' => 'error'],
+        'document_shared' => ['ui_type' => 'document', 'display_type' => 'info'],
+        'document_updated' => ['ui_type' => 'document', 'display_type' => 'info'],
     ];
 
     /**
@@ -285,6 +314,22 @@ class Notification extends Model
     public function getChannelLabelAttribute(): string
     {
         return self::CHANNELS[$this->channel] ?? $this->channel;
+    }
+
+    /**
+     * Get UI type for frontend components
+     */
+    public function getUITypeAttribute(): string
+    {
+        return self::TYPE_MAPPINGS[$this->type]['ui_type'] ?? 'info';
+    }
+
+    /**
+     * Get display type for frontend styling
+     */
+    public function getDisplayTypeAttribute(): string
+    {
+        return self::TYPE_MAPPINGS[$this->type]['display_type'] ?? 'info';
     }
 
     /**

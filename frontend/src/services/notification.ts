@@ -4,7 +4,9 @@ export interface Notification {
   id: number;
   title: string;
   message: string;
-  type: 'info' | 'success' | 'warning' | 'error' | 'task' | 'survey' | 'document' | 'system';
+  type: string; // Backend notification type (task_assigned, survey_published, etc.)
+  ui_type?: 'task' | 'survey' | 'document' | 'system'; // NEW: Logical grouping for UI
+  display_type?: 'info' | 'success' | 'warning' | 'error'; // NEW: UI styling type
   priority: 'low' | 'medium' | 'high' | 'urgent';
   status: 'unread' | 'read' | 'archived';
   user_id: number;
@@ -90,23 +92,92 @@ class NotificationService extends BaseService {
     super('/notifications');
   }
 
-  async getNotifications(filters?: NotificationFilters): Promise<{ success: boolean; data: Notification[] }> {
-    console.log('🔍 NotificationService.getNotifications called with filters:', filters);
+  // Normalize school notification to standard notification format
+  private normalizeSchoolNotification(schoolNotification: any): Notification {
+    return {
+      id: schoolNotification.id,
+      title: schoolNotification.title || schoolNotification.message || 'Notification',
+      message: schoolNotification.message || schoolNotification.description || '',
+      type: schoolNotification.type || 'info',
+      ui_type: this.mapTypeToUIType(schoolNotification.type),
+      display_type: this.mapTypeToDisplayType(schoolNotification.type),
+      priority: schoolNotification.priority || 'medium',
+      status: schoolNotification.is_read ? 'read' : 'unread',
+      user_id: schoolNotification.user_id || 0,
+      sender_id: schoolNotification.sender_id,
+      related_entity_type: schoolNotification.related_entity_type,
+      related_entity_id: schoolNotification.related_entity_id,
+      metadata: schoolNotification.metadata || {},
+      expires_at: schoolNotification.expires_at,
+      read_at: schoolNotification.read_at,
+      sender: schoolNotification.sender,
+      created_at: schoolNotification.created_at,
+      updated_at: schoolNotification.updated_at
+    };
+  }
+
+  // Map backend types to UI types
+  private mapTypeToUIType(type: string): 'task' | 'survey' | 'document' | 'system' {
+    if (type?.includes('task')) return 'task';
+    if (type?.includes('survey')) return 'survey';
+    if (type?.includes('document')) return 'document';
+    return 'system';
+  }
+
+  // Map backend types to display types
+  private mapTypeToDisplayType(type: string): 'info' | 'success' | 'warning' | 'error' {
+    if (type?.includes('approved') || type?.includes('completed')) return 'success';
+    if (type?.includes('rejected') || type?.includes('failed')) return 'error';
+    if (type?.includes('deadline') || type?.includes('warning')) return 'warning';
+    return 'info';
+  }
+
+  async getNotifications(filters?: NotificationFilters, options?: {
+    useSchoolAdmin?: boolean;
+    userInstitutionId?: number;
+    userRoles?: string[];
+  }): Promise<{ success: boolean; data: Notification[] }> {
+    console.log('🔍 NotificationService.getNotifications called with filters:', filters, 'options:', options);
+
     try {
-      // First try survey-notifications endpoint (no permission required)
+      // Strategy 1: Use SchoolAdmin service for school administrators
+      if (options?.useSchoolAdmin && options.userInstitutionId) {
+        try {
+          console.log('📚 Trying school admin notifications...');
+          const { schoolAdminService } = await import('./schoolAdmin');
+          const schoolNotifications = await schoolAdminService.getNotifications({
+            per_page: filters?.per_page || 50,
+            ...filters
+          });
+
+          // Convert school notifications to standard format
+          const standardNotifications = schoolNotifications.map(this.normalizeSchoolNotification);
+
+          console.log('✅ NotificationService.getNotifications via school-admin successful:', standardNotifications);
+          return { success: true, data: standardNotifications };
+        } catch (schoolError) {
+          console.log('⚠️ school-admin notifications failed, falling back:', schoolError);
+        }
+      }
+
+      // Strategy 2: Try survey-notifications endpoint (no permission required)
       try {
+        console.log('📋 Trying survey notifications...');
         const surveyResponse = await this.get<Notification[]>('/survey-notifications', filters);
         console.log('✅ NotificationService.getNotifications via survey-notifications successful:', surveyResponse);
         return surveyResponse as { success: boolean; data: Notification[] };
       } catch (surveyError) {
         console.log('⚠️ survey-notifications failed, trying general notifications:', surveyError);
-        // Fallback to general notifications (requires permissions)
-        const response = await this.get<Notification[]>(this.baseUrl, filters);
-        console.log('✅ NotificationService.getNotifications via general notifications successful:', response);
-        return response as { success: boolean; data: Notification[] };
       }
+
+      // Strategy 3: Fallback to general notifications (requires permissions)
+      console.log('🌐 Trying general notifications...');
+      const response = await this.get<Notification[]>(this.baseUrl, filters);
+      console.log('✅ NotificationService.getNotifications via general notifications successful:', response);
+      return response as { success: boolean; data: Notification[] };
+
     } catch (error) {
-      console.error('❌ NotificationService.getNotifications failed:', error);
+      console.error('❌ All notification strategies failed:', error);
       throw error;
     }
   }
@@ -291,7 +362,9 @@ class NotificationService extends BaseService {
         id: 1,
         title: 'Yeni sorğu yaradıldı',
         message: 'Məktəb infrastrukturu sorğusu yaradıldı və təsdiq gözləyir.',
-        type: 'survey',
+        type: 'survey_assigned', // Backend type
+        ui_type: 'survey', // NEW: UI grouping
+        display_type: 'info', // NEW: Styling type
         priority: 'medium',
         status: 'unread',
         user_id: 1,
@@ -311,7 +384,9 @@ class NotificationService extends BaseService {
         id: 2,
         title: 'Yeni tapşırıq təyin edildi',
         message: 'Sizə yeni tapşırıq təyin edildi: "Şagird qiymətləndirmə sistemi"',
-        type: 'task',
+        type: 'task_assigned', // Backend type
+        ui_type: 'task', // NEW: UI grouping
+        display_type: 'info', // NEW: Styling type
         priority: 'high',
         status: 'unread',
         user_id: 1,
@@ -352,7 +427,9 @@ class NotificationService extends BaseService {
         id: 4,
         title: 'Sistem yenilənməsi',
         message: 'Sistem texniki baxım üçün sabah 02:00-04:00 arası dayandırılacaq.',
-        type: 'system',
+        type: 'maintenance', // Backend type
+        ui_type: 'system', // NEW: UI grouping
+        display_type: 'warning', // NEW: Styling type
         priority: 'urgent',
         status: 'unread',
         user_id: 1,

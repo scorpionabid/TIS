@@ -1,74 +1,47 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWebSocket } from '@/contexts/WebSocketContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { schoolAdminService, schoolAdminKeys } from '@/services/schoolAdmin';
+import { schoolAdminService } from '@/services/schoolAdmin';
 import { notificationService } from '@/services/notification';
 import { toast } from 'sonner';
 import { logger } from '@/utils/logger';
 import { USER_ROLES } from '@/constants/roles';
-
-export interface RealTimeNotification {
-  id: number | string;
-  type: 'info' | 'warning' | 'success' | 'error' | 'task_assigned' | 'survey_assigned' | 'survey_assignment';
-  title: string;
-  message: string;
-  created_at: string;
-  is_read: boolean;
-  action_url?: string;
-  metadata?: Record<string, any>;
-  createdAt?: string; // Backend alias
-  read_at?: string | null; // Survey notifications use read_at instead of is_read
-  data?: {
-    action_url?: string;
-    [key: string]: any;
-  };
-}
-
-export interface NotificationUpdate {
-  type: 'new_notification' | 'notification_read' | 'bulk_update';
-  notification?: RealTimeNotification;
-  notifications?: RealTimeNotification[];
-  count?: number;
-}
-
-interface UseRealTimeNotificationsOptions {
-  autoToast?: boolean;
-  maxToastNotifications?: number;
-  enableSound?: boolean;
-}
-
-interface UseRealTimeNotificationsReturn {
-  notifications: RealTimeNotification[];
-  unreadCount: number;
-  isLoading: boolean;
-  markAsRead: (notificationId: number) => Promise<void>;
-  markAllAsRead: () => Promise<void>;
-  refreshNotifications: () => Promise<any>;
-  clearNotifications: () => void;
-}
+import {
+  UnifiedNotification,
+  NotificationUpdate,
+  UseRealTimeNotificationsOptions,
+  UseRealTimeNotificationsReturn,
+  normalizeNotification
+} from '@/types/notifications';
 
 export const useRealTimeNotifications = (
   options: UseRealTimeNotificationsOptions = {}
 ): UseRealTimeNotificationsReturn => {
-  const { 
-    autoToast = true, 
+  const {
+    autoToast = true,
     maxToastNotifications = 3,
-    enableSound = false 
+    enableSound = false,
+    enableWebSocket = true,
+    fallbackPollingInterval = 30000
   } = options;
   
-  const { currentUser } = useAuth();
+  const { currentUser, getAuthToken } = useAuth();
+  const {
+    isConnected,
+    isEchoConnected,
+    connect,
+    disconnect,
+    listenToUserChannel,
+    listenToInstitutionChannel,
+    listenToRoleChannel,
+    isWebSocketConnected
+  } = useWebSocket();
   const queryClient = useQueryClient();
-  const [notifications, setNotifications] = useState<RealTimeNotification[]>([]);
+  const [notifications, setNotifications] = useState<UnifiedNotification[]>([]);
   const [toastCount, setToastCount] = useState(0);
 
-  // Normalize notifications from different sources
-  const normalizeNotification = (notification: any): RealTimeNotification => {
-    return {
-      ...notification,
-      is_read: notification.is_read ?? (notification.read_at ? true : false),
-      action_url: notification.action_url || notification.data?.action_url,
-    };
-  };
+  // Use unified normalize function from types/notifications
   
   // Check if user role supports notifications
   const supportsNotifications = currentUser?.roles?.some(role =>
@@ -89,27 +62,32 @@ export const useRealTimeNotifications = (
     isLoading,
     refetch: refreshNotifications
   } = useQuery({
-    queryKey: canUseSchoolAdminNotifications ? schoolAdminKeys.notifications() : ['notifications', 'general'],
+    queryKey: ['notifications', 'unified', currentUser?.id, canUseSchoolAdminNotifications],
     queryFn: async () => {
-      if (canUseSchoolAdminNotifications) {
-        return schoolAdminService.getNotifications({ per_page: 50 });
-      }
-      // Use general notification service for all other users
-      if (canUseGeneralNotifications) {
-        const response = await notificationService.getNotifications({ per_page: 50 });
-        logger.debug('General notifications fetched:', response);
-        // Handle both direct array and wrapped response formats
-        let rawNotifications = [];
-        if (Array.isArray(response)) {
-          rawNotifications = response;
-        } else if (response.data) {
-          rawNotifications = response.data;
-        } else if (response.success && response.data) {
-          rawNotifications = response.data;
+      if (!currentUser || !supportsNotifications) return [];
+
+      const response = await notificationService.getNotifications(
+        { per_page: 50 },
+        {
+          useSchoolAdmin: canUseSchoolAdminNotifications,
+          userInstitutionId: currentUser.institution_id,
+          userRoles: currentUser.roles?.map(r => r.name) || [],
         }
-        return rawNotifications.map(normalizeNotification);
+      );
+
+      logger.debug('Unified notifications fetched:', response);
+
+      // Handle response format
+      let rawNotifications = [];
+      if (Array.isArray(response)) {
+        rawNotifications = response;
+      } else if (response.data) {
+        rawNotifications = response.data;
+      } else if (response.success && response.data) {
+        rawNotifications = response.data;
       }
-      return [];
+
+      return rawNotifications.map(normalizeNotification);
     },
     enabled: !!currentUser && supportsNotifications,
     staleTime: 1000 * 60 * 2, // 2 minutes
@@ -126,20 +104,67 @@ export const useRealTimeNotifications = (
     }
   }, [initialNotifications]);
 
-  // WebSocket simulation (since real WebSocket might not be configured)
+  // WebSocket real-time connection with polling fallback
   useEffect(() => {
-    if (!currentUser || (!canUseSchoolAdminNotifications && !canUseGeneralNotifications)) return;
+    if (!currentUser || !supportsNotifications) return;
 
-    // Simulate periodic notification checks (replace with real WebSocket)
-    const interval = setInterval(async () => {
-      try {
-        let latestNotifications = [];
+    let pollingInterval: NodeJS.Timeout | null = null;
 
-        if (canUseSchoolAdminNotifications) {
-          latestNotifications = await schoolAdminService.getNotifications({ per_page: 5 });
-        } else if (canUseGeneralNotifications) {
-          const response = await notificationService.getNotifications({ per_page: 5 });
-          // Handle both direct array and wrapped response formats
+    const initializeRealTime = async () => {
+      if (enableWebSocket) {
+        try {
+          // Connect to WebSocket via WebSocketContext
+          await connect();
+
+          // Wait for connection to be established
+          if (isEchoConnected || isConnected) {
+            // Listen to user-specific channel
+            listenToUserChannel(currentUser.id, (data) => {
+              handleIncomingNotification(data.notification);
+            });
+
+            // Listen to institution channel if applicable
+            if (currentUser.institution_id) {
+              listenToInstitutionChannel(currentUser.institution_id, (data) => {
+                handleIncomingNotification(data.notification);
+              });
+            }
+
+            // Listen to role channels
+            currentUser.roles?.forEach(role => {
+              listenToRoleChannel(role.name, (data) => {
+                handleIncomingNotification(data.notification);
+              });
+            });
+
+            logger.info('WebSocket real-time notifications activated via WebSocketContext');
+          } else {
+            throw new Error('WebSocket connection not established');
+          }
+
+        } catch (error) {
+          logger.warn('WebSocket failed, falling back to polling', error);
+          startPolling();
+        }
+      } else {
+        logger.info('WebSocket disabled, using polling mode');
+        startPolling();
+      }
+    };
+
+    const startPolling = () => {
+      pollingInterval = setInterval(async () => {
+        try {
+          const response = await notificationService.getNotifications(
+            { per_page: 5 },
+            {
+              useSchoolAdmin: canUseSchoolAdminNotifications,
+              userInstitutionId: currentUser.institution_id,
+              userRoles: currentUser.roles?.map(r => r.name) || [],
+            }
+          );
+
+          // Handle response format
           let rawNotifications = [];
           if (Array.isArray(response)) {
             rawNotifications = response;
@@ -148,49 +173,76 @@ export const useRealTimeNotifications = (
           } else if (response.success && response.data) {
             rawNotifications = response.data;
           }
-          latestNotifications = rawNotifications.map(normalizeNotification);
-        }
 
-        // Check for new notifications
-        const existingIds = new Set(notifications.map(n => n.id));
-        const newNotifications = latestNotifications.filter(n => !existingIds.has(n.id));
-        
-        if (newNotifications.length > 0) {
-          setNotifications(prev => [...newNotifications, ...prev]);
-          
-          // Show toast for new notifications
-          if (autoToast && toastCount < maxToastNotifications) {
-            newNotifications.forEach(notification => {
-              toast[notification.type]?.(notification.title, {
-                description: notification.message,
-                action: notification.action_url ? {
-                  label: 'Bax',
-                  onClick: () => window.location.href = notification.action_url!
-                } : undefined
-              });
-            });
-            setToastCount(prev => prev + newNotifications.length);
+          const latestNotifications = rawNotifications.map(normalizeNotification);
+
+          // Check for new notifications
+          const existingIds = new Set(notifications.map(n => n.id));
+          const newNotifications = latestNotifications.filter(n => !existingIds.has(n.id));
+
+          if (newNotifications.length > 0) {
+            newNotifications.forEach(handleIncomingNotification);
           }
-          
-          // Play sound if enabled
-          if (enableSound && newNotifications.length > 0) {
-            playNotificationSound();
-          }
-          
-          logger.info(`Received ${newNotifications.length} new notifications`, {
-            hook: 'useRealTimeNotifications',
-            notifications: newNotifications.map(n => ({ id: n.id, type: n.type, title: n.title }))
+        } catch (error) {
+          logger.error('Polling failed', error);
+        }
+      }, fallbackPollingInterval);
+    };
+
+    const handleIncomingNotification = (notification: any) => {
+      const normalizedNotification = normalizeNotification(notification);
+
+      // Check if this notification already exists
+      setNotifications(prev => {
+        const exists = prev.some(n => n.id === normalizedNotification.id);
+        if (exists) return prev;
+
+        // Add new notification to top
+        const updated = [normalizedNotification, ...prev];
+
+        // Show toast for new notification
+        if (autoToast && toastCount < maxToastNotifications) {
+          const toastType = normalizedNotification.display_type || 'info';
+          const toastMethod = toast[toastType] || toast.info;
+
+          toastMethod(normalizedNotification.title, {
+            description: normalizedNotification.message,
+            action: normalizedNotification.action_url ? {
+              label: 'Bax',
+              onClick: () => window.location.href = normalizedNotification.action_url!
+            } : undefined
           });
-        }
-      } catch (error) {
-        logger.error('Failed to check for new notifications', error, {
-          hook: 'useRealTimeNotifications'
-        });
-      }
-    }, 30000); // Check every 30 seconds
 
-    return () => clearInterval(interval);
-  }, [currentUser, notifications, autoToast, toastCount, maxToastNotifications, enableSound, canUseSchoolAdminNotifications, canUseGeneralNotifications]);
+          setToastCount(prev => prev + 1);
+        }
+
+        // Play sound if enabled
+        if (enableSound) {
+          playNotificationSound();
+        }
+
+        logger.info('Received new real-time notification', {
+          id: normalizedNotification.id,
+          type: normalizedNotification.type,
+          title: normalizedNotification.title,
+          method: isWebSocketConnected ? 'WebSocket' : 'Polling'
+        });
+
+        return updated;
+      });
+    };
+
+    initializeRealTime();
+
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+      if (enableWebSocket && isWebSocketConnected()) {
+        disconnect();
+      }
+    };
+  }, [currentUser, autoToast, toastCount, maxToastNotifications, enableSound, enableWebSocket, fallbackPollingInterval, canUseSchoolAdminNotifications, canUseGeneralNotifications, supportsNotifications]);
 
   // Reset toast count periodically
   useEffect(() => {
@@ -214,12 +266,14 @@ export const useRealTimeNotifications = (
   }, []);
 
   const markAsRead = useCallback(async (notificationId: number) => {
-    if (!canUseSchoolAdminNotifications && !canUseGeneralNotifications) return;
+    if (!currentUser || !supportsNotifications) return;
 
     try {
+      // Try school admin service first if applicable
       if (canUseSchoolAdminNotifications) {
         await schoolAdminService.markNotificationAsRead(notificationId);
-      } else if (canUseGeneralNotifications) {
+      } else {
+        // Use general notification service
         await notificationService.markAsRead(notificationId);
       }
 
@@ -231,12 +285,10 @@ export const useRealTimeNotifications = (
         )
       );
 
-      // Invalidate notifications query
-      if (canUseSchoolAdminNotifications) {
-        queryClient.invalidateQueries({ queryKey: schoolAdminKeys.notifications() });
-      } else {
-        queryClient.invalidateQueries({ queryKey: ['notifications', 'general'] });
-      }
+      // Invalidate unified notifications query
+      queryClient.invalidateQueries({
+        queryKey: ['notifications', 'unified', currentUser.id, canUseSchoolAdminNotifications]
+      });
 
       logger.debug(`Marked notification ${notificationId} as read`, {
         hook: 'useRealTimeNotifications'
@@ -245,21 +297,23 @@ export const useRealTimeNotifications = (
       logger.error(`Failed to mark notification ${notificationId} as read`, error);
       throw error;
     }
-  }, [queryClient, canUseSchoolAdminNotifications, canUseGeneralNotifications]);
+  }, [queryClient, canUseSchoolAdminNotifications, currentUser, supportsNotifications]);
 
   const markAllAsRead = useCallback(async () => {
-    if (!canUseSchoolAdminNotifications && !canUseGeneralNotifications) return;
+    if (!currentUser || !supportsNotifications) return;
 
     try {
       const unreadNotifications = notifications.filter(n => !n.is_read);
 
       if (canUseSchoolAdminNotifications) {
+        // For school admin, mark each notification individually
         await Promise.all(
           unreadNotifications.map(notification =>
             schoolAdminService.markNotificationAsRead(notification.id)
           )
         );
-      } else if (canUseGeneralNotifications) {
+      } else {
+        // Use general notification service bulk mark
         await notificationService.markAllAsRead();
       }
 
@@ -267,18 +321,17 @@ export const useRealTimeNotifications = (
         prev.map(notification => ({ ...notification, is_read: true }))
       );
 
-      if (canUseSchoolAdminNotifications) {
-        queryClient.invalidateQueries({ queryKey: schoolAdminKeys.notifications() });
-      } else {
-        queryClient.invalidateQueries({ queryKey: ['notifications', 'general'] });
-      }
+      // Invalidate unified notifications query
+      queryClient.invalidateQueries({
+        queryKey: ['notifications', 'unified', currentUser.id, canUseSchoolAdminNotifications]
+      });
 
       logger.info(`Marked ${unreadNotifications.length} notifications as read`);
     } catch (error) {
       logger.error('Failed to mark all notifications as read', error);
       throw error;
     }
-  }, [notifications, queryClient, canUseSchoolAdminNotifications, canUseGeneralNotifications]);
+  }, [notifications, queryClient, canUseSchoolAdminNotifications, currentUser, supportsNotifications]);
 
   const clearNotifications = useCallback(() => {
     setNotifications([]);
