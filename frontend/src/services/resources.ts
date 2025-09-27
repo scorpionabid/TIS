@@ -131,16 +131,19 @@ class ResourceService extends BaseService<Resource> {
           creator: result.sharedBy,
         };
       } else if (data.type === 'document') {
-        // Use existing document service
+        // Use existing document service - Fix field mapping
         result = await documentService.uploadDocument({
           title: data.title,
           description: data.description,
           file: data.file!,
           category: data.category,
+          // Map frontend fields to backend fields
           accessible_institutions: data.target_institutions,
           accessible_departments: data.target_departments,
+          allowed_roles: data.target_roles,
           is_downloadable: data.is_downloadable,
           is_viewable_online: data.is_viewable_online,
+          expires_at: data.expires_at,
         });
 
         // Transform to unified format
@@ -154,13 +157,18 @@ class ResourceService extends BaseService<Resource> {
 
       // Send notifications if target institutions specified
       if (data.target_institutions?.length && result) {
-        await this.sendResourceNotifications({
-          resource_id: result.id,
-          resource_type: data.type,
-          resource_title: data.title,
-          target_institutions: data.target_institutions,
-          notification_type: 'resource_assigned',
-        });
+        try {
+          await this.sendResourceNotifications({
+            resource_id: result.id,
+            resource_type: data.type,
+            resource_title: data.title,
+            target_institutions: data.target_institutions,
+            notification_type: 'resource_assigned',
+          });
+        } catch (notificationError) {
+          console.warn('⚠️ Notification failed but resource created successfully:', notificationError);
+          // Don't throw error - resource creation was successful
+        }
       }
 
       console.log('✅ ResourceService.create successful:', result);
@@ -203,8 +211,13 @@ class ResourceService extends BaseService<Resource> {
       } else {
         // For documents, we need to use the document service update method
         result = await documentService.updatePermissions(id, {
-          // Note: Document service may have limited update capabilities
+          // Map frontend fields to backend fields for update
+          accessible_institutions: data.target_institutions,
+          accessible_departments: data.target_departments,
+          allowed_roles: data.target_roles,
           expires_at: data.expires_at,
+          is_downloadable: data.is_downloadable,
+          is_viewable_online: data.is_viewable_online,
         });
 
         result = {

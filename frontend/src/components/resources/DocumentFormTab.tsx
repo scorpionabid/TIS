@@ -35,9 +35,15 @@ export function DocumentFormTab({
 }: DocumentFormTabProps) {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    console.log('📄 File selected:', file);
     if (file) {
       setSelectedFile(file);
       form.setValue('file', file as any);
+      console.log('✅ File set in form and state:', {
+        name: file.name,
+        size: file.size,
+        type: file.type
+      });
     }
   };
 
@@ -127,7 +133,10 @@ export function DocumentFormTab({
               <div className="flex items-center space-x-2">
                 <Checkbox
                   checked={form.watch('is_downloadable')}
-                  onCheckedChange={(checked) => form.setValue('is_downloadable', checked as boolean)}
+                  onCheckedChange={(checked) => {
+                    console.log('📥 is_downloadable changed:', checked, typeof checked);
+                    form.setValue('is_downloadable', checked as boolean);
+                  }}
                 />
                 <Label>Yükləmə icazəsi</Label>
               </div>
@@ -135,7 +144,10 @@ export function DocumentFormTab({
               <div className="flex items-center space-x-2">
                 <Checkbox
                   checked={form.watch('is_viewable_online')}
-                  onCheckedChange={(checked) => form.setValue('is_viewable_online', checked as boolean)}
+                  onCheckedChange={(checked) => {
+                    console.log('👁️ is_viewable_online changed:', checked, typeof checked);
+                    form.setValue('is_viewable_online', checked as boolean);
+                  }}
                 />
                 <Label>Onlayn baxış icazəsi</Label>
               </div>

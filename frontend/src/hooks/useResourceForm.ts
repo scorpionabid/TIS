@@ -25,9 +25,11 @@ const documentSchema = z.object({
   file: z.instanceof(File, { message: 'Fayl seçilməlidir' }),
   category: z.enum(['administrative', 'financial', 'educational', 'hr', 'technical', 'other']).optional(),
   target_institutions: z.array(z.number()).optional(),
+  target_departments: z.array(z.number()).optional(),
   target_roles: z.array(z.string()).optional(),
   is_downloadable: z.boolean().optional(),
   is_viewable_online: z.boolean().optional(),
+  expires_at: z.string().optional(),
 });
 
 const resourceSchema = z.union([linkSchema, documentSchema]);
@@ -148,10 +150,20 @@ export function useResourceForm({
 
   const handleSubmit = async (data: ResourceFormData) => {
     try {
+      console.log('🔥 handleSubmit called with data:', data);
+      console.log('📁 selectedFile:', selectedFile);
+      console.log('📋 activeTab:', activeTab);
+
+      // Ensure file is included for document uploads
       const resourceData: CreateResourceData = {
         ...data,
-        ...(activeTab === 'documents' && selectedFile && { file: selectedFile }),
+        ...(activeTab === 'documents' && selectedFile ? { file: selectedFile } : {}),
       };
+
+      console.log('🎯 Final resourceData:', {
+        ...resourceData,
+        file: resourceData.file ? `File(${resourceData.file.name}, ${resourceData.file.size} bytes)` : 'No file'
+      });
 
       let savedResource: Resource;
 

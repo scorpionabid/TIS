@@ -99,7 +99,7 @@ class DocumentService extends BaseService<Document> {
     // Add file
     formData.append('file', data.file);
     
-    // Add other fields
+    // Add other fields with proper boolean handling
     Object.keys(data).forEach(key => {
       if (key !== 'file' && data[key as keyof CreateDocumentData] !== undefined) {
         const value = data[key as keyof CreateDocumentData];
@@ -108,6 +108,10 @@ class DocumentService extends BaseService<Document> {
           if (value.length > 0) {
             value.forEach(item => formData.append(`${key}[]`, item));
           }
+        } else if (typeof value === 'boolean') {
+          // Laravel expects '1' for true, '0' for false in FormData
+          formData.append(key, value ? '1' : '0');
+          console.log(`🔄 Boolean field ${key}: ${value} -> ${value ? '1' : '0'}`);
         } else {
           formData.append(key, String(value));
         }
@@ -121,16 +125,32 @@ class DocumentService extends BaseService<Document> {
       category: data.category,
       accessible_institutions: data.accessible_institutions,
       accessible_departments: data.accessible_departments,
-      is_public: data.is_public
+      is_public: data.is_public,
+      fileSize: data.file.size,
+      fileName: data.file.name,
+      fileType: data.file.type
     });
 
+    console.log('🔑 Request headers:', (apiClient as any).getHeaders());
+
+
+    // Get headers but exclude Content-Type for FormData
+    const headers = { ...((apiClient as any).getHeaders()) };
+    delete headers['Content-Type']; // Let browser set multipart/form-data with boundary
+
+    console.log('🚀 Final request details:', {
+      url: `${(apiClient as any).baseURL}${this.baseEndpoint}`,
+      method: 'POST',
+      headers: headers,
+      formDataEntries: [...formData.entries()].map(([key, value]) => ({
+        key,
+        value: value instanceof File ? `File(${value.name}, ${value.size} bytes)` : value
+      }))
+    });
 
     const response = await fetch(`${(apiClient as any).baseURL}${this.baseEndpoint}`, {
       method: 'POST',
-      headers: {
-        ...((apiClient as any).getHeaders()),
-        // Don't set Content-Type, let browser set it with boundary
-      },
+      headers: headers,
       body: formData,
     });
 
@@ -139,18 +159,30 @@ class DocumentService extends BaseService<Document> {
       console.error('❌ Document upload failed:', {
         status: response.status,
         statusText: response.statusText,
+        url: response.url,
+        headers: Object.fromEntries(response.headers.entries()),
         error: errorText
       });
 
       // Try to parse JSON error for better debugging
       try {
         const errorJson = JSON.parse(errorText);
-        console.error('📋 Validation errors:', errorJson.errors);
-      } catch (e) {
-        console.error('📋 Raw error:', errorText);
-      }
+        console.error('📋 Detailed error response:', errorJson);
+        if (errorJson.errors) {
+          console.error('🔍 Validation errors:', errorJson.errors);
+        }
+        if (errorJson.message) {
+          console.error('💬 Error message:', errorJson.message);
+        }
 
-      throw new Error(`Document upload failed: ${response.status} ${response.statusText}`);
+        // Enhanced error message for user
+        const userMessage = errorJson.message || `HTTP ${response.status}: ${response.statusText}`;
+        throw new Error(userMessage);
+      } catch (parseError) {
+        console.error('📋 Raw error response:', errorText);
+        console.error('⚠️ Failed to parse error JSON:', parseError);
+        throw new Error(`Document upload failed: ${response.status} ${response.statusText}`);
+      }
     }
 
     const result = await response.json();
