@@ -137,12 +137,10 @@ class ResourceService extends BaseService<Resource> {
           description: data.description,
           file: data.file!,
           category: data.category,
-          access_level: data.access_level || 'institution',
           accessible_institutions: data.target_institutions,
           accessible_departments: data.target_departments,
           is_downloadable: data.is_downloadable,
           is_viewable_online: data.is_viewable_online,
-          expires_at: data.expires_at,
         });
 
         // Transform to unified format

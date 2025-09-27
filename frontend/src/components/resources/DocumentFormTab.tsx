@@ -103,44 +103,24 @@ export function DocumentFormTab({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Kateqoriya</Label>
-                <Select
-                  value={form.watch('category')}
-                  onValueChange={(value) => form.setValue('category', value)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Kateqoriya seçin" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="administrative">İdarəetmə sənədləri</SelectItem>
-                    <SelectItem value="financial">Maliyyə sənədləri</SelectItem>
-                    <SelectItem value="educational">Təhsil materialları</SelectItem>
-                    <SelectItem value="hr">İnsan resursları</SelectItem>
-                    <SelectItem value="technical">Texniki sənədlər</SelectItem>
-                    <SelectItem value="other">Digər</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Giriş Səviyyəsi</Label>
-                <Select
-                  value={form.watch('access_level')}
-                  onValueChange={(value) => form.setValue('access_level', value as any)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="public">Hamı görə bilər</SelectItem>
-                    <SelectItem value="regional">Region daxilində</SelectItem>
-                    <SelectItem value="sectoral">Sektor daxilində</SelectItem>
-                    <SelectItem value="institution">Müəssisə daxilində</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div>
+              <Label>Kateqoriya</Label>
+              <Select
+                value={form.watch('category')}
+                onValueChange={(value) => form.setValue('category', value)}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Kateqoriya seçin" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="administrative">İdarəetmə sənədləri</SelectItem>
+                  <SelectItem value="financial">Maliyyə sənədləri</SelectItem>
+                  <SelectItem value="educational">Təhsil materialları</SelectItem>
+                  <SelectItem value="hr">İnsan resursları</SelectItem>
+                  <SelectItem value="technical">Texniki sənədlər</SelectItem>
+                  <SelectItem value="other">Digər</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-3">

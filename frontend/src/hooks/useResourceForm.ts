@@ -14,12 +14,8 @@ const linkSchema = z.object({
   title: z.string().min(1, 'Başlıq tələb olunur'),
   description: z.string().optional(),
   url: z.string().url('Düzgün URL daxil edin'),
-  link_type: z.enum(['external', 'video', 'form', 'document']).optional(),
-  share_scope: z.enum(['public', 'regional', 'sectoral', 'institutional', 'specific_users']).optional(),
-  is_featured: z.boolean().optional(),
   target_institutions: z.array(z.number()).optional(),
   target_roles: z.array(z.string()).optional(),
-  expires_at: z.string().optional(),
 });
 
 const documentSchema = z.object({
@@ -27,13 +23,11 @@ const documentSchema = z.object({
   title: z.string().min(1, 'Başlıq tələb olunur'),
   description: z.string().optional(),
   file: z.instanceof(File, { message: 'Fayl seçilməlidir' }),
-  category: z.string().optional(),
-  access_level: z.enum(['public', 'regional', 'sectoral', 'institution']).optional(),
+  category: z.enum(['administrative', 'financial', 'educational', 'hr', 'technical', 'other']).optional(),
   target_institutions: z.array(z.number()).optional(),
   target_roles: z.array(z.string()).optional(),
   is_downloadable: z.boolean().optional(),
   is_viewable_online: z.boolean().optional(),
-  expires_at: z.string().optional(),
 });
 
 const resourceSchema = z.union([linkSchema, documentSchema]);
@@ -71,11 +65,8 @@ export function useResourceForm({
       target_roles: [],
       // Link defaults
       url: '',
-      link_type: 'external',
-      share_scope: 'institutional',
-      is_featured: false,
       // Document defaults
-      access_level: 'institution',
+      category: 'educational',
       is_downloadable: true,
       is_viewable_online: true,
     },
@@ -135,18 +126,13 @@ export function useResourceForm({
         // Link fields
         ...(resource.type === 'link' && {
           url: resource.url || '',
-          link_type: resource.link_type || 'external',
-          share_scope: resource.share_scope || 'institutional',
-          is_featured: resource.is_featured || false,
         }),
         // Document fields
         ...(resource.type === 'document' && {
-          access_level: resource.access_level || 'institution',
           category: resource.category || '',
           is_downloadable: resource.is_downloadable ?? true,
           is_viewable_online: resource.is_viewable_online ?? true,
         }),
-        expires_at: resource.expires_at || '',
       });
     }
   }, [resource, mode, isOpen, form]);

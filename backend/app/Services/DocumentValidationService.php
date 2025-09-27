@@ -14,6 +14,18 @@ class DocumentValidationService extends BaseService
      */
     public function validateDocumentStore(Request $request): \Illuminate\Validation\Validator
     {
+        \Log::info('🔍 DocumentValidationService::validateDocumentStore', [
+            'request_all' => $request->all(),
+            'files' => $request->allFiles(),
+            'has_title' => $request->has('title'),
+            'title_value' => $request->get('title'),
+            'has_file' => $request->hasFile('file'),
+            'file_info' => $request->hasFile('file') ? [
+                'name' => $request->file('file')->getClientOriginalName(),
+                'size' => $request->file('file')->getSize()
+            ] : null
+        ]);
+
         return Validator::make($request->all(), [
             'file' => 'required|file|max:10240',
             'title' => 'required|string|max:255',

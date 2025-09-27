@@ -67,28 +67,27 @@ export function ResourceModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Plus className="h-5 w-5" />
-            {mode === 'create' ? 'Yeni Resurs Yaradın' : 'Resurs Redaktə Et'}
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader className="pb-4">
+          <DialogTitle className="text-lg font-semibold">
+            {mode === 'create' ? 'Yeni Resurs' : 'Resurs Redaktə Et'}
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'links' | 'documents')} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="links" className="flex items-center gap-2">
-                <Link className="h-4 w-4" />
-                Linklər
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="links" className="text-sm">
+                <Link className="h-4 w-4 mr-2" />
+                Link
               </TabsTrigger>
-              <TabsTrigger value="documents" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Sənədlər
+              <TabsTrigger value="documents" className="text-sm">
+                <FileText className="h-4 w-4 mr-2" />
+                Sənəd
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="links" className="space-y-6">
+            <TabsContent value="links" className="space-y-4 mt-0">
               <LinkFormTab
                 form={form}
                 availableInstitutions={availableInstitutions}
@@ -100,7 +99,7 @@ export function ResourceModal({
               />
             </TabsContent>
 
-            <TabsContent value="documents" className="space-y-6">
+            <TabsContent value="documents" className="space-y-4 mt-0">
               <DocumentFormTab
                 form={form}
                 selectedFile={selectedFile}
@@ -115,11 +114,11 @@ export function ResourceModal({
             </TabsContent>
           </Tabs>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+          <DialogFooter className="pt-4 gap-2">
+            <Button type="button" variant="outline" onClick={onClose} size="sm">
               Ləğv et
             </Button>
-            <Button type="submit" disabled={form.formState.isSubmitting}>
+            <Button type="submit" disabled={form.formState.isSubmitting} size="sm">
               {form.formState.isSubmitting ? 'Yüklənir...' : mode === 'create' ? 'Yaradın' : 'Yenilə'}
             </Button>
           </DialogFooter>

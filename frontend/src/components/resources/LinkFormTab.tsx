@@ -3,8 +3,6 @@ import { Link } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { InstitutionTargeting } from "./InstitutionTargeting";
 
 import { Institution } from "@/services/institutions";
@@ -29,16 +27,12 @@ export function LinkFormTab({
   selectInstitutionsByType,
 }: LinkFormTabProps) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="space-y-4">
         {/* Basic Link Information */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium flex items-center gap-2">
-            <Link className="h-5 w-5" />
-            Link Məlumatları
-          </h3>
+        <div className="space-y-3">
 
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 gap-3">
             <div>
               <Label htmlFor="title">Link Başlığı *</Label>
               <Input
@@ -74,61 +68,6 @@ export function LinkFormTab({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Link Tipi</Label>
-                <Select
-                  value={form.watch('link_type')}
-                  onValueChange={(value) => form.setValue('link_type', value as any)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="external">Xarici Link</SelectItem>
-                    <SelectItem value="video">Video</SelectItem>
-                    <SelectItem value="form">Form</SelectItem>
-                    <SelectItem value="document">Sənəd</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Paylaşım Əhatəsi</Label>
-                <Select
-                  value={form.watch('share_scope')}
-                  onValueChange={(value) => form.setValue('share_scope', value as any)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="public">Hamı</SelectItem>
-                    <SelectItem value="regional">Regional</SelectItem>
-                    <SelectItem value="sectoral">Sektor</SelectItem>
-                    <SelectItem value="institutional">Müəssisə</SelectItem>
-                    <SelectItem value="specific_users">Xüsusi</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                checked={form.watch('is_featured')}
-                onCheckedChange={(checked) => form.setValue('is_featured', checked as boolean)}
-              />
-              <Label>Xüsusi Link (Featured)</Label>
-            </div>
-
-            <div>
-              <Label htmlFor="expires_at">Son İstifadə Tarixi</Label>
-              <Input
-                {...form.register('expires_at')}
-                type="datetime-local"
-                className="mt-1"
-              />
-            </div>
           </div>
         </div>
 

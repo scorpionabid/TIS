@@ -84,9 +84,11 @@ class DocumentControllerRefactored extends Controller
 
         try {
             $user = Auth::user();
-            
+
             // Check regional permissions for document creation
-            if (!$this->permissionService->canUserCreateDocument($user, $validator->validated())) {
+            $canCreate = $this->permissionService->canUserCreateDocument($user, $validator->validated());
+
+            if (!$canCreate) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu əməliyyatı həyata keçirmək üçün icazəniz yoxdur.',
