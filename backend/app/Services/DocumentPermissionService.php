@@ -12,6 +12,7 @@ class DocumentPermissionService extends BaseService
      */
     public function canUserCreateDocument($user, array $documentData): bool
     {
+
         if ($user->hasRole('superadmin')) {
             return true;
         }
@@ -39,9 +40,9 @@ class DocumentPermissionService extends BaseService
             case 'müəllim':
             case 'teacher':
                 // School-level users can only create documents in their institution
-                return !isset($documentData['institution_id']) || 
+                return !isset($documentData['institution_id']) ||
                        $documentData['institution_id'] === $userInstitutionId;
-                
+
             default:
                 return false;
         }

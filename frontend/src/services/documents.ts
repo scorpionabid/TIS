@@ -104,7 +104,10 @@ class DocumentService extends BaseService<Document> {
       if (key !== 'file' && data[key as keyof CreateDocumentData] !== undefined) {
         const value = data[key as keyof CreateDocumentData];
         if (Array.isArray(value)) {
-          value.forEach(item => formData.append(`${key}[]`, item));
+          // Only add array if it has items
+          if (value.length > 0) {
+            value.forEach(item => formData.append(`${key}[]`, item));
+          }
         } else {
           formData.append(key, String(value));
         }
@@ -121,6 +124,7 @@ class DocumentService extends BaseService<Document> {
       is_public: data.is_public
     });
 
+
     const response = await fetch(`${(apiClient as any).baseURL}${this.baseEndpoint}`, {
       method: 'POST',
       headers: {
@@ -131,7 +135,22 @@ class DocumentService extends BaseService<Document> {
     });
 
     if (!response.ok) {
-      throw new Error('Document upload failed');
+      const errorText = await response.text();
+      console.error('❌ Document upload failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText
+      });
+
+      // Try to parse JSON error for better debugging
+      try {
+        const errorJson = JSON.parse(errorText);
+        console.error('📋 Validation errors:', errorJson.errors);
+      } catch (e) {
+        console.error('📋 Raw error:', errorText);
+      }
+
+      throw new Error(`Document upload failed: ${response.status} ${response.statusText}`);
     }
 
     const result = await response.json();

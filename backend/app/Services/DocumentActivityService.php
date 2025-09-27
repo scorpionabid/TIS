@@ -82,12 +82,10 @@ class DocumentActivityService extends BaseService
         $activityData = [
             'document_id' => $document->id,
             'user_id' => $user->id,
-            'action' => $action,
+            'access_type' => $action,
             'ip_address' => $request ? $request->ip() : null,
             'user_agent' => $request ? $request->userAgent() : null,
-            'institution_id' => $user->institution_id,
-            'accessed_at' => now(),
-            'metadata' => $this->prepareActivityMetadata($document, $user, $action, $request)
+            'access_metadata' => $this->prepareActivityMetadata($document, $user, $action, $request)
         ];
 
         DocumentAccessLog::create($activityData);
@@ -120,14 +118,14 @@ class DocumentActivityService extends BaseService
     {
         $stats = DocumentAccessLog::where('document_id', $document->id)
             ->selectRaw('
-                action,
+                access_type,
                 COUNT(*) as count,
                 COUNT(DISTINCT user_id) as unique_users,
-                MAX(accessed_at) as last_access
+                MAX(created_at) as last_access
             ')
-            ->groupBy('action')
+            ->groupBy('access_type')
             ->get()
-            ->keyBy('action');
+            ->keyBy('access_type');
 
         $totalAccess = DocumentAccessLog::where('document_id', $document->id)->count();
         $uniqueUsers = DocumentAccessLog::where('document_id', $document->id)
@@ -143,8 +141,8 @@ class DocumentActivityService extends BaseService
                 'shares' => $stats->get('share')?->count ?? 0,
             ],
             'last_activity' => DocumentAccessLog::where('document_id', $document->id)
-                ->latest('accessed_at')
-                ->value('accessed_at'),
+                ->latest('created_at')
+                ->value('created_at'),
             'most_active_users' => $this->getMostActiveUsersForDocument($document->id)
         ];
     }
