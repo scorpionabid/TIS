@@ -15,18 +15,20 @@ interface DashboardHeaderProps {
 }
 
 interface SurveyNotification {
-  id: string;
+  id: string | number;
   type: string;
   title: string;
   message: string;
   data: {
-    survey_id: number;
-    survey_title: string;
-    survey_description: string;
+    survey_id?: number;
+    survey_title?: string;
+    survey_description?: string;
     due_date?: string;
     priority: string;
     questions_count: number;
-    action_url: string;
+    action_url?: string;
+    related_entity_type?: string;
+    related_entity_id?: number;
   };
   read_at?: string;
   created_at: string;
@@ -49,7 +51,11 @@ export const DashboardHeader = ({
 
   // Convert survey notifications to NotificationDropdown format
   const convertToNotificationFormat = (surveyNotification: SurveyNotification) => ({
-    id: parseInt(surveyNotification.id.replace('survey_', '')),
+    id: typeof surveyNotification.id === 'string' && surveyNotification.id.startsWith('survey_')
+        ? parseInt(surveyNotification.id.replace('survey_', ''))
+        : typeof surveyNotification.id === 'number'
+        ? surveyNotification.id
+        : parseInt(String(surveyNotification.id)),
     title: surveyNotification.title,
     message: surveyNotification.message,
     type: surveyNotification.priority === 'overdue' ? 'error' as const :
@@ -61,20 +67,34 @@ export const DashboardHeader = ({
 
   const notifications = surveyNotifications.map(convertToNotificationFormat);
 
+  // Debug: Log converted notifications
+  useEffect(() => {
+    console.log('🔍 DashboardHeader: Raw survey notifications:', surveyNotifications);
+    console.log('🔍 DashboardHeader: Converted notifications:', notifications);
+    console.log('🔍 DashboardHeader: Unread count:', unreadCount);
+  }, [surveyNotifications, notifications, unreadCount]);
+
   // Load survey notifications
   useEffect(() => {
     const loadNotifications = async () => {
       try {
         setLoading(true);
+        console.log('🔍 DashboardHeader: Loading survey notifications...');
+
         const [notificationsResponse, unreadResponse] = await Promise.all([
           surveyService.getSurveyNotifications({ limit: 10 }),
           surveyService.getUnreadSurveyCount()
         ]);
-        
+
+        console.log('📊 DashboardHeader: Notifications response:', notificationsResponse);
+        console.log('📊 DashboardHeader: Unread response:', unreadResponse);
+
         setSurveyNotifications(notificationsResponse || []);
         setUnreadCount(unreadResponse?.unread_count || 0);
+
+        console.log('✅ DashboardHeader: Survey notifications loaded:', notificationsResponse?.length || 0);
       } catch (error) {
-        console.error('Error loading survey notifications:', error);
+        console.error('❌ DashboardHeader: Error loading survey notifications:', error);
         // Fallback to empty state
         setSurveyNotifications([]);
         setUnreadCount(0);
@@ -91,23 +111,34 @@ export const DashboardHeader = ({
   const handleMarkAsRead = async (id: number) => {
     try {
       // Find the survey notification that matches this id
-      const surveyNotification = surveyNotifications.find(n => 
-        parseInt(n.id.replace('survey_', '')) === id
-      );
-      
+      const surveyNotification = surveyNotifications.find(n => {
+        const notificationId = typeof n.id === 'string' && n.id.startsWith('survey_')
+          ? parseInt(n.id.replace('survey_', ''))
+          : typeof n.id === 'number'
+          ? n.id
+          : parseInt(String(n.id));
+        return notificationId === id;
+      });
+
       if (surveyNotification) {
-        const surveyId = surveyNotification.data.survey_id;
-        await surveyService.markSurveyNotificationAsRead(surveyId);
-        
+        // For real notifications, use the notification ID directly as the API expects notification ID now
+        // The backend route is /survey-notifications/{notificationId}/mark-read
+        await surveyService.markSurveyNotificationAsRead(id);
+
         // Update local state
-        setSurveyNotifications(prev => 
-          prev.map(notification => 
-            notification.id === `survey_${id}` 
+        setSurveyNotifications(prev =>
+          prev.map(notification => {
+            const notificationId = typeof notification.id === 'string' && notification.id.startsWith('survey_')
+              ? parseInt(notification.id.replace('survey_', ''))
+              : typeof notification.id === 'number'
+              ? notification.id
+              : parseInt(String(notification.id));
+            return notificationId === id
               ? { ...notification, is_read: true, read_at: new Date().toISOString() }
-              : notification
-          )
+              : notification;
+          })
         );
-        
+
         // Update unread count
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
@@ -120,22 +151,27 @@ export const DashboardHeader = ({
     try {
       // Mark all unread survey notifications as read
       const unreadNotifications = surveyNotifications.filter(n => !n.is_read);
-      
+
       await Promise.all(
-        unreadNotifications.map(notification => 
-          surveyService.markSurveyNotificationAsRead(notification.data.survey_id)
-        )
+        unreadNotifications.map(notification => {
+          const notificationId = typeof notification.id === 'string' && notification.id.startsWith('survey_')
+            ? parseInt(notification.id.replace('survey_', ''))
+            : typeof notification.id === 'number'
+            ? notification.id
+            : parseInt(String(notification.id));
+          return surveyService.markSurveyNotificationAsRead(notificationId);
+        })
       );
-      
+
       // Update local state
-      setSurveyNotifications(prev => 
-        prev.map(notification => ({ 
-          ...notification, 
-          is_read: true, 
-          read_at: new Date().toISOString() 
+      setSurveyNotifications(prev =>
+        prev.map(notification => ({
+          ...notification,
+          is_read: true,
+          read_at: new Date().toISOString()
         }))
       );
-      
+
       setUnreadCount(0);
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
@@ -144,9 +180,14 @@ export const DashboardHeader = ({
 
   const handleDeleteNotification = (id: number) => {
     // Remove from local state (we don't have a delete API, so just hide it locally)
-    setSurveyNotifications(prev => prev.filter(notification => 
-      parseInt(notification.id.replace('survey_', '')) !== id
-    ));
+    setSurveyNotifications(prev => prev.filter(notification => {
+      const notificationId = typeof notification.id === 'string' && notification.id.startsWith('survey_')
+        ? parseInt(notification.id.replace('survey_', ''))
+        : typeof notification.id === 'number'
+        ? notification.id
+        : parseInt(String(notification.id));
+      return notificationId !== id;
+    }));
     
     // Update unread count if this was unread
     const wasUnread = notifications.find(n => n.id === id && !n.isRead);
@@ -157,18 +198,29 @@ export const DashboardHeader = ({
 
   const handleNotificationClick = (id: number) => {
     // Find the survey notification that matches this id
-    const surveyNotification = surveyNotifications.find(n => 
-      parseInt(n.id.replace('survey_', '')) === id
-    );
-    
+    const surveyNotification = surveyNotifications.find(n => {
+      const notificationId = typeof n.id === 'string' && n.id.startsWith('survey_')
+        ? parseInt(n.id.replace('survey_', ''))
+        : typeof n.id === 'number'
+        ? n.id
+        : parseInt(String(n.id));
+      return notificationId === id;
+    });
+
     if (surveyNotification) {
-      const surveyId = surveyNotification.data.survey_id;
-      // Navigate to survey response page
-      navigate(`/survey-response/${surveyId}`);
-      
-      // Mark as read if it's unread
-      if (!surveyNotification.is_read) {
-        handleMarkAsRead(id);
+      // Extract survey ID from the notification data
+      const surveyId = surveyNotification.data.survey_id || surveyNotification.data.related_entity_id;
+
+      if (surveyId) {
+        // Navigate to survey response page
+        navigate(`/survey-response/${surveyId}`);
+
+        // Mark as read if it's unread
+        if (!surveyNotification.is_read) {
+          handleMarkAsRead(id);
+        }
+      } else {
+        console.warn('Survey ID not found in notification data:', surveyNotification);
       }
     }
   };
@@ -195,6 +247,7 @@ export const DashboardHeader = ({
 
         {/* Notifications */}
         <NotificationDropdown
+          enableRealTime={false}
           notifications={notifications}
           unreadCount={unreadCount}
           onMarkAsRead={handleMarkAsRead}
