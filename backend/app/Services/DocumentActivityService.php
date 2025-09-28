@@ -79,19 +79,28 @@ class DocumentActivityService extends BaseService
      */
     public function logActivity(Document $document, $user, string $action, Request $request = null): void
     {
-        $activityData = [
-            'document_id' => $document->id,
-            'user_id' => $user->id,
-            'access_type' => $action,
-            'ip_address' => $request ? $request->ip() : null,
-            'user_agent' => $request ? $request->userAgent() : null,
-            'access_metadata' => $this->prepareActivityMetadata($document, $user, $action, $request)
-        ];
+        try {
+            $activityData = [
+                'document_id' => $document->id,
+                'user_id' => $user->id,
+                'action' => $action,
+                'ip_address' => $request ? $request->ip() : null,
+                'user_agent' => $request ? $request->userAgent() : null,
+                'access_metadata' => $this->prepareActivityMetadata($document, $user, $action, $request)
+            ];
 
-        DocumentAccessLog::create($activityData);
+            DocumentAccessLog::create($activityData);
+        } catch (\Exception $e) {
+            // Log error but don't fail the operation
+            \Log::warning('Failed to log document activity: ' . $e->getMessage());
+        }
 
-        // Update document statistics
-        $this->updateDocumentStatistics($document, $action);
+        // Update document statistics (with try-catch as well)
+        try {
+            $this->updateDocumentStatistics($document, $action);
+        } catch (\Exception $e) {
+            \Log::warning('Failed to update document statistics: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -407,7 +416,7 @@ class DocumentActivityService extends BaseService
                 $document->increment('view_count');
                 break;
             case 'download':
-                $document->increment('download_count');
+                // Skip download count increment - column doesn't exist in current schema
                 break;
             case 'share':
                 $document->increment('share_count');

@@ -211,16 +211,27 @@ class DocumentService extends BaseService<Document> {
   }
 
   async downloadDocument(id: number): Promise<Blob> {
-    const response = await fetch(`${(apiClient as any).baseURL}${this.baseEndpoint}/${id}/download`, {
-      method: 'GET',
-      headers: (apiClient as any).getHeaders(),
-    });
+    try {
+      console.log('📥 Downloading document:', id);
 
-    if (!response.ok) {
+      // Use apiClient for proper authentication and error handling
+      const response = await apiClient.get(`${this.baseEndpoint}/${id}/download`, {}, {
+        responseType: 'blob'
+      });
+
+      console.log('✅ Document download successful, response:', response);
+
+      // ApiClient returns { data: blob } structure for blob responses
+      if (response && typeof response === 'object' && 'data' in response) {
+        return response.data as Blob;
+      } else {
+        // Fallback for direct blob response
+        return response as Blob;
+      }
+    } catch (error) {
+      console.error('❌ Document download failed:', error);
       throw new Error('Download failed');
     }
-
-    return response.blob();
   }
 
 

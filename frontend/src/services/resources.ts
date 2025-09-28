@@ -466,8 +466,23 @@ class ResourceService extends BaseService<Resource> {
       return await linkService.accessLink(id);
     } else {
       // For documents, this would typically trigger a download
-      const blob = await documentService.downloadDocument(id);
-      return { url: URL.createObjectURL(blob) };
+      try {
+        const blob = await documentService.downloadDocument(id);
+        console.log('📥 Downloaded blob:', blob, 'Type:', typeof blob, 'Size:', blob?.size);
+
+        // Ensure we have a valid blob
+        if (blob instanceof Blob) {
+          const url = URL.createObjectURL(blob);
+          console.log('🔗 Created object URL:', url);
+          return { url };
+        } else {
+          console.error('❌ Invalid blob received:', blob);
+          throw new Error('Invalid file format received');
+        }
+      } catch (error) {
+        console.error('❌ Document download failed:', error);
+        throw error;
+      }
     }
   }
 

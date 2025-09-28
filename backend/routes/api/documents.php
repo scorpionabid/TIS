@@ -23,7 +23,7 @@ Route::prefix('documents')->group(function () {
     Route::get('/{document}', [DocumentController::class, 'show'])->middleware('permission:documents.read');
     Route::put('/{document}', [DocumentController::class, 'update'])->middleware('permission:documents.update');
     Route::delete('/{document}', [DocumentController::class, 'destroy'])->middleware('permission:documents.delete');
-    Route::post('/{document}/download', [DocumentController::class, 'download'])->middleware('permission:documents.read');
+    Route::get('/{document}/download', [DocumentController::class, 'download'])->middleware('permission:documents.read');
     Route::get('/{document}/preview', [DocumentController::class, 'preview'])->middleware('permission:documents.read');
     Route::post('/{document}/share', [DocumentController::class, 'share'])->middleware('permission:documents.share');
     Route::get('/{document}/versions', [DocumentController::class, 'getVersions'])->middleware('permission:documents.read');

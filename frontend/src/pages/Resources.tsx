@@ -434,6 +434,7 @@ interface ResourceGridProps {
 
 function ResourceGrid({ resources, onResourceAction }: ResourceGridProps) {
   const { currentUser } = useAuth();
+  const { toast } = useToast();
 
   // Debug ResourceGrid props
   console.log('🎯 ResourceGrid received:', {
@@ -513,7 +514,45 @@ function ResourceGrid({ resources, onResourceAction }: ResourceGridProps) {
                 </td>
                 <td className="p-4">
                   <div>
-                    <div className="font-medium">{resource.title}</div>
+                    <div
+                      className="font-medium hover:text-primary cursor-pointer hover:underline"
+                      onClick={async () => {
+                        try {
+                          if (resource.type === 'link') {
+                            // For links, open in new tab
+                            const result = await resourceService.accessResource(resource.id, 'link');
+                            if (result.url || result.redirect_url) {
+                              window.open(result.url || result.redirect_url, '_blank');
+                            } else if (resource.url) {
+                              window.open(resource.url, '_blank');
+                            }
+                          } else {
+                            // For documents, trigger download
+                            const result = await resourceService.accessResource(resource.id, 'document');
+                            if (result.url) {
+                              // Create a temporary link to trigger download
+                              const link = document.createElement('a');
+                              link.href = result.url;
+                              link.download = resource.original_filename || resource.title || 'document';
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                              // Clean up the object URL
+                              URL.revokeObjectURL(result.url);
+                            }
+                          }
+                        } catch (error) {
+                          console.error('Error accessing resource:', error);
+                          toast({
+                            title: 'Xəta baş verdi',
+                            description: 'Resursa daxil olmaq mümkün olmadı',
+                            variant: 'destructive',
+                          });
+                        }
+                      }}
+                    >
+                      {resource.title}
+                    </div>
                     {resource.type === 'document' && resource.original_filename && (
                       <div className="text-sm text-muted-foreground">
                         📎 {resource.original_filename}

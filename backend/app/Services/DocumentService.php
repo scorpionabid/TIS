@@ -115,13 +115,18 @@ class DocumentService
      */
     public function logAccess(Document $document, string $action = 'view')
     {
-        DocumentAccessLog::create([
-            'document_id' => $document->id,
-            'user_id' => Auth::id(),
-            'action' => $action,
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
-        ]);
+        try {
+            DocumentAccessLog::create([
+                'document_id' => $document->id,
+                'user_id' => Auth::id(),
+                'action' => $action,
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
+        } catch (\Exception $e) {
+            // Log error but don't fail the operation
+            \Log::warning('Failed to log document access in DocumentService: ' . $e->getMessage());
+        }
     }
 
     /**
