@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Task;
 use App\Models\Survey;
 use App\Events\NotificationSent;
+use App\Services\InstitutionNotificationHelper;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 
@@ -144,10 +145,36 @@ class NotificationService
             }
 
             if (isset($recipients['institutions'])) {
-                $notificationData['target_institutions'] = $recipients['institutions'];
-                $notification = $this->send($notificationData);
-                if ($notification) {
-                    $notifications[] = $notification;
+                // Expand institution IDs to user IDs using hierarchy
+                $targetRoles = $recipients['target_roles'] ?? null;
+                $institutionUserIds = InstitutionNotificationHelper::expandInstitutionsToUsers(
+                    $recipients['institutions'],
+                    $targetRoles
+                );
+
+                Log::debug('NotificationService: Institution expansion', [
+                    'template_key' => $templateKey,
+                    'institutions' => $recipients['institutions'],
+                    'target_roles' => $targetRoles,
+                    'expanded_users' => count($institutionUserIds)
+                ]);
+
+                // Create individual notifications for each user
+                foreach ($institutionUserIds as $userId) {
+                    $individualData = $notificationData;
+                    $individualData['user_id'] = $userId;
+                    $individualData['target_institutions'] = $recipients['institutions']; // Keep for reference
+
+                    $notification = $this->send($individualData);
+                    if ($notification) {
+                        $notifications[] = $notification;
+
+                        // Also broadcast immediately for institution-based notifications
+                        $user = User::find($userId);
+                        if ($user && $notification->channel === 'in_app') {
+                            $this->broadcastNotification($notification, $user);
+                        }
+                    }
                 }
             }
 

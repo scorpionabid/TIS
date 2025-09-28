@@ -6,6 +6,7 @@ use App\Models\LinkShare;
 use App\Models\LinkAccessLog;
 use App\Models\Institution;
 use App\Services\BaseService;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -16,6 +17,13 @@ use Exception;
 
 class LinkSharingService extends BaseService
 {
+    protected NotificationService $notificationService;
+
+    public function __construct(NotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
+
     /**
      * Get links accessible to user with filtering
      */
@@ -96,6 +104,19 @@ class LinkSharingService extends BaseService
             Log::info('Creating LinkShare with data:', $linkData);
 
             $linkShare = LinkShare::create($linkData);
+
+            // Send notifications to target institutions if specified
+            if (!empty($data['target_institutions'])) {
+                try {
+                    $this->sendLinkNotification($linkShare, 'link_shared', $data['target_institutions'], $user);
+                } catch (\Exception $e) {
+                    Log::error('Failed to send link sharing notification', [
+                        'link_id' => $linkShare->id,
+                        'target_institutions' => $data['target_institutions'],
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
 
             return $linkShare->load(['sharedBy', 'institution']);
         });
@@ -695,5 +716,55 @@ class LinkSharingService extends BaseService
             'link' => $linkShare,
             'access_logged' => true
         ];
+    }
+
+    /**
+     * Send link sharing notification to target institutions
+     */
+    private function sendLinkNotification(LinkShare $linkShare, string $action, array $targetInstitutions, $user): array
+    {
+        $templateKey = $action; // 'link_shared'
+
+        // Prepare notification variables
+        $variables = [
+            'link_title' => $linkShare->title,
+            'link_description' => $linkShare->description ?? '',
+            'creator_name' => $user->name ?? 'Sistem',
+            'link_url' => $linkShare->url,
+        ];
+
+        // Prepare recipients with institution-based targeting
+        $recipients = [
+            'institutions' => $targetInstitutions,
+            'target_roles' => $linkShare->target_roles ?? null
+        ];
+
+        $options = [
+            'related' => $linkShare,
+            'priority' => $this->mapLinkPriorityToNotificationPriority($linkShare->priority ?? 'normal'),
+        ];
+
+        Log::info('Sending link notification', [
+            'template_key' => $templateKey,
+            'link_id' => $linkShare->id,
+            'target_institutions' => $targetInstitutions,
+            'target_roles' => $linkShare->target_roles,
+            'variables' => array_keys($variables)
+        ]);
+
+        return $this->notificationService->sendFromTemplate($templateKey, $recipients, $variables, $options);
+    }
+
+    /**
+     * Map link priority to notification priority
+     */
+    private function mapLinkPriorityToNotificationPriority(string $linkPriority): string
+    {
+        return match ($linkPriority) {
+            'high' => 'high',
+            'normal' => 'normal',
+            'low' => 'low',
+            default => 'normal',
+        };
     }
 }

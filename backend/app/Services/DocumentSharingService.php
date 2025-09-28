@@ -5,12 +5,21 @@ namespace App\Services;
 use App\Models\Document;
 use App\Models\DocumentShare;
 use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 
 class DocumentSharingService
 {
+    protected NotificationService $notificationService;
+
+    public function __construct(NotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
+
     /**
      * Share document with users
      */
@@ -183,37 +192,64 @@ class DocumentSharingService
         $document = $share->document;
         $sharer = $share->sharedBy;
 
-        // Get users to notify
-        $usersToNotify = collect();
+        try {
+            // Prepare notification variables
+            $variables = [
+                'document_title' => $document->original_name ?? $document->file_name,
+                'creator_name' => $sharer->name ?? 'Sistem',
+                'share_message' => $share->message ?? '',
+            ];
 
-        // Add specific users
-        if (!empty($share->shared_with_users)) {
-            $specificUsers = User::whereIn('id', $share->shared_with_users)->get();
-            $usersToNotify = $usersToNotify->merge($specificUsers);
+            // Prepare recipients array for NotificationService
+            $recipients = [];
+
+            // Add specific users
+            if (!empty($share->shared_with_users)) {
+                $recipients['users'] = $share->shared_with_users;
+            }
+
+            // Add users by institution (if institutions are specified)
+            if (!empty($share->shared_with_institutions)) {
+                $recipients['institutions'] = $share->shared_with_institutions;
+                $recipients['target_roles'] = $share->shared_with_roles ?? null;
+            }
+
+            // Send notification if we have recipients
+            if (!empty($recipients)) {
+                $options = [
+                    'related' => $document,
+                    'priority' => 'normal',
+                ];
+
+                Log::info('Sending document share notification', [
+                    'document_id' => $document->id,
+                    'share_id' => $share->id,
+                    'recipients' => array_keys($recipients),
+                    'variables' => array_keys($variables)
+                ]);
+
+                $this->notificationService->sendFromTemplate('document_shared', $recipients, $variables, $options);
+            }
+
+            // Fallback: Handle role-based sharing without institutions
+            if (!empty($share->shared_with_roles) && empty($share->shared_with_institutions)) {
+                $roleUsers = User::whereHas('roles', function ($query) use ($share) {
+                    $query->whereIn('name', $share->shared_with_roles);
+                })->pluck('id')->toArray();
+
+                if (!empty($roleUsers)) {
+                    $roleRecipients = ['users' => $roleUsers];
+                    $this->notificationService->sendFromTemplate('document_shared', $roleRecipients, $variables, $options);
+                }
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Failed to send document sharing notification', [
+                'document_id' => $document->id,
+                'share_id' => $share->id,
+                'error' => $e->getMessage()
+            ]);
         }
-
-        // Add users by role
-        if (!empty($share->shared_with_roles)) {
-            $roleUsers = User::whereHas('roles', function ($query) use ($share) {
-                $query->whereIn('name', $share->shared_with_roles);
-            })->get();
-            $usersToNotify = $usersToNotify->merge($roleUsers);
-        }
-
-        // Add users by institution
-        if (!empty($share->shared_with_institutions)) {
-            $institutionUsers = User::whereIn('institution_id', $share->shared_with_institutions)->get();
-            $usersToNotify = $usersToNotify->merge($institutionUsers);
-        }
-
-        // Remove duplicates and send notifications
-        $usersToNotify->unique('id')->each(function ($user) use ($share, $document, $sharer) {
-            // Here you would send email notification
-            // Mail::to($user)->send(new DocumentSharedMail($share, $document, $sharer));
-            
-            // For now, just log the notification
-            \Log::info("Document shared notification sent to user {$user->id} for document {$document->id}");
-        });
     }
 
     /**

@@ -8,6 +8,7 @@ use App\Models\SurveyAuditLog;
 use App\Models\ActivityLog;
 use App\Models\Institution;
 use App\Models\SurveyResponse;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -15,6 +16,12 @@ use Exception;
 
 class SurveyCrudService
 {
+    protected NotificationService $notificationService;
+
+    public function __construct(NotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
     /**
      * Get paginated surveys list with filtering
      */
@@ -163,6 +170,20 @@ class SurveyCrudService
             
             // Log survey audit
             $this->logSurveyAudit($survey, 'created', 'Survey created');
+
+            // Send notification to target institutions if specified
+            if (!empty($data['target_institutions'])) {
+                try {
+                    $this->sendSurveyNotification($survey, 'survey_assigned', $data['target_institutions']);
+                } catch (\Exception $e) {
+                    \Log::error('Failed to send survey assignment notification', [
+                        'survey_id' => $survey->id,
+                        'target_institutions' => $data['target_institutions'],
+                        'error' => $e->getMessage()
+                    ]);
+                    // Don't fail the survey creation if notification fails
+                }
+            }
 
             return $survey->load(['creator.profile', 'versions']);
         });
@@ -871,6 +892,38 @@ class SurveyCrudService
     }
 
     /**
+     * Send survey notification to target institutions
+     */
+    protected function sendSurveyNotification(Survey $survey, string $action, array $targetInstitutions): void
+    {
+        $variables = [
+            'survey_title' => $survey->title,
+            'survey_description' => $survey->description ?? '',
+            'creator_name' => $survey->creator->name ?? 'Sistem',
+            'deadline' => $survey->end_date ? $survey->end_date->format('d.m.Y H:i') : 'Müddət təyin edilməyib',
+        ];
+
+        $recipients = [
+            'institutions' => $targetInstitutions
+        ];
+
+        $options = [
+            'related' => $survey,
+            'priority' => $survey->priority ?? 'normal',
+            'channels' => ['in_app', 'email'], // Default channels for survey notifications
+        ];
+
+        $notifications = $this->notificationService->sendFromTemplate($action, $recipients, $variables, $options);
+
+        \Log::info('Survey notification sent', [
+            'survey_id' => $survey->id,
+            'action' => $action,
+            'target_institutions' => $targetInstitutions,
+            'notifications_sent' => count($notifications),
+        ]);
+    }
+
+    /**
      * Log activity
      */
     protected function logActivity(string $activityType, string $description, array $additionalData = []): void
@@ -881,7 +934,7 @@ class SurveyCrudService
             'description' => $description,
             'institution_id' => Auth::user()?->institution_id
         ], $additionalData);
-        
+
         ActivityLog::logActivity($data);
     }
 }

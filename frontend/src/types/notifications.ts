@@ -39,7 +39,8 @@ export interface UnifiedNotification {
 
 // Real-time notification interface (extends unified)
 export interface RealTimeNotification extends UnifiedNotification {
-  // No additional fields needed, uses UnifiedNotification
+  broadcast_channel?: string; // WebSocket channel information
+  timestamp?: number; // Real-time timestamp for ordering
 }
 
 // Notification update events
