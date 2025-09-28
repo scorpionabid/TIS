@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\BaseController;
 use App\Services\LinkSharingService;
 use App\Services\LinkAnalyticsService;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -13,13 +14,16 @@ class LinkShareControllerRefactored extends BaseController
 {
     protected $linkSharingService;
     protected $linkAnalyticsService;
+    protected $notificationService;
 
     public function __construct(
         LinkSharingService $linkSharingService,
-        LinkAnalyticsService $linkAnalyticsService
+        LinkAnalyticsService $linkAnalyticsService,
+        NotificationService $notificationService
     ) {
         $this->linkSharingService = $linkSharingService;
         $this->linkAnalyticsService = $linkAnalyticsService;
+        $this->notificationService = $notificationService;
     }
 
     /**
@@ -91,7 +95,10 @@ class LinkShareControllerRefactored extends BaseController
 
             $user = Auth::user();
             $linkShare = $this->linkSharingService->createLinkShare($validated, $user);
-            
+
+            // Send link sharing notifications
+            $this->sendLinkShareNotification($linkShare, $validated, $user);
+
             return $this->successResponse($linkShare, 'Bağlantı uğurla yaradıldı', 201);
         }, 'linkshare.store');
     }
@@ -399,5 +406,55 @@ class LinkShareControllerRefactored extends BaseController
             
             return $this->successResponse($exportData, 'Məlumatlar ixrac edildi');
         }, 'linkshare.export');
+    }
+
+    /**
+     * Send link share notification to target users
+     */
+    private function sendLinkShareNotification($linkShare, array $shareData, $user): void
+    {
+        try {
+            $targetUserIds = [];
+
+            // Get target user IDs based on institutions and roles
+            if (isset($shareData['target_institutions']) && !empty($shareData['target_institutions'])) {
+                $targetRoles = config('notification_roles.document_notification_roles', [
+                    'schooladmin', 'məktəbadmin', 'müəllim', 'teacher'
+                ]);
+
+                $targetUserIds = \App\Services\InstitutionNotificationHelper::expandInstitutionsToUsers(
+                    $shareData['target_institutions'],
+                    $targetRoles
+                );
+            }
+
+            if (!empty($targetUserIds)) {
+                // Prepare notification data
+                $notificationData = [
+                    'creator_name' => $user->name,
+                    'creator_institution' => $user->institution?->name ?? 'N/A',
+                    'link_title' => $linkShare['title'] ?? 'Yeni Bağlantı',
+                    'link_url' => $linkShare['url'] ?? '',
+                    'link_type' => $shareData['link_type'] ?? 'external',
+                    'description' => $shareData['description'] ?? '',
+                    'share_scope' => $shareData['share_scope'] ?? 'institutional',
+                    'expires_at' => isset($shareData['expires_at']) ? date('d.m.Y H:i', strtotime($shareData['expires_at'])) : null,
+                    'action_url' => "/links/{$linkShare['id']}"
+                ];
+
+                $this->notificationService->sendLinkNotification(
+                    $linkShare,
+                    'shared',
+                    $targetUserIds,
+                    $notificationData
+                );
+            }
+        } catch (\Exception $e) {
+            \Log::error('Failed to send link sharing notification', [
+                'link_id' => $linkShare['id'] ?? null,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
     }
 }

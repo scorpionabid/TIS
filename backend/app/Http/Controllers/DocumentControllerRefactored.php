@@ -10,6 +10,7 @@ use App\Services\DocumentSharingService;
 use App\Services\DocumentPermissionService;
 use App\Services\DocumentValidationService;
 use App\Services\DocumentActivityService;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -23,6 +24,7 @@ class DocumentControllerRefactored extends Controller
     protected DocumentPermissionService $permissionService;
     protected DocumentValidationService $validationService;
     protected DocumentActivityService $activityService;
+    protected NotificationService $notificationService;
 
     public function __construct(
         DocumentService $documentService,
@@ -30,7 +32,8 @@ class DocumentControllerRefactored extends Controller
         DocumentSharingService $sharingService,
         DocumentPermissionService $permissionService,
         DocumentValidationService $validationService,
-        DocumentActivityService $activityService
+        DocumentActivityService $activityService,
+        NotificationService $notificationService
     ) {
         $this->documentService = $documentService;
         $this->downloadService = $downloadService;
@@ -38,6 +41,7 @@ class DocumentControllerRefactored extends Controller
         $this->permissionService = $permissionService;
         $this->validationService = $validationService;
         $this->activityService = $activityService;
+        $this->notificationService = $notificationService;
     }
 
     /**
@@ -335,6 +339,9 @@ class DocumentControllerRefactored extends Controller
 
             // Log sharing activity
             $this->activityService->logActivity($document, $user, 'share', $request);
+
+            // Send document share notification
+            $this->sendDocumentShareNotification($document, $share, $user);
 
             return response()->json([
                 'success' => true,
@@ -638,6 +645,51 @@ class DocumentControllerRefactored extends Controller
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'İcazə konteksti yüklənərkən xəta baş verdi.');
+        }
+    }
+
+    /**
+     * Send document share notification to target users
+     */
+    private function sendDocumentShareNotification($document, $share, $user): void
+    {
+        try {
+            // Get target users based on share configuration
+            $targetUserIds = [];
+
+            if (isset($share['user_ids']) && is_array($share['user_ids'])) {
+                $targetUserIds = $share['user_ids'];
+            } elseif (isset($share['institution_ids']) && is_array($share['institution_ids'])) {
+                // Use InstitutionNotificationHelper to expand institution IDs to user IDs
+                $targetRoles = config('notification_roles.document_notification_roles', [
+                    'schooladmin', 'məktəbadmin', 'müəllim', 'teacher'
+                ]);
+                $targetUserIds = \App\Services\InstitutionNotificationHelper::expandInstitutionsToUsers(
+                    $share['institution_ids'],
+                    $targetRoles
+                );
+            }
+
+            if (!empty($targetUserIds)) {
+                $this->notificationService->sendDocumentNotification(
+                    $document,
+                    'shared',
+                    $targetUserIds,
+                    [
+                        'creator_name' => $user->name,
+                        'document_title' => $document->title,
+                        'share_message' => $share['message'] ?? '',
+                        'share_expires_at' => $share['expires_at'] ?? null,
+                        'action_url' => "/documents/{$document->id}"
+                    ]
+                );
+            }
+        } catch (\Exception $e) {
+            // Log notification error but don't fail the share operation
+            \Log::error('Document share notification failed', [
+                'document_id' => $document->id,
+                'error' => $e->getMessage()
+            ]);
         }
     }
 

@@ -165,6 +165,12 @@ class NotificationService
                     $individualData['user_id'] = $userId;
                     $individualData['target_institutions'] = $recipients['institutions']; // Keep for reference
 
+                    // Ensure related entity information is preserved
+                    if (isset($options['related'])) {
+                        $individualData['related_type'] = get_class($options['related']);
+                        $individualData['related_id'] = $options['related']->id;
+                    }
+
                     $notification = $this->send($individualData);
                     if ($notification) {
                         $notifications[] = $notification;
@@ -447,36 +453,6 @@ class NotificationService
 
     // Unified notification methods for common scenarios
 
-    /**
-     * Send task notification with action
-     */
-    public function sendTaskNotification(Task $task, string $action, array $extraData = []): array
-    {
-        $templateKey = "task_{$action}"; // task_assigned, task_updated, task_deadline, etc.
-
-        // Default variables for all task notifications
-        $variables = array_merge([
-            'task_title' => $task->title,
-            'task_category' => $task->category_label ?? '',
-            'creator_name' => $task->creator->name ?? 'Sistem',
-            'deadline' => $task->deadline ? $task->deadline->format('d.m.Y H:i') : 'Müddət təyin edilməyib',
-        ], $extraData);
-
-        // Allow recipients to be overridden via extraData, fallback to default
-        $recipients = $extraData['recipients'] ?? ['users' => [$task->assigned_to ?? $task->created_by]];
-
-        $options = [
-            'related' => $task,
-            'priority' => $this->mapTaskPriorityToNotificationPriority($task->priority ?? 'normal'),
-        ];
-
-        // Merge any additional options from extraData
-        if (isset($extraData['options'])) {
-            $options = array_merge($options, $extraData['options']);
-        }
-
-        return $this->sendFromTemplate($templateKey, $recipients, $variables, $options);
-    }
 
     /**
      * Send survey notification with action
@@ -528,6 +504,136 @@ class NotificationService
             'low' => 'low',
             default => 'normal',
         };
+    }
+
+    /**
+     * Send document notification
+     */
+    public function sendDocumentNotification($document, string $action, array $users, array $extraData = []): array
+    {
+        $templateKey = "document_{$action}"; // document_shared, document_uploaded, etc.
+
+        // Default variables for all document notifications
+        $variables = array_merge([
+            'document_title' => $document['title'] ?? $document['name'] ?? 'N/A',
+            'document_type' => $document['type'] ?? 'document',
+            'creator_name' => $extraData['creator_name'] ?? 'Sistem',
+            'creator_institution' => $extraData['creator_institution'] ?? '',
+            'share_message' => $extraData['share_message'] ?? '',
+            'file_size' => isset($document['file_size']) ? $this->formatFileSize($document['file_size']) : '',
+            'action_url' => $extraData['action_url'] ?? "/documents/{$document['id']}",
+        ], $extraData);
+
+        $recipients = ['users' => $users];
+        $options = [
+            'related' => is_object($document) ? $document : null,
+            'priority' => $extraData['priority'] ?? 'normal',
+        ];
+
+        return $this->sendFromTemplate($templateKey, $recipients, $variables, $options);
+    }
+
+    /**
+     * Send link notification
+     */
+    public function sendLinkNotification($linkShare, string $action, array $users, array $extraData = []): array
+    {
+        $templateKey = "link_{$action}"; // link_shared, link_created, etc.
+
+        // Default variables for all link notifications
+        $variables = array_merge([
+            'link_title' => $linkShare['title'] ?? 'Yeni Bağlantı',
+            'link_url' => $linkShare['url'] ?? '',
+            'link_type' => $extraData['link_type'] ?? 'external',
+            'creator_name' => $extraData['creator_name'] ?? 'Sistem',
+            'creator_institution' => $extraData['creator_institution'] ?? '',
+            'description' => $extraData['description'] ?? '',
+            'share_scope' => $extraData['share_scope'] ?? 'institutional',
+            'expires_at' => $extraData['expires_at'] ?? '',
+            'action_url' => $extraData['action_url'] ?? "/links/{$linkShare['id']}",
+        ], $extraData);
+
+        $recipients = ['users' => $users];
+        $options = [
+            'related' => is_object($linkShare) ? $linkShare : null,
+            'priority' => $extraData['priority'] ?? 'normal',
+        ];
+
+        return $this->sendFromTemplate($templateKey, $recipients, $variables, $options);
+    }
+
+    /**
+     * Send task notification
+     */
+    public function sendTaskNotification($task, string $action, array $users, array $extraData = []): array
+    {
+        $templateKey = "task_{$action}"; // task_assigned, task_completed, task_deadline, etc.
+
+        // Default variables for all task notifications
+        $variables = array_merge([
+            'task_title' => $task->title ?? 'Yeni Tapşırıq',
+            'task_category' => $task->category ?? 'other',
+            'task_priority' => $task->priority ?? 'normal',
+            'creator_name' => $extraData['creator_name'] ?? 'Sistem',
+            'creator_institution' => $extraData['creator_institution'] ?? '',
+            'description' => $extraData['description'] ?? '',
+            'due_date' => $extraData['due_date'] ?? '',
+            'target_institution' => $extraData['target_institution'] ?? '',
+            'priority_label' => $this->getTaskPriorityLabel($task->priority ?? 'normal'),
+            'category_label' => $this->getTaskCategoryLabel($task->category ?? 'other'),
+            'action_url' => $extraData['action_url'] ?? "/tasks/{$task->id}",
+        ], $extraData);
+
+        $recipients = ['users' => $users];
+        $options = [
+            'related' => $task,
+            'priority' => $this->mapTaskPriorityToNotificationPriority($task->priority ?? 'normal'),
+        ];
+
+        return $this->sendFromTemplate($templateKey, $recipients, $variables, $options);
+    }
+
+    /**
+     * Get task priority label in Azerbaijani
+     */
+    private function getTaskPriorityLabel(string $priority): string
+    {
+        return match ($priority) {
+            'urgent' => 'Təcili',
+            'high' => 'Yüksək',
+            'medium' => 'Orta',
+            'low' => 'Aşağı',
+            default => 'Orta',
+        };
+    }
+
+    /**
+     * Get task category label in Azerbaijani
+     */
+    private function getTaskCategoryLabel(string $category): string
+    {
+        return match ($category) {
+            'report' => 'Hesabat',
+            'maintenance' => 'Təmir',
+            'event' => 'Tədbir',
+            'audit' => 'Audit',
+            'instruction' => 'Təlimat',
+            'other' => 'Digər',
+            default => 'Digər',
+        };
+    }
+
+    /**
+     * Format file size for display
+     */
+    private function formatFileSize(int $bytes): string
+    {
+        if ($bytes >= 1024 * 1024) {
+            return round($bytes / (1024 * 1024), 2) . ' MB';
+        } elseif ($bytes >= 1024) {
+            return round($bytes / 1024, 2) . ' KB';
+        }
+        return $bytes . ' B';
     }
 
     /**

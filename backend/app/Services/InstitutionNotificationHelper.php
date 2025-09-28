@@ -54,19 +54,33 @@ class InstitutionNotificationHelper
         $allInstitutionIds = collect($institutionIds);
 
         // For each institution, check if it's a sector/region and include its children
+        // Also include parent institutions for schools (to notify sektoradmin)
         foreach ($institutionIds as $institutionId) {
             $institution = Institution::find($institutionId);
-            if ($institution && $institution->level <= 3) { // Sector or higher level
-                // Add all schools under this sector/region using the existing method
-                $children = $institution->getAllChildrenIds();
-                $allInstitutionIds = $allInstitutionIds->merge($children);
+            if ($institution) {
+                if ($institution->level <= 3) { // Sector or higher level
+                    // Add all schools under this sector/region using the existing method
+                    $children = $institution->getAllChildrenIds();
+                    $allInstitutionIds = $allInstitutionIds->merge($children);
 
-                Log::debug('InstitutionNotificationHelper: Expanded institution hierarchy', [
-                    'parent_institution_id' => $institutionId,
-                    'parent_level' => $institution->level,
-                    'children_count' => count($children),
-                    'children_ids' => $children
-                ]);
+                    Log::debug('InstitutionNotificationHelper: Expanded institution hierarchy (children)', [
+                        'parent_institution_id' => $institutionId,
+                        'parent_level' => $institution->level,
+                        'children_count' => count($children),
+                        'children_ids' => $children
+                    ]);
+                } else {
+                    // For schools (level 4), also include their parent sector
+                    if ($institution->parent_id) {
+                        $allInstitutionIds->push($institution->parent_id);
+
+                        Log::debug('InstitutionNotificationHelper: Added parent institution', [
+                            'school_institution_id' => $institutionId,
+                            'school_level' => $institution->level,
+                            'parent_institution_id' => $institution->parent_id
+                        ]);
+                    }
+                }
             }
         }
 

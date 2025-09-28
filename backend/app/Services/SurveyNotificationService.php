@@ -22,67 +22,78 @@ class SurveyNotificationService
     }
     /**
      * İstifadəçinin survey assignment notification-larını əldə et
+     * Real notification table-dan survey-related notification-ları oxuyur
      */
     public function getUserSurveyNotifications(User $user, array $options = []): array
     {
         $limit = $options['limit'] ?? 50;
         $onlyUnread = $options['only_unread'] ?? false;
-        
-        // İstifadəçinin institution-ına target edilmiş published survey-ları tap
-        $surveys = Survey::where('status', 'published')
-            ->whereJsonContains('target_institutions', $user->institution_id)
-            ->orderBy('published_at', 'desc')
-            ->limit($limit)
-            ->get();
 
-        $notifications = [];
+        // Real notification table-dan survey notification-ları əldə et
+        $notificationsQuery = \App\Models\Notification::where('user_id', $user->id)
+            ->where('type', 'LIKE', 'survey%')
+            ->orderBy('created_at', 'desc')
+            ->limit($limit);
 
-        foreach ($surveys as $survey) {
-            // User bu survey-ə response veribmi yoxla
-            $hasResponse = $survey->responses()
-                ->where('user_id', $user->id)
-                ->exists();
+        if ($onlyUnread) {
+            $notificationsQuery->where('is_read', false);
+        }
 
-            // Əgər response varsa və yalnız unread notifications istənirsə, skip et
-            if ($hasResponse && $onlyUnread) {
-                continue;
+        $notifications = $notificationsQuery->get();
+
+        $result = [];
+
+        foreach ($notifications as $notification) {
+            // Survey məlumatları əldə et
+            $survey = null;
+            if ($notification->related_type === 'App\Models\Survey' && $notification->related_id) {
+                $survey = Survey::find($notification->related_id);
             }
 
-            $notifications[] = [
-                'id' => 'survey_' . $survey->id,
-                'type' => 'survey_assignment',
-                'title' => 'Yeni Survey Təyinatı',
-                'message' => "Sizə yeni survey təyin edildi: {$survey->title}",
+            // Survey məlumatlarını notification-dan əldə et
+            $surveyIdFromNotification = null;
+            if ($notification->related_type === 'App\\Models\\Survey' && $notification->related_id) {
+                $surveyIdFromNotification = $notification->related_id;
+            } elseif ($notification->data && is_array($notification->data) && isset($notification->data['survey_id'])) {
+                $surveyIdFromNotification = $notification->data['survey_id'];
+            }
+
+            $result[] = [
+                'id' => $notification->id,
+                'type' => $notification->type,
+                'title' => $notification->title,
+                'message' => $notification->message,
                 'data' => [
-                    'survey_id' => $survey->id,
-                    'survey_title' => $survey->title,
-                    'survey_description' => $survey->description,
-                    'due_date' => $survey->end_date?->toISOString(),
-                    'priority' => $this->getSurveyPriority($survey),
-                    'questions_count' => $survey->questions()->count(),
-                    'action_url' => "/survey-response/{$survey->id}"
+                    'survey_id' => $surveyIdFromNotification ?? $survey?->id,
+                    'survey_title' => $survey?->title,
+                    'survey_description' => $survey?->description,
+                    'due_date' => $survey?->end_date?->toISOString(),
+                    'priority' => $notification->priority ?? 'normal',
+                    'questions_count' => $survey?->questions()->count() ?? 0,
+                    'action_url' => $surveyIdFromNotification ? "/survey-response/{$surveyIdFromNotification}" : null,
+                    'related_entity_type' => $notification->related_type,
+                    'related_entity_id' => $notification->related_id
                 ],
-                'read_at' => $hasResponse ? Carbon::now()->toISOString() : null,
-                'created_at' => $survey->published_at?->toISOString() ?? $survey->created_at->toISOString(),
-                'is_read' => $hasResponse,
-                'priority' => $this->getSurveyPriority($survey),
+                'read_at' => $notification->read_at?->toISOString(),
+                'created_at' => $notification->created_at->toISOString(),
+                'is_read' => $notification->is_read,
+                'priority' => $notification->priority ?? 'normal',
                 'category' => 'survey'
             ];
         }
 
-        return $notifications;
+        return $result;
     }
 
     /**
      * İstifadəçinin okunmamış survey notification sayını əldə et
+     * Real notification table-dan survey-related unread notification sayını qaytarır
      */
     public function getUserUnreadSurveyCount(User $user): int
     {
-        return Survey::where('status', 'published')
-            ->whereJsonContains('target_institutions', $user->institution_id)
-            ->whereDoesntHave('responses', function($query) use ($user) {
-                $query->where('user_id', $user->id);
-            })
+        return \App\Models\Notification::where('user_id', $user->id)
+            ->where('type', 'LIKE', 'survey%')
+            ->where('is_read', false)
             ->count();
     }
 

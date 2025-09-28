@@ -7,6 +7,7 @@ use App\Models\TaskAssignment;
 use App\Services\TaskPermissionService;
 use App\Services\TaskAssignmentService;
 use App\Services\TaskStatisticsService;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -18,15 +19,18 @@ class TaskControllerRefactored extends Controller
     protected TaskPermissionService $permissionService;
     protected TaskAssignmentService $assignmentService;
     protected TaskStatisticsService $statisticsService;
+    protected NotificationService $notificationService;
 
     public function __construct(
         TaskPermissionService $permissionService,
         TaskAssignmentService $assignmentService,
-        TaskStatisticsService $statisticsService
+        TaskStatisticsService $statisticsService,
+        NotificationService $notificationService
     ) {
         $this->permissionService = $permissionService;
         $this->assignmentService = $assignmentService;
         $this->statisticsService = $statisticsService;
+        $this->notificationService = $notificationService;
     }
 
     /**
@@ -116,6 +120,9 @@ class TaskControllerRefactored extends Controller
 
         try {
             $result = $this->assignmentService->createHierarchicalTask($request->all(), $user);
+
+            // Send task assignment notifications
+            $this->sendTaskAssignmentNotification($result['task'], $result['assignments'] ?? [], $user);
 
             return response()->json([
                 'success' => true,
@@ -516,6 +523,51 @@ class TaskControllerRefactored extends Controller
                     $query->overdue();
                     break;
             }
+        }
+    }
+
+    /**
+     * Send task assignment notification to target users
+     */
+    private function sendTaskAssignmentNotification($task, array $assignments, $creator): void
+    {
+        try {
+            // Collect all assigned user IDs
+            $assignedUserIds = [];
+
+            foreach ($assignments as $assignment) {
+                if (isset($assignment['assigned_user_id'])) {
+                    $assignedUserIds[] = $assignment['assigned_user_id'];
+                }
+            }
+
+            if (!empty($assignedUserIds)) {
+                // Prepare notification data
+                $notificationData = [
+                    'creator_name' => $creator->name,
+                    'creator_institution' => $creator->institution?->name ?? 'N/A',
+                    'task_title' => $task->title ?? 'Yeni Tapşırıq',
+                    'task_category' => $task->category ?? 'other',
+                    'task_priority' => $task->priority ?? 'normal',
+                    'description' => $task->description ?? '',
+                    'due_date' => $task->due_date ? date('d.m.Y H:i', strtotime($task->due_date)) : null,
+                    'target_institution' => $task->assignedInstitution?->name ?? '',
+                    'action_url' => "/tasks/{$task->id}",
+                ];
+
+                $this->notificationService->sendTaskNotification(
+                    $task,
+                    'assigned',
+                    $assignedUserIds,
+                    $notificationData
+                );
+            }
+        } catch (\Exception $e) {
+            \Log::error('Failed to send task assignment notification', [
+                'task_id' => $task->id ?? null,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
         }
     }
 

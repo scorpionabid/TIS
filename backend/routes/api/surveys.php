@@ -111,7 +111,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('survey-notifications', [SurveyNotificationController::class, 'index']);
     Route::get('survey-notifications/unread-count', [SurveyNotificationController::class, 'unreadCount']);
     Route::get('survey-notifications/stats', [SurveyNotificationController::class, 'stats']);
-    Route::post('survey-notifications/{surveyId}/mark-read', [SurveyNotificationController::class, 'markAsRead']);
+    Route::post('survey-notifications/{notificationId}/mark-read', [SurveyNotificationController::class, 'markAsRead']);
 });
 
 // My Surveys - User-facing survey endpoints

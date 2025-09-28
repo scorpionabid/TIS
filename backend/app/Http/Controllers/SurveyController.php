@@ -251,12 +251,42 @@ class SurveyController extends BaseController
                 'status' => 'published',
                 'published_at' => now()
             ]);
-            
-            // Send notifications to target institutions
-            $this->notifyTargetInstitutions($survey);
-            
+
+            // Send notifications to target institutions if specified
+            \Log::info('Checking notification conditions', [
+                'survey_id' => $survey->id,
+                'target_institutions' => $survey->target_institutions,
+                'empty_check' => empty($survey->target_institutions)
+            ]);
+
+            if (!empty($survey->target_institutions)) {
+                \Log::info('Sending survey publish notification', [
+                    'survey_id' => $survey->id,
+                    'target_institutions' => $survey->target_institutions
+                ]);
+                try {
+                    $this->sendSurveyPublishNotification($survey);
+                    \Log::info('Survey publish notification sent successfully', [
+                        'survey_id' => $survey->id
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('Failed to send survey publish notification', [
+                        'survey_id' => $survey->id,
+                        'target_institutions' => $survey->target_institutions,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                    // Don't fail the publish if notification fails
+                }
+            } else {
+                \Log::warning('No target institutions found for survey', [
+                    'survey_id' => $survey->id,
+                    'target_institutions' => $survey->target_institutions
+                ]);
+            }
+
             $formattedSurvey = $this->crudService->formatDetailedForResponse($survey);
-            
+
             return $this->successResponse($formattedSurvey, 'Survey published successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
@@ -770,48 +800,6 @@ class SurveyController extends BaseController
         return $survey->fresh();
     }
 
-    /**
-     * Send notifications to target institutions when survey is published
-     */
-    protected function notifyTargetInstitutions(Survey $survey): void
-    {
-        try {
-            $targetInstitutions = $survey->target_institutions ?? [];
-            
-            if (empty($targetInstitutions)) {
-                \Log::info('No target institutions found for survey', ['survey_id' => $survey->id]);
-                return;
-            }
-
-            // Get users from target institutions who should receive notifications
-            $usersToNotify = User::whereIn('institution_id', $targetInstitutions)
-                ->whereHas('roles', function($query) {
-                    $query->whereIn('name', ['schooladmin', 'teacher', 'sektoradmin']); 
-                })
-                ->get();
-
-            $sentCount = 0;
-            foreach ($usersToNotify as $user) {
-                $notification = $this->notificationService->sendSurveyAssignment($survey, $user);
-                if ($notification) {
-                    $sentCount++;
-                }
-            }
-
-            \Log::info('Survey assignment notifications sent', [
-                'survey_id' => $survey->id,
-                'target_institutions' => $targetInstitutions,
-                'total_users' => $usersToNotify->count(),
-                'notifications_sent' => $sentCount
-            ]);
-
-        } catch (\Exception $e) {
-            \Log::error('Failed to send survey assignment notifications', [
-                'survey_id' => $survey->id,
-                'error' => $e->getMessage()
-            ]);
-        }
-    }
 
     /**
      * Get analytics for a specific survey
@@ -1033,5 +1021,43 @@ class SurveyController extends BaseController
                     });
             })
             ->orderBy('created_at', 'desc');
+    }
+
+    /**
+     * Send notification when survey is published
+     */
+    protected function sendSurveyPublishNotification(Survey $survey): void
+    {
+        $templateKey = 'survey_published';
+
+        // Prepare notification variables
+        $variables = [
+            'survey_title' => $survey->title,
+            'survey_description' => $survey->description ?? '',
+            'creator_name' => $survey->creator->name ?? 'Sistem',
+            'deadline' => $survey->end_date ? $survey->end_date->format('d.m.Y H:i') : '',
+        ];
+
+        // Prepare recipients with institution-based targeting
+        $recipients = [
+            'institutions' => $survey->target_institutions,
+            'target_roles' => config('notification_roles.survey_notification_roles', [
+                'schooladmin', 'məktəbadmin', 'müəllim', 'teacher', 'təhsilçi'
+            ])
+        ];
+
+        $options = [
+            'related' => $survey,
+            'priority' => 'normal',
+        ];
+
+        \Log::info('Sending survey publish notification', [
+            'template_key' => $templateKey,
+            'survey_id' => $survey->id,
+            'target_institutions' => $survey->target_institutions,
+            'variables' => array_keys($variables)
+        ]);
+
+        $this->notificationService->sendFromTemplate($templateKey, $recipients, $variables, $options);
     }
 }

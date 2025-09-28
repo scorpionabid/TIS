@@ -57,6 +57,8 @@ return [
      * Survey notification roles
      */
     'survey_notification_roles' => [
+        'superadmin',
+        'sektoradmin',
         'schooladmin',
         'məktəbadmin',
         'müəllim',
@@ -72,6 +74,20 @@ return [
         'məktəbadmin',
         'müəllim',
         'teacher'
+    ],
+
+    /**
+     * Task assignment notification roles
+     */
+    'task_notification_roles' => [
+        'superadmin',
+        'regionadmin',
+        'sektoradmin',
+        'schooladmin',
+        'məktəbadmin',
+        'müəllim',
+        'teacher',
+        'təhsilçi'
     ],
 
     /**
