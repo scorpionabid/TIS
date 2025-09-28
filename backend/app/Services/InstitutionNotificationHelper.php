@@ -7,7 +7,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Institution Notification Helper
+ * Institution Notification Helper Service
  *
  * Handles expansion of institution IDs to user IDs for notification targeting
  * with proper hierarchy support and role filtering.
@@ -15,9 +15,14 @@ use Illuminate\Support\Facades\Log;
 class InstitutionNotificationHelper
 {
     /**
-     * Default target roles for notifications
+     * Get default target roles from config
      */
-    const DEFAULT_TARGET_ROLES = ['schooladmin', 'məktəbadmin', 'müəllim', 'teacher'];
+    private function getDefaultTargetRoles(): array
+    {
+        return config('notification_roles.default_target_roles', [
+            'schooladmin', 'məktəbadmin', 'müəllim', 'teacher'
+        ]);
+    }
 
     /**
      * Expand institution IDs to user IDs with hierarchy support
@@ -27,7 +32,7 @@ class InstitutionNotificationHelper
      * @param bool $includeInactive Whether to include inactive users
      * @return array Array of user IDs
      */
-    public static function expandInstitutionsToUsers(
+    public function doExpandInstitutionsToUsers(
         array $institutionIds,
         ?array $targetRoles = null,
         bool $includeInactive = false
@@ -37,7 +42,7 @@ class InstitutionNotificationHelper
         }
 
         // Use default roles if not specified
-        $targetRoles = $targetRoles ?? self::DEFAULT_TARGET_ROLES;
+        $targetRoles = $targetRoles ?? $this->getDefaultTargetRoles();
 
         Log::debug('InstitutionNotificationHelper: Expanding institutions to users', [
             'institution_ids' => $institutionIds,
@@ -99,7 +104,7 @@ class InstitutionNotificationHelper
      * @param bool $includeInactive
      * @return array Array with detailed user information
      */
-    public static function expandInstitutionsToUsersDetailed(
+    public function doExpandInstitutionsToUsersDetailed(
         array $institutionIds,
         ?array $targetRoles = null,
         bool $includeInactive = false
@@ -108,7 +113,7 @@ class InstitutionNotificationHelper
             return [];
         }
 
-        $targetRoles = $targetRoles ?? self::DEFAULT_TARGET_ROLES;
+        $targetRoles = $targetRoles ?? $this->getDefaultTargetRoles();
 
         // Get all relevant institution IDs (including children)
         $allInstitutionIds = collect($institutionIds);
@@ -155,7 +160,7 @@ class InstitutionNotificationHelper
      * @param int $institutionId
      * @return array
      */
-    public static function getInstitutionHierarchy(int $institutionId): array
+    public function doGetInstitutionHierarchy(int $institutionId): array
     {
         $institution = Institution::find($institutionId);
 
@@ -178,12 +183,12 @@ class InstitutionNotificationHelper
      * @param array $roles
      * @return array Valid roles
      */
-    public static function validateTargetRoles(array $roles): array
+    public function doValidateTargetRoles(array $roles): array
     {
-        $validRoles = [
+        $validRoles = config('notification_roles.all_valid_roles', [
             'superadmin', 'regionadmin', 'sektoradmin', 'schooladmin',
             'məktəbadmin', 'müəllim', 'teacher', 'təhsilçi'
-        ];
+        ]);
 
         return array_intersect($roles, $validRoles);
     }
@@ -195,12 +200,12 @@ class InstitutionNotificationHelper
      * @param array|null $targetRoles
      * @return array
      */
-    public static function getNotificationStatistics(array $institutionIds, ?array $targetRoles = null): array
+    public function doGetNotificationStatistics(array $institutionIds, ?array $targetRoles = null): array
     {
-        $targetRoles = $targetRoles ?? self::DEFAULT_TARGET_ROLES;
+        $targetRoles = $targetRoles ?? $this->getDefaultTargetRoles();
 
-        $userIds = self::expandInstitutionsToUsers($institutionIds, $targetRoles);
-        $detailedUsers = self::expandInstitutionsToUsersDetailed($institutionIds, $targetRoles);
+        $userIds = $this->doExpandInstitutionsToUsers($institutionIds, $targetRoles);
+        $detailedUsers = $this->doExpandInstitutionsToUsersDetailed($institutionIds, $targetRoles);
 
         $stats = [
             'total_institutions' => count($institutionIds),
@@ -225,5 +230,59 @@ class InstitutionNotificationHelper
         }
 
         return $stats;
+    }
+
+    // Static convenience methods for backward compatibility
+    // These delegate to instance methods
+
+    /**
+     * Static convenience method for expandInstitutionsToUsers
+     * @deprecated Use dependency injection instead
+     */
+    public static function expandInstitutionsToUsers(
+        array $institutionIds,
+        ?array $targetRoles = null,
+        bool $includeInactive = false
+    ): array {
+        return (new self())->doExpandInstitutionsToUsers($institutionIds, $targetRoles, $includeInactive);
+    }
+
+    /**
+     * Static convenience method for expandInstitutionsToUsersDetailed
+     * @deprecated Use dependency injection instead
+     */
+    public static function expandInstitutionsToUsersDetailed(
+        array $institutionIds,
+        ?array $targetRoles = null,
+        bool $includeInactive = false
+    ): array {
+        return (new self())->doExpandInstitutionsToUsersDetailed($institutionIds, $targetRoles, $includeInactive);
+    }
+
+    /**
+     * Static convenience method for getInstitutionHierarchy
+     * @deprecated Use dependency injection instead
+     */
+    public static function getInstitutionHierarchy(int $institutionId): array
+    {
+        return (new self())->doGetInstitutionHierarchy($institutionId);
+    }
+
+    /**
+     * Static convenience method for validateTargetRoles
+     * @deprecated Use dependency injection instead
+     */
+    public static function validateTargetRoles(array $roles): array
+    {
+        return (new self())->doValidateTargetRoles($roles);
+    }
+
+    /**
+     * Static convenience method for getNotificationStatistics
+     * @deprecated Use dependency injection instead
+     */
+    public static function getNotificationStatistics(array $institutionIds, ?array $targetRoles = null): array
+    {
+        return (new self())->doGetNotificationStatistics($institutionIds, $targetRoles);
     }
 }

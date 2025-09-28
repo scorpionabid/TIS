@@ -6,6 +6,7 @@ use App\Models\Task;
 use App\Models\User;
 use App\Models\Institution;
 use App\Models\Notification;
+use App\Services\InstitutionNotificationHelper;
 use Illuminate\Support\Facades\Log;
 
 class TaskNotificationService
@@ -228,31 +229,19 @@ class TaskNotificationService
 
     /**
      * Get user IDs in target institutions
+     * Uses InstitutionNotificationHelper to avoid code duplication
      */
     private function getUsersInInstitutions(array $institutionIds): array
     {
-        // Get all relevant institution IDs (including children for sectors)
-        $allInstitutionIds = collect($institutionIds);
-        
-        // For each institution, check if it's a sector and include its schools
-        foreach ($institutionIds as $institutionId) {
-            $institution = Institution::find($institutionId);
-            if ($institution && $institution->level <= 3) { // Sector or higher level
-                // Add all schools under this sector/region
-                $children = Institution::where('parent_id', $institutionId)
-                    ->where('level', 4) // Schools are level 4
-                    ->pluck('id');
-                $allInstitutionIds = $allInstitutionIds->merge($children);
-            }
-        }
-        
-        return User::whereIn('institution_id', $allInstitutionIds->unique()->toArray())
-            ->whereHas('roles', function ($q) {
-                $q->whereIn('name', ['schooladmin', 'məktəbadmin', 'müəllim']);
-            })
-            ->where('is_active', true)
-            ->pluck('id')
-            ->toArray();
+        $taskRoles = config('notification_roles.task_notification_roles', [
+            'schooladmin', 'məktəbadmin', 'müəllim'
+        ]);
+
+        return InstitutionNotificationHelper::expandInstitutionsToUsers(
+            $institutionIds,
+            $taskRoles, // Target roles for tasks from config
+            false // Only active users
+        );
     }
 
 }
