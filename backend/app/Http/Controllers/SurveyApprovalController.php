@@ -83,7 +83,9 @@ class SurveyApprovalController extends Controller
             }
 
             $response->load([
-                'survey',
+                'survey.questions' => function($query) {
+                    $query->where('is_active', true)->orderBy('order_index');
+                },
                 'institution',
                 'department',
                 'respondent',

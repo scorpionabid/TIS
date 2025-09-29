@@ -1,5 +1,6 @@
 import { apiClient } from './api';
 import bulkJobService, { BulkJobResult, BulkJobProgress } from './bulkJobService';
+import { SurveyQuestion } from './surveys';
 
 export interface SurveyResponseForApproval {
   id: number;
@@ -24,6 +25,7 @@ export interface SurveyResponseForApproval {
     id: number;
     title: string;
     description?: string;
+    questions?: SurveyQuestion[];
   };
   institution?: {
     id: number;

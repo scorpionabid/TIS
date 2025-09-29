@@ -264,6 +264,12 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
     );
   };
 
+  // Get question title by ID
+  const getQuestionTitle = (questionId: string, index: number) => {
+    const question = responseDetail?.response?.survey?.questions?.find(q => q.id.toString() === questionId);
+    return question?.title || `Sual ${index + 1}`;
+  };
+
   // Render question response
   const renderQuestionResponse = (questionId: string, response: any, questionText?: string) => {
     const isEditingThis = isEditing && responseDetail?.can_edit;
@@ -537,7 +543,7 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                     <div className="flex items-center gap-2">
                       <Badge variant="outline">{index + 1}</Badge>
                       <Label className="font-medium">
-                        Sual {questionId}
+                        {getQuestionTitle(questionId, index)}
                       </Label>
                     </div>
                     {renderQuestionResponse(questionId, answer)}
