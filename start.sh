@@ -89,12 +89,19 @@ start_services() {
     # Clean up build cache
     rm -rf frontend/dist frontend/.vite 2>/dev/null || true
 
-    # Start services
+    # Start services with proper error handling
     print_status "Konteynerləri qur və başlat..."
-    docker-compose up --build -d
+    if ! docker-compose up --build -d 2>/dev/null; then
+        print_warning "Build problemi, mövcud image-lərlə başladır..."
+        if ! docker-compose up -d; then
+            print_error "Docker konteynerləri başlatmaq olmur!"
+            print_status "Logları yoxla: docker-compose logs"
+            exit 1
+        fi
+    fi
 
     print_status "Servislər hazır olmasını gözlə..."
-    sleep 15
+    sleep 20
 }
 
 # Health checks
@@ -129,17 +136,45 @@ check_health() {
     fi
 }
 
+# Setup frontend dependencies
+setup_frontend_deps() {
+    print_status "Frontend dependencies yoxla..."
+
+    # Check if laravel-echo is installed
+    if ! docker exec atis_frontend npm list laravel-echo >/dev/null 2>&1; then
+        print_status "Frontend dependencies quraşdır..."
+        docker exec atis_frontend npm install laravel-echo pusher-js
+        print_success "Frontend dependencies quraşdırıldı"
+    fi
+}
+
 # Database setup
 setup_database() {
     print_status "Database-i hazırla..."
 
     # Run migrations
-    docker exec atis_backend php artisan migrate --force >/dev/null 2>&1 || true
+    print_status "Migrations çalışdır..."
+    docker exec atis_backend php artisan migrate --force || {
+        print_error "Migration uğursuz!"
+        exit 1
+    }
 
-    # Check if superadmin exists, if not run seeder
-    if ! docker exec atis_backend php artisan tinker --execute="exit(App\\Models\\User::where('username', 'superadmin')->exists() ? 0 : 1);" >/dev/null 2>&1; then
-        print_status "Superadmin seeder çalışdır..."
-        docker exec atis_backend php artisan db:seed --class=SuperAdminSeeder >/dev/null 2>&1 || true
+    # Check if we have users, if not run full seeders
+    user_count=$(docker exec atis_backend php artisan tinker --execute="echo App\\Models\\User::count();" 2>/dev/null | tail -1)
+
+    if [ "$user_count" -lt 5 ]; then
+        print_status "Database seeders çalışdır..."
+
+        # Run essential seeders in order
+        docker exec atis_backend php artisan db:seed --class=PermissionSeeder --force
+        docker exec atis_backend php artisan db:seed --class=RoleSeeder --force
+        docker exec atis_backend php artisan db:seed --class=SuperAdminSeeder --force
+        docker exec atis_backend php artisan db:seed --class=InstitutionTypeSeeder --force
+        docker exec atis_backend php artisan db:seed --class=InstitutionHierarchySeeder --force
+
+        print_success "Database seeders tamamlandı"
+    else
+        print_success "Database artıq məlumatla doludur"
     fi
 
     print_success "Database hazır"
@@ -189,6 +224,7 @@ main() {
     cleanup_ports
     setup_env
     start_services
+    setup_frontend_deps
     setup_database
     check_health
     show_info
