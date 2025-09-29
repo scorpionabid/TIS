@@ -29,3 +29,8 @@ Route::prefix('links')->group(function () {
     Route::get('/tracking/activity', [LinkShareController::class, 'getTrackingActivity'])->middleware('permission:links.tracking');
     Route::get('/{linkShare}/tracking/history', [LinkShareController::class, 'getLinkHistory'])->middleware('permission:links.tracking');
 });
+
+// My Resources Routes (for sektoradmin, schooladmin and teachers)
+Route::prefix('my-resources')->group(function () {
+    Route::get('/assigned', [LinkShareController::class, 'getAssignedResources'])->middleware('permission:links.read');
+});

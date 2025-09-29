@@ -457,4 +457,39 @@ class LinkShareControllerRefactored extends BaseController
             ]);
         }
     }
+
+    /**
+     * Get assigned resources for school admins and teachers
+     */
+    public function getAssignedResources(Request $request)
+    {
+        return $this->executeWithErrorHandling(function () use ($request) {
+            \Log::info('📋 LinkShareController: getAssignedResources called', [
+                'user_id' => Auth::id(),
+                'user_role' => Auth::user()?->roles?->first()?->name,
+                'request_params' => $request->all()
+            ]);
+
+            $user = Auth::user();
+
+            // Check if user has permission to view assigned resources
+            if (!$user->hasAnyRole(['schooladmin', 'məktəbadmin', 'muellim', 'teacher'])) {
+                return $this->errorResponse('Bu səhifəni görməyə icazəniz yoxdur', 403);
+            }
+
+            // Get both links and documents assigned to user's institution
+            $assignedResources = $this->linkSharingService->getAssignedResources($request, $user);
+
+            \Log::info('📥 LinkShareController: getAssignedResources result', [
+                'resources_count' => count($assignedResources),
+                'user_institution' => $user->institution_id
+            ]);
+
+            return $this->successResponse([
+                'data' => $assignedResources,
+                'total' => count($assignedResources)
+            ], 'Təyin edilmiş resurslər alındı');
+
+        }, 'linkshare.getAssignedResources');
+    }
 }

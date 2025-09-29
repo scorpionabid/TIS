@@ -14,6 +14,7 @@ use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DocumentControllerRefactored extends Controller
@@ -240,11 +241,16 @@ class DocumentControllerRefactored extends Controller
     public function download(Document $document, Request $request): StreamedResponse
     {
         $user = Auth::user();
-        
+
         // Check if user can download this document
         if (!$this->permissionService->canUserDownloadDocument($user, $document)) {
             abort(403, 'Bu sənədi yükləmək icazəniz yoxdur.');
         }
+
+        Log::info('Document download permission granted', [
+            'document_id' => $document->id,
+            'user_id' => $user->id,
+        ]);
 
         // Log document download
         $this->activityService->logActivity($document, $user, 'download', $request);

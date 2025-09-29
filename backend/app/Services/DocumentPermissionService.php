@@ -128,14 +128,53 @@ class DocumentPermissionService extends BaseService
                 return $this->isDocumentInUserRegion($document, $userInstitutionId);
                 
             case 'sektoradmin':
-                return $this->isDocumentInUserSector($document, $userInstitutionId);
+                // Check if document is in user's sector
+                if ($this->isDocumentInUserSector($document, $userInstitutionId)) {
+                    return true;
+                }
+
+                // Check if user uploaded the document
+                if ($document->uploaded_by === $user->id) {
+                    return true;
+                }
+
+                // Check if document is public
+                if ($document->is_public) {
+                    return true;
+                }
+
+                // Check if user's institution is in allowed_institutions
+                if ($document->allowed_institutions && is_array($document->allowed_institutions)) {
+                    return in_array($userInstitutionId, $document->allowed_institutions);
+                }
+
+                return false;
                 
             case 'məktəbadmin':
             case 'schooladmin':
             case 'müəllim':
             case 'teacher':
-                return $document->institution_id === $userInstitutionId || 
-                       $document->uploaded_by === $user->id;
+                // Check if document belongs to user's institution
+                if ($document->institution_id === $userInstitutionId) {
+                    return true;
+                }
+
+                // Check if user uploaded the document
+                if ($document->uploaded_by === $user->id) {
+                    return true;
+                }
+
+                // Check if document is public
+                if ($document->is_public) {
+                    return true;
+                }
+
+                // Check if user's institution is in allowed_institutions
+                if ($document->allowed_institutions && is_array($document->allowed_institutions)) {
+                    return in_array($userInstitutionId, $document->allowed_institutions);
+                }
+
+                return false;
                 
             default:
                 return false;

@@ -541,7 +541,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
         label: 'Mənim Resurslarım',
         path: '/my-resources',
         icon: BookOpen,
-        roles: [USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM],
+        roles: [USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM],
         description: 'Mənə təyin edilmiş linklər və sənədlər'
       }
     ]

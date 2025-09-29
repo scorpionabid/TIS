@@ -38,7 +38,7 @@ export default function MyResources() {
 
   // Check permissions
   const isAuthenticated = !!currentUser;
-  const canViewAssignedResources = currentUser && ['schooladmin', 'muellim'].includes(currentUser.role);
+  const canViewAssignedResources = currentUser && ['sektoradmin', 'schooladmin', 'muellim'].includes(currentUser.role);
 
   // Fetch assigned resources
   const { data: assignedResources, isLoading, error, refetch } = useQuery({
@@ -46,11 +46,34 @@ export default function MyResources() {
       type: activeTab === 'all' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
       search: searchTerm || undefined,
     }],
-    queryFn: () => resourceService.getAssignedResources({
-      type: activeTab === 'all' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
-      search: searchTerm || undefined,
-      per_page: 50
-    }),
+    queryFn: async () => {
+      console.log('🔍 MyResources: Fetching assigned resources', {
+        currentUser: currentUser,
+        userRole: currentUser?.role,
+        canViewAssignedResources,
+        activeTab,
+        searchTerm,
+        queryParams: {
+          type: activeTab === 'all' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
+          search: searchTerm || undefined,
+          per_page: 50
+        }
+      });
+
+      const result = await resourceService.getAssignedResources({
+        type: activeTab === 'all' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
+        search: searchTerm || undefined,
+        per_page: 50
+      });
+
+      console.log('📥 MyResources: Assigned resources result', {
+        result,
+        count: result?.length || 0,
+        data: result
+      });
+
+      return result;
+    },
     enabled: isAuthenticated && canViewAssignedResources,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
@@ -77,7 +100,7 @@ export default function MyResources() {
           <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">Giriş icazəniz yoxdur</h3>
           <p className="text-muted-foreground">
-            Bu səhifəni yalnız məktəb adminləri və müəllimlər görə bilər
+            Bu səhifəni yalnız sektor adminləri, məktəb adminləri və müəllimlər görə bilər
           </p>
         </div>
       </div>
