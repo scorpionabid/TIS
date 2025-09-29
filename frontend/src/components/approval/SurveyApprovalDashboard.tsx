@@ -459,7 +459,7 @@ const SurveyApprovalDashboard: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-1">
                       <Target className="h-4 w-4" />
-                      {selectedSurvey.questions_count || 0} sual
+                      {selectedSurvey.current_questions_count || 0} sual
                     </div>
                   </div>
                 )}
