@@ -335,21 +335,39 @@ class Document extends Model
             case 'public':
                 return true;
             case 'institution':
-                return $user->institution_id === $this->institution_id;
+                // Check if belongs to same institution
+                if ($user->institution_id === $this->institution_id) {
+                    return true;
+                }
+                // Don't return false here - continue to check accessible_institutions
+                break;
             case 'sectoral':
                 // Check if same sector
                 if ($user->institution && $this->institution) {
-                    return $user->institution->parent_id === $this->institution->parent_id;
+                    if ($user->institution->parent_id === $this->institution->parent_id) {
+                        return true;
+                    }
                 }
+                // Don't return false - continue to check accessible_institutions
                 break;
             case 'regional':
                 // Check if same region
                 if ($user->institution && $this->institution) {
                     $userRegion = $user->institution->getRegionalParent();
                     $docRegion = $this->institution->getRegionalParent();
-                    return $userRegion && $docRegion && $userRegion->id === $docRegion->id;
+                    if ($userRegion && $docRegion && $userRegion->id === $docRegion->id) {
+                        return true;
+                    }
                 }
+                // Don't return false - continue to check accessible_institutions
                 break;
+        }
+
+        // Check if user's institution is in accessible_institutions
+        if ($this->accessible_institutions && is_array($this->accessible_institutions) && $user->institution_id) {
+            if (in_array((string)$user->institution_id, $this->accessible_institutions, true)) {
+                return true;
+            }
         }
 
         return false;

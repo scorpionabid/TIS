@@ -247,7 +247,9 @@ class DocumentControllerRefactored extends Controller
         $user = Auth::user();
 
         // Check if user can download this document
-        if (!$this->permissionService->canUserDownloadDocument($user, $document)) {
+        $canDownload = $this->permissionService->canUserDownloadDocument($user, $document);
+
+        if (!$canDownload) {
             abort(403, 'Bu sənədi yükləmək icazəniz yoxdur.');
         }
 

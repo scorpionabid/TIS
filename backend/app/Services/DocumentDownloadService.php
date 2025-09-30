@@ -229,7 +229,8 @@ class DocumentDownloadService
         }
 
         // Institution-based access
-        if ($document->access_level === 'institution' && 
+        if ($document->access_level === 'institution' &&
+            $document->institution_id &&
             $document->institution_id === $user->institution_id) {
             return true;
         }
@@ -243,13 +244,22 @@ class DocumentDownloadService
         }
 
         // User-specific access
-        if (!empty($document->allowed_users) && 
+        if (!empty($document->allowed_users) &&
             in_array($user->id, $document->allowed_users)) {
             return true;
         }
 
-        // Institution-specific access
-        if (!empty($document->allowed_institutions) && 
+        // Institution-specific access (accessible_institutions field)
+        if ($document->accessible_institutions &&
+            is_array($document->accessible_institutions) &&
+            $user->institution_id) {
+            if (in_array((string)$user->institution_id, $document->accessible_institutions, true)) {
+                return true;
+            }
+        }
+
+        // Legacy field support (allowed_institutions)
+        if (!empty($document->allowed_institutions) &&
             in_array($user->institution_id, $document->allowed_institutions)) {
             return true;
         }

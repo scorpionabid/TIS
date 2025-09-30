@@ -140,13 +140,13 @@ class DocumentPermissionService extends BaseService
                     return true;
                 }
 
-                // Check if user's institution is in allowed_institutions
-                if ($document->allowed_institutions && is_array($document->allowed_institutions)) {
-                    return in_array($userInstitutionId, $document->allowed_institutions);
+                // Check if user's institution is in accessible_institutions
+                if ($document->accessible_institutions && is_array($document->accessible_institutions)) {
+                    return in_array((string)$userInstitutionId, $document->accessible_institutions, true);
                 }
 
                 return false;
-                
+
             case 'schooladmin':
             case 'müəllim':
                 // Check if document belongs to user's institution
@@ -164,9 +164,9 @@ class DocumentPermissionService extends BaseService
                     return true;
                 }
 
-                // Check if user's institution is in allowed_institutions
-                if ($document->allowed_institutions && is_array($document->allowed_institutions)) {
-                    return in_array($userInstitutionId, $document->allowed_institutions);
+                // Check if user's institution is in accessible_institutions
+                if ($document->accessible_institutions && is_array($document->accessible_institutions)) {
+                    return in_array((string)$userInstitutionId, $document->accessible_institutions, true);
                 }
 
                 return false;
