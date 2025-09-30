@@ -26,11 +26,11 @@ const linkSchema = z.object({
   expires_at: z.string().optional(),
 });
 
-const documentCreateSchema = z.object({
+// Base document schema - shared fields between create and edit
+const documentBaseSchema = {
   type: z.literal('document'),
   title: z.string().min(1, 'Başlıq tələb olunur'),
   description: z.string().optional(),
-  file: z.instanceof(File, { message: 'Fayl seçilməlidir' }),
   category: z.enum(['administrative', 'financial', 'educational', 'hr', 'technical', 'other']).optional(),
   target_institutions: z.array(z.number()).optional(),
   target_departments: z.array(z.number()).optional(),
@@ -38,20 +38,16 @@ const documentCreateSchema = z.object({
   is_downloadable: z.boolean().optional(),
   is_viewable_online: z.boolean().optional(),
   expires_at: z.string().optional(),
+};
+
+const documentCreateSchema = z.object({
+  ...documentBaseSchema,
+  file: z.instanceof(File, { message: 'Fayl seçilməlidir' }),
 });
 
 const documentEditSchema = z.object({
-  type: z.literal('document'),
-  title: z.string().min(1, 'Başlıq tələb olunur'),
-  description: z.string().optional(),
+  ...documentBaseSchema,
   file: z.instanceof(File).optional(),
-  category: z.enum(['administrative', 'financial', 'educational', 'hr', 'technical', 'other']).optional(),
-  target_institutions: z.array(z.number()).optional(),
-  target_departments: z.array(z.number()).optional(),
-  target_roles: z.array(z.string()).optional(),
-  is_downloadable: z.boolean().optional(),
-  is_viewable_online: z.boolean().optional(),
-  expires_at: z.string().optional(),
 });
 
 const getResourceSchema = (mode: 'create' | 'edit') => {

@@ -19,6 +19,46 @@ class ResourceService extends BaseService<Resource> {
   }
 
   /**
+   * Helper: Transform link result to unified format
+   */
+  private transformLinkResult(result: any): Resource {
+    return {
+      ...result,
+      type: 'link' as const,
+      created_by: result.shared_by,
+      creator: result.sharedBy,
+    };
+  }
+
+  /**
+   * Helper: Transform document result to unified format
+   */
+  private transformDocumentResult(result: any): Resource {
+    return {
+      ...result,
+      type: 'document' as const,
+      created_by: result.uploaded_by,
+      creator: result.uploader,
+    };
+  }
+
+  /**
+   * Helper: Build link request payload
+   */
+  private buildLinkPayload(data: any) {
+    return {
+      url: data.url || data.url!,
+      link_type: data.link_type,
+      share_scope: data.share_scope || 'institutional',
+      target_institutions: data.target_institutions,
+      target_roles: data.target_roles,
+      target_departments: data.target_departments,
+      is_featured: data.is_featured,
+      expires_at: data.expires_at,
+    };
+  }
+
+  /**
    * Get all resources (links + documents) in a unified way
    *
    * RACE CONDITION FIX: Sequential request strategy for better cache management
@@ -172,23 +212,11 @@ class ResourceService extends BaseService<Resource> {
         result = await linkService.create({
           title: data.title,
           description: data.description,
-          url: data.url!,
-          link_type: data.link_type,
-          share_scope: data.share_scope || 'institutional',
-          target_institutions: data.target_institutions,
-          target_roles: data.target_roles,
-          target_departments: data.target_departments,
-          is_featured: data.is_featured,
-          expires_at: data.expires_at,
+          ...this.buildLinkPayload(data),
         });
 
         // Transform to unified format
-        result = {
-          ...result,
-          type: 'link' as const,
-          created_by: result.shared_by,
-          creator: result.sharedBy,
-        };
+        result = this.transformLinkResult(result);
       } else if (data.type === 'document') {
         // Use existing document service - Fix field mapping
         result = await documentService.uploadDocument({
@@ -206,12 +234,7 @@ class ResourceService extends BaseService<Resource> {
         });
 
         // Transform to unified format
-        result = {
-          ...result,
-          type: 'document' as const,
-          created_by: result.uploaded_by,
-          creator: result.uploader,
-        };
+        result = this.transformDocumentResult(result);
       }
 
       // Send notifications if target institutions specified
@@ -262,22 +285,10 @@ class ResourceService extends BaseService<Resource> {
         result = await linkService.update(id, {
           title: data.title,
           description: data.description,
-          url: data.url,
-          link_type: data.link_type,
-          share_scope: data.share_scope,
-          target_institutions: data.target_institutions,
-          target_roles: data.target_roles,
-          target_departments: data.target_departments,
-          is_featured: data.is_featured,
-          expires_at: data.expires_at,
+          ...this.buildLinkPayload(data),
         });
 
-        result = {
-          ...result,
-          type: 'link' as const,
-          created_by: result.shared_by,
-          creator: result.sharedBy,
-        };
+        result = this.transformLinkResult(result);
       } else {
         // For documents, we need to use the document service update method
         result = await documentService.updatePermissions(id, {
@@ -290,12 +301,7 @@ class ResourceService extends BaseService<Resource> {
           is_viewable_online: data.is_viewable_online,
         });
 
-        result = {
-          ...result,
-          type: 'document' as const,
-          created_by: result.uploaded_by,
-          creator: result.uploader,
-        };
+        result = this.transformDocumentResult(result);
       }
 
       console.log('✅ ResourceService.update successful:', result);
@@ -338,20 +344,10 @@ class ResourceService extends BaseService<Resource> {
 
       if (type === 'link') {
         result = await linkService.getById(id);
-        result = {
-          ...result,
-          type: 'link' as const,
-          created_by: result.shared_by,
-          creator: result.sharedBy,
-        };
+        result = this.transformLinkResult(result);
       } else {
         result = await documentService.getById(id);
-        result = {
-          ...result,
-          type: 'document' as const,
-          created_by: result.uploaded_by,
-          creator: result.uploader,
-        };
+        result = this.transformDocumentResult(result);
       }
 
       console.log('✅ ResourceService.getById successful:', result);
