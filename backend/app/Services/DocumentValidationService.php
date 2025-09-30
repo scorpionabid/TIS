@@ -290,7 +290,6 @@ class DocumentValidationService extends BaseService
             'regionadmin' => 200 * 1024 * 1024, // 200MB
             'sektoradmin' => 150 * 1024 * 1024, // 150MB
             'schooladmin' => 100 * 1024 * 1024, // 100MB
-            'teacher' => 50 * 1024 * 1024,      // 50MB
             'müəllim' => 50 * 1024 * 1024,      // 50MB
         ];
 
@@ -316,7 +315,7 @@ class DocumentValidationService extends BaseService
                 return array_merge($basicTypes, $imageTypes, $archiveTypes);
                 
             case 'schooladmin':
-            case 'məktəbadmin':
+            case 'müəllim':
                 return array_merge($basicTypes, $imageTypes);
                 
             default:
@@ -369,7 +368,7 @@ class DocumentValidationService extends BaseService
                 return array_merge($basicMimes, $imageMimes, $archiveMimes);
                 
             case 'schooladmin':
-            case 'məktəbadmin':
+            case 'müəllim':
                 return array_merge($basicMimes, $imageMimes);
                 
             default:
