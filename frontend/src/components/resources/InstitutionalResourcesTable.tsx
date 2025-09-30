@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ChevronDown, ChevronRight, Download, Edit, Trash2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { InstitutionalResource } from '@/types/resources';
 import { useAuth } from '@/contexts/AuthContext';
 import { resourceService } from '@/services/resources';
@@ -120,100 +121,98 @@ export function InstitutionalResourcesTable({
   }
 
   return (
-    <div className="border rounded-lg overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="text-left p-4 font-medium w-12"></th>
-              <th className="text-left p-4 font-medium">Müəssisə</th>
-              <th className="text-left p-4 font-medium">Növ</th>
-              <th className="text-left p-4 font-medium text-center">Sənəd Sayı</th>
-            </tr>
-          </thead>
-          <tbody>
-            {institutions.map((institution) => {
-              const isExpanded = expandedInstitutions.has(institution.institution_id);
+    <div className="space-y-2">
+      {institutions.map((institution) => {
+        const isExpanded = expandedInstitutions.has(institution.institution_id);
 
-              return (
-                <React.Fragment key={institution.institution_id}>
-                  {/* Institution Header Row */}
-                  <tr
-                    className="border-t hover:bg-muted/30 cursor-pointer transition-colors"
-                    onClick={() => toggleInstitution(institution.institution_id)}
-                  >
-                    <td className="p-4">
-                      {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </td>
-                    <td className="p-4">
-                      <div className="font-medium text-foreground">
-                        {institution.institution_name}
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <Badge variant="outline" className="font-normal">
-                        {institution.institution_type}
-                      </Badge>
-                    </td>
-                    <td className="p-4 text-center">
-                      <Badge className="bg-primary/10 text-primary hover:bg-primary/20">
-                        {institution.document_count} sənəd
-                      </Badge>
-                    </td>
-                  </tr>
+        return (
+          <div key={institution.institution_id} className="border rounded-lg overflow-hidden">
+            {/* Institution Header - Clickable to expand/collapse */}
+            <div
+              className="flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 cursor-pointer transition-colors"
+              onClick={() => toggleInstitution(institution.institution_id)}
+            >
+              <div className="flex items-center gap-3 flex-1">
+                <div>
+                  {isExpanded ? (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-base text-foreground">
+                    {institution.institution_name}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {institution.institution_type}
+                  </p>
+                </div>
+                <Badge className="bg-primary/10 text-primary hover:bg-primary/20">
+                  {institution.document_count} sənəd
+                </Badge>
+              </div>
+            </div>
 
-                  {/* Expanded Documents Rows */}
-                  {isExpanded && institution.documents.map((doc: any) => (
-                    <tr key={doc.id} className="border-t bg-muted/5 hover:bg-muted/10 transition-colors">
-                      <td className="p-4 pl-12"></td>
-                      <td className="p-4">
+            {/* Expanded Documents Grid */}
+            {isExpanded && (
+              <div className="p-4 bg-background">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {institution.documents.map((doc: any) => (
+                    <Card key={doc.id} className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-4 space-y-3">
+                        {/* Document Icon and Title */}
                         <div className="flex items-start gap-3">
-                          <div className="mt-1">
-                            <FileText className="h-5 w-5 text-blue-500" />
+                          <div className="mt-1 flex-shrink-0">
+                            <FileText className="h-6 w-6 text-blue-500" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium text-foreground mb-1">
+                            <h4 className="font-medium text-sm text-foreground line-clamp-2 break-words">
                               {doc.title}
-                            </div>
+                            </h4>
                             {doc.description && (
-                              <div className="text-sm text-muted-foreground mb-1 line-clamp-2">
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                                 {doc.description}
-                              </div>
-                            )}
-                            {doc.original_filename && (
-                              <div className="text-xs text-muted-foreground flex items-center gap-1">
-                                <span>📎</span>
-                                <span className="truncate">{doc.original_filename}</span>
-                              </div>
-                            )}
-                            {doc.uploader && (
-                              <div className="text-xs text-muted-foreground mt-1">
-                                Yükləyən: {doc.uploader.first_name} {doc.uploader.last_name}
-                              </div>
+                              </p>
                             )}
                           </div>
                         </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex flex-col gap-1">
+
+                        {/* File Info */}
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           {doc.file_extension && (
-                            <Badge variant="secondary" className="uppercase w-fit text-xs">
+                            <Badge variant="secondary" className="uppercase text-xs">
                               {doc.file_extension}
                             </Badge>
                           )}
                           {doc.file_size && (
-                            <div className="text-xs text-muted-foreground">
-                              {formatFileSize(doc.file_size)}
-                            </div>
+                            <span>{formatFileSize(doc.file_size)}</span>
                           )}
                         </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center justify-center gap-1">
+
+                        {/* Uploader Info */}
+                        {doc.uploader && (
+                          <div className="text-xs text-muted-foreground">
+                            <span className="font-medium">Yükləyən:</span>{' '}
+                            {doc.uploader.first_name} {doc.uploader.last_name}
+                          </div>
+                        )}
+
+                        {/* File Name */}
+                        {doc.original_filename && (
+                          <div className="text-xs text-muted-foreground flex items-center gap-1">
+                            <span>📎</span>
+                            <span className="truncate">{doc.original_filename}</span>
+                          </div>
+                        )}
+
+                        {/* Date */}
+                        <div className="text-xs text-muted-foreground">
+                          {formatDate(doc.created_at)}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-1 pt-2 border-t">
                           {doc.is_downloadable && (
                             <Button
                               size="sm"
@@ -222,10 +221,11 @@ export function InstitutionalResourcesTable({
                                 e.stopPropagation();
                                 handleDownload(doc);
                               }}
-                              className="h-8"
+                              className="flex-1 h-8"
                               title="Yüklə"
                             >
-                              <Download className="h-3.5 w-3.5" />
+                              <Download className="h-3.5 w-3.5 mr-1" />
+                              <span className="text-xs">Yüklə</span>
                             </Button>
                           )}
                           {canEditDocument(doc.uploaded_by) && onEdit && (
@@ -236,7 +236,7 @@ export function InstitutionalResourcesTable({
                                 e.stopPropagation();
                                 onEdit(doc.id);
                               }}
-                              className="h-8"
+                              className="h-8 px-2"
                               title="Redaktə et"
                             >
                               <Edit className="h-3.5 w-3.5" />
@@ -250,31 +250,22 @@ export function InstitutionalResourcesTable({
                                 e.stopPropagation();
                                 onDelete(doc.id);
                               }}
-                              className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
                               title="Sil"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           )}
                         </div>
-                      </td>
-                    </tr>
+                      </CardContent>
+                    </Card>
                   ))}
-
-                  {/* Date row for expanded institution */}
-                  {isExpanded && institution.documents.length > 0 && (
-                    <tr className="border-t bg-muted/5">
-                      <td colSpan={4} className="p-2 text-xs text-muted-foreground text-right">
-                        Son yenilənmə: {formatDate(institution.documents[0].created_at)}
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

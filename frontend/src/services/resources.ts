@@ -546,6 +546,30 @@ class ResourceService extends BaseService<Resource> {
       throw error;
     }
   }
+
+  /**
+   * Get superior institutions for document targeting
+   *
+   * SchoolAdmin can target their sector and region
+   * SektorAdmin can target their region
+   * Returns institutions that are hierarchically above the current user
+   *
+   * @returns Promise<any[]> - Array of superior institutions
+   */
+  async getSuperiorInstitutions(): Promise<any[]> {
+    console.log('🔝 ResourceService.getSuperiorInstitutions called');
+
+    try {
+      const response = await apiClient.get('/documents/superior-institutions');
+      const data = response.data?.data || [];
+
+      console.log('✅ Superior institutions fetched:', data.length, 'institutions');
+      return data;
+    } catch (error) {
+      console.error('❌ Failed to fetch superior institutions:', error);
+      throw error;
+    }
+  }
 }
 
 export const resourceService = new ResourceService();

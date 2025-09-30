@@ -22,6 +22,9 @@ Route::prefix('documents')->group(function () {
     // SUB-INSTITUTION DOCUMENTS: Get documents from hierarchically lower institutions
     Route::get('/sub-institutions', [DocumentController::class, 'getSubInstitutionDocuments'])
         ->middleware('permission:documents.read');
+    // SUPERIOR INSTITUTIONS: Get institutions hierarchically above user (for targeting documents)
+    Route::get('/superior-institutions', [DocumentController::class, 'getSuperiorInstitutions'])
+        ->middleware('permission:documents.read');
     Route::post('/', [DocumentController::class, 'store'])->middleware('permission:documents.create');
     Route::get('/{document}', [DocumentController::class, 'show'])->middleware('permission:documents.read');
     Route::put('/{document}', [DocumentController::class, 'update'])->middleware('permission:documents.update');

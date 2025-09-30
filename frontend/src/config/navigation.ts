@@ -533,7 +533,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
         label: 'Resurslər',
         path: '/resources',
         icon: Archive,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN],
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
         description: 'Linklər və sənədlərin vahid idarə edilməsi'
       },
       {

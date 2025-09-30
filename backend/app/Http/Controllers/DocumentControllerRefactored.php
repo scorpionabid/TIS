@@ -741,6 +741,47 @@ class DocumentControllerRefactored extends Controller
     }
 
     /**
+     * Get superior institutions for document targeting
+     *
+     * SchoolAdmin can target their sector and region
+     * SektorAdmin can target their region
+     * Returns institutions that are hierarchically above the user
+     */
+    public function getSuperiorInstitutions(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+
+            $superiorIds = $this->permissionService->getUserSuperiorInstitutions($user);
+
+            if (empty($superiorIds)) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [],
+                    'message' => 'Üst müəssisə tapılmadı'
+                ]);
+            }
+
+            $institutions = \App\Models\Institution::whereIn('id', $superiorIds)
+                ->select('id', 'name', 'type', 'level', 'parent_id')
+                ->orderBy('level', 'asc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $institutions,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching superior institutions', [
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->handleError($e, 'Üst müəssisələr yüklənərkən xəta baş verdi.');
+        }
+    }
+
+    /**
      * Handle errors consistently
      */
     private function handleError(\Exception $e, string $defaultMessage): JsonResponse

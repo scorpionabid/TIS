@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { institutionService } from "@/services/institutions";
 import { resourceService } from "@/services/resources";
 import { Resource, CreateResourceData } from "@/types/resources";
@@ -79,8 +80,13 @@ export function useResourceForm({
   onClose,
 }: UseResourceFormProps) {
   const { toast } = useToast();
+  const { currentUser } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [institutionSearch, setInstitutionSearch] = useState('');
+
+  // Determine if user should see superior institutions (for targeting)
+  const shouldUseSuperiorInstitutions = currentUser &&
+    ['schooladmin', 'sektoradmin'].includes(currentUser.role);
 
   // Form setup with dynamic schema based on active tab and mode
   const form = useForm<ResourceFormData>({
@@ -111,15 +117,19 @@ export function useResourceForm({
   }, [mode, form]);
 
   // Load institutions for targeting
+  // SchoolAdmin & SektorAdmin see only superior institutions
+  // Others see all accessible institutions
   const { data: institutions } = useQuery({
-    queryKey: ['institutions'],
-    queryFn: () => institutionService.getAll({ per_page: 1000 }),
+    queryKey: shouldUseSuperiorInstitutions ? ['superior-institutions'] : ['institutions'],
+    queryFn: () => shouldUseSuperiorInstitutions
+      ? resourceService.getSuperiorInstitutions()
+      : institutionService.getAll({ per_page: 1000 }).then(res => res.data),
     enabled: isOpen,
   });
 
   // Available institutions and filtered list
   const availableInstitutions = useMemo(() => {
-    return institutions?.data || [];
+    return institutions || [];
   }, [institutions]);
 
   const filteredInstitutions = useMemo(() => {
@@ -179,6 +189,16 @@ export function useResourceForm({
       });
     }
   }, [resource, mode, isOpen, form]);
+
+  // Set default target institutions for schooladmin/sektoradmin when creating new resource
+  useEffect(() => {
+    if (isOpen && mode === 'create' && !resource && shouldUseSuperiorInstitutions && availableInstitutions.length > 0) {
+      // Default select all superior institutions (region + sector for schooladmin, region for sektoradmin)
+      const superiorIds = availableInstitutions.map((inst: any) => inst.id);
+      form.setValue('target_institutions', superiorIds);
+      console.log('🎯 Default target institutions set:', superiorIds);
+    }
+  }, [isOpen, mode, resource, shouldUseSuperiorInstitutions, availableInstitutions, form]);
 
   // Reset form when modal closes
   useEffect(() => {

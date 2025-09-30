@@ -418,4 +418,62 @@ class DocumentPermissionService extends BaseService
             'errors' => $errors
         ];
     }
+
+    /**
+     * Get user's superior institutions (parent institutions in hierarchy)
+     * SchoolAdmin can target their sector and region
+     * SektorAdmin can target their region
+     */
+    public function getUserSuperiorInstitutions($user): array
+    {
+        if ($user->hasRole('superadmin')) {
+            return \App\Models\Institution::pluck('id')->toArray();
+        }
+
+        $userRole = $user->roles->first()?->name;
+        $userInstitutionId = $user->institution_id;
+
+        if (!$userInstitutionId) {
+            return [];
+        }
+
+        $userInstitution = \App\Models\Institution::find($userInstitutionId);
+
+        if (!$userInstitution) {
+            return [];
+        }
+
+        $superiorIds = [];
+
+        switch ($userRole) {
+            case 'schooladmin':
+                // School can target: sector (parent) and region (grandparent)
+                if ($userInstitution->parent_id) {
+                    $sector = \App\Models\Institution::find($userInstitution->parent_id);
+                    $superiorIds[] = $sector->id;
+
+                    if ($sector && $sector->parent_id) {
+                        $superiorIds[] = $sector->parent_id; // Region
+                    }
+                }
+                break;
+
+            case 'sektoradmin':
+                // Sector can target: region (parent)
+                if ($userInstitution->parent_id) {
+                    $superiorIds[] = $userInstitution->parent_id;
+                }
+                break;
+
+            case 'regionadmin':
+            case 'regionoperator':
+                // Regional users can target all institutions in their hierarchy
+                return $this->getRegionalInstitutions($userInstitutionId)->toArray();
+
+            default:
+                return [];
+        }
+
+        return array_unique($superiorIds);
+    }
 }
