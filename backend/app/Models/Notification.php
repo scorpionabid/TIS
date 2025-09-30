@@ -127,13 +127,94 @@ class Notification extends Model
     }
 
     /**
-     * Scope: Filter by user
+     * Scope: Filter by user with institutional hierarchy
      */
     public function scopeForUser(Builder $query, int $userId): Builder
     {
-        return $query->where(function ($q) use ($userId) {
+        // Get user with roles and institution
+        $user = User::with(['institution', 'roles'])->find($userId);
+        if (!$user) {
+            return $query->whereRaw('1 = 0'); // No access if user not found
+        }
+
+        // SuperAdmin sees all notifications (no filtering)
+        if ($user->hasRole('superadmin')) {
+            return $query; // No restrictions for superadmin
+        }
+
+        // For other roles, apply institutional hierarchy filtering
+        return $query->where(function ($q) use ($userId, $user) {
+            // Basic user targeting (direct notifications)
             $q->where('user_id', $userId)
               ->orWhereJsonContains('target_users', $userId);
+
+            // Add institutional scope filtering
+            $userInstitutionId = $user->institution_id;
+            $userRoles = $user->roles->pluck('name')->toArray();
+
+            if (!$userInstitutionId) {
+                // No institutional filtering if user has no institution
+                return $q;
+            }
+
+            $userInstitution = $user->institution;
+
+            if (in_array('regionadmin', $userRoles)) {
+                // RegionAdmin sees notifications for their region and all child institutions
+                $this->applyRegionAdminFilter($q, $userInstitution);
+            } elseif (in_array('sektoradmin', $userRoles)) {
+                // SektorAdmin sees notifications for their sector and all child schools
+                $this->applySektorAdminFilter($q, $userInstitution);
+            } elseif (in_array('schooladmin', $userRoles) || in_array('teacher', $userRoles)) {
+                // SchoolAdmin and Teacher see only their school's notifications
+                $this->applySchoolFilter($q, $userInstitutionId);
+            }
+        });
+    }
+
+    /**
+     * Apply RegionAdmin institutional filter
+     */
+    private function applyRegionAdminFilter($query, $userInstitution)
+    {
+        // RegionAdmin sees all notifications from their region and child institutions
+        $regionId = $userInstitution->type === 'region' ? $userInstitution->id : $userInstitution->parent_id;
+
+        if ($regionId) {
+            $query->whereHas('user.institution', function ($instQ) use ($regionId) {
+                $instQ->where('id', $regionId)
+                      ->orWhere('parent_id', $regionId)
+                      ->orWhereHas('parent', function ($parentQ) use ($regionId) {
+                          $parentQ->where('parent_id', $regionId);
+                      });
+            });
+        }
+    }
+
+    /**
+     * Apply SektorAdmin institutional filter
+     */
+    private function applySektorAdminFilter($query, $userInstitution)
+    {
+        // SektorAdmin sees notifications from their sector and child schools
+        $sektorId = $userInstitution->type === 'sector' ? $userInstitution->id : $userInstitution->parent_id;
+
+        if ($sektorId) {
+            $query->whereHas('user.institution', function ($instQ) use ($sektorId) {
+                $instQ->where('id', $sektorId)
+                      ->orWhere('parent_id', $sektorId);
+            });
+        }
+    }
+
+    /**
+     * Apply School-level filter
+     */
+    private function applySchoolFilter($query, $userInstitutionId)
+    {
+        // SchoolAdmin and Teacher see only their own school's notifications
+        $query->whereHas('user.institution', function ($instQ) use ($userInstitutionId) {
+            $instQ->where('id', $userInstitutionId);
         });
     }
 

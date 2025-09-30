@@ -35,7 +35,52 @@ class NotificationService
                 'is_read' => false,
                 'language' => 'az',
             ], $data);
-            
+
+            // Normalize related_type if provided
+            if (isset($data['related_type']) && $data['related_type']) {
+                // Normalize model class names to prevent duplicates
+                $data['related_type'] = str_replace('App\\Models\\', 'App\Models\\', $data['related_type']);
+                if (!str_starts_with($data['related_type'], 'App\Models\\') && $data['related_type'] !== '') {
+                    $data['related_type'] = 'App\Models\\' . $data['related_type'];
+                }
+            }
+
+            // Check for duplicate notification (prevent spam)
+            // Enhanced: Check for any survey-related notification for the same user and survey
+            $duplicateQuery = Notification::where('user_id', $data['user_id'])
+                ->where('created_at', '>', now()->subMinutes(2)); // 2 minute window
+
+            // For survey notifications, check for any survey notification type
+            if (isset($data['type']) && str_starts_with($data['type'], 'survey') &&
+                isset($data['related_type']) && isset($data['related_id'])) {
+                $duplicateQuery->where('related_type', $data['related_type'])
+                              ->where('related_id', $data['related_id'])
+                              ->where('type', 'LIKE', 'survey%'); // Any survey notification type
+            } else {
+                // Standard duplicate check for non-survey notifications
+                $duplicateQuery->where('type', $data['type'])
+                              ->where('related_type', $data['related_type'] ?? null)
+                              ->where('related_id', $data['related_id'] ?? null)
+                              ->where('title', $data['title']);
+            }
+
+            $existingNotification = $duplicateQuery->first();
+
+            if ($existingNotification) {
+                Log::info('Duplicate notification prevented', [
+                    'existing_id' => $existingNotification->id,
+                    'existing_created' => $existingNotification->created_at,
+                    'attempted_data' => [
+                        'type' => $data['type'],
+                        'user_id' => $data['user_id'],
+                        'related_type' => $data['related_type'] ?? null,
+                        'related_id' => $data['related_id'] ?? null,
+                        'title' => $data['title']
+                    ]
+                ]);
+                return $existingNotification; // Return existing notification instead
+            }
+
             // Create the notification
             $notification = Notification::create($data);
             
@@ -449,6 +494,32 @@ class NotificationService
     public function getUnreadCount(int $userId): int
     {
         return Notification::forUser($userId)->unread()->count();
+    }
+
+    /**
+     * Auto-mark survey notifications as read when user responds to survey
+     * This helps reduce the unread notification overload
+     */
+    public function autoMarkAsReadForSurveyResponse(int $userId, int $surveyId): int
+    {
+        $markedCount = Notification::where('user_id', $userId)
+            ->where('type', 'LIKE', 'survey%')
+            ->where('related_id', $surveyId)
+            ->where('is_read', false)
+            ->update([
+                'is_read' => true,
+                'read_at' => now()
+            ]);
+
+        if ($markedCount > 0) {
+            Log::info('Auto-marked survey notifications as read', [
+                'user_id' => $userId,
+                'survey_id' => $surveyId,
+                'marked_count' => $markedCount
+            ]);
+        }
+
+        return $markedCount;
     }
 
     // Unified notification methods for common scenarios
