@@ -672,7 +672,7 @@ class DocumentControllerRefactored extends Controller
             } elseif (isset($share['institution_ids']) && is_array($share['institution_ids'])) {
                 // Use InstitutionNotificationHelper to expand institution IDs to user IDs
                 $targetRoles = config('notification_roles.document_notification_roles', [
-                    'schooladmin', 'məktəbadmin', 'müəllim', 'teacher'
+                    'sektoradmin', 'schooladmin', 'müəllim'
                 ]);
                 $targetUserIds = \App\Services\InstitutionNotificationHelper::expandInstitutionsToUsers(
                     $share['institution_ids'],

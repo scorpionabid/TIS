@@ -423,7 +423,7 @@ class LinkShareControllerRefactored extends BaseController
             // Get target user IDs based on institutions and roles
             if (isset($shareData['target_institutions']) && !empty($shareData['target_institutions'])) {
                 $targetRoles = config('notification_roles.document_notification_roles', [
-                    'schooladmin', 'məktəbadmin', 'müəllim', 'teacher'
+                    'sektoradmin', 'schooladmin', 'müəllim'
                 ]);
 
                 $targetUserIds = \App\Services\InstitutionNotificationHelper::expandInstitutionsToUsers(
