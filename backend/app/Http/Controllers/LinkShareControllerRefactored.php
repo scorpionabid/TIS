@@ -145,8 +145,12 @@ class LinkShareControllerRefactored extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($id) {
             $user = Auth::user();
-            $this->linkSharingService->deleteLinkShare($id, $user);
-            
+
+            // Find the link share first
+            $linkShare = \App\Models\LinkShare::findOrFail($id);
+
+            $this->linkSharingService->deleteLinkShare($linkShare, $user);
+
             return $this->successResponse(null, 'Bağlantı silindi');
         }, 'linkshare.destroy');
     }

@@ -176,9 +176,9 @@ class LinkSharingService extends BaseService
         }
 
         return DB::transaction(function () use ($linkShare) {
-            // Soft delete the link
-            $linkShare->update(['is_active' => false]);
-            
+            // Soft delete the link by setting status to disabled
+            $linkShare->update(['status' => 'disabled']);
+
             // Or permanently delete if required
             // $linkShare->delete();
 
