@@ -891,7 +891,7 @@ class LinkSharingService extends BaseService
                               ->orWhereIn('institution_id', $allowedInstitutions)
                               ->orWhere(function ($subQuery) use ($allowedInstitutions) {
                                   foreach ($allowedInstitutions as $institutionId) {
-                                      $subQuery->orWhereJsonContains('allowed_institutions', $institutionId);
+                                      $subQuery->orWhereJsonContains('accessible_institutions', (string)$institutionId);
                                   }
                               });
                     });

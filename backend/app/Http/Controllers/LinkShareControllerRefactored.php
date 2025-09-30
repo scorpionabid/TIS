@@ -477,7 +477,7 @@ class LinkShareControllerRefactored extends BaseController
             $user = Auth::user();
 
             // Check if user has permission to view assigned resources
-            if (!$user->hasAnyRole(['schooladmin', 'məktəbadmin', 'muellim', 'teacher'])) {
+            if (!$user->hasAnyRole(['sektoradmin', 'schooladmin', 'müəllim'])) {
                 return $this->errorResponse('Bu səhifəni görməyə icazəniz yoxdur', 403);
             }
 
