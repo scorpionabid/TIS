@@ -673,8 +673,8 @@ class LinkSharingService extends BaseService
      */
     public function getGlobalLinkStats(Request $request, $user)
     {
-        // Base query respecting user's visibility scope
-        $query = LinkShare::query();
+        // Base query respecting user's visibility scope AND only active links
+        $query = LinkShare::where('status', 'active');
         $this->applyRegionalFilter($query, $user);
 
         // Total links
