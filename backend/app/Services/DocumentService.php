@@ -268,4 +268,69 @@ class DocumentService
 
         return false;
     }
+
+    /**
+     * Get sub-institution documents grouped by institution
+     *
+     * This method retrieves documents from institutions hierarchically below
+     * the current user's institution. Used by regionadmin and sektoradmin
+     * to see what documents their sub-institutions have uploaded.
+     *
+     * @param \App\Models\User $user
+     * @return \Illuminate\Support\Collection
+     */
+    public function getSubInstitutionDocumentsGrouped($user)
+    {
+        $permissionService = app(DocumentPermissionService::class);
+
+        // Get accessible institution IDs (excluding user's own)
+        $accessibleInstitutions = $permissionService->getUserAccessibleInstitutions($user);
+        $userInstitutionId = $user->institution_id;
+
+        // Exclude user's own institution to show only sub-institutions
+        $subInstitutionIds = array_filter($accessibleInstitutions, fn($id) => $id !== $userInstitutionId);
+
+        if (empty($subInstitutionIds)) {
+            return collect([]);
+        }
+
+        // Get documents grouped by institution with eager loading to prevent N+1
+        $documents = Document::with(['uploader:id,first_name,last_name', 'institution:id,name,type'])
+            ->whereIn('institution_id', $subInstitutionIds)
+            ->where('status', 'active')
+            ->orderBy('institution_id')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // Group by institution and format response
+        return $documents->groupBy('institution_id')->map(function ($docs, $institutionId) {
+            $institution = $docs->first()->institution;
+
+            return [
+                'institution_id' => $institutionId,
+                'institution_name' => $institution->name ?? 'Unknown',
+                'institution_type' => $institution->type ?? 'Unknown',
+                'document_count' => $docs->count(),
+                'documents' => $docs->map(function($doc) {
+                    return [
+                        'id' => $doc->id,
+                        'title' => $doc->title,
+                        'description' => $doc->description,
+                        'file_extension' => $doc->file_extension,
+                        'file_size' => $doc->file_size,
+                        'mime_type' => $doc->mime_type,
+                        'original_filename' => $doc->original_filename,
+                        'uploaded_by' => $doc->uploaded_by,
+                        'uploader' => $doc->uploader ? [
+                            'id' => $doc->uploader->id,
+                            'first_name' => $doc->uploader->first_name,
+                            'last_name' => $doc->uploader->last_name,
+                        ] : null,
+                        'created_at' => $doc->created_at,
+                        'is_downloadable' => $doc->is_downloadable,
+                    ];
+                })
+            ];
+        })->values();
+    }
 }

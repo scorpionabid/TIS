@@ -39,6 +39,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { resourceService } from "@/services/resources";
 import { Resource } from "@/types/resources";
+import { InstitutionalResourcesTable } from "@/components/resources/InstitutionalResourcesTable";
 
 export default function Resources() {
   const { currentUser } = useAuth();
@@ -48,9 +49,10 @@ export default function Resources() {
 
   // State - initialize tab from URL parameter
   const initialTab = searchParams.get('tab');
-  const [activeTab, setActiveTab] = useState<'all' | 'links' | 'documents'>(() => {
+  const [activeTab, setActiveTab] = useState<'all' | 'links' | 'documents' | 'sub-institutions'>(() => {
     if (initialTab === 'documents') return 'documents';
     if (initialTab === 'links') return 'links';
+    if (initialTab === 'sub-institutions') return 'sub-institutions';
     return 'all';
   });
   const [searchTerm, setSearchTerm] = useState('');
@@ -64,8 +66,15 @@ export default function Resources() {
 
   // Check permissions
   const isAuthenticated = !!currentUser;
-  const canCreateResources = currentUser && ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin'].includes(currentUser.role);
-  const canViewResources = currentUser && ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin'].includes(currentUser.role);
+  // PERMISSION EXPANSION: schooladmin can now create and view resources
+  // This allows school administrators to upload documents visible to their superiors
+  const canCreateResources = currentUser &&
+    ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'schooladmin'].includes(currentUser.role);
+  const canViewResources = currentUser &&
+    ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'schooladmin'].includes(currentUser.role);
+  // Only hierarchical admins can see sub-institution documents
+  const canViewSubInstitutions = currentUser &&
+    ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin'].includes(currentUser.role);
 
   // Fetch resources
   const { data: resources, isLoading, error, refetch } = useQuery({
@@ -93,6 +102,14 @@ export default function Resources() {
     queryFn: () => resourceService.getStats(),
     enabled: isAuthenticated && canViewResources,
     staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Fetch sub-institution documents (only for hierarchical admins)
+  const { data: subInstitutionDocs, isLoading: isLoadingSubDocs } = useQuery({
+    queryKey: ['sub-institution-documents'],
+    queryFn: () => resourceService.getSubInstitutionDocuments(),
+    enabled: isAuthenticated && canViewSubInstitutions && activeTab === 'sub-institutions',
+    staleTime: 3 * 60 * 1000, // 3 minutes
   });
 
   // Security check
@@ -201,16 +218,26 @@ export default function Resources() {
       description: `${getResourceTypeLabel(resource)} ${isEditing ? 'yeniləndi' : 'yaradıldı və müəssisələrə göndərildi'}`,
     });
 
-    // Refresh all queries
-    queryClient.invalidateQueries({ queryKey: ['resources'] });
-    queryClient.invalidateQueries({ queryKey: ['resource-stats'] });
+    // QUERY INVALIDATION FIX: Prevent cascade refetch loops
+    // Cancel any pending queries first to avoid race conditions
+    queryClient.cancelQueries({ queryKey: ['resources'] });
+    queryClient.cancelQueries({ queryKey: ['resource-stats'] });
 
-    // Reset filters to show new/updated resource (only for new resources)
+    // Then invalidate (will trigger controlled refetch)
+    queryClient.invalidateQueries({
+      queryKey: ['resources'],
+      refetchType: 'active' // Only refetch active queries
+    });
+    queryClient.invalidateQueries({
+      queryKey: ['resource-stats'],
+      refetchType: 'active'
+    });
+
+    // UX IMPROVEMENT: Keep user on current tab to see their creation
+    // Only reset search term for better UX
     if (!isEditing) {
       setSearchTerm('');
-      setActiveTab('all');
-      setSortBy('created_at');
-      setSortDirection('desc');
+      // Keep activeTab, sortBy, sortDirection as-is
     }
 
     // Reset modal state
@@ -361,7 +388,7 @@ export default function Resources() {
 
       {/* Tabbed Content */}
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className={`grid w-full ${canViewSubInstitutions ? 'grid-cols-4' : 'grid-cols-3'}`}>
           <TabsTrigger value="all">
             Hamısı ({stats?.total_resources || 0})
           </TabsTrigger>
@@ -371,6 +398,11 @@ export default function Resources() {
           <TabsTrigger value="documents">
             Sənədlər ({stats?.total_documents || 0})
           </TabsTrigger>
+          {canViewSubInstitutions && (
+            <TabsTrigger value="sub-institutions">
+              Alt Müəssisələr ({subInstitutionDocs?.reduce((sum, inst) => sum + inst.document_count, 0) || 0})
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="all" className="mt-6">
@@ -389,6 +421,40 @@ export default function Resources() {
             resources={resourcesData.filter(r => r.type === 'document')}
             onResourceAction={handleResourceAction}
           />
+        </TabsContent>
+
+        <TabsContent value="sub-institutions" className="mt-6">
+          {isLoadingSubDocs ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Yüklənir...</p>
+              </div>
+            </div>
+          ) : (
+            <InstitutionalResourcesTable
+              institutions={subInstitutionDocs || []}
+              onEdit={(documentId) => {
+                // TODO: Implement edit functionality for sub-institution documents
+                console.log('Edit document:', documentId);
+                toast({
+                  title: 'Funksiya hazırlanır',
+                  description: 'Alt-müəssisə sənədlərinin redaktəsi tezliklə əlavə ediləcək',
+                });
+              }}
+              onDelete={(documentId) => {
+                // TODO: Implement delete functionality
+                console.log('Delete document:', documentId);
+                toast({
+                  title: 'Funksiya hazırlanır',
+                  description: 'Alt-müəssisə sənədlərinin silinməsi tezliklə əlavə ediləcək',
+                });
+              }}
+              onRefresh={() => {
+                queryClient.invalidateQueries({ queryKey: ['sub-institution-documents'] });
+              }}
+            />
+          )}
         </TabsContent>
       </Tabs>
 
@@ -517,6 +583,7 @@ function ResourceGrid({ resources, onResourceAction }: ResourceGridProps) {
                     <div
                       className="font-medium hover:text-primary cursor-pointer hover:underline"
                       onClick={async () => {
+                        let blobUrl: string | null = null;
                         try {
                           if (resource.type === 'link') {
                             // For links, open in new tab
@@ -527,27 +594,43 @@ function ResourceGrid({ resources, onResourceAction }: ResourceGridProps) {
                               window.open(resource.url, '_blank');
                             }
                           } else {
-                            // For documents, trigger download
+                            // For documents, trigger download with proper cleanup
                             const result = await resourceService.accessResource(resource.id, 'document');
                             if (result.url) {
+                              blobUrl = result.url;
                               // Create a temporary link to trigger download
                               const link = document.createElement('a');
-                              link.href = result.url;
+                              link.href = blobUrl;
                               link.download = resource.original_filename || resource.title || 'document';
                               document.body.appendChild(link);
                               link.click();
                               document.body.removeChild(link);
-                              // Clean up the object URL
-                              URL.revokeObjectURL(result.url);
                             }
                           }
-                        } catch (error) {
+                        } catch (error: any) {
                           console.error('Error accessing resource:', error);
+
+                          // ERROR HANDLING IMPROVEMENT: Specific error messages
+                          const errorMessages: Record<number, string> = {
+                            403: 'Bu resursa giriş icazəniz yoxdur',
+                            404: 'Resurs tapılmadı və ya silinib',
+                            410: 'Resursun müddəti bitib',
+                            500: 'Server xətası, yenidən cəhd edin'
+                          };
+
+                          const statusCode = error.response?.status;
+                          const errorMessage = errorMessages[statusCode] || error.message || 'Resursa daxil olmaq mümkün olmadı';
+
                           toast({
                             title: 'Xəta baş verdi',
-                            description: 'Resursa daxil olmaq mümkün olmadı',
+                            description: errorMessage,
                             variant: 'destructive',
                           });
+                        } finally {
+                          // Memory leak fix: Always clean up blob URL
+                          if (blobUrl) {
+                            URL.revokeObjectURL(blobUrl);
+                          }
                         }
                       }}
                     >

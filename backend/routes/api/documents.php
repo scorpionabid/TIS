@@ -19,6 +19,9 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('documents')->group(function () {
     Route::get('/', [DocumentController::class, 'index'])->middleware('permission:documents.read');
     Route::get('/stats', [DocumentController::class, 'getStats'])->middleware('permission:documents.read');
+    // SUB-INSTITUTION DOCUMENTS: Get documents from hierarchically lower institutions
+    Route::get('/sub-institutions', [DocumentController::class, 'getSubInstitutionDocuments'])
+        ->middleware('permission:documents.read');
     Route::post('/', [DocumentController::class, 'store'])->middleware('permission:documents.create');
     Route::get('/{document}', [DocumentController::class, 'show'])->middleware('permission:documents.read');
     Route::put('/{document}', [DocumentController::class, 'update'])->middleware('permission:documents.update');

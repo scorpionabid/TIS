@@ -124,6 +124,7 @@ export default function MyResources() {
   };
 
   const handleResourceAction = async (resource: AssignedResource, action: 'view' | 'access' | 'download') => {
+    let blobUrl: string | null = null;
     try {
       switch (action) {
         case 'access':
@@ -138,13 +139,13 @@ export default function MyResources() {
           if (resource.type === 'document') {
             const result = await resourceService.accessResource(resource.id, 'document');
             if (result.url) {
+              blobUrl = result.url;
               const a = document.createElement('a');
-              a.href = result.url;
+              a.href = blobUrl;
               a.download = resource.original_filename || resource.title;
               document.body.appendChild(a);
               a.click();
               document.body.removeChild(a);
-              URL.revokeObjectURL(result.url);
               // Mark as viewed and refresh
               queryClient.invalidateQueries({ queryKey: ['assigned-resources'] });
             }
@@ -156,11 +157,31 @@ export default function MyResources() {
       }
     } catch (error: any) {
       console.error('Resource action error:', error);
+
+      // ERROR HANDLING IMPROVEMENT: Specific error messages based on HTTP status
+      const errorMessages: Record<number, string> = {
+        403: 'Bu resursa giriş icazəniz yoxdur',
+        404: 'Resurs tapılmadı və ya silinib',
+        410: 'Resursun müddəti bitib',
+        413: 'Fayl ölçüsü çox böyükdür',
+        429: 'Çox sayda sorğu göndərildi, bir az gözləyin',
+        500: 'Server xətası baş verdi, yenidən cəhd edin',
+        503: 'Xidmət müvəqqəti əlçatmazdır'
+      };
+
+      const statusCode = error.response?.status;
+      const errorMessage = errorMessages[statusCode] || error.message || 'Əməliyyat yerinə yetirmək mümkün olmadı';
+
       toast({
         title: 'Xəta baş verdi',
-        description: error.message || 'Əməliyyat yerinə yetirmək mümkün olmadı',
+        description: errorMessage,
         variant: 'destructive',
       });
+    } finally {
+      // Memory leak fix: Always clean up blob URL
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
     }
   };
 

@@ -180,3 +180,12 @@ export interface ResourceNotificationData {
   message?: string;
   notification_type: 'resource_assigned' | 'resource_updated' | 'resource_expired';
 }
+
+// Institutional resource grouping (for sub-institution view)
+export interface InstitutionalResource {
+  institution_id: number;
+  institution_name: string;
+  institution_type: string;
+  document_count: number;
+  documents: Resource[];
+}

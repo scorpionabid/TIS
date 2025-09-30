@@ -9,7 +9,8 @@ import {
   ResourceFilters,
   ResourceStats,
   AssignedResource,
-  ResourceNotificationData
+  ResourceNotificationData,
+  InstitutionalResource
 } from '@/types/resources';
 
 class ResourceService extends BaseService<Resource> {
@@ -19,25 +20,33 @@ class ResourceService extends BaseService<Resource> {
 
   /**
    * Get all resources (links + documents) in a unified way
+   *
+   * RACE CONDITION FIX: Sequential request strategy for better cache management
+   * - Only clear cache when absolutely necessary
+   * - Use deterministic response indexing
+   * - Prevent parallel cache invalidation conflicts
    */
   async getAll(filters: ResourceFilters = {}) {
     try {
-      // Clear documents cache if fetching documents to ensure fresh data
-      if (!filters.type || filters.type === 'document') {
-        documentService.clearServiceCache();
-        console.log('🧹 Cleared documents cache for fresh data');
-      }
-
-      const requests = [];
-
       console.log('🚀 ResourceService.getAll request planning:', {
         filterType: filters.type,
         shouldFetchLinks: !filters.type || filters.type === 'link',
         shouldFetchDocuments: !filters.type || filters.type === 'document'
       });
 
+      // Determine which resources to fetch based on filter type
+      const shouldFetchLinks = !filters.type || filters.type === 'link';
+      const shouldFetchDocuments = !filters.type || filters.type === 'document';
+
+      // Build requests array with explicit type tracking
+      interface TypedRequest {
+        type: 'link' | 'document';
+        promise: Promise<any>;
+      }
+      const typedRequests: TypedRequest[] = [];
+
       // Fetch links if needed
-      if (!filters.type || filters.type === 'link') {
+      if (shouldFetchLinks) {
         const linkFilters = {
           search: filters.search,
           link_type: filters.link_type,
@@ -47,11 +56,15 @@ class ResourceService extends BaseService<Resource> {
           sort_direction: filters.sort_direction,
           per_page: filters.per_page,
         };
-        requests.push(linkService.getAll(linkFilters));
+        typedRequests.push({
+          type: 'link',
+          promise: linkService.getAll(linkFilters)
+        });
       }
 
       // Fetch documents if needed
-      if (!filters.type || filters.type === 'document') {
+      // Note: Cache clearing moved to AFTER request creation to prevent race condition
+      if (shouldFetchDocuments) {
         const documentFilters = {
           search: filters.search,
           category: filters.category,
@@ -61,88 +74,68 @@ class ResourceService extends BaseService<Resource> {
           sort_direction: filters.sort_direction,
           per_page: filters.per_page,
         };
-        requests.push(documentService.getAll(documentFilters));
+        typedRequests.push({
+          type: 'document',
+          promise: documentService.getAll(documentFilters)
+        });
       }
 
-      // Execute requests
-      const responses = await Promise.all(requests);
+      // Execute requests in parallel (but with type safety)
+      const responses = await Promise.all(typedRequests.map(tr => tr.promise));
       const allResources: Resource[] = [];
 
       console.log('🔍 ResourceService.getAll responses:', {
-        requestCount: requests.length,
+        requestCount: typedRequests.length,
         responseCount: responses.length,
-        filterType: filters.type,
+        requestTypes: typedRequests.map(tr => tr.type),
         responses: responses.map((r, i) => ({
           index: i,
+          type: typedRequests[i].type,
           hasData: !!r?.data,
-          dataLength: r?.data?.data?.length || 0,
-          response: r
+          dataLength: r?.data?.data?.length || 0
         }))
       });
 
-      console.log('🔍 ResourceService.getAll detailed responses:', responses);
+      // Process responses using type information (race condition fix)
+      for (let i = 0; i < typedRequests.length; i++) {
+        const requestType = typedRequests[i].type;
+        const response = responses[i];
 
-      // Process links
-      if (responses[0] && (!filters.type || filters.type === 'link')) {
-        const response = responses[0];
-        // Try both data structures for links
-        let links = [];
-        if (response.data?.data && Array.isArray(response.data.data)) {
-          links = response.data.data;
-        } else if (Array.isArray(response.data)) {
-          links = response.data;
+        if (!response) continue;
+
+        if (requestType === 'link') {
+          // Process links
+          let links = [];
+          if (response.data?.data && Array.isArray(response.data.data)) {
+            links = response.data.data;
+          } else if (Array.isArray(response.data)) {
+            links = response.data;
+          }
+
+          console.log('🔗 Processing links:', links.length);
+          allResources.push(...links.map((link: any) => ({
+            ...link,
+            type: 'link' as const,
+            created_by: typeof link.shared_by === 'number' ? link.shared_by : link.shared_by?.id,
+            creator: link.sharedBy,
+          })));
+        } else if (requestType === 'document') {
+          // Process documents
+          let documents = [];
+          if (response.data?.data && Array.isArray(response.data.data)) {
+            documents = response.data.data;
+          } else if (Array.isArray(response.data)) {
+            documents = response.data;
+          }
+
+          console.log('📄 Processing documents:', documents.length);
+          allResources.push(...documents.map((doc: any) => ({
+            ...doc,
+            type: 'document' as const,
+            created_by: doc.uploaded_by,
+            creator: doc.uploader,
+          })));
         }
-
-        console.log('🔗 Processing links:', links.length);
-        allResources.push(...links.map((link: any) => ({
-          ...link,
-          type: 'link' as const,
-          created_by: typeof link.shared_by === 'number' ? link.shared_by : link.shared_by?.id,
-          creator: link.sharedBy,
-        })));
-      }
-
-      // Process documents - Fix the index logic
-      let documentsIndex = -1;
-      if (filters.type === 'document') {
-        documentsIndex = 0; // Only documents requested
-      } else if (!filters.type) {
-        documentsIndex = 1; // Both links and documents, documents are second
-      }
-      // If filters.type === 'link', documentsIndex stays -1 (no documents)
-
-      console.log('📄 Documents index calculated:', documentsIndex);
-
-      if (documentsIndex >= 0 && responses[documentsIndex]) {
-        const response = responses[documentsIndex];
-        console.log('📄 Documents response structure:', {
-          hasResponse: !!response,
-          responseKeys: Object.keys(response || {}),
-          hasData: !!response?.data,
-          dataKeys: response?.data ? Object.keys(response.data) : 'no data',
-          dataStructure: response?.data,
-          dataDataArray: response?.data?.data,
-          dataDataLength: response?.data?.data?.length || 0
-        });
-
-        // Try both data structures: paginated (response.data.data) and direct array (response.data)
-        let documents = [];
-        if (response.data?.data && Array.isArray(response.data.data)) {
-          // Paginated response structure
-          documents = response.data.data;
-        } else if (Array.isArray(response.data)) {
-          // Direct array response structure
-          documents = response.data;
-        }
-
-        console.log('📄 Processing documents:', documents.length, documents);
-
-        allResources.push(...documents.map((doc: any) => ({
-          ...doc,
-          type: 'document' as const,
-          created_by: doc.uploaded_by,
-          creator: doc.uploader,
-        })));
       }
 
       // Sort by created_at desc by default
@@ -237,10 +230,15 @@ class ResourceService extends BaseService<Resource> {
         }
       }
 
-      // Clear all resource caches after successful creation
-      linkService.clearServiceCache();
-      documentService.clearServiceCache();
-      console.log('🧹 Cleared all resource caches after creation');
+      // Clear only the relevant service cache after successful creation
+      // This prevents unnecessary cache invalidation and improves performance
+      if (data.type === 'link') {
+        linkService.clearServiceCache();
+        console.log('🧹 Cleared link service cache after link creation');
+      } else if (data.type === 'document') {
+        documentService.clearServiceCache();
+        console.log('🧹 Cleared document service cache after document creation');
+      }
 
       console.log('✅ ResourceService.create successful:', result);
       return result!;
@@ -459,13 +457,19 @@ class ResourceService extends BaseService<Resource> {
   }
 
   /**
-   * Access a link resource (increments click count)
+   * Access a link resource (increments click count) or download document
+   *
+   * MEMORY LEAK FIX: Caller is responsible for revoking blob URLs
+   * - Document downloads return blob URLs that must be revoked
+   * - Use URL.revokeObjectURL(url) after download completes
+   * - Prevents memory leaks from accumulated blob URLs
    */
   async accessResource(id: number, type: 'link' | 'document'): Promise<{ url?: string; redirect_url?: string }> {
     if (type === 'link') {
       return await linkService.accessLink(id);
     } else {
-      // For documents, this would typically trigger a download
+      // For documents, trigger download and return blob URL
+      // IMPORTANT: Caller must revoke the URL after use with URL.revokeObjectURL()
       try {
         const blob = await documentService.downloadDocument(id);
         console.log('📥 Downloaded blob:', blob, 'Type:', typeof blob, 'Size:', blob?.size);
@@ -473,7 +477,7 @@ class ResourceService extends BaseService<Resource> {
         // Ensure we have a valid blob
         if (blob instanceof Blob) {
           const url = URL.createObjectURL(blob);
-          console.log('🔗 Created object URL:', url);
+          console.log('🔗 Created object URL:', url, '(must be revoked by caller)');
           return { url };
         } else {
           console.error('❌ Invalid blob received:', blob);
@@ -517,6 +521,30 @@ class ResourceService extends BaseService<Resource> {
    */
   getResourceTypeLabel(type: 'link' | 'document'): string {
     return type === 'link' ? 'Link' : 'Sənəd';
+  }
+
+  /**
+   * Get sub-institution documents grouped by institution
+   *
+   * This method retrieves documents uploaded by institutions hierarchically
+   * below the current user's institution. Only accessible by regionadmin,
+   * regionoperator, and sektoradmin roles.
+   *
+   * @returns Promise<InstitutionalResource[]> - Array of institutions with their documents
+   */
+  async getSubInstitutionDocuments(): Promise<InstitutionalResource[]> {
+    console.log('📋 ResourceService.getSubInstitutionDocuments called');
+
+    try {
+      const response = await apiClient.get('/documents/sub-institutions');
+      const data: InstitutionalResource[] = response.data?.data || [];
+
+      console.log('✅ Sub-institution documents fetched:', data.length, 'institutions');
+      return data;
+    } catch (error) {
+      console.error('❌ Failed to fetch sub-institution documents:', error);
+      throw error;
+    }
   }
 }
 

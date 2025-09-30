@@ -706,6 +706,41 @@ class DocumentControllerRefactored extends Controller
     }
 
     /**
+     * Get sub-institution documents grouped by institution
+     *
+     * This endpoint returns documents uploaded by institutions hierarchically
+     * below the current user's institution. Accessible by regionadmin and sektoradmin.
+     */
+    public function getSubInstitutionDocuments(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+
+            // Check if user has permission to view sub-institution documents
+            if (!$user->hasAnyRole(['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu səhifəyə giriş icazəniz yoxdur.',
+                ], 403);
+            }
+
+            $documents = $this->documentService->getSubInstitutionDocumentsGrouped($user);
+
+            return response()->json([
+                'success' => true,
+                'data' => $documents,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching sub-institution documents', [
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->handleError($e, 'Alt-müəssisə sənədləri yüklənərkən xəta baş verdi.');
+        }
+    }
+
+    /**
      * Handle errors consistently
      */
     private function handleError(\Exception $e, string $defaultMessage): JsonResponse
