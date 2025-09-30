@@ -231,6 +231,10 @@ class DocumentControllerRefactored extends Controller
                 'message' => 'Sənəd uğurla silindi.',
             ]);
         } catch (\Exception $e) {
+            Log::error('Error in document.destroy', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return $this->handleError($e, 'Sənəd silinərkən xəta baş verdi.');
         }
     }

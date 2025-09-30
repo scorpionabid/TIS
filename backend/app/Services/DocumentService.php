@@ -105,7 +105,7 @@ class DocumentService
 
         // Update quota
         $quota = UserStorageQuota::getOrCreateForUser($document->uploader);
-        $quota->removeUpload($document->file_size);
+        $quota->removeFile($document->file_size);
 
         $document->delete();
     }
