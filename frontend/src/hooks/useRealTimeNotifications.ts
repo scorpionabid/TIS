@@ -197,8 +197,9 @@ export const useRealTimeNotifications = (
         const exists = prev.some(n => n.id === normalizedNotification.id);
         if (exists) return prev;
 
-        // Add new notification to top
-        const updated = [normalizedNotification, ...prev];
+        // Add new notification to top, but limit total notifications to prevent memory issues
+        const maxNotifications = 50;
+        const updated = [normalizedNotification, ...prev].slice(0, maxNotifications);
 
         // Show toast for new notification
         if (autoToast && toastCount < maxToastNotifications) {

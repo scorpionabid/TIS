@@ -77,9 +77,9 @@ return [
     ],
 
     /**
-     * Task assignment notification roles
+     * Task assignment notification roles (comprehensive list)
      */
-    'task_notification_roles' => [
+    'task_assignment_notification_roles' => [
         'superadmin',
         'regionadmin',
         'sektoradmin',

@@ -50,8 +50,8 @@ Route::get('test/websocket/info', function () {
     return response()->json([
         'success' => true,
         'data' => [
-            'app_key' => env('REVERB_APP_KEY', 'atis-key'),
-            'reverb_host' => env('REVERB_HOST', '127.0.0.1'),
+            'app_key' => env('REVERB_APP_KEY', 'atis-notification-2024'),
+            'reverb_host' => env('REVERB_HOST', 'localhost'),
             'reverb_port' => (int) env('REVERB_PORT', 8080),
             'reverb_scheme' => env('REVERB_PORT', 8080) == 443 ? 'https' : 'http',
         ]

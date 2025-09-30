@@ -13,6 +13,12 @@ use Illuminate\Support\Facades\DB;
 
 class SurveyResponseService extends BaseService
 {
+    protected NotificationService $notificationService;
+
+    public function __construct(NotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
     public function getResponses(array $filters, int $perPage = 15): array
     {
         $query = SurveyResponse::with(['survey', 'institution', 'respondent.profile', 'approvedBy']);
@@ -238,8 +244,12 @@ class SurveyResponseService extends BaseService
                 'progress_percentage' => $response->progress_percentage
             ]);
 
-            // Note: Notification will be marked as completed only when the response is approved/rejected
-            // not when it's just submitted for approval
+            // Auto-mark related survey notifications as read when user submits response
+            // This helps reduce notification overload
+            $markedCount = $this->notificationService->autoMarkAsReadForSurveyResponse(
+                $response->respondent_id,
+                $response->survey_id
+            );
 
             return $response;
         });
