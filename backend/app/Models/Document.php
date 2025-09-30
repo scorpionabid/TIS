@@ -659,6 +659,12 @@ class Document extends Model
               ->orWhere(function($subQ) use ($allSektorInstitutions) {
                   $subQ->where('access_level', 'sectoral')
                        ->whereIn('institution_id', $allSektorInstitutions);
+              })
+              ->orWhere(function($subQ) use ($allSektorInstitutions) {
+                  // Check if any of the sector's institutions are in accessible_institutions JSON
+                  foreach ($allSektorInstitutions as $instId) {
+                      $subQ->orWhereJsonContains('accessible_institutions', (string)$instId);
+                  }
               });
         });
     }
@@ -676,7 +682,8 @@ class Document extends Model
               ->orWhere(function($subQ) use ($userInstitutionId) {
                   $subQ->where('access_level', 'institution')
                        ->where('institution_id', $userInstitutionId);
-              });
+              })
+              ->orWhereJsonContains('accessible_institutions', (string)$userInstitutionId);
         });
     }
 }

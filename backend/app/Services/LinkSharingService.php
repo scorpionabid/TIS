@@ -415,17 +415,26 @@ class LinkSharingService extends BaseService
         } elseif ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
             // Sector admin can see links from their sector
             $childIds = $userInstitution->getAllChildrenIds();
-            $query->whereIn('institution_id', $childIds)
+            $query->where(function ($q) use ($childIds) {
+                $q->whereIn('institution_id', $childIds)
                   ->orWhere('share_scope', 'sectoral')
                   ->orWhere('share_scope', 'regional')
-                  ->orWhere('share_scope', 'national');
+                  ->orWhere('share_scope', 'national')
+                  ->orWhere(function($subQ) use ($childIds) {
+                      // Check if any of the sector's institutions are in target_institutions JSON
+                      foreach ($childIds as $instId) {
+                          $subQ->orWhereJsonContains('target_institutions', (string)$instId);
+                      }
+                  });
+            });
         } elseif ($user->hasRole(['schooladmin', 'müəllim', 'şagird'])) {
             // School users can see their own links and public ones
             $query->where(function ($q) use ($userInstitution, $user) {
                 $q->where('institution_id', $userInstitution->id)
                   ->orWhere('share_scope', 'public')
                   ->orWhere('share_scope', 'national')
-                  ->orWhere('shared_by', $user->id);
+                  ->orWhere('shared_by', $user->id)
+                  ->orWhereJsonContains('target_institutions', (string)$userInstitution->id);
             });
         }
     }
