@@ -54,11 +54,15 @@ class DocumentService
         $fileData = $this->storeFile($file);
         
         // Create document record
+        // Map accessible_institutions from frontend target_institutions if provided
+        $accessibleInstitutions = $validatedData['accessible_institutions'] ?? null;
+
         $documentData = array_merge($validatedData, [
             'uploaded_by' => $user->id,
             'institution_id' => $user->institution_id,
             'published_at' => now(),
             'status' => 'active',
+            'accessible_institutions' => $accessibleInstitutions,
         ], $fileData);
 
         $document = Document::create($documentData);
