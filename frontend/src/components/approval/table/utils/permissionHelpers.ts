@@ -111,14 +111,35 @@ export const canApproveResponse = (response: SurveyResponseForApproval, user?: U
 
   if (!hasApprovalRole) return false;
 
-  // Can only approve submitted responses with pending approval
-  const canApproveStatus = response?.status === 'submitted' &&
-                          response?.approvalRequest?.current_status === 'pending';
+  // Must be submitted response
+  if (response?.status !== 'submitted') return false;
 
-  if (!canApproveStatus) return false;
+  // Check approval request exists
+  if (!response?.approvalRequest) return false;
 
-  // Institution hierarchy check
-  return checkInstitutionHierarchyAccess(response, user);
+  // SuperAdmin can approve any pending or in_progress approval
+  if (user.role === 'superadmin') {
+    return ['pending', 'in_progress'].includes(response.approvalRequest.current_status);
+  }
+
+  // For RegionAdmin and SektorAdmin, check if they can approve at current level
+  const currentLevel = response.approvalRequest.current_approval_level;
+  const currentStatus = response.approvalRequest.current_status;
+
+  // Can approve if:
+  // 1. Status is 'pending' (level 1 - awaiting first approval)
+  // 2. Status is 'in_progress' and current level matches user's role level
+  if (currentStatus === 'pending') return true;
+
+  if (currentStatus === 'in_progress') {
+    // SektorAdmin approves at level 2
+    if (user.role === 'sektoradmin' && currentLevel === 2) return true;
+
+    // RegionAdmin approves at level 3
+    if (user.role === 'regionadmin' && currentLevel === 3) return true;
+  }
+
+  return false;
 };
 
 /**
@@ -136,14 +157,35 @@ export const canRejectResponse = (response: SurveyResponseForApproval, user?: Us
 
   if (!hasRejectRole) return false;
 
-  // Can only reject submitted responses with pending approval
-  const canRejectStatus = response?.status === 'submitted' &&
-                         response?.approvalRequest?.current_status === 'pending';
+  // Must be submitted response
+  if (response?.status !== 'submitted') return false;
 
-  if (!canRejectStatus) return false;
+  // Check approval request exists
+  if (!response?.approvalRequest) return false;
 
-  // Institution hierarchy check
-  return checkInstitutionHierarchyAccess(response, user);
+  // SuperAdmin can reject any pending or in_progress approval
+  if (user.role === 'superadmin') {
+    return ['pending', 'in_progress'].includes(response.approvalRequest.current_status);
+  }
+
+  // For RegionAdmin and SektorAdmin, check if they can reject at current level
+  const currentLevel = response.approvalRequest.current_approval_level;
+  const currentStatus = response.approvalRequest.current_status;
+
+  // Can reject if:
+  // 1. Status is 'pending' (level 1 - awaiting first approval)
+  // 2. Status is 'in_progress' and current level matches user's role level
+  if (currentStatus === 'pending') return true;
+
+  if (currentStatus === 'in_progress') {
+    // SektorAdmin rejects at level 2
+    if (user.role === 'sektoradmin' && currentLevel === 2) return true;
+
+    // RegionAdmin rejects at level 3
+    if (user.role === 'regionadmin' && currentLevel === 3) return true;
+  }
+
+  return false;
 };
 
 /**
@@ -188,17 +230,44 @@ export const getValidResponsesForBulkAction = (
   const validResponses = selectedResponses.filter(r => {
     const hasSubmittedStatus = r?.status === 'submitted';
     const hasApprovalRequest = !!r?.approvalRequest;
-    const hasValidApprovalStatus = r?.approvalRequest?.current_status === 'pending';
 
-    return hasSubmittedStatus && hasApprovalRequest && hasValidApprovalStatus;
+    // Use the same logic as individual approval permission checks
+    if (!hasSubmittedStatus || !hasApprovalRequest) return false;
+
+    const currentStatus = r.approvalRequest.current_status;
+    const currentLevel = r.approvalRequest.current_approval_level;
+
+    // Valid if pending (level 1) or in_progress at user's level
+    if (currentStatus === 'pending') return true;
+
+    if (currentStatus === 'in_progress' && user) {
+      if (user.role === 'sektoradmin' && currentLevel === 2) return true;
+      if (user.role === 'regionadmin' && currentLevel === 3) return true;
+      if (user.role === 'superadmin') return true;
+    }
+
+    return false;
   });
 
   const invalidResponses = selectedResponses.filter(r => {
     const hasSubmittedStatus = r?.status === 'submitted';
     const hasApprovalRequest = !!r?.approvalRequest;
-    const hasValidApprovalStatus = r?.approvalRequest?.current_status === 'pending';
 
-    return !(hasSubmittedStatus && hasApprovalRequest && hasValidApprovalStatus);
+    if (!hasSubmittedStatus || !hasApprovalRequest) return true;
+
+    const currentStatus = r.approvalRequest.current_status;
+    const currentLevel = r.approvalRequest.current_approval_level;
+
+    // Invalid if not pending and not at user's level when in_progress
+    if (currentStatus === 'pending') return false;
+
+    if (currentStatus === 'in_progress' && user) {
+      if (user.role === 'sektoradmin' && currentLevel === 2) return false;
+      if (user.role === 'regionadmin' && currentLevel === 3) return false;
+      if (user.role === 'superadmin') return false;
+    }
+
+    return true;
   });
 
   return { validResponses, invalidResponses };
