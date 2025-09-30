@@ -47,8 +47,12 @@ const SurveyApprovalDashboard: React.FC = () => {
     }
   }, [currentUser]);
 
-  // State management
-  const [selectedSurvey, setSelectedSurvey] = useState<PublishedSurvey | null>(null);
+  // State management with localStorage persistence
+  const [selectedSurvey, setSelectedSurvey] = useState<PublishedSurvey | null>(() => {
+    // Try to restore selected survey from localStorage
+    const saved = localStorage.getItem('approvals_selected_survey');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [selectedResponse, setSelectedResponse] = useState<SurveyResponseForApproval | null>(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -135,13 +139,37 @@ const SurveyApprovalDashboard: React.FC = () => {
     }
   }, [surveysLoading, surveysError, publishedSurveys]);
 
-  // Auto-select first survey if none selected
+  // Auto-select survey: prioritize localStorage, then first available
   useEffect(() => {
     if (Array.isArray(publishedSurveys) && publishedSurveys.length > 0 && !selectedSurvey) {
-      console.log('🎯 [Dashboard] Published surveys data:', publishedSurveys);
-      console.log('🎯 [Dashboard] First survey:', publishedSurveys[0]);
-      console.log('🎯 [Dashboard] First survey questions:', publishedSurveys[0]?.questions);
-      setSelectedSurvey(publishedSurveys[0]);
+      // Try to restore from localStorage first
+      const saved = localStorage.getItem('approvals_selected_survey');
+      let surveyToSelect = null;
+
+      if (saved) {
+        try {
+          const savedSurvey = JSON.parse(saved);
+          // Check if saved survey still exists in published surveys
+          surveyToSelect = publishedSurveys.find(s => s.id === savedSurvey.id);
+          if (surveyToSelect) {
+            console.log('🎯 [Dashboard] Restored saved survey from localStorage:', surveyToSelect.title);
+          } else {
+            console.log('⚠️ [Dashboard] Saved survey no longer available, clearing localStorage');
+            localStorage.removeItem('approvals_selected_survey');
+          }
+        } catch (error) {
+          console.error('❌ [Dashboard] Error parsing saved survey:', error);
+          localStorage.removeItem('approvals_selected_survey');
+        }
+      }
+
+      // Fallback to first survey if no valid saved survey
+      if (!surveyToSelect) {
+        surveyToSelect = publishedSurveys[0];
+        console.log('🎯 [Dashboard] No saved survey, selecting first available:', surveyToSelect.title);
+      }
+
+      setSelectedSurvey(surveyToSelect);
     }
   }, [publishedSurveys, selectedSurvey]);
 
@@ -162,7 +190,7 @@ const SurveyApprovalDashboard: React.FC = () => {
     }));
   }, []);
 
-  // Handle survey selection
+  // Handle survey selection with localStorage persistence
   const handleSurveySelect = (survey: PublishedSurvey) => {
     console.log('📋 [DASHBOARD] Survey selection changing:', {
       previousSurvey: selectedSurvey?.id,
@@ -181,6 +209,8 @@ const SurveyApprovalDashboard: React.FC = () => {
       console.log('✅ [DASHBOARD] Same survey reselected - keeping selections');
     }
 
+    // Save to localStorage for persistence across page reloads
+    localStorage.setItem('approvals_selected_survey', JSON.stringify(survey));
     setSelectedSurvey(survey);
   };
 

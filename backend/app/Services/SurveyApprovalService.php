@@ -323,31 +323,60 @@ class SurveyApprovalService extends BaseService
         $results = [];
         $errors = [];
 
+        \Log::info("🚀 [BulkApproval] Starting sync processing", [
+            'response_count' => count($responseIds),
+            'response_ids' => $responseIds,
+            'action' => $action,
+            'approver_id' => $approver->id,
+            'approver_role' => $approver->role
+        ]);
+
         DB::transaction(function () use ($responseIds, $action, $approver, $comments, &$results, &$errors) {
             foreach ($responseIds as $responseId) {
                 try {
+                    \Log::info("📋 [BulkApproval] Processing response", [
+                        'response_id' => $responseId,
+                        'action' => $action
+                    ]);
+
                     $result = $this->processIndividualApproval($responseId, $action, $approver, $comments);
-                    
+
                     $results[] = [
                         'response_id' => $responseId,
                         'status' => 'success',
                         'result' => $result,
                     ];
+
+                    \Log::info("✅ [BulkApproval] Response processed successfully", [
+                        'response_id' => $responseId,
+                        'result' => $result
+                    ]);
+
                 } catch (\Exception $e) {
                     $errors[] = [
                         'response_id' => $responseId,
                         'error' => $e->getMessage(),
                     ];
+
+                    \Log::error("❌ [BulkApproval] Response processing failed", [
+                        'response_id' => $responseId,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
                 }
             }
         });
 
-        return [
+        $finalResult = [
             'successful' => count($results),
             'failed' => count($errors),
             'results' => $results,
             'errors' => $errors,
         ];
+
+        \Log::info("🏁 [BulkApproval] Sync processing completed", $finalResult);
+
+        return $finalResult;
     }
 
     /**
@@ -356,15 +385,65 @@ class SurveyApprovalService extends BaseService
     public function processIndividualApproval(int $responseId, string $action, User $approver, ?string $comments = null): bool
     {
         $response = SurveyResponse::findOrFail($responseId);
-        
+
+        // Check if user has permission to approve this specific response
+        if (!$this->canUserApproveResponse($response, $approver)) {
+            throw new \Exception("User does not have permission to approve this response (ID: {$responseId})");
+        }
+
         $result = match ($action) {
             'approve' => $this->approveResponse($response, $approver, ['comments' => $comments]),
             'reject' => $this->rejectResponse($response, $approver, ['comments' => $comments ?? 'Bulk rejection']),
             'return' => $this->returnForRevision($response, $approver, ['comments' => $comments ?? 'Returned for revision']),
             default => throw new \Exception("Invalid action: {$action}")
         };
-        
-        return $result !== false;
+
+        // Since approval methods return arrays with status info, check if they succeeded
+        return is_array($result) && !empty($result);
+    }
+
+    /**
+     * Check if user can approve a specific response based on current approval state
+     */
+    private function canUserApproveResponse(SurveyResponse $response, User $approver): bool
+    {
+        $approvalRequest = $response->approvalRequest;
+
+        if (!$approvalRequest) {
+            return false;
+        }
+
+        // Must be submitted status
+        if ($response->status !== 'submitted') {
+            return false;
+        }
+
+        $currentStatus = $approvalRequest->current_status;
+        $currentLevel = $approvalRequest->current_approval_level;
+
+        // SuperAdmin can approve any pending or in_progress approval
+        if ($approver->role === 'superadmin') {
+            return in_array($currentStatus, ['pending', 'in_progress']);
+        }
+
+        // Check if status allows approval
+        if ($currentStatus === 'pending') {
+            return true; // Anyone with approval permission can start the chain
+        }
+
+        if ($currentStatus === 'in_progress') {
+            // SektorAdmin approves at level 2
+            if ($approver->role === 'sektoradmin' && $currentLevel === 2) {
+                return true;
+            }
+
+            // RegionAdmin approves at level 3
+            if ($approver->role === 'regionadmin' && $currentLevel === 3) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
