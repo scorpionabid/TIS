@@ -35,10 +35,8 @@ class DocumentPermissionService extends BaseService
                 return !isset($documentData['institution_id']) || 
                        in_array($documentData['institution_id'], $allowedInstitutions->toArray());
                 
-            case 'məktəbadmin':
             case 'schooladmin':
             case 'müəllim':
-            case 'teacher':
                 // School-level users can only create documents in their institution
                 return !isset($documentData['institution_id']) ||
                        $documentData['institution_id'] === $userInstitutionId;
@@ -74,7 +72,6 @@ class DocumentPermissionService extends BaseService
                 // Sector admins can modify documents in their sector
                 return $this->isDocumentInUserSector($document, $userInstitutionId);
                 
-            case 'məktəbadmin':
             case 'schooladmin':
                 // School admins can only modify documents in their institution
                 return $document->institution_id === $userInstitutionId;
@@ -150,10 +147,8 @@ class DocumentPermissionService extends BaseService
 
                 return false;
                 
-            case 'məktəbadmin':
             case 'schooladmin':
             case 'müəllim':
-            case 'teacher':
                 // Check if document belongs to user's institution
                 if ($document->institution_id === $userInstitutionId) {
                     return true;
@@ -224,10 +219,8 @@ class DocumentPermissionService extends BaseService
             case 'sektoradmin':
                 return $this->getSectorInstitutions($userInstitutionId)->toArray();
                 
-            case 'məktəbadmin':
             case 'schooladmin':
             case 'müəllim':
-            case 'teacher':
                 return [$userInstitutionId];
                 
             default:
@@ -298,12 +291,10 @@ class DocumentPermissionService extends BaseService
             case 'sektoradmin':
                 return 'sectoral';
                 
-            case 'məktəbadmin':
             case 'schooladmin':
                 return 'institutional';
-                
+
             case 'müəllim':
-            case 'teacher':
                 return 'personal';
                 
             default:

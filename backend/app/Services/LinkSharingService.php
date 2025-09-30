@@ -981,9 +981,7 @@ class LinkSharingService extends BaseService
                 return $this->getSectorInstitutions($userInstitutionId);
 
             case 'schooladmin':
-            case 'məktəbadmin':
-            case 'muellim':
-            case 'teacher':
+            case 'müəllim':
             default:
                 // Other roles only have access to their own institution
                 return [$userInstitutionId];
