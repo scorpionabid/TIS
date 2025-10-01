@@ -4,9 +4,80 @@ namespace App\Services;
 
 use App\Models\Document;
 use App\Services\BaseService;
+use Illuminate\Support\Facades\Cache;
 
 class DocumentPermissionService extends BaseService
 {
+    /**
+     * Permission-specific cache configuration (Phase 2A: Redis tagged caching)
+     * Override BaseService defaults for longer caching of permissions
+     */
+    protected int $cacheMinutes = 60; // 1 hour for permission data
+    protected bool $enableCache = true;
+
+    /**
+     * Get cache tags for permission operations (Phase 2A)
+     * Separate tagging from documents for independent invalidation
+     */
+    protected function getPermissionCacheTags(int $userId): array
+    {
+        return ['permissions', "permissions:user:{$userId}"];
+    }
+
+    /**
+     * Generate permission-specific cache key
+     */
+    protected function getPermissionCacheKey(string $operation, int $userId, array $params = []): string
+    {
+        $paramHash = md5(json_encode($params));
+        return "permissions:{$operation}:user{$userId}:{$paramHash}";
+    }
+
+    /**
+     * Cache permission check result with tagging (Phase 2A optimized)
+     */
+    protected function cachePermissionCheck(string $cacheKey, callable $callback, int $userId = null): mixed
+    {
+        if (!$this->enableCache) {
+            return $callback();
+        }
+
+        // Extract userId from cache key if not provided
+        if ($userId === null) {
+            preg_match('/user(\d+)/', $cacheKey, $matches);
+            $userId = $matches[1] ?? 0;
+        }
+
+        // Use Redis cache tags for selective invalidation
+        return Cache::tags($this->getPermissionCacheTags($userId))
+                    ->remember($cacheKey, now()->addMinutes($this->cacheMinutes), $callback);
+    }
+
+    /**
+     * Clear permission cache for specific user (Phase 2A optimized)
+     * Allows clearing user's permission cache without affecting others
+     */
+    protected function clearUserPermissionCache(int $userId): void
+    {
+        if (!$this->enableCache) {
+            return;
+        }
+
+        Cache::tags(["permissions:user:{$userId}"])->flush();
+    }
+
+    /**
+     * Clear all permission caches (use sparingly)
+     */
+    protected function clearAllPermissionCache(): void
+    {
+        if (!$this->enableCache) {
+            return;
+        }
+
+        Cache::tags(['permissions'])->flush();
+    }
+
     /**
      * Check if user can create document with regional permissions
      */
@@ -102,80 +173,94 @@ class DocumentPermissionService extends BaseService
     }
 
     /**
-     * Check if user can access document based on permissions
+     * Check if user can access document based on permissions (with caching)
      */
     public function canUserAccessDocument($user, Document $document): bool
     {
-        // Use the existing document model method with additional checks
-        if (!$document->canAccess($user)) {
-            return false;
-        }
+        // Generate cache key based on user and document
+        $cacheKey = $this->getPermissionCacheKey(
+            'canAccessDocument',
+            $user->id,
+            [
+                'doc_id' => $document->id,
+                'doc_institution' => $document->institution_id,
+                'doc_public' => $document->is_public,
+                'doc_uploaded_by' => $document->uploaded_by,
+            ]
+        );
 
-        // Additional regional permission checks
-        if ($user->hasRole('superadmin')) {
-            return true;
-        }
-
-        $userRole = $user->roles->first()?->name;
-        $userInstitutionId = $user->institution_id;
-
-        switch ($userRole) {
-            case 'regionadmin':
-            case 'regionoperator':
-                return $this->isDocumentInUserRegion($document, $userInstitutionId);
-                
-            case 'sektoradmin':
-                // Check if document is in user's sector
-                if ($this->isDocumentInUserSector($document, $userInstitutionId)) {
-                    return true;
-                }
-
-                // Check if user uploaded the document
-                if ($document->uploaded_by === $user->id) {
-                    return true;
-                }
-
-                // Check if document is public
-                if ($document->is_public) {
-                    return true;
-                }
-
-                // Check if user's institution is in accessible_institutions
-                if ($document->accessible_institutions && is_array($document->accessible_institutions)) {
-                    // Use integer comparison since institution IDs are integers
-                    return in_array($userInstitutionId, $document->accessible_institutions, false);
-                }
-
+        return $this->cachePermissionCheck($cacheKey, function () use ($user, $document) {
+            // Use the existing document model method with additional checks
+            if (!$document->canAccess($user)) {
                 return false;
+            }
 
-            case 'schooladmin':
-            case 'müəllim':
-                // Check if document belongs to user's institution
-                if ($document->institution_id === $userInstitutionId) {
-                    return true;
-                }
+            // Additional regional permission checks
+            if ($user->hasRole('superadmin')) {
+                return true;
+            }
 
-                // Check if user uploaded the document
-                if ($document->uploaded_by === $user->id) {
-                    return true;
-                }
+            $userRole = $user->roles->first()?->name;
+            $userInstitutionId = $user->institution_id;
 
-                // Check if document is public
-                if ($document->is_public) {
-                    return true;
-                }
+            switch ($userRole) {
+                case 'regionadmin':
+                case 'regionoperator':
+                    return $this->isDocumentInUserRegion($document, $userInstitutionId);
 
-                // Check if user's institution is in accessible_institutions
-                if ($document->accessible_institutions && is_array($document->accessible_institutions)) {
-                    // Use integer comparison since institution IDs are integers
-                    return in_array($userInstitutionId, $document->accessible_institutions, false);
-                }
+                case 'sektoradmin':
+                    // Check if document is in user's sector
+                    if ($this->isDocumentInUserSector($document, $userInstitutionId)) {
+                        return true;
+                    }
 
-                return false;
-                
-            default:
-                return false;
-        }
+                    // Check if user uploaded the document
+                    if ($document->uploaded_by === $user->id) {
+                        return true;
+                    }
+
+                    // Check if document is public
+                    if ($document->is_public) {
+                        return true;
+                    }
+
+                    // Check if user's institution is in accessible_institutions
+                    if ($document->accessible_institutions && is_array($document->accessible_institutions)) {
+                        // Use integer comparison since institution IDs are integers
+                        return in_array($userInstitutionId, $document->accessible_institutions, false);
+                    }
+
+                    return false;
+
+                case 'schooladmin':
+                case 'müəllim':
+                    // Check if document belongs to user's institution
+                    if ($document->institution_id === $userInstitutionId) {
+                        return true;
+                    }
+
+                    // Check if user uploaded the document
+                    if ($document->uploaded_by === $user->id) {
+                        return true;
+                    }
+
+                    // Check if document is public
+                    if ($document->is_public) {
+                        return true;
+                    }
+
+                    // Check if user's institution is in accessible_institutions
+                    if ($document->accessible_institutions && is_array($document->accessible_institutions)) {
+                        // Use integer comparison since institution IDs are integers
+                        return in_array($userInstitutionId, $document->accessible_institutions, false);
+                    }
+
+                    return false;
+
+                default:
+                    return false;
+            }
+        });
     }
 
     /**
@@ -202,32 +287,44 @@ class DocumentPermissionService extends BaseService
     }
 
     /**
-     * Get user's accessible institution IDs for document filtering
+     * Get user's accessible institution IDs for document filtering (with caching)
      */
     public function getUserAccessibleInstitutions($user): array
     {
-        if ($user->hasRole('superadmin')) {
-            return \App\Models\Institution::pluck('id')->toArray();
-        }
+        // Generate cache key based on user's role and institution
+        $cacheKey = $this->getPermissionCacheKey(
+            'accessibleInstitutions',
+            $user->id,
+            [
+                'institution_id' => $user->institution_id,
+                'role' => $user->roles->first()?->name,
+            ]
+        );
 
-        $userRole = $user->roles->first()?->name;
-        $userInstitutionId = $user->institution_id;
+        return $this->cachePermissionCheck($cacheKey, function () use ($user) {
+            if ($user->hasRole('superadmin')) {
+                return \App\Models\Institution::pluck('id')->toArray();
+            }
 
-        switch ($userRole) {
-            case 'regionadmin':
-            case 'regionoperator':
-                return $this->getRegionalInstitutions($userInstitutionId)->toArray();
-                
-            case 'sektoradmin':
-                return $this->getSectorInstitutions($userInstitutionId)->toArray();
-                
-            case 'schooladmin':
-            case 'müəllim':
-                return [$userInstitutionId];
-                
-            default:
-                return [];
-        }
+            $userRole = $user->roles->first()?->name;
+            $userInstitutionId = $user->institution_id;
+
+            switch ($userRole) {
+                case 'regionadmin':
+                case 'regionoperator':
+                    return $this->getRegionalInstitutions($userInstitutionId)->toArray();
+
+                case 'sektoradmin':
+                    return $this->getSectorInstitutions($userInstitutionId)->toArray();
+
+                case 'schooladmin':
+                case 'müəllim':
+                    return [$userInstitutionId];
+
+                default:
+                    return [];
+            }
+        });
     }
 
     /**
@@ -422,61 +519,73 @@ class DocumentPermissionService extends BaseService
     }
 
     /**
-     * Get user's superior institutions (parent institutions in hierarchy)
+     * Get user's superior institutions (parent institutions in hierarchy) with caching
      * SchoolAdmin can target their sector and region
      * SektorAdmin can target their region
      */
     public function getUserSuperiorInstitutions($user): array
     {
-        if ($user->hasRole('superadmin')) {
-            return \App\Models\Institution::pluck('id')->toArray();
-        }
+        // Generate cache key based on user's role and institution
+        $cacheKey = $this->getPermissionCacheKey(
+            'superiorInstitutions',
+            $user->id,
+            [
+                'institution_id' => $user->institution_id,
+                'role' => $user->roles->first()?->name,
+            ]
+        );
 
-        $userRole = $user->roles->first()?->name;
-        $userInstitutionId = $user->institution_id;
+        return $this->cachePermissionCheck($cacheKey, function () use ($user) {
+            if ($user->hasRole('superadmin')) {
+                return \App\Models\Institution::pluck('id')->toArray();
+            }
 
-        if (!$userInstitutionId) {
-            return [];
-        }
+            $userRole = $user->roles->first()?->name;
+            $userInstitutionId = $user->institution_id;
 
-        $userInstitution = \App\Models\Institution::find($userInstitutionId);
-
-        if (!$userInstitution) {
-            return [];
-        }
-
-        $superiorIds = [];
-
-        switch ($userRole) {
-            case 'schooladmin':
-                // School can target: sector (parent) and region (grandparent)
-                if ($userInstitution->parent_id) {
-                    $sector = \App\Models\Institution::find($userInstitution->parent_id);
-                    $superiorIds[] = $sector->id;
-
-                    if ($sector && $sector->parent_id) {
-                        $superiorIds[] = $sector->parent_id; // Region
-                    }
-                }
-                break;
-
-            case 'sektoradmin':
-                // Sector can target: region (parent)
-                if ($userInstitution->parent_id) {
-                    $superiorIds[] = $userInstitution->parent_id;
-                }
-                break;
-
-            case 'regionadmin':
-            case 'regionoperator':
-                // Regional users see all sub-institutions (for document distribution)
-                // They can select which sectors/schools to share documents with
-                return $this->getRegionalInstitutions($userInstitutionId)->toArray();
-
-            default:
+            if (!$userInstitutionId) {
                 return [];
-        }
+            }
 
-        return array_unique($superiorIds);
+            $userInstitution = \App\Models\Institution::find($userInstitutionId);
+
+            if (!$userInstitution) {
+                return [];
+            }
+
+            $superiorIds = [];
+
+            switch ($userRole) {
+                case 'schooladmin':
+                    // School can target: sector (parent) and region (grandparent)
+                    if ($userInstitution->parent_id) {
+                        $sector = \App\Models\Institution::find($userInstitution->parent_id);
+                        $superiorIds[] = $sector->id;
+
+                        if ($sector && $sector->parent_id) {
+                            $superiorIds[] = $sector->parent_id; // Region
+                        }
+                    }
+                    break;
+
+                case 'sektoradmin':
+                    // Sector can target: region (parent)
+                    if ($userInstitution->parent_id) {
+                        $superiorIds[] = $userInstitution->parent_id;
+                    }
+                    break;
+
+                case 'regionadmin':
+                case 'regionoperator':
+                    // Regional users see all sub-institutions (for document distribution)
+                    // They can select which sectors/schools to share documents with
+                    return $this->getRegionalInstitutions($userInstitutionId)->toArray();
+
+                default:
+                    return [];
+            }
+
+            return array_unique($superiorIds);
+        });
     }
 }

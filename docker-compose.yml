@@ -11,6 +11,12 @@ services:
       - APP_KEY=base64:8dQ8Gu3WqV8Vn9K7Mj2Nz5P6Q7R8S9T0U1V2W3X4Y5Z=
       - DB_CONNECTION=sqlite
       - DB_DATABASE=/var/www/html/database/database.sqlite
+      - CACHE_STORE=redis
+      - REDIS_CLIENT=phpredis
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=null
+      - REDIS_PORT=6379
+      - REDIS_DB=0
     ports:
       - "8000:8000"
     volumes:
@@ -19,6 +25,9 @@ services:
       - ./backend/app:/var/www/html/app
       - ./backend/routes:/var/www/html/routes
       - ./backend/config:/var/www/html/config
+    depends_on:
+      redis:
+        condition: service_healthy
     networks:
       - atis_network
 
@@ -42,6 +51,27 @@ services:
     networks:
       - atis_network
 
+  # Redis Cache Server (Phase 2A optimization)
+  redis:
+    image: redis:7-alpine
+    container_name: atis_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - atis_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 networks:
   atis_network:
     driver: bridge
+
+volumes:
+  redis_data:
+    driver: local

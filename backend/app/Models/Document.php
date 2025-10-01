@@ -339,6 +339,15 @@ class Document extends Model
                 if ($user->institution_id === $this->institution_id) {
                     return true;
                 }
+
+                // HIERARCHICAL ACCESS: Check if user's institution is a parent of document's institution
+                // This allows RegionAdmin, SektorAdmin to access sub-institution documents
+                if ($user->institution && $this->institution) {
+                    $isParentInstitution = $this->isUserInstitutionParent($user->institution, $this->institution);
+                    if ($isParentInstitution) {
+                        return true;
+                    }
+                }
                 // Don't return false here - continue to check accessible_institutions
                 break;
             case 'sectoral':
@@ -704,5 +713,38 @@ class Document extends Model
               })
               ->orWhereJsonContains('accessible_institutions', (string)$userInstitutionId);
         });
+    }
+
+    /**
+     * Check if user's institution is a parent (ancestor) of document's institution
+     * This enables hierarchical access: RegionAdmin can access Sektor/School documents
+     *
+     * @param Institution $userInstitution
+     * @param Institution $documentInstitution
+     * @return bool
+     */
+    private function isUserInstitutionParent($userInstitution, $documentInstitution): bool
+    {
+        $current = $documentInstitution;
+
+        // Traverse up the hierarchy (max 10 levels to prevent infinite loop)
+        for ($i = 0; $i < 10; $i++) {
+            if (!$current->parent_id) {
+                break;
+            }
+
+            // Check if current parent matches user's institution
+            if ($current->parent_id === $userInstitution->id) {
+                return true;
+            }
+
+            // Move up one level
+            $current = $current->parent;
+            if (!$current) {
+                break;
+            }
+        }
+
+        return false;
     }
 }

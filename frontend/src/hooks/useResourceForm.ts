@@ -113,15 +113,17 @@ export function useResourceForm({
     form.resolver = zodResolver(getResourceSchema(mode));
   }, [mode, form]);
 
-  // Load institutions for targeting
+  // Load institutions for targeting with optimized pagination
   // SchoolAdmin & SektorAdmin see only superior institutions
   // Others see all accessible institutions
+  // Reduced per_page from 1000 to 100 for better performance (600+ schools)
   const { data: institutions } = useQuery({
     queryKey: shouldUseSuperiorInstitutions ? ['superior-institutions'] : ['institutions'],
     queryFn: () => shouldUseSuperiorInstitutions
       ? resourceService.getSuperiorInstitutions()
-      : institutionService.getAll({ per_page: 1000 }).then(res => res.data),
+      : institutionService.getAll({ per_page: 100 }).then(res => res.data),
     enabled: isOpen,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes (institutions rarely change)
   });
 
   // Available institutions and filtered list

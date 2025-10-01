@@ -1,6 +1,6 @@
 FROM php:8.3-cli-alpine
 
-# Install system dependencies including SQLite, GD and ZIP
+# Install system dependencies including SQLite, GD, ZIP and Redis
 RUN apk add --no-cache \
     curl \
     zip \
@@ -16,6 +16,12 @@ RUN apk add --no-cache \
         pdo_sqlite \
         gd \
         zip
+
+# Install Redis extension (Phase 2A: Redis tagged caching)
+RUN apk add --no-cache autoconf g++ make \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apk del autoconf g++ make
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer

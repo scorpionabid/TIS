@@ -408,7 +408,7 @@ export const PasswordReset: React.FC = () => {
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground">
-          <p>© 2025 Azərbaycan Respublikası Təhsil Nazirliyi</p>
+          <p>© Təhsil idarəetmə sistemi</p>
         </div>
       </div>
     </div>

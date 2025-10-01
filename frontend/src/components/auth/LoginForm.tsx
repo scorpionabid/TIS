@@ -284,7 +284,7 @@ export const LoginForm = ({ onLogin, isLoading = false, error, loadingMessage, o
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground">
-          <p>© 2025 Azərbaycan Respublikası Təhsil Nazirliyi</p>
+          <p>© Təhsil idarəetmə sistemi</p>
           <p>Versiya 2.0 Enhanced</p>
         </div>
 

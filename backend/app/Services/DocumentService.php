@@ -10,40 +10,116 @@ use App\Models\UserStorageQuota;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\UploadedFile;
 
 class DocumentService
 {
     /**
-     * Get filtered and paginated documents
+     * Cache configuration (Phase 2A: Redis tagged caching)
      */
-    public function getDocuments(Request $request)
+    protected int $cacheTtl = 1800; // 30 minutes for documents (frequently updated)
+    protected bool $cacheEnabled = true;
+
+    /**
+     * Get cache tags for this service (Phase 2A)
+     * Tags allow selective cache invalidation per user
+     */
+    protected function getCacheTags(): array
     {
-        $user = Auth::user();
-        $query = Document::with(['uploader', 'institution'])
-                        ->accessibleBy($user)
-                        ->active()
-                        ->latestVersions();
-
-        // Apply filters
-        $this->applyFilters($query, $request);
-        
-        // Apply search
-        $this->applySearch($query, $request);
-        
-        // Apply sorting
-        $this->applySorting($query, $request);
-
-        return $query->paginate($request->get('per_page', 15));
+        $userId = Auth::id() ?? 'guest';
+        return ['documents', "documents:user:{$userId}"];
     }
 
     /**
-     * Create new document from uploaded file
+     * Generate cache key for document operations
+     */
+    protected function getCacheKey(string $operation, array $params = []): string
+    {
+        $userId = Auth::id() ?? 'guest';
+        $paramHash = md5(json_encode($params));
+        return "documents:{$operation}:{$userId}:{$paramHash}";
+    }
+
+    /**
+     * Get data from cache or execute callback with tagging (Phase 2A optimized)
+     */
+    protected function getCached(string $key, callable $callback, int $ttl = null): mixed
+    {
+        if (!$this->cacheEnabled) {
+            return $callback();
+        }
+
+        $ttl = $ttl ?? $this->cacheTtl;
+
+        // Use Redis cache tags for selective invalidation
+        return Cache::tags($this->getCacheTags())->remember($key, $ttl, $callback);
+    }
+
+    /**
+     * Clear document-related cache with selective tagging (Phase 2A optimized)
+     *
+     * Phase 1: Cache::flush() - cleared ALL caches (aggressive, safe)
+     * Phase 2A: Cache::tags()->flush() - clears only document caches (selective, efficient)
+     */
+    protected function clearDocumentCache(): void
+    {
+        if (!$this->cacheEnabled) {
+            return;
+        }
+
+        // Clear only document-related caches using tags
+        // This preserves permission caches and other unrelated data
+        Cache::tags(['documents'])->flush();
+
+        // Optional: Clear only current user's cache (even more selective)
+        // Cache::tags($this->getCacheTags())->flush();
+    }
+
+    /**
+     * Get filtered and paginated documents with caching
+     */
+    public function getDocuments(Request $request)
+    {
+        // Generate cache key based on user and request parameters
+        $cacheParams = [
+            'filters' => $request->only(['category', 'file_type', 'access_level', 'institution_id', 'uploaded_by']),
+            'search' => $request->input('search'),
+            'sort_by' => $request->input('sort_by', 'created_at'),
+            'sort_direction' => $request->input('sort_direction', 'desc'),
+            'per_page' => $request->input('per_page', 15),
+            'page' => $request->input('page', 1),
+        ];
+
+        $cacheKey = $this->getCacheKey('getDocuments', $cacheParams);
+
+        return $this->getCached($cacheKey, function () use ($request) {
+            $user = Auth::user();
+            $query = Document::with(['uploader', 'institution'])
+                            ->accessibleBy($user)
+                            ->active()
+                            ->latestVersions();
+
+            // Apply filters
+            $this->applyFilters($query, $request);
+
+            // Apply search
+            $this->applySearch($query, $request);
+
+            // Apply sorting
+            $this->applySorting($query, $request);
+
+            return $query->paginate($request->get('per_page', 15));
+        });
+    }
+
+    /**
+     * Create new document from uploaded file with cache invalidation
      */
     public function createDocument(array $validatedData, UploadedFile $file)
     {
         $user = Auth::user();
-        
+
         // Check storage quota
         $quota = UserStorageQuota::getOrCreateForUser($user);
         if (!$quota->canUpload($file->getSize())) {
@@ -52,7 +128,7 @@ class DocumentService
 
         // Store file
         $fileData = $this->storeFile($file);
-        
+
         // Create document record
         // Map accessible_institutions from frontend target_institutions if provided
         $accessibleInstitutions = $validatedData['accessible_institutions'] ?? null;
@@ -66,37 +142,43 @@ class DocumentService
         ], $fileData);
 
         $document = Document::create($documentData);
-        
+
         // Update quota
         $quota->addUpload($file->getSize());
+
+        // Clear document cache after creation
+        $this->clearDocumentCache();
 
         return $document->load(['uploader', 'institution']);
     }
 
     /**
-     * Update document
+     * Update document with cache invalidation
      */
     public function updateDocument(Document $document, array $validatedData)
     {
         $user = Auth::user();
-        
+
         // Check permissions
         if (!$this->canUserModifyDocument($user, $document)) {
             throw new \Exception('Bu sənədi dəyişdirmək icazəniz yoxdur.');
         }
 
         $document->update($validatedData);
-        
+
+        // Clear document cache after update
+        $this->clearDocumentCache();
+
         return $document->fresh(['uploader', 'institution']);
     }
 
     /**
-     * Delete document
+     * Delete document with cache invalidation
      */
     public function deleteDocument(Document $document)
     {
         $user = Auth::user();
-        
+
         // Check permissions
         if (!$this->canUserDeleteDocument($user, $document)) {
             throw new \Exception('Bu sənədi silmək icazəniz yoxdur.');
@@ -112,6 +194,9 @@ class DocumentService
         $quota->removeFile($document->file_size);
 
         $document->delete();
+
+        // Clear document cache after deletion
+        $this->clearDocumentCache();
     }
 
     /**
@@ -293,7 +378,7 @@ class DocumentService
     }
 
     /**
-     * Get sub-institution documents grouped by institution
+     * Get sub-institution documents grouped by institution with caching
      *
      * This method retrieves documents from institutions hierarchically below
      * the current user's institution. Used by regionadmin and sektoradmin
@@ -304,56 +389,64 @@ class DocumentService
      */
     public function getSubInstitutionDocumentsGrouped($user)
     {
-        $permissionService = app(DocumentPermissionService::class);
+        // Generate cache key based on user's institution
+        $cacheKey = $this->getCacheKey('subInstitutionDocs', [
+            'user_id' => $user->id,
+            'institution_id' => $user->institution_id,
+        ]);
 
-        // Get accessible institution IDs (excluding user's own)
-        $accessibleInstitutions = $permissionService->getUserAccessibleInstitutions($user);
-        $userInstitutionId = $user->institution_id;
+        return $this->getCached($cacheKey, function () use ($user) {
+            $permissionService = app(DocumentPermissionService::class);
 
-        // Exclude user's own institution to show only sub-institutions
-        $subInstitutionIds = array_filter($accessibleInstitutions, fn($id) => $id !== $userInstitutionId);
+            // Get accessible institution IDs (excluding user's own)
+            $accessibleInstitutions = $permissionService->getUserAccessibleInstitutions($user);
+            $userInstitutionId = $user->institution_id;
 
-        if (empty($subInstitutionIds)) {
-            return collect([]);
-        }
+            // Exclude user's own institution to show only sub-institutions
+            $subInstitutionIds = array_filter($accessibleInstitutions, fn($id) => $id !== $userInstitutionId);
 
-        // Get documents grouped by institution with eager loading to prevent N+1
-        $documents = Document::with(['uploader:id,first_name,last_name', 'institution:id,name,type'])
-            ->whereIn('institution_id', $subInstitutionIds)
-            ->where('status', 'active')
-            ->orderBy('institution_id')
-            ->orderBy('created_at', 'desc')
-            ->get();
+            if (empty($subInstitutionIds)) {
+                return collect([]);
+            }
 
-        // Group by institution and format response
-        return $documents->groupBy('institution_id')->map(function ($docs, $institutionId) {
-            $institution = $docs->first()->institution;
+            // Get documents grouped by institution with eager loading to prevent N+1
+            $documents = Document::with(['uploader:id,first_name,last_name', 'institution:id,name,type'])
+                ->whereIn('institution_id', $subInstitutionIds)
+                ->where('status', 'active')
+                ->orderBy('institution_id')
+                ->orderBy('created_at', 'desc')
+                ->get();
 
-            return [
-                'institution_id' => $institutionId,
-                'institution_name' => $institution->name ?? 'Unknown',
-                'institution_type' => $institution->type ?? 'Unknown',
-                'document_count' => $docs->count(),
-                'documents' => $docs->map(function($doc) {
-                    return [
-                        'id' => $doc->id,
-                        'title' => $doc->title,
-                        'description' => $doc->description,
-                        'file_extension' => $doc->file_extension,
-                        'file_size' => $doc->file_size,
-                        'mime_type' => $doc->mime_type,
-                        'original_filename' => $doc->original_filename,
-                        'uploaded_by' => $doc->uploaded_by,
-                        'uploader' => $doc->uploader ? [
-                            'id' => $doc->uploader->id,
-                            'first_name' => $doc->uploader->first_name,
-                            'last_name' => $doc->uploader->last_name,
-                        ] : null,
-                        'created_at' => $doc->created_at,
-                        'is_downloadable' => $doc->is_downloadable,
-                    ];
-                })
-            ];
-        })->values();
+            // Group by institution and format response
+            return $documents->groupBy('institution_id')->map(function ($docs, $institutionId) {
+                $institution = $docs->first()->institution;
+
+                return [
+                    'institution_id' => $institutionId,
+                    'institution_name' => $institution->name ?? 'Unknown',
+                    'institution_type' => $institution->type ?? 'Unknown',
+                    'document_count' => $docs->count(),
+                    'documents' => $docs->map(function($doc) {
+                        return [
+                            'id' => $doc->id,
+                            'title' => $doc->title,
+                            'description' => $doc->description,
+                            'file_extension' => $doc->file_extension,
+                            'file_size' => $doc->file_size,
+                            'mime_type' => $doc->mime_type,
+                            'original_filename' => $doc->original_filename,
+                            'uploaded_by' => $doc->uploaded_by,
+                            'uploader' => $doc->uploader ? [
+                                'id' => $doc->uploader->id,
+                                'first_name' => $doc->uploader->first_name,
+                                'last_name' => $doc->uploader->last_name,
+                            ] : null,
+                            'created_at' => $doc->created_at,
+                            'is_downloadable' => $doc->is_downloadable,
+                        ];
+                    })
+                ];
+            })->values();
+        }, 3600); // Cache for 1 hour (less frequently updated)
     }
 }
