@@ -23,16 +23,18 @@ Route::middleware('permission:surveys.read')->group(function () {
     Route::get('surveys/analytics/overview', [SurveyAnalyticsController::class, 'dashboard']);
     Route::get('surveys/analytics/region', [SurveyAnalyticsController::class, 'regionAnalytics']);
     Route::get('surveys/hierarchical', [SurveyController::class, 'getHierarchicalList']);
+
+    // NEW: Survey Results Analytics Endpoints (MUST be before generic /analytics route)
+    Route::get('surveys/{survey}/analytics/overview', [SurveyAnalyticsController::class, 'analyticsOverview']);
+    Route::get('surveys/{survey}/analytics/trends', [SurveyAnalyticsController::class, 'responseTimeTrends']);
+    Route::get('surveys/{survey}/analytics/hierarchical-institutions', [SurveyAnalyticsController::class, 'hierarchicalInstitutionsAnalytics']);
+
+    // Generic analytics routes (after specific ones)
     Route::get('surveys/{survey}/analytics', [SurveyAnalyticsController::class, 'analytics']);
     Route::get('surveys/{survey}/statistics', [SurveyAnalyticsController::class, 'statistics']);
     Route::get('surveys/{survey}/insights', [SurveyAnalyticsController::class, 'insights']);
     Route::get('surveys/{survey}/institution-breakdown', [SurveyAnalyticsController::class, 'institutionBreakdown']);
     Route::get('surveys/{survey}/hierarchical-breakdown', [SurveyAnalyticsController::class, 'hierarchicalBreakdown']);
-
-    // NEW: Survey Results Analytics Endpoints
-    Route::get('surveys/{survey}/analytics/overview', [SurveyAnalyticsController::class, 'analyticsOverview']);
-    Route::get('surveys/{survey}/analytics/trends', [SurveyAnalyticsController::class, 'responseTimeTrends']);
-    Route::get('surveys/{survey}/analytics/hierarchical-institutions', [SurveyAnalyticsController::class, 'hierarchicalInstitutionsAnalytics']);
 });
 
 // Survey CRUD operations

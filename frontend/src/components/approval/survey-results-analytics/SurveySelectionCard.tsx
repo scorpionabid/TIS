@@ -96,15 +96,7 @@ const SurveySelectionCard: React.FC<SurveySelectionCardProps> = ({
                 <SelectContent>
                   {surveys.map((survey) => (
                     <SelectItem key={survey.id} value={survey.id.toString()}>
-                      <div className="flex items-center gap-2">
-                        <span>{survey.title}</span>
-                        <Badge
-                          className={`${getStatusColor(survey.status)} text-white text-xs`}
-                          variant="secondary"
-                        >
-                          {getStatusText(survey.status)}
-                        </Badge>
-                      </div>
+                      {survey.title} ({getStatusText(survey.status)})
                     </SelectItem>
                   ))}
                 </SelectContent>
