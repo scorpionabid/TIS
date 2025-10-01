@@ -251,6 +251,11 @@ class SurveyService extends BaseService<Survey> {
     return response.data;
   }
 
+  async getInstitutionBreakdown(id: number) {
+    const response = await apiClient.get(`${this.baseEndpoint}/${id}/institution-breakdown`);
+    return response.data;
+  }
+
   async getAvailableTargets() {
     const response = await apiClient.get(`${this.baseEndpoint}/targets`);
     return response.data;

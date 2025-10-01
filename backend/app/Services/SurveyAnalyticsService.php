@@ -551,6 +551,82 @@ class SurveyAnalyticsService
     }
 
     /**
+     * Get institution-level breakdown for survey responses
+     * Uses DataIsolationHelper for role-based access control
+     */
+    public function getInstitutionBreakdown(Survey $survey): array
+    {
+        $user = Auth::user();
+
+        // Use existing helper to get allowed institutions based on user role
+        $allowedInstitutionIds = \App\Helpers\DataIsolationHelper::getAllowedInstitutionIds($user);
+
+        if ($allowedInstitutionIds->isEmpty()) {
+            return [
+                'survey_id' => $survey->id,
+                'breakdown' => [],
+                'user_scope' => 'none',
+                'total_responses' => 0
+            ];
+        }
+
+        // Get responses for allowed institutions only
+        $responses = SurveyResponse::where('survey_id', $survey->id)
+            ->whereIn('institution_id', $allowedInstitutionIds)
+            ->with(['institution'])
+            ->get();
+
+        // Group by institution with statistics
+        $breakdown = $responses->groupBy('institution_id')->map(function($instResponses, $instId) use ($survey) {
+            $institution = $instResponses->first()->institution;
+
+            if (!$institution) {
+                return null;
+            }
+
+            // Calculate targeted count from survey's target_institutions
+            $totalTargeted = 0;
+            if (!empty($survey->target_institutions) && in_array($instId, $survey->target_institutions)) {
+                // Count active users in this institution
+                $totalTargeted = User::where('institution_id', $instId)
+                    ->where('is_active', true)
+                    ->count();
+            }
+
+            $totalResponses = $instResponses->count();
+            $completedResponses = $instResponses->where('is_complete', true)->count();
+
+            return [
+                'institution_id' => $instId,
+                'institution_name' => $institution->name,
+                'institution_type' => $institution->type,
+                'level' => $institution->level,
+                'responses_count' => $totalResponses,
+                'completed_count' => $completedResponses,
+                'targeted_count' => $totalTargeted,
+                'response_rate' => $totalTargeted > 0
+                    ? round(($totalResponses / $totalTargeted) * 100, 1)
+                    : 0,
+                'completion_rate' => $totalResponses > 0
+                    ? round(($completedResponses / $totalResponses) * 100, 1)
+                    : 0,
+                'last_response_at' => $instResponses->max('submitted_at')
+            ];
+        })
+        ->filter() // Remove nulls
+        ->sortByDesc('response_rate')
+        ->values();
+
+        return [
+            'survey_id' => $survey->id,
+            'total_responses' => $responses->count(),
+            'breakdown' => $breakdown,
+            'user_scope' => \App\Helpers\DataIsolationHelper::getUserScopeLevel($user),
+            'allowed_institution_count' => $allowedInstitutionIds->count()
+        ];
+    }
+
+    /**
      * Get region analytics (RegionAdmin specific)
      */
     public function getRegionAnalytics(): array

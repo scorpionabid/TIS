@@ -249,4 +249,23 @@ class SurveyAnalyticsController extends Controller
             return $this->error($e->getMessage(), 500);
         }
     }
+
+    /**
+     * Get institution breakdown for survey
+     */
+    public function institutionBreakdown(Survey $survey): JsonResponse
+    {
+        try {
+            $breakdown = $this->analyticsService->getInstitutionBreakdown($survey);
+            return $this->success($breakdown, 'Institution breakdown retrieved successfully');
+        } catch (\Exception $e) {
+            \Log::error('Institution breakdown error', [
+                'survey_id' => $survey->id,
+                'user_id' => auth()->id(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->error($e->getMessage(), 500);
+        }
+    }
 }
