@@ -268,9 +268,7 @@ class SurveyService extends BaseService<Survey> {
   }
 
   async getResponseTrends(id: number, days: number = 30) {
-    const response = await apiClient.get(`${this.baseEndpoint}/${id}/analytics/trends`, {
-      params: { days }
-    });
+    const response = await apiClient.get(`${this.baseEndpoint}/${id}/analytics/trends?days=${days}`);
     return response.data;
   }
 
