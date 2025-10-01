@@ -171,19 +171,9 @@ class SurveyCrudService
             // Log survey audit
             $this->logSurveyAudit($survey, 'created', 'Survey created');
 
-            // Send notification to target institutions if specified
-            if (!empty($data['target_institutions'])) {
-                try {
-                    $this->sendSurveyNotification($survey, 'survey_assigned', $data['target_institutions']);
-                } catch (\Exception $e) {
-                    \Log::error('Failed to send survey assignment notification', [
-                        'survey_id' => $survey->id,
-                        'target_institutions' => $data['target_institutions'],
-                        'error' => $e->getMessage()
-                    ]);
-                    // Don't fail the survey creation if notification fails
-                }
-            }
+            // NOTE: Notifications are sent when survey is published, not on creation
+            // This prevents duplicate notifications (create + publish)
+            // See SurveyController::publish() method
 
             return $survey->load(['creator.profile', 'versions']);
         });

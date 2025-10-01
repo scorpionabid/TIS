@@ -1049,13 +1049,19 @@ class SurveyController extends BaseController
         $options = [
             'related' => $survey,
             'priority' => 'normal',
+            'channels' => ['in_app'], // Only in-app notifications to avoid duplicates
+            'action_data' => [
+                'action_url' => "/survey-response/{$survey->id}",
+                'survey_id' => $survey->id,
+            ],
         ];
 
         \Log::info('Sending survey publish notification', [
             'template_key' => $templateKey,
             'survey_id' => $survey->id,
             'target_institutions' => $survey->target_institutions,
-            'variables' => array_keys($variables)
+            'variables' => array_keys($variables),
+            'action_url' => "/survey-response/{$survey->id}"
         ]);
 
         $this->notificationService->sendFromTemplate($templateKey, $recipients, $variables, $options);

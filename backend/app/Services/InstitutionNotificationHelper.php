@@ -54,7 +54,7 @@ class InstitutionNotificationHelper
         $allInstitutionIds = collect($institutionIds);
 
         // For each institution, check if it's a sector/region and include its children
-        // Also include parent institutions for schools (to notify sektoradmin)
+        // Schools (level 4) are NOT expanded to parent - only direct targeting
         foreach ($institutionIds as $institutionId) {
             $institution = Institution::find($institutionId);
             if ($institution) {
@@ -69,18 +69,9 @@ class InstitutionNotificationHelper
                         'children_count' => count($children),
                         'children_ids' => $children
                     ]);
-                } else {
-                    // For schools (level 4), also include their parent sector
-                    if ($institution->parent_id) {
-                        $allInstitutionIds->push($institution->parent_id);
-
-                        Log::debug('InstitutionNotificationHelper: Added parent institution', [
-                            'school_institution_id' => $institutionId,
-                            'school_level' => $institution->level,
-                            'parent_institution_id' => $institution->parent_id
-                        ]);
-                    }
                 }
+                // NOTE: For schools (level 4), we do NOT add parent institutions
+                // Notifications should only go to users IN the targeted school, not to parent admins
             }
         }
 

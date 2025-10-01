@@ -382,11 +382,23 @@ export default function Notifications() {
           ) : (
             <div className="space-y-4">
               {notifications.map((notification: Notification) => (
-                <div 
-                  key={notification.id} 
-                  className={`flex items-start justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors ${
+                <div
+                  key={notification.id}
+                  className={`flex items-start justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer ${
                     notification.status === 'unread' ? 'border-primary/50 bg-primary/5' : 'border-border'
                   }`}
+                  onClick={() => {
+                    // Mark as read when clicked
+                    if (notification.status === 'unread') {
+                      markAsReadMutation.mutate(notification.id);
+                    }
+                    // Navigate to action URL if available
+                    if (notification.data?.action_url) {
+                      window.location.href = notification.data.action_url;
+                    } else if (notification.action_url) {
+                      window.location.href = notification.action_url;
+                    }
+                  }}
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
@@ -438,19 +450,30 @@ export default function Notifications() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 ml-4">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       title="Ətraflı bax"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent parent onClick
+                        // Navigate to action URL
+                        const actionUrl = notification.data?.action_url || notification.action_url;
+                        if (actionUrl) {
+                          window.location.href = actionUrl;
+                        }
+                      }}
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
                     {notification.status === 'unread' ? (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         title="Oxunmuş qeyd et"
-                        onClick={() => markAsReadMutation.mutate(notification.id)}
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent parent onClick
+                          markAsReadMutation.mutate(notification.id);
+                        }}
                         disabled={markAsReadMutation.isPending}
                       >
                         {markAsReadMutation.isPending ? (
@@ -468,11 +491,14 @@ export default function Notifications() {
                         <Mail className="h-4 w-4" />
                       </Button>
                     )}
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       title="Arxivləşdir"
-                      onClick={() => archiveMutation.mutate(notification.id)}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent parent onClick
+                        archiveMutation.mutate(notification.id);
+                      }}
                       disabled={archiveMutation.isPending}
                     >
                       {archiveMutation.isPending ? (
@@ -481,11 +507,14 @@ export default function Notifications() {
                         <Archive className="h-4 w-4" />
                       )}
                     </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       title="Sil"
-                      onClick={() => deleteMutation.mutate(notification.id)}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent parent onClick
+                        deleteMutation.mutate(notification.id);
+                      }}
                       disabled={deleteMutation.isPending}
                     >
                       {deleteMutation.isPending ? (
