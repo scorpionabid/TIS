@@ -27,6 +27,7 @@ Route::middleware('permission:surveys.read')->group(function () {
     Route::get('surveys/{survey}/statistics', [SurveyAnalyticsController::class, 'statistics']);
     Route::get('surveys/{survey}/insights', [SurveyAnalyticsController::class, 'insights']);
     Route::get('surveys/{survey}/institution-breakdown', [SurveyAnalyticsController::class, 'institutionBreakdown']);
+    Route::get('surveys/{survey}/hierarchical-breakdown', [SurveyAnalyticsController::class, 'hierarchicalBreakdown']);
 });
 
 // Survey CRUD operations

@@ -268,4 +268,24 @@ class SurveyAnalyticsController extends Controller
             return $this->error($e->getMessage(), 500);
         }
     }
+
+    /**
+     * Get hierarchical institution breakdown for survey
+     * Shows sector -> schools hierarchy for RegionAdmin
+     */
+    public function hierarchicalBreakdown(Survey $survey): JsonResponse
+    {
+        try {
+            $breakdown = $this->analyticsService->getHierarchicalBreakdown($survey);
+            return $this->success($breakdown, 'Hierarchical breakdown retrieved successfully');
+        } catch (\Exception $e) {
+            \Log::error('Hierarchical breakdown error', [
+                'survey_id' => $survey->id,
+                'user_id' => auth()->id(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->error($e->getMessage(), 500);
+        }
+    }
 }

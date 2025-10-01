@@ -627,6 +627,207 @@ class SurveyAnalyticsService
     }
 
     /**
+     * Get hierarchical breakdown for survey responses (sector > schools)
+     */
+    public function getHierarchicalBreakdown(Survey $survey): array
+    {
+        $user = Auth::user();
+        $allowedInstitutionIds = \App\Helpers\DataIsolationHelper::getAllowedInstitutionIds($user);
+
+        if ($allowedInstitutionIds->isEmpty()) {
+            return [
+                'survey_id' => $survey->id,
+                'hierarchy' => [],
+                'user_scope' => 'none',
+                'total_responses' => 0
+            ];
+        }
+
+        // Get responses for allowed institutions
+        $responses = SurveyResponse::where('survey_id', $survey->id)
+            ->whereIn('institution_id', $allowedInstitutionIds)
+            ->with(['institution'])
+            ->get();
+
+        // Build hierarchy based on user role
+        $userRole = $user->getRoleNames()->first();
+
+        if ($userRole === 'regionadmin') {
+            return $this->buildRegionHierarchy($survey, $responses, $user);
+        } elseif ($userRole === 'sektoradmin') {
+            return $this->buildSectorHierarchy($survey, $responses, $user);
+        } else {
+            // SuperAdmin or others - use flat structure
+            return $this->getInstitutionBreakdown($survey);
+        }
+    }
+
+    /**
+     * Build region hierarchy (sectors with schools)
+     */
+    protected function buildRegionHierarchy(Survey $survey, $responses, User $user): array
+    {
+        $userRegion = $user->institution;
+
+        if (!$userRegion || $userRegion->level !== 2) {
+            return [
+                'survey_id' => $survey->id,
+                'hierarchy' => [],
+                'user_scope' => 'regional',
+                'total_responses' => 0
+            ];
+        }
+
+        // Get all sectors under this region
+        $sectors = Institution::where('parent_id', $userRegion->id)
+            ->where('level', 3)
+            ->with(['children' => function($q) {
+                $q->where('level', 4); // Schools only
+            }])
+            ->get();
+
+        $hierarchy = $sectors->map(function($sector) use ($survey, $responses) {
+            // Get all schools under this sector
+            $schoolIds = $sector->children->pluck('id');
+
+            // Responses from this sector's schools
+            $sectorResponses = $responses->whereIn('institution_id', $schoolIds);
+
+            // Count total targeted users in sector schools
+            $totalTargeted = User::whereIn('institution_id', $schoolIds)
+                ->where('is_active', true)
+                ->count();
+
+            // Total schools
+            $totalSchools = $sector->children->count();
+
+            // Schools that responded
+            $respondedSchools = $sectorResponses->unique('institution_id')->count();
+
+            // Schools breakdown
+            $schoolsBreakdown = $sectorResponses->groupBy('institution_id')->map(function($schoolResponses, $schoolId) {
+                $school = Institution::find($schoolId);
+                if (!$school) return null;
+
+                $targetedCount = User::where('institution_id', $schoolId)
+                    ->where('is_active', true)
+                    ->count();
+
+                $totalResponses = $schoolResponses->count();
+                $completedResponses = $schoolResponses->where('is_complete', true)->count();
+
+                return [
+                    'institution_id' => $schoolId,
+                    'institution_name' => $school->name,
+                    'institution_type' => $school->type,
+                    'responses_count' => $totalResponses,
+                    'completed_count' => $completedResponses,
+                    'targeted_count' => $targetedCount,
+                    'response_rate' => $targetedCount > 0
+                        ? round(($totalResponses / $targetedCount) * 100, 1)
+                        : 0,
+                    'completion_rate' => $totalResponses > 0
+                        ? round(($completedResponses / $totalResponses) * 100, 1)
+                        : 0
+                ];
+            })->filter()->sortByDesc('response_rate')->values();
+
+            $totalResponses = $sectorResponses->count();
+            $completedResponses = $sectorResponses->where('is_complete', true)->count();
+
+            return [
+                'institution_id' => $sector->id,
+                'institution_name' => $sector->name,
+                'institution_type' => $sector->type,
+                'level' => $sector->level,
+                'responses_count' => $totalResponses,
+                'completed_count' => $completedResponses,
+                'targeted_count' => $totalTargeted,
+                'total_schools' => $totalSchools,
+                'responded_schools' => $respondedSchools,
+                'response_rate' => $totalTargeted > 0
+                    ? round(($totalResponses / $totalTargeted) * 100, 1)
+                    : 0,
+                'completion_rate' => $totalResponses > 0
+                    ? round(($completedResponses / $totalResponses) * 100, 1)
+                    : 0,
+                'school_response_rate' => $totalSchools > 0
+                    ? round(($respondedSchools / $totalSchools) * 100, 1)
+                    : 0,
+                'children' => $schoolsBreakdown
+            ];
+        })->sortByDesc('response_rate')->values();
+
+        return [
+            'survey_id' => $survey->id,
+            'hierarchy' => $hierarchy,
+            'user_scope' => 'regional',
+            'total_responses' => $responses->count()
+        ];
+    }
+
+    /**
+     * Build sector hierarchy (flat schools list)
+     */
+    protected function buildSectorHierarchy(Survey $survey, $responses, User $user): array
+    {
+        $userSector = $user->institution;
+
+        if (!$userSector || $userSector->level !== 3) {
+            return [
+                'survey_id' => $survey->id,
+                'hierarchy' => [],
+                'user_scope' => 'sector',
+                'total_responses' => 0
+            ];
+        }
+
+        // Get all schools under this sector
+        $schools = Institution::where('parent_id', $userSector->id)
+            ->where('level', 4)
+            ->get();
+
+        $schoolIds = $schools->pluck('id');
+
+        // Schools breakdown (flat for SektorAdmin)
+        $schoolsBreakdown = $responses->groupBy('institution_id')->map(function($schoolResponses, $schoolId) {
+            $school = Institution::find($schoolId);
+            if (!$school) return null;
+
+            $targetedCount = User::where('institution_id', $schoolId)
+                ->where('is_active', true)
+                ->count();
+
+            $totalResponses = $schoolResponses->count();
+            $completedResponses = $schoolResponses->where('is_complete', true)->count();
+
+            return [
+                'institution_id' => $schoolId,
+                'institution_name' => $school->name,
+                'institution_type' => $school->type,
+                'responses_count' => $totalResponses,
+                'completed_count' => $completedResponses,
+                'targeted_count' => $targetedCount,
+                'response_rate' => $targetedCount > 0
+                    ? round(($totalResponses / $targetedCount) * 100, 1)
+                    : 0,
+                'completion_rate' => $totalResponses > 0
+                    ? round(($completedResponses / $totalResponses) * 100, 1)
+                    : 0
+            ];
+        })->filter()->sortByDesc('response_rate')->values();
+
+        return [
+            'survey_id' => $survey->id,
+            'hierarchy' => $schoolsBreakdown,
+            'user_scope' => 'sector',
+            'total_responses' => $responses->count(),
+            'total_schools' => $schools->count(),
+            'responded_schools' => $schoolsBreakdown->count()
+        ];
+    }
+
+    /**
      * Get region analytics (RegionAdmin specific)
      */
     public function getRegionAnalytics(): array

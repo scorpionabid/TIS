@@ -3,7 +3,7 @@ import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { Eye, Download, ChevronDown } from 'lucide-react';
 import { Survey } from '../../../services/surveys';
-import InstitutionBreakdown from './InstitutionBreakdown';
+import HierarchicalInstitutionBreakdown from './HierarchicalInstitutionBreakdown';
 
 interface SurveyResultCardProps {
   survey: Survey;
@@ -126,7 +126,7 @@ const SurveyResultCard: React.FC<SurveyResultCardProps> = ({
 
       {isExpanded && (
         <div className="px-4 pb-4 border-t pt-3">
-          <InstitutionBreakdown surveyId={survey.id} />
+          <HierarchicalInstitutionBreakdown surveyId={survey.id} />
         </div>
       )}
     </div>
