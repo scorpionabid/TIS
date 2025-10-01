@@ -716,8 +716,16 @@ class DocumentControllerRefactored extends Controller
         try {
             $user = Auth::user();
 
+            Log::info('getSubInstitutionDocuments called', [
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+                'user_role' => $user->roles->first()->name ?? 'unknown',
+                'institution_id' => $user->institution_id,
+            ]);
+
             // Check if user has permission to view sub-institution documents
             if (!$user->hasAnyRole(['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin'])) {
+                Log::warning('User does not have permission', ['user_id' => $user->id]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu səhifəyə giriş icazəniz yoxdur.',
@@ -725,6 +733,12 @@ class DocumentControllerRefactored extends Controller
             }
 
             $documents = $this->documentService->getSubInstitutionDocumentsGrouped($user);
+
+            Log::info('getSubInstitutionDocuments result', [
+                'user_id' => $user->id,
+                'result_count' => $documents->count(),
+                'institutions' => $documents->pluck('institution_id')->toArray(),
+            ]);
 
             return response()->json([
                 'success' => true,

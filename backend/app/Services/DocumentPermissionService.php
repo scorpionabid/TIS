@@ -142,7 +142,8 @@ class DocumentPermissionService extends BaseService
 
                 // Check if user's institution is in accessible_institutions
                 if ($document->accessible_institutions && is_array($document->accessible_institutions)) {
-                    return in_array((string)$userInstitutionId, $document->accessible_institutions, true);
+                    // Use integer comparison since institution IDs are integers
+                    return in_array($userInstitutionId, $document->accessible_institutions, false);
                 }
 
                 return false;
@@ -166,7 +167,8 @@ class DocumentPermissionService extends BaseService
 
                 // Check if user's institution is in accessible_institutions
                 if ($document->accessible_institutions && is_array($document->accessible_institutions)) {
-                    return in_array((string)$userInstitutionId, $document->accessible_institutions, true);
+                    // Use integer comparison since institution IDs are integers
+                    return in_array($userInstitutionId, $document->accessible_institutions, false);
                 }
 
                 return false;
@@ -467,7 +469,8 @@ class DocumentPermissionService extends BaseService
 
             case 'regionadmin':
             case 'regionoperator':
-                // Regional users can target all institutions in their hierarchy
+                // Regional users see all sub-institutions (for document distribution)
+                // They can select which sectors/schools to share documents with
                 return $this->getRegionalInstitutions($userInstitutionId)->toArray();
 
             default:

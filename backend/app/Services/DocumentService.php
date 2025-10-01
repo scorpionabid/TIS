@@ -186,7 +186,16 @@ class DocumentService
     }
 
     /**
-     * Store uploaded file
+     * Store uploaded file to private storage
+     *
+     * Storage structure: storage/app/private/documents/YYYY/MM/filename
+     * - Uses 'local' disk which maps to storage/app/private/
+     * - Files are organized by upload date for better management
+     * - Generates unique filename to prevent collisions
+     *
+     * @param UploadedFile $file The uploaded file
+     * @return array File metadata
+     * @throws \Exception If file storage fails
      */
     private function storeFile(UploadedFile $file): array
     {
@@ -194,8 +203,18 @@ class DocumentService
         $storedFilename = Document::generateStoredFilename($file->getClientOriginalName());
         $filePath = 'documents/' . now()->format('Y/m') . '/' . $storedFilename;
 
-        // Store file
-        $file->storeAs('documents/' . now()->format('Y/m'), $storedFilename, 'local');
+        // Store file to private storage (storage/app/private/documents/...)
+        // Using 'local' disk for private storage with access control
+        $stored = $file->storeAs('documents/' . now()->format('Y/m'), $storedFilename, 'local');
+
+        if (!$stored) {
+            throw new \Exception('Fayl yüklənərkən xəta baş verdi.');
+        }
+
+        // Verify file was stored successfully
+        if (!Storage::exists($filePath)) {
+            throw new \Exception('Fayl saxlanıldı, amma yoxlanıla bilmədi.');
+        }
 
         // Calculate file hash
         $fileHash = hash_file('sha256', $file->getPathname());

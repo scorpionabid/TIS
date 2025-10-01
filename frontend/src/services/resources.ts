@@ -533,7 +533,9 @@ class ResourceService extends BaseService<Resource> {
 
     try {
       const response = await apiClient.get('/documents/sub-institutions');
-      const data: InstitutionalResource[] = response.data?.data || [];
+      // Backend returns {success: true, data: [...]}
+      // apiClient already extracts response.data, so we access .data directly
+      const data: InstitutionalResource[] = response.data || [];
 
       console.log('✅ Sub-institution documents fetched:', data.length, 'institutions');
       return data;
@@ -557,7 +559,9 @@ class ResourceService extends BaseService<Resource> {
 
     try {
       const response = await apiClient.get('/documents/superior-institutions');
-      const data = response.data?.data || [];
+      // Backend returns {success: true, data: [...]}
+      // apiClient already extracts response.data, so we access .data directly
+      const data = response.data || [];
 
       console.log('✅ Superior institutions fetched:', data.length, 'institutions');
       return data;

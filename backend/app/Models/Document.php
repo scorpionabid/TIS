@@ -365,7 +365,8 @@ class Document extends Model
 
         // Check if user's institution is in accessible_institutions
         if ($this->accessible_institutions && is_array($this->accessible_institutions) && $user->institution_id) {
-            if (in_array((string)$user->institution_id, $this->accessible_institutions, true)) {
+            // Use integer comparison since institution IDs are integers
+            if (in_array($user->institution_id, $this->accessible_institutions, false)) {
                 return true;
             }
         }

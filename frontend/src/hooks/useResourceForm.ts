@@ -81,8 +81,9 @@ export function useResourceForm({
   const [institutionSearch, setInstitutionSearch] = useState('');
 
   // Determine if user should see superior institutions (for targeting)
+  // SchoolAdmin → sector + region, SektorAdmin → region, RegionAdmin → none (top level)
   const shouldUseSuperiorInstitutions = currentUser &&
-    ['schooladmin', 'sektoradmin'].includes(currentUser.role);
+    ['schooladmin', 'sektoradmin', 'regionadmin', 'regionoperator'].includes(currentUser.role);
 
   // Form setup with dynamic schema based on active tab and mode
   const form = useForm<ResourceFormData>({
@@ -207,6 +208,15 @@ export function useResourceForm({
 
   const handleSubmit = async (data: ResourceFormData) => {
     try {
+      // Auto-select superior institutions if SchoolAdmin/SektorAdmin and none selected
+      if (shouldUseSuperiorInstitutions &&
+          (!data.target_institutions || data.target_institutions.length === 0) &&
+          availableInstitutions.length > 0) {
+        const superiorIds = availableInstitutions.map((inst: any) => inst.id);
+        data.target_institutions = superiorIds;
+        console.log('🎯 Auto-selected superior institutions on submit:', superiorIds);
+      }
+
       console.log('🔥 handleSubmit called with data:', data);
       console.log('📁 selectedFile:', selectedFile);
       console.log('📋 activeTab:', activeTab);

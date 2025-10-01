@@ -60,6 +60,26 @@ return [
             'report' => false,
         ],
 
+        /*
+        |--------------------------------------------------------------------------
+        | Documents Disk (ATİS)
+        |--------------------------------------------------------------------------
+        | Dedicated disk for institutional document management.
+        | All documents are stored privately with hierarchical access control.
+        | Documents are organized by upload date: documents/YYYY/MM/filename
+        |
+        | Security: Private storage prevents direct web access.
+        | Access is controlled through backend API with permission checks.
+        */
+        'documents' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private'),
+            'visibility' => 'private',
+            'serve' => true,
+            'throw' => false,
+            'report' => false,
+        ],
+
     ],
 
     /*

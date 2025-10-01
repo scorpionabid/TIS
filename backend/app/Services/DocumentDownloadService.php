@@ -13,7 +13,18 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class DocumentDownloadService
 {
     /**
-     * Download document file
+     * Download document file with access control
+     *
+     * Security checks:
+     * 1. User permission validation (hierarchical access control)
+     * 2. Document downloadable flag check
+     * 3. File existence verification
+     * 4. Download activity logging
+     *
+     * @param Document $document The document to download
+     * @param bool $forceDownload Whether to force download (attachment) or inline display
+     * @return StreamedResponse
+     * @throws \Symfony\Component\HttpKernel\Exception\HttpException
      */
     public function downloadDocument(Document $document, bool $forceDownload = true): StreamedResponse
     {
@@ -29,8 +40,14 @@ class DocumentDownloadService
             abort(403, 'Bu sənəd yüklənmə üçün əlçatan deyil.');
         }
 
-        // Check if file exists
+        // Check if file exists in private storage
+        // Storage path: storage/app/private/{file_path}
         if (!Storage::exists($document->file_path)) {
+            \Log::error('Document file not found in storage', [
+                'document_id' => $document->id,
+                'file_path' => $document->file_path,
+                'expected_full_path' => Storage::path($document->file_path),
+            ]);
             abort(404, 'Fayl tapılmadı.');
         }
 
@@ -253,7 +270,8 @@ class DocumentDownloadService
         if ($document->accessible_institutions &&
             is_array($document->accessible_institutions) &&
             $user->institution_id) {
-            if (in_array((string)$user->institution_id, $document->accessible_institutions, true)) {
+            // Use integer comparison since institution IDs are integers
+            if (in_array($user->institution_id, $document->accessible_institutions, false)) {
                 return true;
             }
         }
