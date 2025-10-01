@@ -1255,4 +1255,374 @@ class SurveyAnalyticsService
     protected function getUserParticipation($institutionId) { return []; }
     protected function getDemographicAnalytics($survey) { return []; }
     protected function getCompletionFunnel($survey) { return []; }
+
+    /**
+     * ========================================
+     * NEW: Survey Results Analytics Methods
+     * ========================================
+     */
+
+    /**
+     * Get comprehensive survey analytics overview for results page
+     */
+    public function getSurveyAnalyticsOverview(Survey $survey): array
+    {
+        $user = Auth::user();
+        $allowedInstitutionIds = \App\Helpers\DataIsolationHelper::getAllowedInstitutionIds($user);
+
+        // Get responses within allowed institutions
+        $responses = $survey->responses()
+            ->whereIn('institution_id', $allowedInstitutionIds)
+            ->with(['respondent.institution'])
+            ->get();
+
+        $kpiMetrics = $this->getKPIMetrics($survey, $responses);
+        $statusDistribution = $this->getStatusDistribution($responses);
+
+        return [
+            'survey_id' => $survey->id,
+            'survey_title' => $survey->title,
+            'kpi_metrics' => $kpiMetrics,
+            'status_distribution' => $statusDistribution,
+        ];
+    }
+
+    /**
+     * Get KPI metrics for survey
+     */
+    protected function getKPIMetrics(Survey $survey, Collection $responses): array
+    {
+        $completed = $responses->where('status', 'completed');
+        $inProgress = $responses->where('status', 'in_progress');
+        $started = $responses->where('status', 'started');
+
+        // Calculate average completion time (only for completed responses)
+        $avgCompletionTime = 0;
+        if ($completed->count() > 0) {
+            $totalTime = 0;
+            $validCount = 0;
+
+            foreach ($completed as $response) {
+                if ($response->started_at && $response->submitted_at) {
+                    $totalTime += $response->started_at->diffInSeconds($response->submitted_at);
+                    $validCount++;
+                }
+            }
+
+            $avgCompletionTime = $validCount > 0 ? round($totalTime / $validCount) : 0;
+        }
+
+        // Estimate total targeted users
+        $targetedUsers = $this->estimateTotalTargeted($survey);
+
+        $totalResponses = $responses->count();
+        $notStarted = max(0, $targetedUsers - $totalResponses);
+
+        return [
+            'total_responses' => $totalResponses,
+            'completed_responses' => $completed->count(),
+            'in_progress_responses' => $inProgress->count() + $started->count(),
+            'not_started' => $notStarted,
+            'completion_rate' => $totalResponses > 0
+                ? round(($completed->count() / $totalResponses) * 100, 1)
+                : 0,
+            'average_completion_time' => $avgCompletionTime,
+            'target_participants' => $targetedUsers,
+            'response_rate' => $targetedUsers > 0
+                ? round(($totalResponses / $targetedUsers) * 100, 1)
+                : 0,
+        ];
+    }
+
+    /**
+     * Get status distribution for pie chart
+     */
+    protected function getStatusDistribution(Collection $responses): array
+    {
+        $total = $responses->count();
+
+        if ($total === 0) {
+            return [
+                ['status' => 'completed', 'count' => 0, 'percentage' => 0],
+                ['status' => 'in_progress', 'count' => 0, 'percentage' => 0],
+                ['status' => 'not_started', 'count' => 0, 'percentage' => 0],
+            ];
+        }
+
+        $completed = $responses->where('status', 'completed')->count();
+        $inProgress = $responses->whereIn('status', ['in_progress', 'started'])->count();
+        $notStarted = $responses->where('status', 'not_started')->count();
+
+        return [
+            [
+                'status' => 'completed',
+                'count' => $completed,
+                'percentage' => round(($completed / $total) * 100, 1),
+            ],
+            [
+                'status' => 'in_progress',
+                'count' => $inProgress,
+                'percentage' => round(($inProgress / $total) * 100, 1),
+            ],
+            [
+                'status' => 'not_started',
+                'count' => $notStarted,
+                'percentage' => round(($notStarted / $total) * 100, 1),
+            ],
+        ];
+    }
+
+    /**
+     * Get response trends over time
+     */
+    public function getResponseTrends(Survey $survey, int $days = 30): array
+    {
+        $user = Auth::user();
+        $allowedInstitutionIds = \App\Helpers\DataIsolationHelper::getAllowedInstitutionIds($user);
+
+        $startDate = now()->subDays($days)->startOfDay();
+        $endDate = now()->endOfDay();
+
+        $responses = $survey->responses()
+            ->whereIn('institution_id', $allowedInstitutionIds)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->selectRaw('DATE(created_at) as date, COUNT(*) as count')
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get();
+
+        // Fill missing dates with 0
+        $trends = [];
+        $cumulative = 0;
+        $current = $startDate->copy();
+
+        while ($current <= $endDate) {
+            $dateStr = $current->format('Y-m-d');
+            $dayResponse = $responses->firstWhere('date', $dateStr);
+            $count = $dayResponse ? $dayResponse->count : 0;
+            $cumulative += $count;
+
+            $trends[] = [
+                'date' => $dateStr,
+                'responses_count' => $count,
+                'cumulative' => $cumulative,
+            ];
+
+            $current->addDay();
+        }
+
+        // Find peak day
+        $peakDay = collect($trends)->sortByDesc('responses_count')->first();
+
+        return [
+            'survey_id' => $survey->id,
+            'period' => "{$days}_days",
+            'trends' => $trends,
+            'summary' => [
+                'total_responses' => $cumulative,
+                'avg_daily_responses' => $days > 0 ? round($cumulative / $days, 1) : 0,
+                'peak_day' => $peakDay['date'] ?? null,
+                'peak_count' => $peakDay['responses_count'] ?? 0,
+            ],
+        ];
+    }
+
+    /**
+     * Enhanced hierarchical institution analytics
+     */
+    public function getHierarchicalInstitutionAnalyticsEnhanced(Survey $survey): array
+    {
+        $user = Auth::user();
+        $userRole = $user->getRoleNames()->first();
+        $allowedInstitutionIds = \App\Helpers\DataIsolationHelper::getAllowedInstitutionIds($user);
+
+        // Get all responses for this survey within allowed institutions
+        $responses = $survey->responses()
+            ->whereIn('institution_id', $allowedInstitutionIds)
+            ->with(['respondent.institution'])
+            ->get();
+
+        $nodes = [];
+
+        if ($userRole === 'superadmin') {
+            // SuperAdmin sees all regions
+            $nodes = $this->buildSuperAdminHierarchy($survey, $responses);
+        } elseif ($userRole === 'regionadmin') {
+            // RegionAdmin sees sectors -> schools
+            $nodes = $this->buildRegionHierarchy($survey, $responses, $user);
+        } elseif ($userRole === 'sektoradmin') {
+            // SektorAdmin sees schools only
+            $nodes = $this->buildSectorHierarchy($survey, $responses, $user);
+        } else {
+            // SchoolAdmin or other roles - no hierarchy, just their institution
+            $nodes = $this->buildFlatHierarchy($survey, $responses, $user);
+        }
+
+        return [
+            'survey_id' => $survey->id,
+            'user_role' => $userRole,
+            'hierarchy_type' => $this->getHierarchyType($userRole),
+            'nodes' => $nodes,
+        ];
+    }
+
+    /**
+     * Build hierarchy for SuperAdmin (regions -> sectors -> schools)
+     */
+    protected function buildSuperAdminHierarchy(Survey $survey, Collection $responses): array
+    {
+        $regions = Institution::where('level', 2)
+            ->with(['children' => function ($q) {
+                $q->where('level', 3)->with(['children' => function ($q2) {
+                    $q2->where('level', 4);
+                }]);
+            }])
+            ->get();
+
+        return $regions->map(function ($region) use ($survey, $responses) {
+            $sectorIds = $region->children->pluck('id');
+            $allSchoolIds = $region->children->flatMap(fn($s) => $s->children->pluck('id'));
+            $regionResponses = $responses->whereIn('institution_id', $allSchoolIds);
+
+            $children = $region->children->map(function ($sector) use ($survey, $responses) {
+                return $this->buildSectorNode($sector, $survey, $responses);
+            })->values()->toArray();
+
+            return [
+                'id' => $region->id,
+                'name' => $region->name,
+                'type' => $region->type ?? 'region',
+                'level' => $region->level,
+                'total_responses' => $regionResponses->count(),
+                'completed_responses' => $regionResponses->where('status', 'completed')->count(),
+                'completion_rate' => $regionResponses->count() > 0
+                    ? round(($regionResponses->where('status', 'completed')->count() / $regionResponses->count()) * 100, 1)
+                    : 0,
+                'targeted_users' => $this->estimateTargetedForInstitution($survey, $allSchoolIds),
+                'response_rate' => $this->calculateResponseRate($survey, $regionResponses, $allSchoolIds),
+                'children' => $children,
+            ];
+        })->values()->toArray();
+    }
+
+    /**
+     * Build sector node with schools
+     */
+    protected function buildSectorNode(Institution $sector, Survey $survey, Collection $responses): array
+    {
+        $schoolIds = $sector->children->pluck('id');
+        $sectorResponses = $responses->whereIn('institution_id', $schoolIds);
+
+        $schools = $sector->children->map(function ($school) use ($survey, $responses) {
+            $schoolResponses = $responses->where('institution_id', $school->id);
+
+            return [
+                'id' => $school->id,
+                'name' => $school->name,
+                'type' => $school->type ?? 'school',
+                'level' => $school->level,
+                'total_responses' => $schoolResponses->count(),
+                'completed_responses' => $schoolResponses->where('status', 'completed')->count(),
+                'completion_rate' => $schoolResponses->count() > 0
+                    ? round(($schoolResponses->where('status', 'completed')->count() / $schoolResponses->count()) * 100, 1)
+                    : 0,
+                'targeted_users' => $this->estimateTargetedForInstitution($survey, collect([$school->id])),
+                'response_rate' => $this->calculateResponseRate($survey, $schoolResponses, collect([$school->id])),
+            ];
+        })->values()->toArray();
+
+        return [
+            'id' => $sector->id,
+            'name' => $sector->name,
+            'type' => $sector->type ?? 'sector',
+            'level' => $sector->level,
+            'total_responses' => $sectorResponses->count(),
+            'completed_responses' => $sectorResponses->where('status', 'completed')->count(),
+            'completion_rate' => $sectorResponses->count() > 0
+                ? round(($sectorResponses->where('status', 'completed')->count() / $sectorResponses->count()) * 100, 1)
+                : 0,
+            'targeted_users' => $this->estimateTargetedForInstitution($survey, $schoolIds),
+            'response_rate' => $this->calculateResponseRate($survey, $sectorResponses, $schoolIds),
+            'total_schools' => $sector->children->count(),
+            'responded_schools' => $sectorResponses->unique('institution_id')->count(),
+            'children' => $schools,
+        ];
+    }
+
+    /**
+     * Build flat hierarchy for SchoolAdmin
+     */
+    protected function buildFlatHierarchy(Survey $survey, Collection $responses, User $user): array
+    {
+        $institution = $user->institution;
+        if (!$institution) return [];
+
+        $institutionResponses = $responses->where('institution_id', $institution->id);
+
+        return [[
+            'id' => $institution->id,
+            'name' => $institution->name,
+            'type' => $institution->type ?? 'school',
+            'level' => $institution->level,
+            'total_responses' => $institutionResponses->count(),
+            'completed_responses' => $institutionResponses->where('status', 'completed')->count(),
+            'completion_rate' => $institutionResponses->count() > 0
+                ? round(($institutionResponses->where('status', 'completed')->count() / $institutionResponses->count()) * 100, 1)
+                : 0,
+            'targeted_users' => $this->estimateTargetedForInstitution($survey, collect([$institution->id])),
+            'response_rate' => $this->calculateResponseRate($survey, $institutionResponses, collect([$institution->id])),
+        ]];
+    }
+
+    /**
+     * Get hierarchy type based on role
+     */
+    protected function getHierarchyType(string $role): string
+    {
+        return match($role) {
+            'superadmin' => 'regions_sectors_schools',
+            'regionadmin' => 'sectors_schools',
+            'sektoradmin' => 'schools',
+            default => 'single_institution',
+        };
+    }
+
+    /**
+     * Estimate targeted users for specific institutions
+     */
+    protected function estimateTargetedForInstitution(Survey $survey, Collection $institutionIds): int
+    {
+        if (!$survey->targeting_rules) {
+            return 0;
+        }
+
+        $query = User::where('is_active', true)
+            ->whereIn('institution_id', $institutionIds);
+
+        $rules = is_string($survey->targeting_rules)
+            ? json_decode($survey->targeting_rules, true)
+            : $survey->targeting_rules;
+
+        if (isset($rules['roles']) && is_array($rules['roles'])) {
+            $query->whereHas('roles', function ($q) use ($rules) {
+                $q->whereIn('name', $rules['roles']);
+            });
+        }
+
+        return $query->count();
+    }
+
+    /**
+     * Calculate response rate
+     */
+    protected function calculateResponseRate(Survey $survey, Collection $responses, Collection $institutionIds): float
+    {
+        $targeted = $this->estimateTargetedForInstitution($survey, $institutionIds);
+
+        if ($targeted === 0) {
+            return 0;
+        }
+
+        return round(($responses->count() / $targeted) * 100, 1);
+    }
 }

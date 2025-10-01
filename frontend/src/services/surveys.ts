@@ -261,6 +261,24 @@ class SurveyService extends BaseService<Survey> {
     return response.data;
   }
 
+  // NEW: Survey Results Analytics API Methods
+  async getSurveyAnalyticsOverview(id: number) {
+    const response = await apiClient.get(`${this.baseEndpoint}/${id}/analytics/overview`);
+    return response.data;
+  }
+
+  async getResponseTrends(id: number, days: number = 30) {
+    const response = await apiClient.get(`${this.baseEndpoint}/${id}/analytics/trends`, {
+      params: { days }
+    });
+    return response.data;
+  }
+
+  async getHierarchicalInstitutionsAnalytics(id: number) {
+    const response = await apiClient.get(`${this.baseEndpoint}/${id}/analytics/hierarchical-institutions`);
+    return response.data;
+  }
+
   async getAvailableTargets() {
     const response = await apiClient.get(`${this.baseEndpoint}/targets`);
     return response.data;

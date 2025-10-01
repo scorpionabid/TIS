@@ -288,4 +288,70 @@ class SurveyAnalyticsController extends Controller
             return $this->error($e->getMessage(), 500);
         }
     }
+
+    /**
+     * ========================================
+     * NEW: Survey Results Analytics Endpoints
+     * ========================================
+     */
+
+    /**
+     * Get comprehensive survey analytics overview
+     */
+    public function analyticsOverview(Survey $survey): JsonResponse
+    {
+        try {
+            $data = $this->analyticsService->getSurveyAnalyticsOverview($survey);
+            return $this->success($data, 'Survey analytics overview retrieved successfully');
+        } catch (\Exception $e) {
+            \Log::error('Analytics overview error', [
+                'survey_id' => $survey->id,
+                'user_id' => auth()->id(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->error($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Get response trends over time
+     */
+    public function responseTimeTrends(Survey $survey, Request $request): JsonResponse
+    {
+        try {
+            $days = $request->input('days', 30);
+            $days = min(max($days, 7), 365); // Limit between 7 and 365 days
+
+            $data = $this->analyticsService->getResponseTrends($survey, $days);
+            return $this->success($data, 'Response trends retrieved successfully');
+        } catch (\Exception $e) {
+            \Log::error('Response trends error', [
+                'survey_id' => $survey->id,
+                'user_id' => auth()->id(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->error($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Get enhanced hierarchical institution analytics
+     */
+    public function hierarchicalInstitutionsAnalytics(Survey $survey): JsonResponse
+    {
+        try {
+            $data = $this->analyticsService->getHierarchicalInstitutionAnalyticsEnhanced($survey);
+            return $this->success($data, 'Hierarchical institution analytics retrieved successfully');
+        } catch (\Exception $e) {
+            \Log::error('Hierarchical institutions analytics error', [
+                'survey_id' => $survey->id,
+                'user_id' => auth()->id(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->error($e->getMessage(), 500);
+        }
+    }
 }

@@ -28,6 +28,11 @@ Route::middleware('permission:surveys.read')->group(function () {
     Route::get('surveys/{survey}/insights', [SurveyAnalyticsController::class, 'insights']);
     Route::get('surveys/{survey}/institution-breakdown', [SurveyAnalyticsController::class, 'institutionBreakdown']);
     Route::get('surveys/{survey}/hierarchical-breakdown', [SurveyAnalyticsController::class, 'hierarchicalBreakdown']);
+
+    // NEW: Survey Results Analytics Endpoints
+    Route::get('surveys/{survey}/analytics/overview', [SurveyAnalyticsController::class, 'analyticsOverview']);
+    Route::get('surveys/{survey}/analytics/trends', [SurveyAnalyticsController::class, 'responseTimeTrends']);
+    Route::get('surveys/{survey}/analytics/hierarchical-institutions', [SurveyAnalyticsController::class, 'hierarchicalInstitutionsAnalytics']);
 });
 
 // Survey CRUD operations

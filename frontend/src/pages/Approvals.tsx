@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Shield, AlertTriangle, Target, Eye, BarChart3 } from 'lucide-react';
 import SurveyViewDashboard from '../components/approval/survey-view/SurveyViewDashboard';
-import SurveyResultsTab from '../components/approval/survey-results/SurveyResultsTab';
+import SurveyResultsAnalytics from '../components/approval/survey-results-analytics/SurveyResultsAnalytics';
 
 const Approvals: React.FC = () => {
   const { currentUser: user } = useAuth();
@@ -75,7 +75,7 @@ const Approvals: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="survey-results">
-          <SurveyResultsTab />
+          <SurveyResultsAnalytics />
         </TabsContent>
 
         <TabsContent value="survey-view">
