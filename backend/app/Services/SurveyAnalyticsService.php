@@ -539,10 +539,87 @@ class SurveyAnalyticsService
             'description' => $description,
             'institution_id' => Auth::user()?->institution_id
         ], $additionalData);
-        
+
         ActivityLog::logActivity($data);
     }
-    
+
+    /**
+     * Get region analytics (RegionAdmin specific)
+     */
+    public function getRegionAnalytics(): array
+    {
+        $user = Auth::user();
+
+        if (!$user->hasRole('regionadmin')) {
+            throw new \Exception('Bu xidmət yalnız RegionAdmin üçündür');
+        }
+
+        $userRegionId = $user->institution_id;
+
+        // Get all institutions in region hierarchy
+        $allRegionInstitutions = Institution::where(function($query) use ($userRegionId) {
+            $query->where('id', $userRegionId)
+                  ->orWhere('parent_id', $userRegionId)
+                  ->orWhereHas('parent', function($q) use ($userRegionId) {
+                      $q->where('parent_id', $userRegionId);
+                  });
+        })->get();
+
+        $institutionIds = $allRegionInstitutions->pluck('id');
+
+        // Survey statistics using creator relationship
+        $totalSurveys = Survey::whereHas('creator', function($q) use ($institutionIds) {
+            $q->whereIn('institution_id', $institutionIds);
+        })->count();
+
+        $publishedSurveys = Survey::whereHas('creator', function($q) use ($institutionIds) {
+            $q->whereIn('institution_id', $institutionIds);
+        })->where('status', 'published')->count();
+
+        $draftSurveys = Survey::whereHas('creator', function($q) use ($institutionIds) {
+            $q->whereIn('institution_id', $institutionIds);
+        })->where('status', 'draft')->count();
+
+        // Response statistics
+        $totalResponses = SurveyResponse::whereHas('survey.creator', function($query) use ($institutionIds) {
+            $query->whereIn('institution_id', $institutionIds);
+        })->count();
+
+        // Survey performance by sector
+        $surveysBySector = Institution::where('parent_id', $userRegionId)
+            ->where('level', 3)
+            ->with(['children'])
+            ->get()
+            ->map(function($sector) use ($institutionIds) {
+                $schoolIds = $sector->children->pluck('id');
+
+                $surveys = Survey::whereJsonOverlaps('target_institutions', $schoolIds->toArray())->count();
+
+                $responses = SurveyResponse::whereHas('survey.creator', function($query) use ($institutionIds) {
+                    $query->whereIn('institution_id', $institutionIds);
+                })->whereIn('institution_id', $schoolIds)->count();
+
+                return [
+                    'sector_name' => $sector->name,
+                    'surveys_count' => $surveys,
+                    'responses_count' => $responses,
+                    'response_rate' => $surveys > 0 ? round(($responses / ($surveys * 10)) * 100, 1) : 0
+                ];
+            });
+
+        return [
+            'survey_totals' => [
+                'total' => $totalSurveys,
+                'published' => $publishedSurveys,
+                'draft' => $draftSurveys,
+                'total_responses' => $totalResponses
+            ],
+            'surveys_by_sector' => $surveysBySector,
+            'average_response_rate' => $surveysBySector->avg('response_rate') ?? 0,
+            'most_active_sector' => $surveysBySector->sortByDesc('responses_count')->first()
+        ];
+    }
+
     // Additional helper methods would continue here...
     // For brevity, I'm including the main structure
 }

@@ -11,17 +11,32 @@ use Exception;
 
 class SurveyStatusService
 {
+    protected NotificationService $notificationService;
+
+    public function __construct(NotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
     /**
      * Publish survey
      */
     public function publish(Survey $survey): Survey
     {
         return DB::transaction(function () use ($survey) {
+            $oldStatus = $survey->status;
+
+            // If already published, just refresh and return
+            if ($survey->status === 'published') {
+                \Log::info('Survey is already published, returning current state', [
+                    'survey_id' => $survey->id,
+                    'published_at' => $survey->published_at
+                ]);
+                return $survey->fresh();
+            }
+
             // Validate survey can be published
             $this->validateForPublishing($survey);
-            
-            $oldStatus = $survey->status;
-            
+
             $survey->update([
                 'status' => 'published',
                 'published_at' => now()
@@ -34,12 +49,32 @@ class SurveyStatusService
                 'old_status' => $oldStatus,
                 'new_status' => 'published'
             ]);
-            
+
             // Log survey audit
             $this->logSurveyAudit($survey, 'published', 'Survey published', [
                 'old_status' => $oldStatus,
                 'published_at' => now()
             ]);
+
+            // Send notifications to target institutions if specified
+            if (!empty($survey->target_institutions)) {
+                \Log::info('Sending survey publish notification from SurveyStatusService', [
+                    'survey_id' => $survey->id,
+                    'target_institutions' => $survey->target_institutions
+                ]);
+                try {
+                    $this->sendPublishNotification($survey);
+                    \Log::info('Survey publish notification sent successfully from SurveyStatusService', [
+                        'survey_id' => $survey->id
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('Failed to send survey publish notification from SurveyStatusService', [
+                        'survey_id' => $survey->id,
+                        'error' => $e->getMessage()
+                    ]);
+                    // Don't fail the publish if notification fails
+                }
+            }
 
             return $survey->fresh();
         });
@@ -335,16 +370,39 @@ class SurveyStatusService
         if (empty($survey->title)) {
             throw new Exception('Survey must have a title to be published');
         }
-        
-        if (empty($survey->questions) || !is_array($survey->questions)) {
-            throw new Exception('Survey must have at least one question to be published');
-        }
-        
-        // Validate questions structure
-        foreach ($survey->questions as $index => $question) {
-            if (empty($question['question']) || empty($question['type'])) {
-                throw new Exception("Question " . ($index + 1) . " is missing required fields");
+
+        // Check questions (relationship or JSON field)
+        $questions = $survey->questions;
+
+        // If questions is a relationship collection
+        if ($questions instanceof \Illuminate\Database\Eloquent\Collection) {
+            if ($questions->isEmpty()) {
+                throw new Exception('Survey must have at least one question to be published');
             }
+
+            // Validate each question model
+            foreach ($questions as $index => $question) {
+                if (empty($question->title) || empty($question->type)) {
+                    throw new Exception("Question " . ($index + 1) . " is missing required fields");
+                }
+            }
+        }
+        // If questions is a JSON array
+        elseif (is_array($questions)) {
+            if (empty($questions)) {
+                throw new Exception('Survey must have at least one question to be published');
+            }
+
+            // Validate each question array
+            foreach ($questions as $index => $question) {
+                if (empty($question['question']) || empty($question['type'])) {
+                    throw new Exception("Question " . ($index + 1) . " is missing required fields");
+                }
+            }
+        }
+        // Invalid questions format
+        else {
+            throw new Exception('Survey must have at least one question to be published');
         }
         
         // Check date constraints
@@ -496,7 +554,48 @@ class SurveyStatusService
             'description' => $description,
             'institution_id' => Auth::user()?->institution_id
         ], $additionalData);
-        
+
         ActivityLog::logActivity($data);
+    }
+
+    /**
+     * Send notification when survey is published
+     */
+    protected function sendPublishNotification(Survey $survey): void
+    {
+        $templateKey = 'survey_published';
+
+        // Load creator relationship if not already loaded
+        if (!$survey->relationLoaded('creator')) {
+            $survey->load('creator');
+        }
+
+        // Prepare notification variables
+        $variables = [
+            'survey_title' => $survey->title,
+            'survey_description' => $survey->description ?? '',
+            'creator_name' => $survey->creator->name ?? 'Sistem',
+            'deadline' => $survey->end_date ? $survey->end_date->format('d.m.Y H:i') : '',
+        ];
+
+        // Prepare recipients with institution-based targeting
+        $recipients = [
+            'institutions' => $survey->target_institutions,
+            'target_roles' => config('notification_roles.survey_notification_roles', [
+                'schooladmin', 'məktəbadmin', 'müəllim', 'teacher', 'təhsilçi'
+            ])
+        ];
+
+        $options = [
+            'related' => $survey,
+            'priority' => 'normal',
+            'channels' => ['in_app'], // Only in-app notifications to avoid duplicates
+            'action_data' => [
+                'action_url' => "/survey-response/{$survey->id}",
+                'survey_id' => $survey->id,
+            ],
+        ];
+
+        $this->notificationService->sendFromTemplate($templateKey, $recipients, $variables, $options);
     }
 }

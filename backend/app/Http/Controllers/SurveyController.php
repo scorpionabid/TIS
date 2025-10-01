@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Survey;
 use App\Models\User;
 use App\Services\SurveyCrudService;
-use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Traits\ValidationRules;
@@ -16,12 +15,10 @@ class SurveyController extends BaseController
     use ValidationRules, ResponseHelpers;
 
     protected SurveyCrudService $crudService;
-    protected NotificationService $notificationService;
 
-    public function __construct(SurveyCrudService $crudService, NotificationService $notificationService)
+    public function __construct(SurveyCrudService $crudService)
     {
         $this->crudService = $crudService;
-        $this->notificationService = $notificationService;
     }
 
     /**
@@ -235,103 +232,8 @@ class SurveyController extends BaseController
         }
     }
 
-    /**
-     * Publish survey
-     */
-    public function publish(Survey $survey): JsonResponse
-    {
-        // Check if user can publish this survey (either has surveys.write permission OR is the creator)
-        if (!auth()->user()->can('surveys.write') && $survey->creator_id !== auth()->id()) {
-            return $this->errorResponse('Bu sorğunu dərc etmək üçün icazəniz yoxdur', 403);
-        }
-
-        try {
-            // Update survey status to published
-            $survey->update([
-                'status' => 'published',
-                'published_at' => now()
-            ]);
-
-            // Send notifications to target institutions if specified
-            \Log::info('Checking notification conditions', [
-                'survey_id' => $survey->id,
-                'target_institutions' => $survey->target_institutions,
-                'empty_check' => empty($survey->target_institutions)
-            ]);
-
-            if (!empty($survey->target_institutions)) {
-                \Log::info('Sending survey publish notification', [
-                    'survey_id' => $survey->id,
-                    'target_institutions' => $survey->target_institutions
-                ]);
-                try {
-                    $this->sendSurveyPublishNotification($survey);
-                    \Log::info('Survey publish notification sent successfully', [
-                        'survey_id' => $survey->id
-                    ]);
-                } catch (\Exception $e) {
-                    \Log::error('Failed to send survey publish notification', [
-                        'survey_id' => $survey->id,
-                        'target_institutions' => $survey->target_institutions,
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
-                    ]);
-                    // Don't fail the publish if notification fails
-                }
-            } else {
-                \Log::warning('No target institutions found for survey', [
-                    'survey_id' => $survey->id,
-                    'target_institutions' => $survey->target_institutions
-                ]);
-            }
-
-            $formattedSurvey = $this->crudService->formatDetailedForResponse($survey);
-
-            return $this->successResponse($formattedSurvey, 'Survey published successfully');
-        } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 400);
-        }
-    }
-
-    /**
-     * Pause survey
-     */
-    public function pause(Survey $survey): JsonResponse
-    {
-        try {
-            $survey->update(['status' => 'paused']);
-            
-            $formattedSurvey = $this->crudService->formatDetailedForResponse($survey);
-            
-            return $this->successResponse($formattedSurvey, 'Survey paused successfully');
-        } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 400);
-        }
-    }
-
-    /**
-     * Archive survey
-     */
-    public function archive(Survey $survey): JsonResponse
-    {
-        // Check if user can archive this survey (either has surveys.write permission OR is the creator)
-        if (!auth()->user()->can('surveys.write') && $survey->creator_id !== auth()->id()) {
-            return $this->errorResponse('Bu sorğunu arxivləmək üçün icazəniz yoxdur', 403);
-        }
-
-        try {
-            $survey->update([
-                'status' => 'archived',
-                'archived_at' => now()
-            ]);
-            
-            $formattedSurvey = $this->crudService->formatDetailedForResponse($survey);
-            
-            return $this->successResponse($formattedSurvey, 'Survey archived successfully');
-        } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 400);
-        }
-    }
+    // NOTE: publish(), pause(), and archive() methods have been moved to SurveyStatusController
+    // These methods are now handled by SurveyStatusService with proper status management
 
     /**
      * Get survey for response (public endpoint)
@@ -397,191 +299,13 @@ class SurveyController extends BaseController
         }
     }
 
-    /**
-     * Get analytics overview for surveys dashboard
-     */
-    public function getAnalyticsOverview(): JsonResponse
-    {
-        try {
-            $user = auth()->user();
-            
-            // Get surveys based on user permissions
-            $surveysQuery = Survey::query();
-            
-            // Apply user-based filtering based on permissions
-            if (!$user->hasRole(['superadmin', 'regionadmin'])) {
-                $surveysQuery->where('creator_id', $user->id);
-            }
-            
-            $allSurveys = $surveysQuery->get();
-            
-            $overview = [
-                'total_surveys' => $allSurveys->count(),
-                'active_surveys' => $allSurveys->where('status', 'published')->count(),
-                'draft_surveys' => $allSurveys->where('status', 'draft')->count(),
-                'closed_surveys' => $allSurveys->where('status', 'closed')->count(),
-                'archived_surveys' => $allSurveys->where('status', 'archived')->count(),
-                'my_surveys' => $allSurveys->where('creator_id', $user->id)->count(),
-                'my_active_surveys' => $allSurveys->where('creator_id', $user->id)->where('status', 'published')->count(),
-            ];
-            
-            $response_stats = [
-                'total_responses' => $allSurveys->sum('response_count'),
-                'completed_responses' => $allSurveys->sum('response_count'), // Assuming all are completed for now
-                'completion_rate' => $allSurveys->count() > 0 ? round(($allSurveys->where('status', 'published')->count() / $allSurveys->count()) * 100, 2) : 0,
-                'average_response_rate' => $allSurveys->count() > 0 ? round($allSurveys->avg('response_count') ?? 0, 2) : 0,
-            ];
-            
-            $breakdowns = [
-                'by_status' => [
-                    'draft' => $allSurveys->where('status', 'draft')->count(),
-                    'published' => $allSurveys->where('status', 'published')->count(),
-                    'closed' => $allSurveys->where('status', 'closed')->count(),
-                    'archived' => $allSurveys->where('status', 'archived')->count(),
-                ],
-                'by_type' => [
-                    'form' => $allSurveys->where('survey_type', 'form')->count(),
-                    'poll' => $allSurveys->where('survey_type', 'poll')->count(),
-                    'assessment' => $allSurveys->where('survey_type', 'assessment')->count(),
-                    'feedback' => $allSurveys->where('survey_type', 'feedback')->count(),
-                ],
-                'monthly_trend' => [] // Can be implemented later
-            ];
-            
-            $recent_surveys = $allSurveys->sortByDesc('created_at')->take(5)->values();
-            $attention_needed = $allSurveys->where('status', 'draft')->take(3)->values();
-            
-            $analytics = [
-                'overview' => $overview,
-                'response_stats' => $response_stats,
-                'breakdowns' => $breakdowns,
-                'recent_surveys' => $recent_surveys->map(function ($survey) {
-                    return $this->crudService->formatForResponse($survey);
-                }),
-                'attention_needed' => $attention_needed->map(function ($survey) {
-                    return $this->crudService->formatForResponse($survey);
-                }),
-                'user_context' => [
-                    'role' => $user->roles->first()->name ?? 'user',
-                    'institution_name' => $user->institution->name ?? null,
-                    'permissions' => $user->getAllPermissions()->pluck('name')->toArray(),
-                ]
-            ];
-            
-            return $this->successResponse($analytics, 'Analytics overview retrieved successfully');
-        } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
-        }
-    }
-
-    /**
-     * Get statistics for a specific survey
-     */
-    public function getStats(Survey $survey): JsonResponse
-    {
-        try {
-            $stats = [
-                'total_responses' => $survey->response_count ?? 0,
-                'completion_rate' => $survey->max_responses > 0 ? round(($survey->response_count / $survey->max_responses) * 100, 2) : 0,
-                'average_completion_time' => 0, // Can be calculated from responses
-                'responses_by_day' => [], // Can be implemented later
-                'demographic_breakdown' => [] // Can be implemented later
-            ];
-            
-            return $this->successResponse($stats, 'Survey statistics retrieved successfully');
-        } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
-        }
-    }
-
-    /**
-     * Get advanced statistics for a specific survey (alias for getStats)
-     */
-    public function getAdvancedStatistics(Survey $survey): JsonResponse
-    {
-        return $this->getStats($survey);
-    }
-
-    /**
-     * Get survey analytics for RegionAdmin (hierarchical view)
-     */
-    public function getRegionAnalytics(Request $request): JsonResponse
-    {
-        try {
-            $user = $request->user();
-            
-            if (!$user->hasRole('regionadmin')) {
-                return $this->errorResponse('Bu xidmət yalnız RegionAdmin üçündür', 403);
-            }
-            
-            $userRegionId = $user->institution_id;
-            
-            // Get all institutions in region hierarchy  
-            $allRegionInstitutions = Institution::where(function($query) use ($userRegionId) {
-                $query->where('id', $userRegionId)
-                      ->orWhere('parent_id', $userRegionId)
-                      ->orWhereHas('parent', function($q) use ($userRegionId) {
-                          $q->where('parent_id', $userRegionId);
-                      });
-            })->get();
-            
-            $institutionIds = $allRegionInstitutions->pluck('id');
-            
-            // Survey statistics using creator relationship
-            $totalSurveys = Survey::whereHas('creator', function($q) use ($institutionIds) {
-                $q->whereIn('institution_id', $institutionIds);
-            })->count();
-            
-            $publishedSurveys = Survey::whereHas('creator', function($q) use ($institutionIds) {
-                $q->whereIn('institution_id', $institutionIds);
-            })->where('status', 'published')->count();
-            
-            $draftSurveys = Survey::whereHas('creator', function($q) use ($institutionIds) {
-                $q->whereIn('institution_id', $institutionIds);
-            })->where('status', 'draft')->count();
-            
-            // Response statistics
-            $totalResponses = SurveyResponse::whereHas('survey.creator', function($query) use ($institutionIds) {
-                $query->whereIn('institution_id', $institutionIds);
-            })->count();
-            
-            // Survey performance by sector
-            $surveysBySector = Institution::where('parent_id', $userRegionId)
-                ->where('level', 3)
-                ->with(['children'])
-                ->get()
-                ->map(function($sector) use ($institutionIds) {
-                    $schoolIds = $sector->children->pluck('id');
-                    
-                    $surveys = Survey::whereJsonOverlaps('target_institutions', $schoolIds->toArray())->count();
-                    
-                    $responses = SurveyResponse::whereHas('survey.creator', function($query) use ($institutionIds) {
-                        $query->whereIn('institution_id', $institutionIds);
-                    })->whereIn('institution_id', $schoolIds)->count();
-                    
-                    return [
-                        'sector_name' => $sector->name,
-                        'surveys_count' => $surveys,
-                        'responses_count' => $responses,
-                        'response_rate' => $surveys > 0 ? round(($responses / ($surveys * 10)) * 100, 1) : 0
-                    ];
-                });
-            
-            return $this->successResponse([
-                'survey_totals' => [
-                    'total' => $totalSurveys,
-                    'published' => $publishedSurveys,
-                    'draft' => $draftSurveys,
-                    'total_responses' => $totalResponses
-                ],
-                'surveys_by_sector' => $surveysBySector,
-                'average_response_rate' => $surveysBySector->avg('response_rate') ?? 0,
-                'most_active_sector' => $surveysBySector->sortByDesc('responses_count')->first()
-            ], 'Region analytics retrieved successfully');
-        } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
-        }
-    }
+    // NOTE: Analytics methods have been moved to SurveyAnalyticsController
+    // - getAnalyticsOverview() -> SurveyAnalyticsController::dashboard()
+    // - getStats() -> SurveyAnalyticsController::statistics()
+    // - getAdvancedStatistics() -> SurveyAnalyticsController::statistics()
+    // - getRegionAnalytics() -> SurveyAnalyticsController::regionAnalytics()
+    // - getSurveyAnalytics() -> SurveyAnalyticsController::analytics()
+    // - getSurveyInsights() -> SurveyAnalyticsController::insights()
 
     /**
      * Get detailed surveys list with hierarchical filtering
@@ -801,93 +525,6 @@ class SurveyController extends BaseController
     }
 
 
-    /**
-     * Get analytics for a specific survey
-     */
-    public function getSurveyAnalytics(Survey $survey): JsonResponse
-    {
-        try {
-            $analytics = [
-                'survey_id' => $survey->id,
-                'title' => $survey->title,
-                'total_responses' => $survey->responses()->count(),
-                'completion_rate' => $survey->getCompletionRate(),
-                'response_by_status' => [
-                    'draft' => $survey->responses()->where('status', 'draft')->count(),
-                    'submitted' => $survey->responses()->where('status', 'submitted')->count(),
-                    'approved' => $survey->responses()->where('status', 'approved')->count(),
-                    'rejected' => $survey->responses()->where('status', 'rejected')->count(),
-                ],
-                'created_at' => $survey->created_at,
-                'start_date' => $survey->start_date,
-                'end_date' => $survey->end_date,
-            ];
-
-            return $this->successResponse($analytics, 'Survey analytics retrieved successfully');
-        } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
-        }
-    }
-
-    /**
-     * Get insights for a specific survey
-     */
-    public function getSurveyInsights(Survey $survey): JsonResponse
-    {
-        try {
-            $insights = [
-                'survey_id' => $survey->id,
-                'title' => $survey->title,
-                'performance_metrics' => [
-                    'avg_completion_time' => $survey->getAverageCompletionTime(),
-                    'response_rate' => $survey->getResponseRate(),
-                    'abandonment_rate' => $survey->getAbandonmentRate(),
-                ],
-                'question_analysis' => $survey->questions->map(function ($question) {
-                    return [
-                        'id' => $question->id,
-                        'title' => $question->title,
-                        'type' => $question->type,
-                        'response_count' => $question->responses()->count(),
-                        'summary' => $question->getResponseSummary(),
-                    ];
-                }),
-                'recommendations' => $this->generateInsightRecommendations($survey),
-            ];
-
-            return $this->successResponse($insights, 'Survey insights retrieved successfully');
-        } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
-        }
-    }
-
-    /**
-     * Generate recommendations based on survey data
-     */
-    private function generateInsightRecommendations(Survey $survey): array
-    {
-        $recommendations = [];
-        
-        $completionRate = $survey->getCompletionRate();
-        if ($completionRate < 50) {
-            $recommendations[] = [
-                'type' => 'completion_rate',
-                'message' => 'Tamamlama nisbəti aşağıdır. Sorğunu sadələşdirməyi və ya təklifləri daha cəlbedici etməyi nəzərə alın.',
-                'priority' => 'high'
-            ];
-        }
-
-        $questionCount = $survey->questions()->count();
-        if ($questionCount > 20) {
-            $recommendations[] = [
-                'type' => 'question_count',
-                'message' => 'Sualların sayı çoxdur. Sorğunu qısaltmağı nəzərə alın.',
-                'priority' => 'medium'
-            ];
-        }
-
-        return $recommendations;
-    }
 
     /**
      * Get user's survey dashboard statistics
@@ -1023,47 +660,6 @@ class SurveyController extends BaseController
             ->orderBy('created_at', 'desc');
     }
 
-    /**
-     * Send notification when survey is published
-     */
-    protected function sendSurveyPublishNotification(Survey $survey): void
-    {
-        $templateKey = 'survey_published';
-
-        // Prepare notification variables
-        $variables = [
-            'survey_title' => $survey->title,
-            'survey_description' => $survey->description ?? '',
-            'creator_name' => $survey->creator->name ?? 'Sistem',
-            'deadline' => $survey->end_date ? $survey->end_date->format('d.m.Y H:i') : '',
-        ];
-
-        // Prepare recipients with institution-based targeting
-        $recipients = [
-            'institutions' => $survey->target_institutions,
-            'target_roles' => config('notification_roles.survey_notification_roles', [
-                'schooladmin', 'məktəbadmin', 'müəllim', 'teacher', 'təhsilçi'
-            ])
-        ];
-
-        $options = [
-            'related' => $survey,
-            'priority' => 'normal',
-            'channels' => ['in_app'], // Only in-app notifications to avoid duplicates
-            'action_data' => [
-                'action_url' => "/survey-response/{$survey->id}",
-                'survey_id' => $survey->id,
-            ],
-        ];
-
-        \Log::info('Sending survey publish notification', [
-            'template_key' => $templateKey,
-            'survey_id' => $survey->id,
-            'target_institutions' => $survey->target_institutions,
-            'variables' => array_keys($variables),
-            'action_url' => "/survey-response/{$survey->id}"
-        ]);
-
-        $this->notificationService->sendFromTemplate($templateKey, $recipients, $variables, $options);
-    }
+    // NOTE: sendSurveyPublishNotification() has been moved to SurveyStatusService
+    // Notifications are now sent automatically when survey is published via SurveyStatusService::publish()
 }

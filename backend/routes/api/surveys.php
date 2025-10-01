@@ -4,6 +4,8 @@ use App\Http\Controllers\SurveyController;
 use App\Http\Controllers\SurveyResponseController;
 use App\Http\Controllers\SurveyTargetingController;
 use App\Http\Controllers\SurveyNotificationController;
+use App\Http\Controllers\SurveyAnalyticsController;
+use App\Http\Controllers\SurveyStatusController;
 use App\Http\Controllers\BulkJobController;
 use Illuminate\Support\Facades\Route;
 
@@ -18,18 +20,12 @@ use Illuminate\Support\Facades\Route;
 
 // Enhanced Survey Analytics & Statistics (must be before {survey} routes)
 Route::middleware('permission:surveys.read')->group(function () {
-    Route::get('surveys/analytics/overview', [SurveyController::class, 'getAnalyticsOverview']);
-    Route::get('surveys/analytics/region', [SurveyController::class, 'getRegionAnalytics']);
+    Route::get('surveys/analytics/overview', [SurveyAnalyticsController::class, 'dashboard']);
+    Route::get('surveys/analytics/region', [SurveyAnalyticsController::class, 'regionAnalytics']);
     Route::get('surveys/hierarchical', [SurveyController::class, 'getHierarchicalList']);
-    Route::get('surveys/analytics/response-trends', [SurveyController::class, 'getResponseTrends']);
-    Route::get('surveys/analytics/completion-rates', [SurveyController::class, 'getCompletionRates']);
-    Route::get('surveys/analytics/demographics', [SurveyController::class, 'getDemographicAnalysis']);
-    Route::get('surveys/analytics/export/{format}', [SurveyController::class, 'exportAnalytics']);
-    Route::get('surveys/{survey}/analytics', [SurveyController::class, 'getSurveyAnalytics']);
-    Route::get('surveys/{survey}/analytics/responses', [SurveyController::class, 'getResponseAnalytics']);
-    Route::get('surveys/{survey}/analytics/export', [SurveyController::class, 'exportSurveyAnalytics']);
-    Route::get('surveys/{survey}/statistics', [SurveyController::class, 'getAdvancedStatistics']);
-    Route::get('surveys/{survey}/insights', [SurveyController::class, 'getSurveyInsights']);
+    Route::get('surveys/{survey}/analytics', [SurveyAnalyticsController::class, 'analytics']);
+    Route::get('surveys/{survey}/statistics', [SurveyAnalyticsController::class, 'statistics']);
+    Route::get('surveys/{survey}/insights', [SurveyAnalyticsController::class, 'insights']);
 });
 
 // Survey CRUD operations
@@ -48,10 +44,15 @@ Route::middleware('permission:surveys.write')->group(function () {
     Route::put('surveys/{survey}', [SurveyController::class, 'update']);
     Route::delete('surveys/{survey}', [SurveyController::class, 'destroy']);
     Route::post('surveys/{survey}/duplicate', [SurveyController::class, 'duplicate']);
-    Route::post('surveys/{survey}/publish', [SurveyController::class, 'publish']);
-    Route::post('surveys/{survey}/unpublish', [SurveyController::class, 'unpublish']);
-    Route::post('surveys/{survey}/archive', [SurveyController::class, 'archive']);
-    Route::post('surveys/{survey}/restore', [SurveyController::class, 'restore']);
+
+    // Status management routes - delegated to SurveyStatusController
+    Route::post('surveys/{survey}/publish', [SurveyStatusController::class, 'publish']);
+    Route::post('surveys/{survey}/pause', [SurveyStatusController::class, 'pause']);
+    Route::post('surveys/{survey}/archive', [SurveyStatusController::class, 'archive']);
+    Route::post('surveys/{survey}/restore', [SurveyStatusController::class, 'restore']);
+    Route::post('surveys/{survey}/close', [SurveyStatusController::class, 'close']);
+    Route::post('surveys/{survey}/reopen', [SurveyStatusController::class, 'reopen']);
+    Route::post('surveys/{survey}/resume', [SurveyStatusController::class, 'resume']);
 });
 
 // Survey targeting routes

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Survey;
 use App\Services\SurveyStatusService;
+use App\Services\SurveyCrudService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Traits\ValidationRules;
@@ -14,10 +15,12 @@ class SurveyStatusController extends Controller
     use ValidationRules, ResponseHelpers;
 
     protected SurveyStatusService $statusService;
+    protected SurveyCrudService $crudService;
 
-    public function __construct(SurveyStatusService $statusService)
+    public function __construct(SurveyStatusService $statusService, SurveyCrudService $crudService)
     {
         $this->statusService = $statusService;
+        $this->crudService = $crudService;
     }
 
     /**
@@ -25,14 +28,23 @@ class SurveyStatusController extends Controller
      */
     public function publish(Survey $survey): JsonResponse
     {
+        // Check if user can publish this survey (either has surveys.write permission OR is the creator)
+        if (!auth()->user()->can('surveys.write') && $survey->creator_id !== auth()->id()) {
+            return $this->error('Bu sorğunu dərc etmək üçün icazəniz yoxdur', 403);
+        }
+
         try {
             $publishedSurvey = $this->statusService->publish($survey);
-            return $this->successResponse(
-                $publishedSurvey->load(['creator.profile']), 
-                'Survey published successfully'
-            );
+            $formattedSurvey = $this->crudService->formatDetailedForResponse($publishedSurvey);
+
+            return $this->success($formattedSurvey, 'Survey published successfully');
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 400);
+            \Log::error('Survey publish error', [
+                'survey_id' => $survey->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->error($e->getMessage(), 500);
         }
     }
 
@@ -43,12 +55,12 @@ class SurveyStatusController extends Controller
     {
         try {
             $closedSurvey = $this->statusService->close($survey);
-            return $this->successResponse(
+            return $this->success(
                 $closedSurvey->load(['creator.profile']), 
                 'Survey closed successfully'
             );
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 400);
+            return $this->error($e->getMessage(), 400);
         }
     }
 
@@ -57,14 +69,19 @@ class SurveyStatusController extends Controller
      */
     public function archive(Survey $survey): JsonResponse
     {
+        // Check if user can archive this survey (either has surveys.write permission OR is the creator)
+        if (!auth()->user()->can('surveys.write') && $survey->creator_id !== auth()->id()) {
+            return $this->error('Bu sorğunu arxivləmək üçün icazəniz yoxdur', 403);
+        }
+
         try {
             $archivedSurvey = $this->statusService->archive($survey);
-            return $this->successResponse(
-                $archivedSurvey->load(['creator.profile']), 
+            return $this->success(
+                $archivedSurvey->load(['creator.profile']),
                 'Survey archived successfully'
             );
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 400);
+            return $this->error($e->getMessage(), 400);
         }
     }
 
@@ -75,12 +92,12 @@ class SurveyStatusController extends Controller
     {
         try {
             $reopenedSurvey = $this->statusService->reopen($survey);
-            return $this->successResponse(
+            return $this->success(
                 $reopenedSurvey->load(['creator.profile']), 
                 'Survey reopened successfully'
             );
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 400);
+            return $this->error($e->getMessage(), 400);
         }
     }
 
@@ -97,12 +114,12 @@ class SurveyStatusController extends Controller
             $targetStatus = $validated['target_status'] ?? 'draft';
             $restoredSurvey = $this->statusService->restore($survey, $targetStatus);
             
-            return $this->successResponse(
+            return $this->success(
                 $restoredSurvey->load(['creator.profile']), 
                 "Survey restored to {$targetStatus} successfully"
             );
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 400);
+            return $this->error($e->getMessage(), 400);
         }
     }
 
@@ -111,14 +128,19 @@ class SurveyStatusController extends Controller
      */
     public function pause(Survey $survey): JsonResponse
     {
+        // Check if user can pause this survey (either has surveys.write permission OR is the creator)
+        if (!auth()->user()->can('surveys.write') && $survey->creator_id !== auth()->id()) {
+            return $this->error('Bu sorğunu dayandırmaq üçün icazəniz yoxdur', 403);
+        }
+
         try {
             $pausedSurvey = $this->statusService->pause($survey);
-            return $this->successResponse(
-                $pausedSurvey->load(['creator.profile']), 
+            return $this->success(
+                $pausedSurvey->load(['creator.profile']),
                 'Survey paused successfully'
             );
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 400);
+            return $this->error($e->getMessage(), 400);
         }
     }
 
@@ -129,12 +151,12 @@ class SurveyStatusController extends Controller
     {
         try {
             $resumedSurvey = $this->statusService->resume($survey);
-            return $this->successResponse(
+            return $this->success(
                 $resumedSurvey->load(['creator.profile']), 
                 'Survey resumed successfully'
             );
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 400);
+            return $this->error($e->getMessage(), 400);
         }
     }
 
@@ -145,9 +167,9 @@ class SurveyStatusController extends Controller
     {
         try {
             $history = $this->statusService->getStatusHistory($survey);
-            return $this->successResponse($history, 'Survey status history retrieved successfully');
+            return $this->success($history, 'Survey status history retrieved successfully');
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            return $this->error($e->getMessage(), 500);
         }
     }
 
@@ -158,12 +180,12 @@ class SurveyStatusController extends Controller
     {
         try {
             $transitions = $this->statusService->getAvailableTransitions($survey);
-            return $this->successResponse([
+            return $this->success([
                 'current_status' => $survey->status,
                 'available_transitions' => $transitions
             ], 'Available status transitions retrieved successfully');
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            return $this->error($e->getMessage(), 500);
         }
     }
 
@@ -192,9 +214,9 @@ class SurveyStatusController extends Controller
                 'response_count' => $survey->responses()->count()
             ];
 
-            return $this->successResponse($statusInfo, 'Survey status information retrieved successfully');
+            return $this->success($statusInfo, 'Survey status information retrieved successfully');
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            return $this->error($e->getMessage(), 500);
         }
     }
 
@@ -211,9 +233,9 @@ class SurveyStatusController extends Controller
             $targetStatus = $validated['target_status'];
             $validationResult = $this->statusService->validateStatusChange($survey, $targetStatus);
             
-            return $this->successResponse($validationResult, 'Status change validation completed');
+            return $this->success($validationResult, 'Status change validation completed');
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 400);
+            return $this->error($e->getMessage(), 400);
         }
     }
 }

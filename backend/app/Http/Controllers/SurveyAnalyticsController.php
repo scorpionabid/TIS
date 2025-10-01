@@ -230,8 +230,21 @@ class SurveyAnalyticsController extends Controller
         try {
             $metrics = $validated['metrics'] ?? ['response_rate', 'completion_rate'];
             $comparison = $this->analyticsService->compareSurveys($validated['survey_ids'], $metrics);
-            
+
             return $this->successResponse($comparison, 'Survey comparison completed successfully');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Get region analytics (RegionAdmin specific)
+     */
+    public function regionAnalytics(): JsonResponse
+    {
+        try {
+            $analytics = $this->analyticsService->getRegionAnalytics();
+            return $this->successResponse($analytics, 'Region analytics retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
