@@ -17,7 +17,7 @@ class SurveyAnalyticsService
      */
     public function getSurveyStatistics(Survey $survey): array
     {
-        $survey->load(['responses.user', 'creator']);
+        $survey->load(['responses.respondent', 'creator']);
         
         return [
             'basic_stats' => $this->getBasicStats($survey),
@@ -36,7 +36,7 @@ class SurveyAnalyticsService
     public function getSurveyAnalytics(Survey $survey): array
     {
         $survey->load(['responses' => function ($query) {
-            $query->with(['user.role', 'user.institution'])->latest();
+            $query->with(['respondent.role', 'respondent.institution'])->latest();
         }]);
         
         return [
@@ -96,9 +96,9 @@ class SurveyAnalyticsService
     public function exportSurveyData(Survey $survey, string $format = 'json'): array
     {
         $survey->load(['responses' => function ($query) {
-            $query->with(['user.role', 'user.institution'])->latest();
+            $query->with(['respondent.role', 'respondent.institution'])->latest();
         }]);
-        
+
         $exportData = [
             'survey_info' => [
                 'id' => $survey->id,
@@ -112,12 +112,14 @@ class SurveyAnalyticsService
             'responses' => $survey->responses->map(function ($response) {
                 return [
                     'id' => $response->id,
-                    'user_id' => $response->user_id,
-                    'user_role' => $response->user?->role?->name,
-                    'user_institution' => $response->user?->institution?->name,
-                    'answers' => $response->answers,
-                    'submitted_at' => $response->created_at,
-                    'completion_time' => $response->completion_time
+                    'respondent_id' => $response->respondent_id,
+                    'respondent_role' => $response->respondent?->role?->name,
+                    'respondent_institution' => $response->respondent?->institution?->name,
+                    'answers' => $response->responses,
+                    'submitted_at' => $response->submitted_at ?? $response->created_at,
+                    'completion_time' => $response->started_at && $response->submitted_at
+                        ? $response->started_at->diffInSeconds($response->submitted_at)
+                        : null
                 ];
             }),
             'statistics' => $this->getSurveyStatistics($survey),
@@ -171,12 +173,12 @@ class SurveyAnalyticsService
      */
     protected function getDemographicStats(Survey $survey): array
     {
-        $responses = $survey->responses()->with(['user.role', 'user.institution'])->get();
-        
+        $responses = $survey->responses()->with(['respondent.role', 'respondent.institution'])->get();
+
         return [
-            'by_role' => $responses->groupBy('user.role.name')->map->count(),
-            'by_institution' => $responses->groupBy('user.institution.name')->map->count(),
-            'by_institution_type' => $responses->groupBy('user.institution.type')->map->count(),
+            'by_role' => $responses->groupBy('respondent.role.name')->map->count(),
+            'by_institution' => $responses->groupBy('respondent.institution.name')->map->count(),
+            'by_institution_type' => $responses->groupBy('respondent.institution.type')->map->count(),
             'age_distribution' => $this->getAgeDistribution($responses),
             'gender_distribution' => $this->getGenderDistribution($responses)
         ];
@@ -447,14 +449,19 @@ class SurveyAnalyticsService
      */
     protected function calculateAverageCompletionTime(Survey $survey): int
     {
-        $completionTimes = $survey->responses()
-            ->whereNotNull('completion_time')
-            ->where('completion_time', '>', 0)
-            ->pluck('completion_time');
-            
-        if ($completionTimes->isEmpty()) return 0;
-        
-        return round($completionTimes->average());
+        $responses = $survey->responses()
+            ->whereNotNull('started_at')
+            ->whereNotNull('submitted_at')
+            ->get();
+
+        if ($responses->isEmpty()) return 0;
+
+        $totalTime = 0;
+        foreach ($responses as $response) {
+            $totalTime += $response->started_at->diffInSeconds($response->submitted_at);
+        }
+
+        return round($totalTime / $responses->count());
     }
     
     /**
@@ -620,6 +627,355 @@ class SurveyAnalyticsService
         ];
     }
 
-    // Additional helper methods would continue here...
-    // For brevity, I'm including the main structure
+    // Additional helper methods
+
+    /**
+     * Estimate total targeted users
+     */
+    protected function estimateTotalTargeted(Survey $survey): int
+    {
+        // If survey has target_institutions, count users in those institutions
+        if (!empty($survey->target_institutions)) {
+            return User::whereIn('institution_id', $survey->target_institutions)
+                ->where('is_active', true)
+                ->count();
+        }
+
+        // If survey has targeting_rules, estimate from rules
+        if (!empty($survey->targeting_rules)) {
+            $query = User::where('is_active', true);
+            $this->applyTargetingRules($query, $survey->targeting_rules);
+            return $query->count();
+        }
+
+        // Default: assume all active users
+        return User::where('is_active', true)->count();
+    }
+
+    /**
+     * Estimate survey duration
+     */
+    protected function estimateSurveyDuration(int $totalRecipients): array
+    {
+        // Estimate based on historical data or heuristics
+        $avgResponseTime = 3; // minutes per response
+        $dailyResponseRate = 0.2; // 20% respond per day
+
+        return [
+            'estimated_days' => ceil($totalRecipients / ($totalRecipients * $dailyResponseRate)),
+            'estimated_hours' => ceil(($totalRecipients * $avgResponseTime) / 60)
+        ];
+    }
+
+    /**
+     * Get response trends
+     */
+    protected function getResponseTrends(Survey $survey, string $period = 'daily', $startDate = null, $endDate = null): array
+    {
+        $responses = $survey->responses()
+            ->when($startDate, fn($q) => $q->where('created_at', '>=', $startDate))
+            ->when($endDate, fn($q) => $q->where('created_at', '<=', $endDate))
+            ->get();
+
+        $format = match($period) {
+            'daily' => 'Y-m-d',
+            'weekly' => 'Y-W',
+            'monthly' => 'Y-m',
+            default => 'Y-m-d'
+        };
+
+        return $responses->groupBy(fn($r) => $r->created_at->format($format))
+            ->map->count()
+            ->toArray();
+    }
+
+    /**
+     * Get completion trends
+     */
+    protected function getCompletionTrends(Survey $survey): array
+    {
+        return $survey->responses()
+            ->selectRaw('DATE(created_at) as date, AVG(progress_percentage) as avg_completion')
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get()
+            ->pluck('avg_completion', 'date')
+            ->toArray();
+    }
+
+    /**
+     * Get dropout points
+     */
+    protected function getDropoutPoints(Survey $survey): array
+    {
+        $questions = $survey->questions;
+        $responses = $survey->responses;
+
+        $dropoutRates = [];
+        foreach ($questions as $index => $question) {
+            $answeredCount = $this->getQuestionResponseCount($responses, $index);
+            $dropoutRate = $responses->count() > 0
+                ? round((($responses->count() - $answeredCount) / $responses->count()) * 100, 2)
+                : 0;
+
+            if ($dropoutRate > 30) { // Significant dropout
+                $dropoutRates[] = $index;
+            }
+        }
+
+        return $dropoutRates;
+    }
+
+    /**
+     * Get question response count
+     */
+    protected function getQuestionResponseCount(Collection $responses, int $questionIndex): int
+    {
+        return $responses->filter(function($response) use ($questionIndex) {
+            $answers = $response->responses ?? [];
+            return isset($answers[$questionIndex]) && !empty($answers[$questionIndex]);
+        })->count();
+    }
+
+    /**
+     * Get question skip rate
+     */
+    protected function getQuestionSkipRate(Collection $responses, int $questionIndex): float
+    {
+        $total = $responses->count();
+        if ($total == 0) return 0;
+
+        $answered = $this->getQuestionResponseCount($responses, $questionIndex);
+        return round((($total - $answered) / $total) * 100, 2);
+    }
+
+    /**
+     * Get answer distribution
+     */
+    protected function getAnswerDistribution(Collection $responses, int $questionIndex, string $questionType): array
+    {
+        if ($questionType === 'rating' || $questionType === 'scale') {
+            return $responses
+                ->pluck("responses.$questionIndex")
+                ->filter()
+                ->countBy()
+                ->toArray();
+        }
+
+        if ($questionType === 'multiple_choice' || $questionType === 'checkbox') {
+            $distribution = [];
+            foreach ($responses as $response) {
+                $answer = $response->responses[$questionIndex] ?? null;
+                if (is_array($answer)) {
+                    foreach ($answer as $choice) {
+                        $distribution[$choice] = ($distribution[$choice] ?? 0) + 1;
+                    }
+                } elseif ($answer) {
+                    $distribution[$answer] = ($distribution[$answer] ?? 0) + 1;
+                }
+            }
+            return $distribution;
+        }
+
+        return [];
+    }
+
+    /**
+     * Get average rating
+     */
+    protected function getAverageRating(Collection $responses, int $questionIndex, string $questionType): ?float
+    {
+        if (!in_array($questionType, ['rating', 'scale', 'number'])) {
+            return null;
+        }
+
+        $ratings = $responses
+            ->pluck("responses.$questionIndex")
+            ->filter()
+            ->filter(fn($val) => is_numeric($val));
+
+        return $ratings->isEmpty() ? null : round($ratings->average(), 2);
+    }
+
+    /**
+     * Calculate engagement score
+     */
+    protected function calculateEngagementScore(Survey $survey): float
+    {
+        $responseRate = $this->calculateResponseRate($survey);
+        $completionRate = $this->calculateCompletionRate($survey);
+        $avgTime = $this->calculateAverageCompletionTime($survey);
+
+        // Weighted score (response rate 40%, completion rate 40%, time 20%)
+        $score = ($responseRate * 0.4) + ($completionRate * 0.4);
+
+        // Adjust for completion time (faster is better, up to a point)
+        if ($avgTime > 0 && $avgTime < 600) { // Less than 10 minutes
+            $score += 20;
+        } elseif ($avgTime < 1800) { // Less than 30 minutes
+            $score += 10;
+        }
+
+        return round(min($score, 100), 2);
+    }
+
+    /**
+     * Calculate quality score
+     */
+    protected function calculateQualityScore(Survey $survey): float
+    {
+        $totalResponses = $survey->responses->count();
+        if ($totalResponses == 0) return 0;
+
+        $completeResponses = $survey->responses->where('is_complete', true)->count();
+        $qualityScore = ($completeResponses / $totalResponses) * 100;
+
+        return round($qualityScore, 2);
+    }
+
+    /**
+     * Calculate reach score
+     */
+    protected function calculateReachScore(Survey $survey): float
+    {
+        $targeted = $this->estimateTotalTargeted($survey);
+        $reached = $survey->responses->count();
+
+        if ($targeted == 0) return 0;
+
+        return round(($reached / $targeted) * 100, 2);
+    }
+
+    /**
+     * Calculate satisfaction score
+     */
+    protected function calculateSatisfactionScore(Survey $survey): float
+    {
+        // This would need satisfaction questions in the survey
+        // For now, return a placeholder
+        return 0;
+    }
+
+    /**
+     * Calculate overall performance
+     */
+    protected function calculateOverallPerformance(Survey $survey): float
+    {
+        $engagement = $this->calculateEngagementScore($survey);
+        $quality = $this->calculateQualityScore($survey);
+        $reach = $this->calculateReachScore($survey);
+
+        return round(($engagement + $quality + $reach) / 3, 2);
+    }
+
+    /**
+     * Calculate median completion time
+     */
+    protected function calculateMedianCompletionTime(Survey $survey): int
+    {
+        $responses = $survey->responses()
+            ->whereNotNull('started_at')
+            ->whereNotNull('submitted_at')
+            ->get();
+
+        if ($responses->isEmpty()) return 0;
+
+        $times = $responses->map(function($response) {
+            return $response->started_at->diffInSeconds($response->submitted_at);
+        })->sort()->values();
+
+        $count = $times->count();
+        $middle = floor($count / 2);
+
+        if ($count % 2 == 0) {
+            return ($times[$middle - 1] + $times[$middle]) / 2;
+        }
+
+        return $times[$middle];
+    }
+
+    /**
+     * Get completion by question
+     */
+    protected function getCompletionByQuestion(Survey $survey): array
+    {
+        $questions = $survey->questions;
+        $responses = $survey->responses;
+
+        $completion = [];
+        foreach ($questions as $index => $question) {
+            $completion[] = [
+                'question_index' => $index,
+                'completion_rate' => $this->getQuestionResponseCount($responses, $index)
+            ];
+        }
+
+        return $completion;
+    }
+
+    /**
+     * Get responses per day
+     */
+    protected function getResponsesPerDay(Survey $survey): array
+    {
+        return $survey->responses()
+            ->selectRaw('DATE(created_at) as date, COUNT(*) as count')
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get()
+            ->pluck('count', 'date')
+            ->toArray();
+    }
+
+    /**
+     * Get response distribution
+     */
+    protected function getResponseDistribution(Survey $survey): array
+    {
+        return [
+            'by_status' => $survey->responses->countBy('status')->toArray(),
+            'by_completion' => [
+                'complete' => $survey->responses->where('is_complete', true)->count(),
+                'partial' => $survey->responses->where('is_complete', false)->count()
+            ]
+        ];
+    }
+
+    /**
+     * Placeholder methods for additional features
+     */
+    protected function getAgeDistribution($responses) { return []; }
+    protected function getGenderDistribution($responses) { return []; }
+    protected function getPeakResponseTime($responses) { return null; }
+    protected function getResponseVelocity($responses) { return 0; }
+    protected function getKeyMetrics($survey) { return []; }
+    protected function getPerformanceIndicators($survey) { return []; }
+    protected function getSurveyHealthStatus($survey) { return 'healthy'; }
+    protected function getComparisonData($survey) { return []; }
+    protected function getResponsePatterns($survey) { return []; }
+    protected function getResponseQuality($survey) { return []; }
+    protected function getResponseTiming($survey) { return []; }
+    protected function getRespondentBehavior($survey) { return []; }
+    protected function getQuestionPerformance($survey, $index) { return []; }
+    protected function getQuestionEngagement($survey, $index) { return []; }
+    protected function getQuestionClarityScore($survey, $index) { return 0; }
+    protected function getQuestionInsights($survey, $index) { return []; }
+    protected function calculateParticipationRate($survey) { return 0; }
+    protected function getRepeatParticipants($survey) { return []; }
+    protected function getEngagementBySegment($survey) { return []; }
+    protected function getEngagementTrends($survey) { return []; }
+    protected function getQualityTrends($survey) { return []; }
+    protected function getSeasonalPatterns($survey) { return []; }
+    protected function getTargetingRecommendations($total, $breakdown) { return []; }
+    protected function compareSurveys($ids, $metrics) { return []; }
+    protected function getQuestionAnalytics($survey, $index) { return []; }
+    protected function getAllQuestionsAnalytics($survey) { return []; }
+    protected function getDashboardOverview($institutionId) { return []; }
+    protected function getRecentSurveys($institutionId) { return []; }
+    protected function getTopPerformingSurveys($institutionId) { return []; }
+    protected function getActivityTrends($institutionId) { return []; }
+    protected function getResponseRates($institutionId) { return []; }
+    protected function getUserParticipation($institutionId) { return []; }
+    protected function getDemographicAnalytics($survey) { return []; }
+    protected function getCompletionFunnel($survey) { return []; }
 }

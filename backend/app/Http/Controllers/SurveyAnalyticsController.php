@@ -27,9 +27,9 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $statistics = $this->analyticsService->getSurveyStatistics($survey);
-            return $this->successResponse($statistics, 'Survey statistics retrieved successfully');
+            return $this->success($statistics, 'Survey statistics retrieved successfully');
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            return $this->error($e->getMessage(), 500);
         }
     }
 
@@ -40,9 +40,9 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $analytics = $this->analyticsService->getSurveyAnalytics($survey);
-            return $this->successResponse($analytics, 'Survey analytics retrieved successfully');
+            return $this->success($analytics, 'Survey analytics retrieved successfully');
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            return $this->error($e->getMessage(), 500);
         }
     }
 
@@ -53,9 +53,9 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $dashboardStats = $this->analyticsService->getDashboardStatistics();
-            return $this->successResponse($dashboardStats, 'Dashboard statistics retrieved successfully');
+            return $this->success($dashboardStats, 'Dashboard statistics retrieved successfully');
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            return $this->error($e->getMessage(), 500);
         }
     }
 
@@ -76,9 +76,9 @@ class SurveyAnalyticsController extends Controller
 
         try {
             $estimates = $this->analyticsService->estimateRecipients($validated['targeting_rules']);
-            return $this->successResponse($estimates, 'Recipient estimates calculated successfully');
+            return $this->success($estimates, 'Recipient estimates calculated successfully');
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            return $this->error($e->getMessage(), 500);
         }
     }
 
@@ -95,9 +95,9 @@ class SurveyAnalyticsController extends Controller
             $format = $validated['format'] ?? 'json';
             $exportData = $this->analyticsService->exportSurveyData($survey, $format);
             
-            return $this->successResponse($exportData, 'Survey data exported successfully');
+            return $this->success($exportData, 'Survey data exported successfully');
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            return $this->error($e->getMessage(), 500);
         }
     }
 
@@ -118,9 +118,9 @@ class SurveyAnalyticsController extends Controller
             $endDate = $validated['end_date'] ?? null;
 
             $trends = $this->analyticsService->getResponseTrends($survey, $period, $startDate, $endDate);
-            return $this->successResponse($trends, 'Response trends retrieved successfully');
+            return $this->success($trends, 'Response trends retrieved successfully');
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            return $this->error($e->getMessage(), 500);
         }
     }
 
@@ -144,9 +144,9 @@ class SurveyAnalyticsController extends Controller
                 $analytics = $this->analyticsService->getAllQuestionsAnalytics($survey);
             }
 
-            return $this->successResponse($analytics, 'Question analytics retrieved successfully');
+            return $this->success($analytics, 'Question analytics retrieved successfully');
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            return $this->error($e->getMessage(), 500);
         }
     }
 
@@ -157,9 +157,9 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $engagement = $this->analyticsService->getUserEngagement($survey);
-            return $this->successResponse($engagement, 'User engagement metrics retrieved successfully');
+            return $this->success($engagement, 'User engagement metrics retrieved successfully');
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            return $this->error($e->getMessage(), 500);
         }
     }
 
@@ -170,9 +170,9 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $demographics = $this->analyticsService->getDemographicAnalytics($survey);
-            return $this->successResponse($demographics, 'Demographic analytics retrieved successfully');
+            return $this->success($demographics, 'Demographic analytics retrieved successfully');
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            return $this->error($e->getMessage(), 500);
         }
     }
 
@@ -183,9 +183,9 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $funnel = $this->analyticsService->getCompletionFunnel($survey);
-            return $this->successResponse($funnel, 'Completion funnel retrieved successfully');
+            return $this->success($funnel, 'Completion funnel retrieved successfully');
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            return $this->error($e->getMessage(), 500);
         }
     }
 
@@ -196,9 +196,9 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $insights = $this->analyticsService->generateInsights($survey);
-            return $this->successResponse($insights, 'Survey insights generated successfully');
+            return $this->success($insights, 'Survey insights generated successfully');
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            return $this->error($e->getMessage(), 500);
         }
     }
 
@@ -209,9 +209,9 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $recommendations = $this->analyticsService->generateRecommendations($survey);
-            return $this->successResponse($recommendations, 'Survey recommendations generated successfully');
+            return $this->success($recommendations, 'Survey recommendations generated successfully');
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            return $this->error($e->getMessage(), 500);
         }
     }
 
@@ -231,9 +231,9 @@ class SurveyAnalyticsController extends Controller
             $metrics = $validated['metrics'] ?? ['response_rate', 'completion_rate'];
             $comparison = $this->analyticsService->compareSurveys($validated['survey_ids'], $metrics);
 
-            return $this->successResponse($comparison, 'Survey comparison completed successfully');
+            return $this->success($comparison, 'Survey comparison completed successfully');
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            return $this->error($e->getMessage(), 500);
         }
     }
 
@@ -244,9 +244,9 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $analytics = $this->analyticsService->getRegionAnalytics();
-            return $this->successResponse($analytics, 'Region analytics retrieved successfully');
+            return $this->success($analytics, 'Region analytics retrieved successfully');
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 500);
+            return $this->error($e->getMessage(), 500);
         }
     }
 }
