@@ -1446,16 +1446,16 @@ class SurveyAnalyticsService
 
         if ($userRole === 'superadmin') {
             // SuperAdmin sees all regions
-            $nodes = $this->buildSuperAdminHierarchy($survey, $responses);
+            $nodes = $this->buildSuperAdminHierarchyEnhanced($survey, $responses);
         } elseif ($userRole === 'regionadmin') {
             // RegionAdmin sees sectors -> schools
-            $nodes = $this->buildRegionHierarchy($survey, $responses, $user);
+            $nodes = $this->buildRegionHierarchyEnhanced($survey, $responses, $user);
         } elseif ($userRole === 'sektoradmin') {
             // SektorAdmin sees schools only
-            $nodes = $this->buildSectorHierarchy($survey, $responses, $user);
+            $nodes = $this->buildSectorHierarchyEnhanced($survey, $responses, $user);
         } else {
             // SchoolAdmin or other roles - no hierarchy, just their institution
-            $nodes = $this->buildFlatHierarchy($survey, $responses, $user);
+            $nodes = $this->buildFlatHierarchyEnhanced($survey, $responses, $user);
         }
 
         return [
@@ -1469,7 +1469,7 @@ class SurveyAnalyticsService
     /**
      * Build hierarchy for SuperAdmin (regions -> sectors -> schools)
      */
-    protected function buildSuperAdminHierarchy(Survey $survey, Collection $responses): array
+    protected function buildSuperAdminHierarchyEnhanced(Survey $survey, Collection $responses): array
     {
         $regions = Institution::where('level', 2)
             ->with(['children' => function ($q) {
@@ -1485,7 +1485,7 @@ class SurveyAnalyticsService
             $regionResponses = $responses->whereIn('institution_id', $allSchoolIds);
 
             $children = $region->children->map(function ($sector) use ($survey, $responses) {
-                return $this->buildSectorNode($sector, $survey, $responses);
+                return $this->buildSectorNodeEnhanced($sector, $survey, $responses);
             })->values()->toArray();
 
             return [
@@ -1506,9 +1506,64 @@ class SurveyAnalyticsService
     }
 
     /**
-     * Build sector node with schools
+     * Build hierarchy for RegionAdmin (sectors -> schools) - Enhanced
      */
-    protected function buildSectorNode(Institution $sector, Survey $survey, Collection $responses): array
+    protected function buildRegionHierarchyEnhanced(Survey $survey, Collection $responses, User $user): array
+    {
+        $userRegion = $user->institution;
+
+        if (!$userRegion || $userRegion->level !== 2) {
+            return [];
+        }
+
+        $sectors = Institution::where('parent_id', $userRegion->id)
+            ->where('level', 3)
+            ->with(['children' => function ($q) {
+                $q->where('level', 4);
+            }])
+            ->get();
+
+        return $sectors->map(function ($sector) use ($survey, $responses) {
+            return $this->buildSectorNodeEnhanced($sector, $survey, $responses);
+        })->values()->toArray();
+    }
+
+    /**
+     * Build hierarchy for SektorAdmin (schools only) - Enhanced
+     */
+    protected function buildSectorHierarchyEnhanced(Survey $survey, Collection $responses, User $user): array
+    {
+        $userSector = $user->institution;
+
+        if (!$userSector || $userSector->level !== 3) {
+            return [];
+        }
+
+        $schools = $userSector->children()->where('level', 4)->get();
+
+        return $schools->map(function ($school) use ($survey, $responses) {
+            $schoolResponses = $responses->where('institution_id', $school->id);
+
+            return [
+                'id' => $school->id,
+                'name' => $school->name,
+                'type' => $school->type ?? 'school',
+                'level' => $school->level,
+                'total_responses' => $schoolResponses->count(),
+                'completed_responses' => $schoolResponses->where('status', 'completed')->count(),
+                'completion_rate' => $schoolResponses->count() > 0
+                    ? round(($schoolResponses->where('status', 'completed')->count() / $schoolResponses->count()) * 100, 1)
+                    : 0,
+                'targeted_users' => $this->estimateTargetedForInstitution($survey, collect([$school->id])),
+                'response_rate' => $this->calculateResponseRateForInstitutions($survey, $schoolResponses, collect([$school->id])),
+            ];
+        })->values()->toArray();
+    }
+
+    /**
+     * Build sector node with schools (Enhanced)
+     */
+    protected function buildSectorNodeEnhanced(Institution $sector, Survey $survey, Collection $responses): array
     {
         $schoolIds = $sector->children->pluck('id');
         $sectorResponses = $responses->whereIn('institution_id', $schoolIds);
@@ -1550,9 +1605,9 @@ class SurveyAnalyticsService
     }
 
     /**
-     * Build flat hierarchy for SchoolAdmin
+     * Build flat hierarchy for SchoolAdmin (Enhanced)
      */
-    protected function buildFlatHierarchy(Survey $survey, Collection $responses, User $user): array
+    protected function buildFlatHierarchyEnhanced(Survey $survey, Collection $responses, User $user): array
     {
         $institution = $user->institution;
         if (!$institution) return [];
