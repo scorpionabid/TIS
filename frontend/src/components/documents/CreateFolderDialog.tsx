@@ -36,7 +36,12 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSucc
     try {
       // superadmin sees all level 2 (Regional) institutions
       // regionadmin sees only their own institution
-      if (user?.roles?.some(r => r.name === 'superadmin')) {
+      const userRoles = (user as any)?.roles || [];
+      const userRole = (user as any)?.role;
+
+      const isSuperAdmin = userRole === 'superadmin' || (Array.isArray(userRoles) && userRoles.some((r: any) => r.name === 'superadmin'));
+
+      if (isSuperAdmin) {
         const response = await institutionService.getAll();
         const regionalInstitutions = response.filter(inst => inst.level === '2');
         setInstitutions(regionalInstitutions);
@@ -117,7 +122,12 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSucc
           )}
 
           {/* Institution Selection */}
-          {user?.roles?.some(r => r.name === 'superadmin') && (
+          {(() => {
+            const userRoles = (user as any)?.roles || [];
+            const userRole = (user as any)?.role;
+            const isSuperAdmin = userRole === 'superadmin' || (Array.isArray(userRoles) && userRoles.some((r: any) => r.name === 'superadmin'));
+            return isSuperAdmin;
+          })() && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 İnstitusiya (Regional Ofis)

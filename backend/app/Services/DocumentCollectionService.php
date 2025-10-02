@@ -35,10 +35,9 @@ class DocumentCollectionService
                     'owner_institution_id' => $institution->id,
                     'owner_institution_level' => $institution->level,
                     'institution_id' => $institution->id,
-                    'user_id' => $user->id,
+                    'created_by' => $user->id,
                     'allow_school_upload' => true,
                     'is_locked' => false,
-                    'is_active' => true,
                 ]);
 
                 // Log folder creation
