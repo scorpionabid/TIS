@@ -327,7 +327,7 @@ class SurveyAnalyticsService
     protected function getTrendAnalysis(Survey $survey): array
     {
         return [
-            'response_trends' => $this->getResponseTrends($survey),
+            'response_trends' => $this->getResponseTrendsLegacy($survey),
             'completion_trends' => $this->getCompletionTrends($survey),
             'quality_trends' => $this->getQualityTrends($survey),
             'seasonal_patterns' => $this->getSeasonalPatterns($survey)
@@ -945,9 +945,9 @@ class SurveyAnalyticsService
     }
 
     /**
-     * Get response trends
+     * Get response trends (legacy method - used internally)
      */
-    protected function getResponseTrends(Survey $survey, string $period = 'daily', $startDate = null, $endDate = null): array
+    protected function getResponseTrendsLegacy(Survey $survey, string $period = 'daily', $startDate = null, $endDate = null): array
     {
         $responses = $survey->responses()
             ->when($startDate, fn($q) => $q->where('created_at', '>=', $startDate))
