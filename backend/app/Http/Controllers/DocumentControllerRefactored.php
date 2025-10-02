@@ -800,10 +800,22 @@ class DocumentControllerRefactored extends Controller
      */
     private function handleError(\Exception $e, string $defaultMessage): JsonResponse
     {
+        // Log the full error for debugging
+        \Log::error('DocumentController Error: ' . $e->getMessage(), [
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString()
+        ]);
+
         return response()->json([
             'success' => false,
             'message' => $defaultMessage,
             'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            'debug' => config('app.debug') ? [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => array_slice($e->getTrace(), 0, 3)
+            ] : null,
         ], 500);
     }
 }

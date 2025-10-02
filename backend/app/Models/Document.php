@@ -294,12 +294,7 @@ class Document extends Model
             default:
                 // Unknown role - very restricted access
                 $query->where('uploaded_by', $user->id)
-                      ->orWhere(function($q) use ($user) {
-                          $q->where('is_public', true)
-                            ->where(function($subQ) use ($user) {
-                                $this->whereJsonContainsSafe($subQ, 'allowed_users', $user->id);
-                            });
-                      });
+                      ->orWhere('is_public', true);
                 break;
         }
     }
@@ -640,25 +635,6 @@ class Document extends Model
     /**
      * Apply RegionAdmin document filtering
      */
-    /**
-     * Safe JSON contains check - handles both JSON and text columns
-     */
-    private function whereJsonContainsSafe($query, string $column, $value)
-    {
-        try {
-            $query->where(function($q) use ($column, $value) {
-                $q->whereJsonContains($column, $value)
-                  ->orWhere(function($subQ) use ($column, $value) {
-                      // Fallback for SQLite: check if value exists as string
-                      $subQ->where($column, 'LIKE', '%"' . $value . '"%');
-                  });
-            });
-        } catch (\Exception $e) {
-            // If JSON query fails, use simple LIKE
-            $query->where($column, 'LIKE', '%"' . $value . '"%');
-        }
-    }
-
     private function applyRegionAdminDocumentFiltering($query, User $user, $userRegionId)
     {
         // Get all institutions in the region
