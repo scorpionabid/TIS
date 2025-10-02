@@ -27,18 +27,20 @@ function validateAndSetupApiUrls() {
   
   const apiBaseUrl = envApiUrl || fallbackUrl;
   const sanctumBaseUrl = apiBaseUrl.replace('/api', '');
-  
-  // Validate URLs are properly formed
-  try {
-    new URL(apiBaseUrl);
-    new URL(sanctumBaseUrl);
-  } catch (error) {
-    log('error', 'Invalid API URL configuration', { apiBaseUrl, sanctumBaseUrl });
-    throw new Error('Invalid API URL configuration');
+
+  // Validate URLs are properly formed (skip validation for relative URLs)
+  if (!apiBaseUrl.startsWith('/')) {
+    try {
+      new URL(apiBaseUrl);
+      new URL(sanctumBaseUrl);
+    } catch (error) {
+      log('error', 'Invalid API URL configuration', { apiBaseUrl, sanctumBaseUrl });
+      throw new Error('Invalid API URL configuration');
+    }
   }
-  
-  log('info', 'API URLs configured', { apiBaseUrl, sanctumBaseUrl, source: envApiUrl ? 'env' : 'fallback' });
-  
+
+  log('info', 'API URLs configured', { apiBaseUrl, sanctumBaseUrl, source: envApiUrl ? 'env' : 'fallback', isRelative: apiBaseUrl.startsWith('/') });
+
   return { apiBaseUrl, sanctumBaseUrl };
 }
 

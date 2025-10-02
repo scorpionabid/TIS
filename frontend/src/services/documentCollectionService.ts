@@ -16,7 +16,10 @@ class DocumentCollectionService {
    */
   async getAll(): Promise<DocumentCollection[]> {
     const response = await api.get<{ success: boolean; data: DocumentCollection[] }>(this.basePath);
-    return response.data.data;
+    // apiOptimized returns the data directly from Laravel, not wrapped in another .data
+    // Laravel returns: {success: true, data: [...]}
+    // apiOptimized.handleResponse returns this directly, so response IS the Laravel response
+    return (response as any).data || [];
   }
 
   /**
@@ -26,7 +29,7 @@ class DocumentCollectionService {
     const response = await api.get<{ success: boolean; data: FolderWithDocuments }>(
       `${this.basePath}/${folderId}`
     );
-    return response.data.data;
+    return (response as any).data;
   }
 
   /**
@@ -37,7 +40,7 @@ class DocumentCollectionService {
       `${this.basePath}/regional`,
       data
     );
-    return response.data.data;
+    return (response as any).data;
   }
 
   /**
@@ -48,7 +51,7 @@ class DocumentCollectionService {
       `${this.basePath}/${folderId}`,
       data
     );
-    return response.data.data;
+    return (response as any).data;
   }
 
   /**
@@ -75,7 +78,7 @@ class DocumentCollectionService {
     const response = await api.get<{ success: boolean; data: FolderAuditLog[] }>(
       `${this.basePath}/${folderId}/audit-logs`
     );
-    return response.data.data;
+    return (response as any).data;
   }
 
   /**

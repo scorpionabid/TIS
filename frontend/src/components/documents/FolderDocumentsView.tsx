@@ -10,7 +10,7 @@ interface FolderDocumentsViewProps {
 }
 
 const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClose }) => {
-  const { user } = useAuth();
+  const { currentUser: user } = useAuth();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

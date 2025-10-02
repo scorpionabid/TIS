@@ -17,7 +17,7 @@ interface Institution {
 }
 
 const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSuccess }) => {
-  const { user } = useAuth();
+  const { currentUser: user } = useAuth();
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [selectedInstitution, setSelectedInstitution] = useState<number | null>(null);
   const [selectedTemplates, setSelectedTemplates] = useState<string[]>([

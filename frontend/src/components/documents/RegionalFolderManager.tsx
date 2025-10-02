@@ -10,11 +10,12 @@ import FolderDocumentsView from './FolderDocumentsView';
 import AuditLogViewer from './AuditLogViewer';
 
 const RegionalFolderManager: React.FC = () => {
-  const { user } = useAuth();
+  const { currentUser: user } = useAuth();
   const [folders, setFolders] = useState<DocumentCollection[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<DocumentCollection | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
 
   // Dialog states
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -25,14 +26,18 @@ const RegionalFolderManager: React.FC = () => {
 
   const canManageFolder = (folder: DocumentCollection): boolean => {
     if (!user) return false;
-    if (!user.roles || !Array.isArray(user.roles)) return false;
+
+    const userRoles = (user as any)?.roles || [];
+    const userRole = (user as any)?.role;
 
     // SuperAdmin can manage all
-    if (user.roles.some(r => r.name === 'superadmin')) return true;
+    if (userRole === 'superadmin' || (Array.isArray(userRoles) && userRoles.some((r: any) => r.name === 'superadmin'))) {
+      return true;
+    }
 
     // RegionAdmin can manage their region's folders
-    if (user.roles.some(r => r.name === 'regionadmin')) {
-      return folder.owner_institution_id === user.institution_id;
+    if (userRole === 'regionadmin' || (Array.isArray(userRoles) && userRoles.some((r: any) => r.name === 'regionadmin'))) {
+      return folder.owner_institution_id === (user as any).institution_id;
     }
 
     return false;
@@ -45,7 +50,7 @@ const RegionalFolderManager: React.FC = () => {
       const data = await documentCollectionService.getAll();
       setFolders(Array.isArray(data) ? data : []);
     } catch (err: any) {
-      console.error('[RegionalFolderManager] Error loading folders:', err);
+      console.error('❌ [RegionalFolderManager] Error loading folders:', err);
       setFolders([]); // Set empty array on error
 
       // Detailed error message
@@ -115,6 +120,16 @@ const RegionalFolderManager: React.FC = () => {
     setShowAuditLogs(true);
   };
 
+  // Wait for user to load from AuthContext
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <p className="ml-4 text-gray-600">User məlumatları yüklənir...</p>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -131,6 +146,18 @@ const RegionalFolderManager: React.FC = () => {
     );
   }
 
+  // Debug button visibility - support both role (string) and roles (array)
+  const userRoles = (user as any)?.roles || [];
+  const userRole = (user as any)?.role;
+
+  const showCreateButton = user && (
+    // Check if user has roles array (from backend)
+    (Array.isArray(userRoles) && userRoles.length > 0 && userRoles.some((r: any) => ['superadmin', 'regionadmin'].includes(r.name))) ||
+    // Or check single role field (from User type)
+    (userRole && ['superadmin', 'regionadmin'].includes(userRole))
+  );
+
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -140,7 +167,7 @@ const RegionalFolderManager: React.FC = () => {
           <p className="text-gray-600 mt-1">Regionun məktəbləri üçün paylaşılan folderlər</p>
         </div>
 
-        {user && user.roles && Array.isArray(user.roles) && user.roles.some(r => ['superadmin', 'regionadmin'].includes(r.name)) && (
+        {showCreateButton && (
           <button
             onClick={() => setShowCreateDialog(true)}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
