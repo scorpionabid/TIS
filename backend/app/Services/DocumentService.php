@@ -52,8 +52,13 @@ class DocumentService
 
         $ttl = $ttl ?? $this->cacheTtl;
 
-        // Use Redis cache tags for selective invalidation
-        return Cache::tags($this->getCacheTags())->remember($key, $ttl, $callback);
+        // Use Redis cache tags for selective invalidation (only if supported)
+        try {
+            return Cache::tags($this->getCacheTags())->remember($key, $ttl, $callback);
+        } catch (\BadMethodCallException $e) {
+            // Fallback for cache drivers that don't support tagging (file, database, array)
+            return Cache::remember($key, $ttl, $callback);
+        }
     }
 
     /**
@@ -68,12 +73,14 @@ class DocumentService
             return;
         }
 
-        // Clear only document-related caches using tags
-        // This preserves permission caches and other unrelated data
-        Cache::tags(['documents'])->flush();
-
-        // Optional: Clear only current user's cache (even more selective)
-        // Cache::tags($this->getCacheTags())->flush();
+        // Clear only document-related caches using tags (if supported)
+        try {
+            Cache::tags(['documents'])->flush();
+        } catch (\BadMethodCallException $e) {
+            // Fallback: Clear all cache if tags not supported
+            // This is less efficient but ensures cache consistency
+            Cache::flush();
+        }
     }
 
     /**

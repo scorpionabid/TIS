@@ -48,9 +48,14 @@ class DocumentPermissionService extends BaseService
             $userId = $matches[1] ?? 0;
         }
 
-        // Use Redis cache tags for selective invalidation
-        return Cache::tags($this->getPermissionCacheTags($userId))
-                    ->remember($cacheKey, now()->addMinutes($this->cacheMinutes), $callback);
+        // Use Redis cache tags for selective invalidation (if supported)
+        try {
+            return Cache::tags($this->getPermissionCacheTags($userId))
+                        ->remember($cacheKey, now()->addMinutes($this->cacheMinutes), $callback);
+        } catch (\BadMethodCallException $e) {
+            // Fallback for cache drivers that don't support tagging
+            return Cache::remember($cacheKey, now()->addMinutes($this->cacheMinutes), $callback);
+        }
     }
 
     /**
@@ -63,7 +68,12 @@ class DocumentPermissionService extends BaseService
             return;
         }
 
-        Cache::tags(["permissions:user:{$userId}"])->flush();
+        try {
+            Cache::tags(["permissions:user:{$userId}"])->flush();
+        } catch (\BadMethodCallException $e) {
+            // Fallback: Clear all cache if tags not supported
+            Cache::flush();
+        }
     }
 
     /**
@@ -75,7 +85,12 @@ class DocumentPermissionService extends BaseService
             return;
         }
 
-        Cache::tags(['permissions'])->flush();
+        try {
+            Cache::tags(['permissions'])->flush();
+        } catch (\BadMethodCallException $e) {
+            // Fallback: Clear all cache if tags not supported
+            Cache::flush();
+        }
     }
 
     /**
