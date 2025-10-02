@@ -1499,7 +1499,7 @@ class SurveyAnalyticsService
                     ? round(($regionResponses->where('status', 'completed')->count() / $regionResponses->count()) * 100, 1)
                     : 0,
                 'targeted_users' => $this->estimateTargetedForInstitution($survey, $allSchoolIds),
-                'response_rate' => $this->calculateResponseRate($survey, $regionResponses, $allSchoolIds),
+                'response_rate' => $this->calculateResponseRateForInstitutions($survey, $regionResponses, $allSchoolIds),
                 'children' => $children,
             ];
         })->values()->toArray();
@@ -1527,7 +1527,7 @@ class SurveyAnalyticsService
                     ? round(($schoolResponses->where('status', 'completed')->count() / $schoolResponses->count()) * 100, 1)
                     : 0,
                 'targeted_users' => $this->estimateTargetedForInstitution($survey, collect([$school->id])),
-                'response_rate' => $this->calculateResponseRate($survey, $schoolResponses, collect([$school->id])),
+                'response_rate' => $this->calculateResponseRateForInstitutions($survey, $schoolResponses, collect([$school->id])),
             ];
         })->values()->toArray();
 
@@ -1542,7 +1542,7 @@ class SurveyAnalyticsService
                 ? round(($sectorResponses->where('status', 'completed')->count() / $sectorResponses->count()) * 100, 1)
                 : 0,
             'targeted_users' => $this->estimateTargetedForInstitution($survey, $schoolIds),
-            'response_rate' => $this->calculateResponseRate($survey, $sectorResponses, $schoolIds),
+            'response_rate' => $this->calculateResponseRateForInstitutions($survey, $sectorResponses, $schoolIds),
             'total_schools' => $sector->children->count(),
             'responded_schools' => $sectorResponses->unique('institution_id')->count(),
             'children' => $schools,
@@ -1570,7 +1570,7 @@ class SurveyAnalyticsService
                 ? round(($institutionResponses->where('status', 'completed')->count() / $institutionResponses->count()) * 100, 1)
                 : 0,
             'targeted_users' => $this->estimateTargetedForInstitution($survey, collect([$institution->id])),
-            'response_rate' => $this->calculateResponseRate($survey, $institutionResponses, collect([$institution->id])),
+            'response_rate' => $this->calculateResponseRateForInstitutions($survey, $institutionResponses, collect([$institution->id])),
         ]];
     }
 
@@ -1613,9 +1613,9 @@ class SurveyAnalyticsService
     }
 
     /**
-     * Calculate response rate
+     * Calculate response rate for specific institutions
      */
-    protected function calculateResponseRate(Survey $survey, Collection $responses, Collection $institutionIds): float
+    protected function calculateResponseRateForInstitutions(Survey $survey, Collection $responses, Collection $institutionIds): float
     {
         $targeted = $this->estimateTargetedForInstitution($survey, $institutionIds);
 
