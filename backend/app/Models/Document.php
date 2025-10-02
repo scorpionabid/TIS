@@ -272,31 +272,33 @@ class Document extends Model
     private function applyRegionalDocumentFiltering($query, User $user, $userRole)
     {
         $userInstitutionId = $user->institution_id;
-        
+
         switch ($userRole) {
             case 'regionadmin':
             case 'regionoperator':
                 // Regional admins can see documents in their region and sub-institutions
                 $this->applyRegionAdminDocumentFiltering($query, $user, $userInstitutionId);
                 break;
-                
+
             case 'sektoradmin':
                 // Sector admins can see documents in their sector and schools
                 $this->applySektorAdminDocumentFiltering($query, $user, $userInstitutionId);
                 break;
-                
+
             case 'məktəbadmin':
             case 'müəllim':
                 // School-level users can only see documents in their institution
                 $this->applySchoolDocumentFiltering($query, $user, $userInstitutionId);
                 break;
-                
+
             default:
                 // Unknown role - very restricted access
                 $query->where('uploaded_by', $user->id)
                       ->orWhere(function($q) use ($user) {
                           $q->where('is_public', true)
-                            ->whereJsonContains('allowed_users', $user->id);
+                            ->where(function($subQ) use ($user) {
+                                $this->whereJsonContainsSafe($subQ, 'allowed_users', $user->id);
+                            });
                       });
                 break;
         }
@@ -638,6 +640,25 @@ class Document extends Model
     /**
      * Apply RegionAdmin document filtering
      */
+    /**
+     * Safe JSON contains check - handles both JSON and text columns
+     */
+    private function whereJsonContainsSafe($query, string $column, $value)
+    {
+        try {
+            $query->where(function($q) use ($column, $value) {
+                $q->whereJsonContains($column, $value)
+                  ->orWhere(function($subQ) use ($column, $value) {
+                      // Fallback for SQLite: check if value exists as string
+                      $subQ->where($column, 'LIKE', '%"' . $value . '"%');
+                  });
+            });
+        } catch (\Exception $e) {
+            // If JSON query fails, use simple LIKE
+            $query->where($column, 'LIKE', '%"' . $value . '"%');
+        }
+    }
+
     private function applyRegionAdminDocumentFiltering($query, User $user, $userRegionId)
     {
         // Get all institutions in the region
@@ -656,8 +677,6 @@ class Document extends Model
               ->orWhere('uploaded_by', $user->id)
               // Or public documents
               ->orWhere('is_public', true)
-              // Or specifically allowed for this user
-              ->orWhereJsonContains('allowed_users', $user->id)
               // Or regional access level documents
               ->orWhere(function($subQ) use ($allRegionalInstitutions) {
                   $subQ->where('access_level', 'regional')
@@ -683,16 +702,9 @@ class Document extends Model
             $q->whereIn('institution_id', $allSektorInstitutions)
               ->orWhere('uploaded_by', $user->id)
               ->orWhere('is_public', true)
-              ->orWhereJsonContains('allowed_users', $user->id)
               ->orWhere(function($subQ) use ($allSektorInstitutions) {
                   $subQ->where('access_level', 'sectoral')
                        ->whereIn('institution_id', $allSektorInstitutions);
-              })
-              ->orWhere(function($subQ) use ($allSektorInstitutions) {
-                  // Check if any of the sector's institutions are in accessible_institutions JSON
-                  foreach ($allSektorInstitutions as $instId) {
-                      $subQ->orWhereJsonContains('accessible_institutions', (string)$instId);
-                  }
               });
         });
     }
@@ -706,12 +718,10 @@ class Document extends Model
             $q->where('institution_id', $userInstitutionId)
               ->orWhere('uploaded_by', $user->id)
               ->orWhere('is_public', true)
-              ->orWhereJsonContains('allowed_users', $user->id)
               ->orWhere(function($subQ) use ($userInstitutionId) {
                   $subQ->where('access_level', 'institution')
                        ->where('institution_id', $userInstitutionId);
-              })
-              ->orWhereJsonContains('accessible_institutions', (string)$userInstitutionId);
+              });
         });
     }
 
