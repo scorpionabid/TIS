@@ -109,6 +109,17 @@ class DocumentCollection extends Model
     }
 
     /**
+     * Target institutions relationship (many-to-many)
+     * These are the institutions that can upload documents to this folder
+     */
+    public function targetInstitutions(): BelongsToMany
+    {
+        return $this->belongsToMany(Institution::class, 'folder_institutions', 'folder_id', 'institution_id')
+                    ->withPivot(['can_upload'])
+                    ->withTimestamps();
+    }
+
+    /**
      * Scope: Filter by type
      */
     public function scopeByType($query, string $type)

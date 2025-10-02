@@ -25,21 +25,40 @@ const RegionalFolderManager: React.FC = () => {
   const [showAuditLogs, setShowAuditLogs] = useState(false);
 
   const canManageFolder = (folder: DocumentCollection): boolean => {
-    if (!user) return false;
+    if (!user) {
+      console.log('🔒 canManageFolder: No user');
+      return false;
+    }
 
     const userRoles = (user as any)?.roles || [];
     const userRole = (user as any)?.role;
+    // Access institution ID from nested institution object (user.institution.id)
+    const userInstitutionId = (user as any)?.institution?.id || (user as any)?.institution_id;
+
+    console.log('🔒 canManageFolder:', {
+      folderName: folder.name,
+      folderOwnerId: folder.owner_institution_id,
+      userRole,
+      userRoles: userRoles.map((r: any) => r.name),
+      userInstitutionId,
+      userInstitution: (user as any)?.institution,
+      match: folder.owner_institution_id === userInstitutionId
+    });
 
     // SuperAdmin can manage all
     if (userRole === 'superadmin' || (Array.isArray(userRoles) && userRoles.some((r: any) => r.name === 'superadmin'))) {
+      console.log('✅ SuperAdmin access granted');
       return true;
     }
 
     // RegionAdmin can manage their region's folders
     if (userRole === 'regionadmin' || (Array.isArray(userRoles) && userRoles.some((r: any) => r.name === 'regionadmin'))) {
-      return folder.owner_institution_id === (user as any).institution_id;
+      const canManage = folder.owner_institution_id === userInstitutionId;
+      console.log(canManage ? '✅ RegionAdmin access granted' : '❌ RegionAdmin: institution mismatch');
+      return canManage;
     }
 
+    console.log('❌ No permission');
     return false;
   };
 

@@ -77,6 +77,7 @@ export interface FolderAuditLog {
 export interface CreateRegionalFoldersRequest {
   institution_id: number;
   folder_templates?: Record<string, string>;
+  target_institutions?: number[];
 }
 
 export interface UpdateFolderRequest {

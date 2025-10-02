@@ -70,6 +70,8 @@ class DocumentCollectionController extends Controller
         $validator = Validator::make($request->all(), [
             'institution_id' => 'required|exists:institutions,id',
             'folder_templates' => 'nullable|array',
+            'target_institutions' => 'nullable|array',
+            'target_institutions.*' => 'exists:institutions,id',
         ]);
 
         if ($validator->fails()) {
@@ -94,8 +96,14 @@ class DocumentCollectionController extends Controller
             $folders = $this->service->createRegionalFolders(
                 $request->user(),
                 $institution,
-                $request->input('folder_templates')
+                $request->input('folder_templates'),
+                $request->input('target_institutions', [])
             );
+
+            // Load target institutions relationship
+            foreach ($folders as $folder) {
+                $folder->load('targetInstitutions');
+            }
 
             return response()->json([
                 'success' => true,

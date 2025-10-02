@@ -17,7 +17,7 @@ class DocumentCollectionService
     /**
      * Create regional folders from templates for a specific institution
      */
-    public function createRegionalFolders(User $user, Institution $institution, array $folderTemplates = null): array
+    public function createRegionalFolders(User $user, Institution $institution, array $folderTemplates = null, array $targetInstitutionIds = []): array
     {
         $folderTemplates = $folderTemplates ?? DocumentCollection::REGIONAL_TEMPLATES;
         $createdFolders = [];
@@ -40,11 +40,17 @@ class DocumentCollectionService
                     'is_locked' => false,
                 ]);
 
+                // Attach target institutions if provided
+                if (!empty($targetInstitutionIds)) {
+                    $folder->targetInstitutions()->sync($targetInstitutionIds);
+                }
+
                 // Log folder creation
                 $this->logFolderAction($folder, $user, 'created', null, [
                     'name' => $folder->name,
                     'scope' => $folder->scope,
                     'folder_key' => $folder->folder_key,
+                    'target_institutions_count' => count($targetInstitutionIds),
                 ]);
 
                 $createdFolders[] = $folder;

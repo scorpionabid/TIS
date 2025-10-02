@@ -3,7 +3,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import documentCollectionService from '../../services/documentCollectionService';
 import { institutionService } from '../../services/institutions';
 import { REGIONAL_FOLDER_TEMPLATES } from '../../types/documentCollection';
-import { X, Folder } from 'lucide-react';
+import { X, Folder, Building2, Users, Target, Search } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
 interface CreateFolderDialogProps {
   onClose: () => void;
@@ -13,44 +14,70 @@ interface CreateFolderDialogProps {
 interface Institution {
   id: number;
   name: string;
-  level: string;
+  level: number;
+  type?: string;
 }
 
 const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSuccess }) => {
   const { currentUser: user } = useAuth();
-  const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [selectedInstitution, setSelectedInstitution] = useState<number | null>(null);
   const [selectedTemplates, setSelectedTemplates] = useState<string[]>([
     'schedules',
     'action_plans',
     'orders',
   ]);
+  const [targetInstitutions, setTargetInstitutions] = useState<number[]>([]);
+  const [institutionSearch, setInstitutionSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Load all institutions for targeting
+  const { data: institutionsResponse } = useQuery({
+    queryKey: ['institutions-for-folders'],
+    queryFn: () => institutionService.getAll({ per_page: 1000 }),
+  });
+
+  const availableInstitutions: Institution[] = Array.isArray(institutionsResponse?.institutions)
+    ? institutionsResponse.institutions
+    : Array.isArray(institutionsResponse?.data?.data)
+    ? institutionsResponse.data.data
+    : Array.isArray(institutionsResponse?.data)
+    ? institutionsResponse.data
+    : [];
+
+  // Filter institutions based on search
+  const filteredInstitutions = availableInstitutions.filter((institution: Institution) =>
+    institution.name.toLowerCase().includes(institutionSearch.toLowerCase())
+  );
+
   useEffect(() => {
-    loadInstitutions();
-  }, []);
+    loadOwnerInstitution();
+  }, [user]);
 
-  const loadInstitutions = async () => {
-    try {
-      // superadmin sees all level 2 (Regional) institutions
-      // regionadmin sees only their own institution
-      const userRoles = (user as any)?.roles || [];
-      const userRole = (user as any)?.role;
+  const loadOwnerInstitution = () => {
+    const userRoles = (user as any)?.roles || [];
+    const userRole = (user as any)?.role;
+    const isSuperAdmin = userRole === 'superadmin' || (Array.isArray(userRoles) && userRoles.some((r: any) => r.name === 'superadmin'));
 
-      const isSuperAdmin = userRole === 'superadmin' || (Array.isArray(userRoles) && userRoles.some((r: any) => r.name === 'superadmin'));
-
-      if (isSuperAdmin) {
-        const response = await institutionService.getAll();
-        const regionalInstitutions = response.filter(inst => inst.level === '2');
-        setInstitutions(regionalInstitutions);
-      } else if (user?.institution_id) {
-        setSelectedInstitution(user.institution_id);
-      }
-    } catch (err) {
-      console.error('Error loading institutions:', err);
+    // Auto-select institution for RegionAdmin
+    if (!isSuperAdmin && (user as any)?.institution?.id) {
+      setSelectedInstitution((user as any).institution.id);
     }
+  };
+
+  // Helper functions for bulk selection
+  const selectInstitutionsByLevel = (level: number) => {
+    const levelIds = availableInstitutions
+      .filter((inst: Institution) => inst.level === level)
+      .map((inst: Institution) => inst.id);
+    setTargetInstitutions(levelIds);
+  };
+
+  const selectInstitutionsByType = (filterFn: (inst: Institution) => boolean) => {
+    const typeIds = availableInstitutions
+      .filter(filterFn)
+      .map((inst: Institution) => inst.id);
+    setTargetInstitutions(typeIds);
   };
 
   const handleTemplateToggle = (key: string) => {
@@ -72,6 +99,11 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSucc
       return;
     }
 
+    if (targetInstitutions.length === 0) {
+      setError('Zəhmət olmasa ən azı bir hədəf müəssisə seçin');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -83,6 +115,7 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSucc
       await documentCollectionService.createRegionalFolders({
         institution_id: selectedInstitution,
         folder_templates: templates,
+        target_institutions: targetInstitutions,
       });
 
       onSuccess();
@@ -121,7 +154,7 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSucc
             </div>
           )}
 
-          {/* Institution Selection */}
+          {/* Owner Institution Selection (SuperAdmin only) */}
           {(() => {
             const userRoles = (user as any)?.roles || [];
             const userRole = (user as any)?.role;
@@ -130,7 +163,7 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSucc
           })() && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                İnstitusiya (Regional Ofis)
+                Sahib İnstitusiya (Regional Ofis)
               </label>
               <select
                 value={selectedInstitution || ''}
@@ -139,11 +172,13 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSucc
                 required
               >
                 <option value="">Seçin...</option>
-                {institutions.map((inst) => (
-                  <option key={inst.id} value={inst.id}>
-                    {inst.name}
-                  </option>
-                ))}
+                {availableInstitutions
+                  .filter(inst => inst.level === 2)
+                  .map((inst) => (
+                    <option key={inst.id} value={inst.id}>
+                      {inst.name}
+                    </option>
+                  ))}
               </select>
             </div>
           )}
@@ -171,11 +206,118 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSucc
             </div>
           </div>
 
+          {/* Target Institutions Selection */}
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-700">
+              Hədəf Müəssisələr (Faylları yükləyə biləcək müəssisələr)
+            </label>
+
+            {/* Search Input */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Müəssisə adı ilə axtar..."
+                value={institutionSearch}
+                onChange={(e) => setInstitutionSearch(e.target.value)}
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              />
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-4 w-4 text-gray-400" />
+              </div>
+            </div>
+
+            {/* Bulk Selection Buttons */}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setTargetInstitutions(filteredInstitutions.map(inst => inst.id))}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded transition-colors"
+              >
+                <Users size={16} />
+                {institutionSearch ? `Görünənləri seç (${filteredInstitutions.length})` : `Hamısını seç (${availableInstitutions.length})`}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTargetInstitutions([])}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors"
+              >
+                <X size={16} />
+                Hamısını ləğv et
+              </button>
+
+              <button
+                type="button"
+                onClick={() => selectInstitutionsByLevel(3)}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-purple-100 hover:bg-purple-200 text-purple-700 rounded transition-colors"
+              >
+                <Target size={16} />
+                Sektorlar ({availableInstitutions.filter(inst => inst.level === 3).length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => selectInstitutionsByType((inst: Institution) => {
+                  const isSchoolType = ['secondary_school', 'vocational_school'].includes(inst.type || '');
+                  const isSchoolByName = inst.level === 4 && inst.name?.toLowerCase().includes('məktəb');
+                  return isSchoolType || isSchoolByName;
+                })}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-green-100 hover:bg-green-200 text-green-700 rounded transition-colors"
+              >
+                <Building2 size={16} />
+                Məktəblər
+              </button>
+            </div>
+
+            {/* Institutions List */}
+            <div className="border rounded-lg p-3 max-h-48 overflow-y-auto bg-gray-50">
+              {filteredInstitutions.length === 0 ? (
+                <div className="text-center py-4 text-gray-500">
+                  <Building2 className="h-8 w-8 mx-auto mb-2" />
+                  <p className="text-sm">Axtarış nəticəsində müəssisə tapılmadı</p>
+                </div>
+              ) : (
+                filteredInstitutions.map((institution) => (
+                  <div key={institution.id} className="flex items-center gap-2 py-1.5">
+                    <input
+                      type="checkbox"
+                      id={`institution-${institution.id}`}
+                      checked={targetInstitutions.includes(institution.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setTargetInstitutions([...targetInstitutions, institution.id]);
+                        } else {
+                          setTargetInstitutions(targetInstitutions.filter(id => id !== institution.id));
+                        }
+                      }}
+                      className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-2 focus:ring-primary"
+                    />
+                    <label
+                      htmlFor={`institution-${institution.id}`}
+                      className="text-sm cursor-pointer flex-1 flex items-center gap-2"
+                    >
+                      <span>{institution.name}</span>
+                      <span className="text-xs text-gray-500 bg-white px-2 py-0.5 rounded">
+                        Səviyyə {institution.level}
+                      </span>
+                    </label>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {targetInstitutions.length > 0 && (
+              <p className="text-sm text-gray-600">
+                <strong>{targetInstitutions.length}</strong> müəssisə seçildi
+              </p>
+            )}
+          </div>
+
           {/* Info */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm text-blue-800">
-              <strong>Qeyd:</strong> Seçilmiş şablonlar regional institusiya üçün avtomatik yaradılacaq.
-              Bu folderlərə bütün alt məktəblər sənəd yükləyə biləcək.
+              <strong>Qeyd:</strong> Seçilmiş şablonlar regional institusiya üçün yaradılacaq.
+              Yalnız seçilmiş hədəf müəssisələr bu folderlərə sənəd yükləyə biləcək.
             </p>
           </div>
 

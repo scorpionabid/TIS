@@ -71,7 +71,11 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
     return acc;
   }, {} as Record<string, Document[]>);
 
-  const isSchoolAdmin = user?.roles?.some(r => r.name === 'SchoolAdmin');
+  // Support both role (string) and roles (array) formats
+  const userRoles = (user as any)?.roles || [];
+  const userRole = (user as any)?.role;
+  const isSchoolAdmin = userRole === 'schooladmin' ||
+    (Array.isArray(userRoles) && userRoles.some((r: any) => r.name === 'schooladmin'));
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
