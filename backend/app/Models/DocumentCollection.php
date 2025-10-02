@@ -7,10 +7,23 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class DocumentCollection extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
+
+    // Scope types
+    const SCOPE_PERSONAL = 'personal';
+    const SCOPE_REGIONAL = 'regional';
+    const SCOPE_SECTORAL = 'sectoral';
+
+    // Predefined regional folder templates
+    const REGIONAL_TEMPLATES = [
+        'schedules' => 'Cədvəl',
+        'action_plans' => 'Fəaliyyət Planı',
+        'orders' => 'Əmrlər',
+    ];
 
     protected $fillable = [
         'name',
@@ -23,12 +36,25 @@ class DocumentCollection extends Model
         'is_public',
         'allowed_roles',
         'sort_order',
+        'scope',
+        'folder_key',
+        'is_system_folder',
+        'owner_institution_id',
+        'owner_institution_level',
+        'allow_school_upload',
+        'is_locked',
     ];
 
     protected $casts = [
         'is_public' => 'boolean',
         'allowed_roles' => 'array',
         'sort_order' => 'integer',
+        'is_system_folder' => 'boolean',
+        'allow_school_upload' => 'boolean',
+        'is_locked' => 'boolean',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'deleted_at' => 'datetime',
     ];
 
     /**
@@ -56,6 +82,14 @@ class DocumentCollection extends Model
     }
 
     /**
+     * Owner institution relationship
+     */
+    public function ownerInstitution(): BelongsTo
+    {
+        return $this->belongsTo(Institution::class, 'owner_institution_id');
+    }
+
+    /**
      * Documents relationship through collection items
      */
     public function documents(): BelongsToMany
@@ -64,6 +98,14 @@ class DocumentCollection extends Model
                     ->withPivot(['added_by', 'sort_order', 'notes', 'created_at'])
                     ->withTimestamps()
                     ->orderBy('document_collection_items.sort_order');
+    }
+
+    /**
+     * Audit logs relationship
+     */
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(FolderAuditLog::class, 'folder_id');
     }
 
     /**
@@ -83,11 +125,14 @@ class DocumentCollection extends Model
     }
 
     /**
-     * Scope: For institution
+     * Scope: For institution (checks both institution_id and owner_institution_id)
      */
     public function scopeForInstitution($query, int $institutionId)
     {
-        return $query->where('institution_id', $institutionId);
+        return $query->where(function($q) use ($institutionId) {
+            $q->where('institution_id', $institutionId)
+              ->orWhere('owner_institution_id', $institutionId);
+        });
     }
 
     /**
@@ -178,5 +223,29 @@ class DocumentCollection extends Model
             'file_types' => $fileTypes,
             'last_updated' => $this->updated_at,
         ];
+    }
+
+    /**
+     * Scope: Regional folders
+     */
+    public function scopeRegional($query)
+    {
+        return $query->where('scope', self::SCOPE_REGIONAL);
+    }
+
+    /**
+     * Scope: Sectoral folders
+     */
+    public function scopeSectoral($query)
+    {
+        return $query->where('scope', self::SCOPE_SECTORAL);
+    }
+
+    /**
+     * Scope: System folders
+     */
+    public function scopeSystemFolders($query)
+    {
+        return $query->where('is_system_folder', true);
     }
 }

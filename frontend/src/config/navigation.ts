@@ -29,6 +29,7 @@ import {
   CheckCircle,
   TrendingUp,
   Archive,
+  Folder,
   LucideIcon,
 } from 'lucide-react';
 import { UserRole, USER_ROLES } from '@/constants/roles';
@@ -535,6 +536,14 @@ export const improvedNavigationConfig: MenuGroup[] = [
         icon: Archive,
         roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
         description: 'Linklər və sənədlərin vahid idarə edilməsi'
+      },
+      {
+        id: 'regional-folders',
+        label: 'Regional Folderlər',
+        path: '/regionadmin/folders',
+        icon: Folder,
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
+        description: 'Regional folderlərin idarə edilməsi - Cədvəl, Fəaliyyət Planı, Əmrlər'
       },
       {
         id: 'my-resources',

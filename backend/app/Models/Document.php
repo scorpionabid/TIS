@@ -7,12 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class Document extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'title',
@@ -48,6 +49,7 @@ class Document extends Model
         'archived_at',
         'metadata',
         'content_preview',
+        'cascade_deletable',
     ];
 
     protected $casts = [
@@ -62,7 +64,9 @@ class Document extends Model
         'is_public' => 'boolean',
         'is_downloadable' => 'boolean',
         'is_viewable_online' => 'boolean',
+        'cascade_deletable' => 'boolean',
         'expires_at' => 'datetime',
+        'deleted_at' => 'datetime',
         'published_at' => 'datetime',
         'archived_at' => 'datetime',
         'metadata' => 'array',

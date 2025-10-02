@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DocumentControllerRefactored as DocumentController;
+use App\Http\Controllers\DocumentCollectionController;
 use App\Http\Controllers\DocumentShareController;
 use App\Http\Controllers\TaskControllerRefactored as TaskController;
 use App\Http\Controllers\NotificationController;
@@ -14,6 +15,22 @@ use Illuminate\Support\Facades\Route;
 | Routes for document management, sharing, tasks, and notifications
 |
 */
+
+// Document Collection (Folder) Management Routes
+Route::prefix('document-collections')->group(function () {
+    Route::get('/', [DocumentCollectionController::class, 'index'])->middleware('permission:documents.read');
+    Route::get('/{folder}', [DocumentCollectionController::class, 'show'])->middleware('permission:documents.read');
+    Route::post('/regional', [DocumentCollectionController::class, 'createRegionalFolders'])
+        ->middleware('permission:documents.create');
+    Route::put('/{folder}', [DocumentCollectionController::class, 'update'])
+        ->middleware('permission:documents.update');
+    Route::delete('/{folder}', [DocumentCollectionController::class, 'destroy'])
+        ->middleware('permission:documents.delete');
+    Route::get('/{folder}/download', [DocumentCollectionController::class, 'bulkDownload'])
+        ->middleware('permission:documents.read');
+    Route::get('/{folder}/audit-logs', [DocumentCollectionController::class, 'auditLogs'])
+        ->middleware('permission:documents.read');
+});
 
 // Document Management Routes
 Route::prefix('documents')->group(function () {
