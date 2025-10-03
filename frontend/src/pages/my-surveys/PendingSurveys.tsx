@@ -26,11 +26,12 @@ const PendingSurveys: React.FC = () => {
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('pending');
 
-  const { data: surveys = [], isLoading, error } = useQuery({
+  const { data: surveys = [], isLoading, error } = useQuery<SurveyWithStatus[]>({
     queryKey: ['pending-surveys'],
     queryFn: async () => {
       const response = await surveyService.getAssignedSurveys();
-      return response.data.filter((survey: SurveyWithStatus) =>
+      // Add type assertion to ensure TypeScript understands the response structure
+      return (response as { data: SurveyWithStatus[] }).data.filter((survey) =>
         survey.response_status === 'not_started' || survey.response_status === 'overdue'
       );
     },
@@ -117,54 +118,62 @@ const PendingSurveys: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Gözləyən Sorğular</h1>
-        <p className="text-gray-600 mt-1">
-          Sizə təyin edilmiş və cavablandırılmağı gözləyən sorğular
-        </p>
-      </div>
-
+      <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">Gözləyən Sorğular</h2>
+      
       {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Sorğu axtarın..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Prioritet" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Bütün prioritetlər</SelectItem>
-                <SelectItem value="high">Yüksək</SelectItem>
-                <SelectItem value="medium">Orta</SelectItem>
-                <SelectItem value="low">Aşağı</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Bütün gözləyənlər</SelectItem>
-                <SelectItem value="not_started">Başlanmamış</SelectItem>
-                <SelectItem value="overdue">Gecikmiş</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Axtarış */}
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Axtarış..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8 py-1 h-9 text-sm border-gray-300 focus:border-gray-400 focus:ring-1 focus:ring-gray-400"
+          />
+        </div>
+        
+        {/* Prioritet Filtri */}
+        <div className="flex items-center bg-gray-100 p-1 rounded-md">
+          {['all', 'high', 'medium', 'low'].map((priority) => (
+            <button
+              key={priority}
+              onClick={() => setPriorityFilter(priority)}
+              className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                priorityFilter === priority 
+                  ? 'bg-white shadow-sm border border-gray-200' 
+                  : 'text-gray-700 hover:bg-white/50'
+              }`}
+            >
+              {priority === 'all' && 'Hamısı'}
+              {priority === 'high' && 'Yüksək'}
+              {priority === 'medium' && 'Orta'}
+              {priority === 'low' && 'Aşağı'}
+            </button>
+          ))}
+        </div>
+        
+        {/* Status Filtri */}
+        <div className="flex items-center bg-gray-100 p-1 rounded-md">
+          {['pending', 'not_started', 'overdue'].map((status) => (
+            <button
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                statusFilter === status 
+                  ? 'bg-white shadow-sm border border-gray-200' 
+                  : 'text-gray-700 hover:bg-white/50'
+              }`}
+            >
+              {status === 'pending' && 'Hamısı'}
+              {status === 'not_started' && 'Başlanmamış'}
+              {status === 'overdue' && 'Gecikmiş'}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Survey List */}
       {filteredSurveys.length === 0 ? (
