@@ -542,8 +542,16 @@ export const improvedNavigationConfig: MenuGroup[] = [
         label: 'Regional Folderlər',
         path: '/regionadmin/folders',
         icon: Folder,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN],
         description: 'Regional folderlərin idarə edilməsi - Cədvəl, Fəaliyyət Planı, Əmrlər'
+      },
+      {
+        id: 'my-documents',
+        label: 'Mənim Fayllarım',
+        path: '/my-documents',
+        icon: FileText,
+        roles: [USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
+        description: 'Sizin üçün yaradılmış folderlər və sənədlər'
       },
       {
         id: 'my-resources',

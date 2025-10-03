@@ -74,6 +74,9 @@ const TeacherSchedule = lazy(() => import("./pages/teacher/TeacherSchedule"));
 const PendingSurveys = lazy(() => import("./pages/my-surveys/PendingSurveys"));
 const MyResponses = lazy(() => import("./pages/my-surveys/MyResponses"));
 
+// My Documents page (for school/sector admins)
+const MyDocuments = lazy(() => import("./pages/MyDocuments"));
+
 // Advanced Schedule Management pages
 const ScheduleBuilderPage = lazy(() => import("./components/schedules/ScheduleBuilderPage"));
 const RegionalSchedulesDashboard = lazy(() => import("./components/schedules/RegionalSchedulesDashboard"));
@@ -405,6 +408,9 @@ const App = () => {
               <Route path="regionadmin/reports/*" element={<div className="p-6"><h1>Regional Reports</h1><p>Hazırlanmaqdadır...</p></div>} />
               <Route path="regionadmin/settings/*" element={<div className="p-6"><h1>Regional Settings</h1><p>Hazırlanmaqdadır...</p></div>} />
               <Route path="regionadmin/schedules" element={<LazyWrapper><RegionSchedules /></LazyWrapper>} />
+
+              {/* My Documents - For SchoolAdmin and SektorAdmin */}
+              <Route path="my-documents" element={<LazyWrapper><MyDocuments /></LazyWrapper>} />
               
               {/* SchoolAdmin Routes */}
               <Route path="school/tasks" element={
