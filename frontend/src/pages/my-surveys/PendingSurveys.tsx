@@ -29,9 +29,11 @@ interface SurveyWithStatus extends Survey {
 
 const PendingSurveys: React.FC = () => {
   const navigate = useNavigate();
+  // State for filters
   const [searchTerm, setSearchTerm] = useState('');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('pending');
+  const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'not_started' | 'in_progress' | 'overdue'>('all');
+  const [showFilters, setShowFilters] = useState(false);
 
   const { data: apiResponse, isLoading, error } = useQuery({
     queryKey: ['pending-surveys'],
@@ -84,16 +86,36 @@ const PendingSurveys: React.FC = () => {
     });
   }, [apiResponse]);
 
+  // Filter surveys based on active filters
   const filteredSurveys = surveys.filter((survey: SurveyWithStatus) => {
-    const matchesSearch = survey.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         survey.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    // Search filter
+    const matchesSearch = searchTerm === '' || 
+      survey.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (survey.description?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
+    
+    // Priority filter
     const matchesPriority = priorityFilter === 'all' || survey.priority === priorityFilter;
-    const matchesStatus = statusFilter === 'pending' ||
-                         (statusFilter === 'overdue' && survey.response_status === 'overdue') ||
-                         (statusFilter === 'not_started' && survey.response_status === 'not_started');
+    
+    // Status filter
+    const matchesStatus = statusFilter === 'all' || 
+      (statusFilter === 'overdue' && survey.response_status === 'overdue') ||
+      (statusFilter === 'not_started' && survey.response_status === 'not_started') ||
+      (statusFilter === 'in_progress' && survey.response_status === 'in_progress');
 
     return matchesSearch && matchesPriority && matchesStatus;
   });
+
+  // Reset all filters
+  const resetFilters = () => {
+    setSearchTerm('');
+    setPriorityFilter('all');
+    setStatusFilter('all');
+  };
+
+  // Check if any filter is active
+  const isFilterActive = searchTerm !== '' || 
+    priorityFilter !== 'all' || 
+    statusFilter !== 'all';
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -181,56 +203,157 @@ const PendingSurveys: React.FC = () => {
       <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">Gözləyən Sorğular</h2>
       
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        {/* Axtarış */}
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Axtarış..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8 py-1 h-9 text-sm border-gray-300 focus:border-gray-400 focus:ring-1 focus:ring-gray-400"
-          />
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Search Input */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Sorğu adı və ya təsviri ilə axtarış..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8 py-1 h-9 text-sm border-gray-300 focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+            />
+          </div>
+          
+          {/* Toggle Filters Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-1.5 h-9"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+              <path d="M3 6h18"></path>
+              <path d="M6 12h12"></path>
+              <path d="M9 18h6"></path>
+            </svg>
+            Filtrlər
+            {isFilterActive && (
+              <span className="ml-1 w-5 h-5 flex items-center justify-center bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+                {[searchTerm, priorityFilter, statusFilter].filter(Boolean).length - 1}
+              </span>
+            )}
+          </Button>
+          
+          {isFilterActive && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={resetFilters}
+              className="h-9 text-sm text-gray-600 hover:text-gray-900"
+            >
+              Təmizlə
+            </Button>
+          )}
         </div>
         
-        {/* Prioritet Filtri */}
-        <div className="flex items-center bg-gray-100 p-1 rounded-md">
-          {['all', 'high', 'medium', 'low'].map((priority) => (
-            <button
-              key={priority}
-              onClick={() => setPriorityFilter(priority)}
-              className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                priorityFilter === priority 
-                  ? 'bg-white shadow-sm border border-gray-200' 
-                  : 'text-gray-700 hover:bg-white/50'
-              }`}
-            >
-              {priority === 'all' && 'Hamısı'}
-              {priority === 'high' && 'Yüksək'}
-              {priority === 'medium' && 'Orta'}
-              {priority === 'low' && 'Aşağı'}
-            </button>
-          ))}
-        </div>
+        {/* Expanded Filters */}
+        {showFilters && (
+          <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Priority Filter */}
+              <div>
+                <h4 className="text-xs font-medium text-gray-500 mb-2">Prioritet</h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { value: 'all', label: 'Hamısı' },
+                    { value: 'high', label: 'Yüksək' },
+                    { value: 'medium', label: 'Orta' },
+                    { value: 'low', label: 'Aşağı' }
+                  ].map(({ value, label }) => (
+                    <button
+                      key={value}
+                      onClick={() => setPriorityFilter(value as any)}
+                      className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                        priorityFilter === value
+                          ? 'bg-white shadow-sm border border-gray-200 font-medium text-blue-700'
+                          : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Status Filter */}
+              <div>
+                <h4 className="text-xs font-medium text-gray-500 mb-2">Status</h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { value: 'all', label: 'Hamısı' },
+                    { value: 'not_started', label: 'Başlanmayıb' },
+                    { value: 'in_progress', label: 'Davam edir' },
+                    { value: 'overdue', label: 'Gecikmiş' }
+                  ].map(({ value, label }) => (
+                    <button
+                      key={value}
+                      onClick={() => setStatusFilter(value as any)}
+                      className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                        statusFilter === value
+                          ? 'bg-white shadow-sm border border-gray-200 font-medium text-blue-700'
+                          : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         
-        {/* Status Filtri */}
-        <div className="flex items-center bg-gray-100 p-1 rounded-md">
-          {['pending', 'not_started', 'overdue'].map((status) => (
-            <button
-              key={status}
-              onClick={() => setStatusFilter(status)}
-              className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                statusFilter === status 
-                  ? 'bg-white shadow-sm border border-gray-200' 
-                  : 'text-gray-700 hover:bg-white/50'
-              }`}
-            >
-              {status === 'pending' && 'Hamısı'}
-              {status === 'not_started' && 'Başlanmamış'}
-              {status === 'overdue' && 'Gecikmiş'}
-            </button>
-          ))}
-        </div>
+        {/* Active Filters */}
+        {isFilterActive && (
+          <div className="flex flex-wrap items-center gap-2">
+            {searchTerm && (
+              <div className="flex items-center bg-blue-50 text-blue-700 text-sm px-3 py-1 rounded-full">
+                <span className="mr-1">Açar söz:</span>
+                <span className="font-medium">{searchTerm}</span>
+                <button 
+                  onClick={() => setSearchTerm('')}
+                  className="ml-2 text-blue-500 hover:text-blue-700"
+                >
+                  &times;
+                </button>
+              </div>
+            )}
+            
+            {priorityFilter !== 'all' && (
+              <div className="flex items-center bg-blue-50 text-blue-700 text-sm px-3 py-1 rounded-full">
+                <span className="mr-1">Prioritet:</span>
+                <span className="font-medium">
+                  {priorityFilter === 'high' ? 'Yüksək' : 
+                   priorityFilter === 'medium' ? 'Orta' : 'Aşağı'}
+                </span>
+                <button 
+                  onClick={() => setPriorityFilter('all')}
+                  className="ml-2 text-blue-500 hover:text-blue-700"
+                >
+                  &times;
+                </button>
+              </div>
+            )}
+            
+            {statusFilter !== 'all' && (
+              <div className="flex items-center bg-blue-50 text-blue-700 text-sm px-3 py-1 rounded-full">
+                <span className="mr-1">Status:</span>
+                <span className="font-medium">
+                  {statusFilter === 'not_started' ? 'Başlanmayıb' : 
+                   statusFilter === 'in_progress' ? 'Davam edir' : 'Gecikmiş'}
+                </span>
+                <button 
+                  onClick={() => setStatusFilter('all')}
+                  className="ml-2 text-blue-500 hover:text-blue-700"
+                >
+                  &times;
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Survey List */}
