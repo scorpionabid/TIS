@@ -38,7 +38,7 @@ export default function MyResources() {
   const queryClient = useQueryClient();
 
   // State
-  const [activeTab, setActiveTab] = useState<'all' | 'links' | 'documents' | 'folders'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'links' | 'documents'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFolder, setSelectedFolder] = useState<DocumentCollection | null>(null);
 
@@ -69,7 +69,7 @@ export default function MyResources() {
   // Fetch assigned resources
   const { data: assignedResources, isLoading, error, refetch } = useQuery({
     queryKey: ['assigned-resources', {
-      type: activeTab === 'all' || activeTab === 'folders' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
+      type: activeTab === 'all' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
       search: searchTerm || undefined,
     }],
     queryFn: async () => {
@@ -80,14 +80,14 @@ export default function MyResources() {
         activeTab,
         searchTerm,
         queryParams: {
-          type: activeTab === 'all' || activeTab === 'folders' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
+          type: activeTab === 'all' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
           search: searchTerm || undefined,
           per_page: 50
         }
       });
 
       const result = await resourceService.getAssignedResources({
-        type: activeTab === 'all' || activeTab === 'folders' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
+        type: activeTab === 'all' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
         search: searchTerm || undefined,
         per_page: 50
       });
@@ -236,16 +236,16 @@ export default function MyResources() {
   const unviewedResourcesCount = resourcesData.filter(r => !r.viewed_at).length;
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
+    <div className="p-6 space-y-8">
+      {/* Page Header */}
+      <div className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Mənim Resurslarım</h1>
-          <p className="text-muted-foreground">
-            Sizə təyin edilmiş linklər və sənədlər
+          <p className="text-muted-foreground mt-1">
+            Sizə təyin edilmiş resurslar və paylaşılan folderlər
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           {newResourcesCount > 0 && (
             <Badge variant="destructive" className="flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />
@@ -261,201 +261,224 @@ export default function MyResources() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              type="text"
-              placeholder="Resurs axtarın..."
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+      {/* SECTION 1: Assigned Resources */}
+      <Card className="border-2">
+        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle className="text-xl flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-blue-600" />
+                Mənə Təyin Edilmiş Resurslar
+              </CardTitle>
+              <CardDescription className="mt-2">
+                Administratorlar tərəfindən sizə göndərilmiş linklər və sənədlər.
+                Bu resursları görüntüləyə, yükləyə və ya açıla bilərsiniz.
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="text-center px-3 py-1 bg-white rounded-lg shadow-sm">
+                <div className="text-2xl font-bold text-blue-600">{resourcesData.length}</div>
+                <div className="text-xs text-muted-foreground">Ümumi</div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-bold text-primary">{resourcesData.length}</div>
-                <div className="text-sm text-muted-foreground">Ümumi Resurslər</div>
-              </div>
-              <BookOpen className="h-8 w-8 text-primary opacity-50" />
+        </CardHeader>
+        <CardContent className="pt-6">
+          {/* Search */}
+          <div className="mb-6">
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                type="text"
+                placeholder="Resurs axtarın..."
+                className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-bold text-blue-600">
-                  {resourcesData.filter(r => r.type === 'link').length}
-                </div>
-                <div className="text-sm text-muted-foreground">Linklər</div>
-              </div>
-              <Link className="h-8 w-8 text-blue-600 opacity-50" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-bold text-green-600">
-                  {resourcesData.filter(r => r.type === 'document').length}
-                </div>
-                <div className="text-sm text-muted-foreground">Sənədlər</div>
-              </div>
-              <FileText className="h-8 w-8 text-green-600 opacity-50" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {canViewFolders && (
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-2xl font-bold text-purple-600">
-                    {folders?.length || 0}
-                  </div>
-                  <div className="text-sm text-muted-foreground">Folderlər</div>
-                </div>
-                <Folder className="h-8 w-8 text-purple-600 opacity-50" />
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-bold text-red-600">{newResourcesCount}</div>
-                <div className="text-sm text-muted-foreground">Yeni</div>
-              </div>
-              <AlertCircle className="h-8 w-8 text-red-600 opacity-50" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tabbed Content */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
-        <TabsList className={`grid w-full ${canViewFolders ? 'grid-cols-4' : 'grid-cols-3'}`}>
-          <TabsTrigger value="all">Hamısı ({resourcesData.length})</TabsTrigger>
-          <TabsTrigger value="links">Linklər ({resourcesData.filter(r => r.type === 'link').length})</TabsTrigger>
-          <TabsTrigger value="documents">Sənədlər ({resourcesData.filter(r => r.type === 'document').length})</TabsTrigger>
-          {canViewFolders && (
-            <TabsTrigger value="folders">Folderlər ({folders?.length || 0})</TabsTrigger>
-          )}
-        </TabsList>
-
-        <TabsContent value="all" className="mt-6">
-          <AssignedResourceGrid resources={resourcesData} onResourceAction={handleResourceAction} />
-        </TabsContent>
-
-        <TabsContent value="links" className="mt-6">
-          <AssignedResourceGrid
-            resources={resourcesData.filter(r => r.type === 'link')}
-            onResourceAction={handleResourceAction}
-          />
-        </TabsContent>
-
-        <TabsContent value="documents" className="mt-6">
-          <AssignedResourceGrid
-            resources={resourcesData.filter(r => r.type === 'document')}
-            onResourceAction={handleResourceAction}
-          />
-        </TabsContent>
-
-        <TabsContent value="folders" className="mt-6">
-          {isFoldersLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                <p className="text-muted-foreground">Folderlər yüklənir...</p>
-              </div>
-            </div>
-          ) : folders && folders.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {folders.map((folder: any) => (
-                <Card
-                  key={folder.id}
-                  onClick={() => setSelectedFolder(folder)}
-                  className="cursor-pointer hover:shadow-md hover:border-primary transition-all group"
-                >
-                  <CardHeader>
-                    <div className="flex items-start gap-4">
-                      <div className="p-3 bg-blue-50 rounded-lg group-hover:bg-blue-100 transition-colors">
-                        <Folder className="text-blue-600" size={28} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <CardTitle className="text-lg truncate group-hover:text-primary transition-colors">
-                          {folder.name}
-                        </CardTitle>
-                        {folder.description && (
-                          <CardDescription className="line-clamp-2">
-                            {folder.description}
-                          </CardDescription>
-                        )}
-                      </div>
+          {/* Statistics */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <Card className="bg-blue-50 border-blue-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-2xl font-bold text-blue-700">
+                      {resourcesData.filter(r => r.type === 'link').length}
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 pt-2 border-t border-gray-100">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground flex items-center gap-2">
-                          <FileText size={16} />
-                          Sənədlər
-                        </span>
-                        <span className="font-semibold text-foreground">
-                          {folder.documents_count || 0}
-                        </span>
-                      </div>
+                    <div className="text-sm text-blue-600">Təyin Edilmiş Linklər</div>
+                  </div>
+                  <Link className="h-8 w-8 text-blue-600 opacity-50" />
+                </div>
+              </CardContent>
+            </Card>
 
-                      {(folder.owner_institution || folder.ownerInstitution) && (
+            <Card className="bg-green-50 border-green-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-2xl font-bold text-green-700">
+                      {resourcesData.filter(r => r.type === 'document').length}
+                    </div>
+                    <div className="text-sm text-green-600">Təyin Edilmiş Sənədlər</div>
+                  </div>
+                  <FileText className="h-8 w-8 text-green-600 opacity-50" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-red-50 border-red-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-2xl font-bold text-red-700">{newResourcesCount}</div>
+                    <div className="text-sm text-red-600">Yeni Resurslar</div>
+                  </div>
+                  <AlertCircle className="h-8 w-8 text-red-600 opacity-50" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Assigned Resources Tabs */}
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="all">
+                Hamısı ({resourcesData.length})
+              </TabsTrigger>
+              <TabsTrigger value="links">
+                Linklər ({resourcesData.filter(r => r.type === 'link').length})
+              </TabsTrigger>
+              <TabsTrigger value="documents">
+                Sənədlər ({resourcesData.filter(r => r.type === 'document').length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="all" className="mt-6">
+              <AssignedResourceGrid resources={resourcesData} onResourceAction={handleResourceAction} />
+            </TabsContent>
+
+            <TabsContent value="links" className="mt-6">
+              <AssignedResourceGrid
+                resources={resourcesData.filter(r => r.type === 'link')}
+                onResourceAction={handleResourceAction}
+              />
+            </TabsContent>
+
+            <TabsContent value="documents" className="mt-6">
+              <AssignedResourceGrid
+                resources={resourcesData.filter(r => r.type === 'document')}
+                onResourceAction={handleResourceAction}
+              />
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      {/* SECTION 2: Shared Folders (Only for SektorAdmin and SchoolAdmin) */}
+      {canViewFolders && (
+        <Card className="border-2">
+          <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 border-b">
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle className="text-xl flex items-center gap-2">
+                  <Folder className="h-5 w-5 text-purple-600" />
+                  Paylaşılan Folderlər
+                </CardTitle>
+                <CardDescription className="mt-2">
+                  Regional administratorlar tərəfindən yaradılmış folderlər.
+                  Bu folderlərə sənəd yükləyə və mövcud sənədləri görə bilərsiniz.
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-center px-3 py-1 bg-white rounded-lg shadow-sm">
+                  <div className="text-2xl font-bold text-purple-600">{folders?.length || 0}</div>
+                  <div className="text-xs text-muted-foreground">Folder</div>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            {isFoldersLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Folderlər yüklənir...</p>
+                </div>
+              </div>
+            ) : folders && folders.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {folders.map((folder: any) => (
+                  <Card
+                    key={folder.id}
+                    onClick={() => setSelectedFolder(folder)}
+                    className="cursor-pointer hover:shadow-lg hover:border-purple-300 transition-all group"
+                  >
+                    <CardHeader>
+                      <div className="flex items-start gap-4">
+                        <div className="p-3 bg-purple-50 rounded-lg group-hover:bg-purple-100 transition-colors">
+                          <Folder className="text-purple-600" size={28} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-lg truncate group-hover:text-purple-600 transition-colors">
+                            {folder.name}
+                          </CardTitle>
+                          {folder.description && (
+                            <CardDescription className="line-clamp-2">
+                              {folder.description}
+                            </CardDescription>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 pt-2 border-t border-gray-100">
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Sahibi</span>
-                          <span className="font-medium text-foreground truncate ml-2 max-w-[180px]">
-                            {(folder.owner_institution || folder.ownerInstitution)?.name}
+                          <span className="text-muted-foreground flex items-center gap-2">
+                            <FileText size={16} />
+                            Sənədlər
+                          </span>
+                          <span className="font-semibold text-foreground">
+                            {folder.documents_count || 0}
                           </span>
                         </div>
-                      )}
 
-                      <div className="flex items-center gap-2 pt-2 mt-2 border-t border-gray-100">
-                        <Upload size={14} className="text-green-600" />
-                        <span className="text-xs text-green-700 font-medium">
-                          Fayl yükləyə bilərsiniz
-                        </span>
+                        {(folder.owner_institution || folder.ownerInstitution) && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Sahibi</span>
+                            <span className="font-medium text-foreground truncate ml-2 max-w-[180px]">
+                              {(folder.owner_institution || folder.ownerInstitution)?.name}
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2 pt-2 mt-2 border-t border-gray-100">
+                          <Upload size={14} className="text-green-600" />
+                          <span className="text-xs text-green-700 font-medium">
+                            Fayl yükləyə bilərsiniz
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-              <Folder className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Hələ heç bir folder yoxdur
-              </h3>
-              <p className="text-muted-foreground max-w-md mx-auto">
-                Sizin üçün yaradılmış folder olmadıqda, bu siyahı boş olacaq.
-                Regional adminlər tərəfindən folder yaradıldıqda burada görünəcək.
-              </p>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 bg-purple-50 rounded-lg border-2 border-dashed border-purple-300">
+                <Folder className="mx-auto h-16 w-16 text-purple-400 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Hələ heç bir folder yoxdur
+                </h3>
+                <p className="text-muted-foreground max-w-md mx-auto">
+                  Sizin üçün yaradılmış folder olmadıqda, bu siyahı boş olacaq.
+                  Regional adminlər tərəfindən folder yaradıldıqda burada görünəcək.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Folder Documents Modal */}
       {selectedFolder && (

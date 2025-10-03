@@ -534,7 +534,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
         label: 'Resurs İdarəetməsi',
         path: '/resources',
         icon: Archive,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN],
         description: 'Linklər, sənədlər və folderlərin paylaşılması'
       },
       {
@@ -543,7 +543,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
         path: '/my-resources',
         icon: Folder,
         roles: [USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM],
-        description: 'Mənə təyin edilmiş linklər, sənədlər və folderlər'
+        description: 'Sizə təyin edilmiş resurslar və paylaşılan folderlər'
       }
     ]
   },
