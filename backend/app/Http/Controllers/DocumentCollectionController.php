@@ -264,4 +264,57 @@ class DocumentCollectionController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Upload document to folder
+     */
+    public function uploadDocument(Request $request, DocumentCollection $folder): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'file' => 'required|file|max:102400', // Max 100MB
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        try {
+            // Check if user's institution is in target institutions
+            $user = $request->user();
+            $userInstitutionId = $user->institution_id;
+
+            $isTargetInstitution = $folder->targetInstitutions()
+                ->where('institution_id', $userInstitutionId)
+                ->exists();
+
+            if (!$isTargetInstitution) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Your institution is not authorized to upload to this folder',
+                ], 403);
+            }
+
+            $document = $this->service->uploadDocumentToFolder(
+                $folder,
+                $request->file('file'),
+                $user
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Document uploaded successfully',
+                'data' => $document,
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to upload document',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }

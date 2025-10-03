@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('folder_id')->constrained('document_collections')->onDelete('cascade');
             $table->foreignId('user_id')->nullable()->constrained()->onDelete('set null');
-            $table->enum('action', ['created', 'updated', 'deleted', 'renamed', 'bulk_downloaded', 'documents_deleted']);
+            $table->enum('action', ['created', 'updated', 'deleted', 'renamed', 'bulk_downloaded', 'documents_deleted', 'document_uploaded', 'document_deleted']);
             $table->json('old_data')->nullable(); // Store old state before change
             $table->json('new_data')->nullable(); // Store new state after change
             $table->text('reason')->nullable(); // User-provided reason for action

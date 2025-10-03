@@ -82,6 +82,32 @@ class DocumentCollectionService {
   }
 
   /**
+   * Upload document to folder
+   */
+  async uploadDocument(folderId: number, file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await api.post(
+      `${this.basePath}/${folderId}/documents`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return (response as any).data;
+  }
+
+  /**
+   * Delete document from folder
+   */
+  async deleteDocument(documentId: number): Promise<void> {
+    await api.delete(`/documents/${documentId}`);
+  }
+
+  /**
    * Download blob as file
    */
   downloadFile(blob: Blob, fileName: string): void {

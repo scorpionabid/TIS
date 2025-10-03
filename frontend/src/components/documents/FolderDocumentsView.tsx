@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import documentCollectionService from '../../services/documentCollectionService';
 import type { DocumentCollection, Document, FolderWithDocuments } from '../../types/documentCollection';
-import { X, FileText, Download, Building2, User, Calendar } from 'lucide-react';
+import { X, FileText, Download, Building2, User, Calendar, Upload, Trash2 } from 'lucide-react';
 
 interface FolderDocumentsViewProps {
   folder: DocumentCollection;
@@ -14,6 +14,8 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   useEffect(() => {
     loadDocuments();
@@ -53,12 +55,70 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
 
   const handleDownload = async (document: Document) => {
     try {
-      // This would use the existing document download endpoint
       window.open(`/api/documents/${document.id}/download`, '_blank');
     } catch (err) {
       console.error('Error downloading document:', err);
       alert('Sənəd yüklənərkən xəta baş verdi');
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+      handleUpload(e.target.files[0]);
+    }
+  };
+
+  const handleUpload = async (file: File) => {
+    if (!file) return;
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      await documentCollectionService.uploadDocument(folder.id, file);
+      setSelectedFile(null);
+      await loadDocuments();
+      alert('Fayl uğurla yükləndi');
+    } catch (err: any) {
+      console.error('Error uploading file:', err);
+      setError(err.response?.data?.message || 'Fayl yüklənərkən xəta baş verdi');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDelete = async (documentId: number) => {
+    if (!confirm('Bu sənədi silmək istədiyinizdən əminsiniz?')) {
+      return;
+    }
+
+    try {
+      await documentCollectionService.deleteDocument(documentId);
+      await loadDocuments();
+      alert('Sənəd uğurla silindi');
+    } catch (err: any) {
+      console.error('Error deleting document:', err);
+      alert(err.response?.data?.message || 'Sənəd silinərkən xəta baş verdi');
+    }
+  };
+
+  // Check if user can upload to this folder
+  const canUpload = () => {
+    if (!user || !folder) return false;
+
+    const userInstitutionId = (user as any)?.institution?.id || (user as any)?.institution_id;
+    if (!userInstitutionId) return false;
+
+    // Check if user's institution is in target institutions
+    const targetInstitutions = (folder as any)?.targetInstitutions || [];
+    return targetInstitutions.some((inst: any) => inst.id === userInstitutionId);
+  };
+
+  // Check if user can delete a document (only own documents)
+  const canDelete = (document: Document) => {
+    if (!user) return false;
+    return document.user_id === user.id;
   };
 
   // Group documents by institution (for SektorAdmin and RegionAdmin)
@@ -86,12 +146,26 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
             <h2 className="text-2xl font-semibold text-gray-900">{folder.name}</h2>
             <p className="text-gray-600 mt-1">{folder.description || 'Folder sənədləri'}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X size={24} />
-          </button>
+          <div className="flex items-center gap-3">
+            {canUpload() && (
+              <label className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors cursor-pointer">
+                <Upload size={20} />
+                {uploading ? 'Yüklənir...' : 'Fayl Yüklə'}
+                <input
+                  type="file"
+                  onChange={handleFileSelect}
+                  disabled={uploading}
+                  className="hidden"
+                />
+              </label>
+            )}
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X size={24} />
+            </button>
+          </div>
         </div>
 
         {/* Body */}
@@ -134,13 +208,24 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
                         </div>
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleDownload(doc)}
-                      className="flex items-center gap-2 px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded transition-colors ml-4"
-                    >
-                      <Download size={16} />
-                      Yüklə
-                    </button>
+                    <div className="flex items-center gap-2 ml-4">
+                      <button
+                        onClick={() => handleDownload(doc)}
+                        className="flex items-center gap-2 px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded transition-colors"
+                      >
+                        <Download size={16} />
+                        Yüklə
+                      </button>
+                      {canDelete(doc) && (
+                        <button
+                          onClick={() => handleDelete(doc.id)}
+                          className="flex items-center gap-2 px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors"
+                        >
+                          <Trash2 size={16} />
+                          Sil
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -180,16 +265,28 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
                             </div>
                           </div>
                         </div>
-                        <button
-                          onClick={() => handleDownload(doc)}
-                          className="flex items-center gap-2 px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded transition-colors ml-4"
-                        >
-                          <Download size={16} />
-                          Yüklə
-                        </button>
+                        <div className="flex items-center gap-2 ml-4">
+                          <button
+                            onClick={() => handleDownload(doc)}
+                            className="flex items-center gap-2 px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded transition-colors"
+                          >
+                            <Download size={16} />
+                            Yüklə
+                          </button>
+                          {canDelete(doc) && (
+                            <button
+                              onClick={() => handleDelete(doc.id)}
+                              className="flex items-center gap-2 px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors"
+                            >
+                              <Trash2 size={16} />
+                              Sil
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
+
                 </div>
               ))}
             </div>

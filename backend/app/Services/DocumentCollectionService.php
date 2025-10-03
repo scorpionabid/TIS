@@ -267,6 +267,47 @@ class DocumentCollectionService
     }
 
     /**
+     * Upload document to folder
+     */
+    public function uploadDocumentToFolder(DocumentCollection $folder, $file, User $user): Document
+    {
+        DB::beginTransaction();
+        try {
+            // Store the file
+            $path = $file->store('documents', 'local');
+
+            // Create document record
+            $document = Document::create([
+                'file_name' => $file->getClientOriginalName(),
+                'file_path' => $path,
+                'file_size' => $file->getSize(),
+                'mime_type' => $file->getMimeType(),
+                'institution_id' => $user->institution_id,
+                'user_id' => $user->id,
+                'collection_id' => $folder->id,
+                'cascade_deletable' => true, // Can be deleted with folder
+            ]);
+
+            // Log document upload to audit trail
+            $this->logFolderAction($folder, $user, 'document_uploaded', null, [
+                'document_id' => $document->id,
+                'file_name' => $document->file_name,
+                'file_size' => $document->file_size,
+            ]);
+
+            DB::commit();
+            return $document->load(['institution', 'user']);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            // Delete uploaded file if database transaction fails
+            if (isset($path) && Storage::exists($path)) {
+                Storage::delete($path);
+            }
+            throw $e;
+        }
+    }
+
+    /**
      * Log folder action to audit trail
      */
     private function logFolderAction(

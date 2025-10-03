@@ -30,6 +30,8 @@ Route::prefix('document-collections')->group(function () {
         ->middleware('permission:documents.read');
     Route::get('/{folder}/audit-logs', [DocumentCollectionController::class, 'auditLogs'])
         ->middleware('permission:documents.read');
+    Route::post('/{folder}/documents', [DocumentCollectionController::class, 'uploadDocument'])
+        ->middleware('permission:documents.create');
 });
 
 // Document Management Routes
