@@ -21,15 +21,13 @@ interface Institution {
 const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSuccess }) => {
   const { currentUser: user } = useAuth();
   const [selectedInstitution, setSelectedInstitution] = useState<number | null>(null);
-  const [selectedTemplates, setSelectedTemplates] = useState<string[]>([
-    'schedules',
-    'action_plans',
-    'orders',
-  ]);
   const [targetInstitutions, setTargetInstitutions] = useState<number[]>([]);
   const [institutionSearch, setInstitutionSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Default: create all folder templates
+  const [folderName, setFolderName] = useState('');
 
   // Load all institutions for targeting
   const { data: institutionsResponse } = useQuery({
@@ -80,12 +78,6 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSucc
     setTargetInstitutions(typeIds);
   };
 
-  const handleTemplateToggle = (key: string) => {
-    setSelectedTemplates(prev =>
-      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
-    );
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -94,8 +86,8 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSucc
       return;
     }
 
-    if (selectedTemplates.length === 0) {
-      setError('Ən azı bir folder şablonu seçin');
+    if (!folderName.trim()) {
+      setError('Zəhmət olmasa folder adı daxil edin');
       return;
     }
 
@@ -108,9 +100,10 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSucc
     setError(null);
 
     try {
-      const templates = Object.fromEntries(
-        selectedTemplates.map(key => [key, REGIONAL_FOLDER_TEMPLATES[key as keyof typeof REGIONAL_FOLDER_TEMPLATES]])
-      );
+      // Create single folder with custom name
+      const templates = {
+        [folderName.toLowerCase().replace(/\s+/g, '_')]: folderName
+      };
 
       await documentCollectionService.createRegionalFolders({
         institution_id: selectedInstitution,
@@ -120,23 +113,23 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSucc
 
       onSuccess();
     } catch (err: any) {
-      console.error('Error creating folders:', err);
-      setError(err.response?.data?.message || 'Folderlər yaradılarkən xəta baş verdi');
+      console.error('Error creating folder:', err);
+      setError(err.response?.data?.message || 'Folder yaradılarkən xəta baş verdi');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full my-8 max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">
               <Folder className="text-blue-600" size={24} />
             </div>
-            <h2 className="text-xl font-semibold text-gray-900">Regional Folderlər Yarat</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Yeni Folder Yarat</h2>
           </div>
           <button
             onClick={onClose}
@@ -146,8 +139,9 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSucc
           </button>
         </div>
 
-        {/* Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        {/* Body - Scrollable */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
+          <div className="p-6 space-y-6">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
               {error}
@@ -183,27 +177,19 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSucc
             </div>
           )}
 
-          {/* Template Selection */}
+          {/* Folder Name Input */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Folder Şablonları
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Folder Adı
             </label>
-            <div className="space-y-2">
-              {Object.entries(REGIONAL_FOLDER_TEMPLATES).map(([key, name]) => (
-                <label
-                  key={key}
-                  className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedTemplates.includes(key)}
-                    onChange={() => handleTemplateToggle(key)}
-                    className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-2 focus:ring-primary"
-                  />
-                  <span className="text-gray-900">{name}</span>
-                </label>
-              ))}
-            </div>
+            <input
+              type="text"
+              value={folderName}
+              onChange={(e) => setFolderName(e.target.value)}
+              placeholder="Məsələn: Cədvəl, Fəaliyyət Planı, Əmrlər..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              required
+            />
           </div>
 
           {/* Target Institutions Selection */}
@@ -270,7 +256,7 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSucc
             </div>
 
             {/* Institutions List */}
-            <div className="border rounded-lg p-3 max-h-48 overflow-y-auto bg-gray-50">
+            <div className="border rounded-lg p-3 max-h-64 overflow-y-auto bg-gray-50">
               {filteredInstitutions.length === 0 ? (
                 <div className="text-center py-4 text-gray-500">
                   <Building2 className="h-8 w-8 mx-auto mb-2" />
@@ -314,15 +300,17 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSucc
           </div>
 
           {/* Info */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-sm text-blue-800">
-              <strong>Qeyd:</strong> Seçilmiş şablonlar regional institusiya üçün yaradılacaq.
-              Yalnız seçilmiş hədəf müəssisələr bu folderlərə sənəd yükləyə biləcək.
+              <strong>Qeyd:</strong> Yalnız seçilmiş hədəf müəssisələr bu folderə sənəd yükləyə biləcək.
             </p>
           </div>
+          </div>
+        </form>
 
-          {/* Actions */}
-          <div className="flex gap-3 pt-4">
+        {/* Footer - Actions (Fixed at bottom) */}
+        <div className="p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+          <div className="flex gap-3">
             <button
               type="button"
               onClick={onClose}
@@ -332,13 +320,14 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSucc
             </button>
             <button
               type="submit"
-              disabled={loading || selectedTemplates.length === 0}
+              onClick={handleSubmit}
+              disabled={loading || !folderName.trim() || targetInstitutions.length === 0}
               className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Yaradılır...' : 'Yarat'}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
