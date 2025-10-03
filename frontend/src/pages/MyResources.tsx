@@ -44,14 +44,20 @@ export default function MyResources() {
 
   // Check permissions
   const isAuthenticated = !!currentUser;
-  const canViewAssignedResources = currentUser && ['sektoradmin', 'schooladmin', 'muellim'].includes(currentUser.role);
-  const canViewFolders = currentUser && ['sektoradmin', 'schooladmin'].includes(currentUser.role);
+  const canViewAssignedResources = currentUser && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'muellim'].includes(currentUser.role);
+  const canViewFolders = currentUser && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role);
 
   // Fetch assigned folders
   const { data: folders, isLoading: isFoldersLoading } = useQuery({
     queryKey: ['my-folders'],
     queryFn: async () => {
       const allFolders = await documentCollectionService.getAll();
+
+      // SuperAdmin and RegionAdmin see all folders
+      if (currentUser?.role === 'superadmin' || currentUser?.role === 'regionadmin') {
+        return allFolders;
+      }
+
       const userInstitutionId = (currentUser as any)?.institution?.id || (currentUser as any)?.institution_id;
 
       // Filter folders where user's institution is in targetInstitutions
