@@ -35,7 +35,8 @@ const MyDocuments: React.FC = () => {
       console.log('All Folders (raw JSON):', JSON.stringify(allFolders, null, 2));
 
       const myFolders = allFolders.filter((folder: any) => {
-        const targetInstitutions = folder.targetInstitutions || [];
+        // Backend returns snake_case (target_institutions), not camelCase (targetInstitutions)
+        const targetInstitutions = folder.target_institutions || folder.targetInstitutions || [];
         console.log(`Folder "${folder.name}" has ${targetInstitutions.length} target institutions:`, targetInstitutions.map((i: any) => i.id));
         const isMatch = targetInstitutions.some((inst: any) => inst.id === userInstitutionId);
         console.log(`  Match: ${isMatch}`);
@@ -155,11 +156,11 @@ const MyDocuments: React.FC = () => {
                   </span>
                 </div>
 
-                {folder.ownerInstitution && (
+                {(folder.owner_institution || folder.ownerInstitution) && (
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Sahibi</span>
                     <span className="font-medium text-gray-900 truncate ml-2 max-w-[180px]">
-                      {folder.ownerInstitution.name}
+                      {(folder.owner_institution || folder.ownerInstitution)?.name}
                     </span>
                   </div>
                 )}

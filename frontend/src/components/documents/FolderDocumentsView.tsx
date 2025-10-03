@@ -111,7 +111,8 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
     if (!userInstitutionId) return false;
 
     // Check if user's institution is in target institutions
-    const targetInstitutions = (folder as any)?.targetInstitutions || [];
+    // Backend returns snake_case (target_institutions), not camelCase (targetInstitutions)
+    const targetInstitutions = (folder as any)?.target_institutions || (folder as any)?.targetInstitutions || [];
     return targetInstitutions.some((inst: any) => inst.id === userInstitutionId);
   };
 
