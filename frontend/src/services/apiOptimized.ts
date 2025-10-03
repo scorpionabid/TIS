@@ -285,6 +285,17 @@ class ApiClientOptimized {
       if (!response.ok) {
         if (isDevelopment) {
           log('error', 'API Error', { status: response.status, data });
+
+          // FULL ERROR LOGGING for all error types
+          console.error('═══════════════════════════════════════');
+          console.error('❌ BACKEND ERROR DETAILS:');
+          console.error('═══════════════════════════════════════');
+          console.error('Status:', response.status, response.statusText);
+          console.error('URL:', response.url);
+          console.error('Error Message:', data?.error || data?.message || 'Unknown');
+          console.error('Full Response:', JSON.stringify(data, null, 2));
+          console.error('═══════════════════════════════════════');
+
           // Enhanced validation error logging
           if (response.status === 422 && data.errors) {
             console.error('🔍 Validation errors detail:', data.errors);

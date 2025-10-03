@@ -64,8 +64,25 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
   };
 
   const handleUpload = async (file: File) => {
-    await documentCollectionService.uploadDocument(folder.id, file);
-    await loadDocuments();
+    try {
+      console.log('🔵 Starting file upload:', {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        folderId: folder.id,
+      });
+
+      await documentCollectionService.uploadDocument(folder.id, file);
+
+      console.log('✅ File uploaded successfully');
+      await loadDocuments();
+    } catch (error: any) {
+      console.error('❌ File upload failed:', {
+        error: error.message,
+        fullError: error,
+      });
+      alert(`Fayl yüklənə bilmədi: ${error.message}`);
+    }
   };
 
   const handleDelete = async (documentId: number) => {
