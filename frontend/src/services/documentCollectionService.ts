@@ -26,10 +26,16 @@ class DocumentCollectionService {
    * Get specific folder with its documents
    */
   async getById(folderId: number): Promise<FolderWithDocuments> {
-    const response = await api.get<{ success: boolean; data: FolderWithDocuments }>(
+    const response = await api.get<{ success: boolean; data: { folder: DocumentCollection; documents: any[] } }>(
       `${this.basePath}/${folderId}`
     );
-    return (response as any).data;
+    // Backend returns {success: true, data: {folder: {...}, documents: [...]}}
+    // We need to merge folder and documents into FolderWithDocuments format
+    const backendData = (response as any).data;
+    return {
+      ...backendData.folder,
+      documents: backendData.documents || []
+    };
   }
 
   /**

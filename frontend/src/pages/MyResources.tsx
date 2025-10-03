@@ -238,13 +238,7 @@ export default function MyResources() {
   return (
     <div className="p-6 space-y-8">
       {/* Page Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Mənim Resurslarım</h1>
-          <p className="text-muted-foreground mt-1">
-            Sizə təyin edilmiş resurslar və paylaşılan folderlər
-          </p>
-        </div>
+      <div className="flex justify-end">
         <div className="flex items-center gap-2">
           {newResourcesCount > 0 && (
             <Badge variant="destructive" className="flex items-center gap-1">

@@ -225,7 +225,7 @@ class DocumentCollectionService
         // Get documents for user's institution if SchoolAdmin, otherwise all documents
         $documents = $folder->documents()->whereNull('deleted_at');
 
-        if ($user->hasRole('SchoolAdmin')) {
+        if ($user->hasRole('schooladmin')) {
             $documents = $documents->where('institution_id', $user->institution_id);
         }
 
@@ -259,7 +259,7 @@ class DocumentCollectionService
         $query = $folder->documents()->whereNull('deleted_at');
 
         // SchoolAdmin sees only their own institution's documents
-        if ($user->hasRole('SchoolAdmin')) {
+        if ($user->hasRole('schooladmin')) {
             $query->where('institution_id', $user->institution_id);
         }
 
