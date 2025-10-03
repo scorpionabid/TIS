@@ -13,22 +13,31 @@ import { surveyService } from '@/services/surveys';
 import { SurveyResponse } from '@/services/surveys';
 import { Loader2 } from 'lucide-react';
 
-interface ResponseWithSurvey extends SurveyResponse {
+type ResponseStatus = 'draft' | 'in_progress' | 'submitted' | 'approved' | 'rejected' | 'completed';
+
+// Create a new interface that matches the actual data structure
+interface ResponseWithSurvey {
+  id: number;
   survey: {
     id: number;
     title: string;
     description?: string;
     due_date?: string;
     questions_count?: number;
-    type?: string;
+    survey_type: string;
+    is_anonymous: boolean;
+    [key: string]: any; // For any additional properties
   };
   last_saved_at?: string;
-  progress_percentage?: number;
+  progress_percentage: number;
   completion_time?: string;
   score?: number;
   feedback?: string;
   approval_status?: 'pending' | 'approved' | 'rejected';
   submitted_on_time?: boolean;
+  created_at?: string;
+  status: ResponseStatus;
+  [key: string]: any; // For any additional properties
 }
 
 const MyResponses: React.FC = () => {
@@ -44,8 +53,8 @@ const MyResponses: React.FC = () => {
     queryKey: ['my-survey-responses'],
     queryFn: async () => {
       const response = await surveyService.getMyResponses();
-      // YENİ: Show all responses, let client-side filtering handle status
-      return response.data;
+      // Type assertion since we know the structure of the response
+      return (response as any).data as ResponseWithSurvey[];
     },
     refetchInterval: 30000,
   });
@@ -77,9 +86,7 @@ const MyResponses: React.FC = () => {
       matchesPeriod = false; // If no completion time, exclude from period filter
     }
 
-    const matchesApproval = approvalFilter === 'all' || response.approval_status === approvalFilter;
-
-    return matchesSearch && matchesStatus && matchesPeriod && matchesApproval;
+    return matchesSearch && matchesStatus && matchesPeriod;
   });
 
   const getStatusColor = (status: string) => {
@@ -213,69 +220,88 @@ const MyResponses: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Mənim Cavablarım</h1>
-        <p className="text-gray-600 mt-1">
-          Cavablandırdığınız bütün sorğuların tarixçəsi və mövcud durumu
-        </p>
-      </div>
-
-      {/* Enhanced Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Sorğu axtarın..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+      {/* Minimalist Stats Section */}
+      {responses.length > 0 && (
+        <div className="mb-6 space-y-3">
+          <h3 className="text-base font-medium text-gray-700">Cavablarım</h3>
+          <div className="flex flex-wrap items-center gap-4 text-sm">
+            <div className="flex items-center gap-1.5 text-gray-600">
+              <span className="font-medium">{responses.length}</span>
+              <span>Ümumi</span>
             </div>
+            <div className="h-4 w-px bg-gray-200"></div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium text-blue-600">
+                {responses.filter(r => r.status === 'in_progress').length}
+              </span>
+              <span className="text-gray-600">Davam edir</span>
+            </div>
+            <div className="h-4 w-px bg-gray-200"></div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium text-green-600">
+                {responses.filter(r => ['approved', 'completed', 'submitted'].includes(r.status)).length}
+              </span>
+              <span className="text-gray-600">Tamamlanıb</span>
+            </div>
+            {responses.filter(r => r.status === 'draft').length > 0 && (
+              <>
+                <div className="h-4 w-px bg-gray-200"></div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium text-yellow-600">
+                    {responses.filter(r => r.status === 'draft').length}
+                  </span>
+                  <span className="text-gray-600">Qaralama</span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Bütün statuslar</SelectItem>
-                <SelectItem value="draft">Qaralama</SelectItem>
-                <SelectItem value="in_progress">Davam edir</SelectItem>
-                <SelectItem value="submitted">Göndərilmiş</SelectItem>
-                <SelectItem value="approved">Təsdiqlənmiş</SelectItem>
-                <SelectItem value="rejected">Rədd edilmiş</SelectItem>
-                <SelectItem value="completed">Tamamlanmış</SelectItem>
-              </SelectContent>
-            </Select>
-
+      {/* Filters section */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-end gap-4">
+        {/* Minimalist Filters */}
+        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+          {/* Search Input */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Axtarış..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8 py-1 h-9 text-sm"
+            />
+          </div>
+          
+          {/* Status Filter */}
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[120px] h-9">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Bütün statuslar</SelectItem>
+              <SelectItem value="draft">Qaralama</SelectItem>
+              <SelectItem value="in_progress">Davam edir</SelectItem>
+              <SelectItem value="submitted">Göndərilmiş</SelectItem>
+              <SelectItem value="completed">Tamamlanmış</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          {/* Period Filter - Only show if needed */}
+          {(statusFilter === 'submitted' || statusFilter === 'completed' || statusFilter === 'all') && (
             <Select value={periodFilter} onValueChange={setPeriodFilter}>
-              <SelectTrigger>
+              <SelectTrigger className="w-[120px] h-9">
                 <SelectValue placeholder="Dövr" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Bütün vaxtlar</SelectItem>
                 <SelectItem value="week">Son həftə</SelectItem>
                 <SelectItem value="month">Son ay</SelectItem>
-                <SelectItem value="quarter">Son rüb</SelectItem>
               </SelectContent>
             </Select>
-
-            <Select value={approvalFilter} onValueChange={setApprovalFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Təsdiq statusu" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Bütün təsdiq statusları</SelectItem>
-                <SelectItem value="approved">Təsdiqlənmiş</SelectItem>
-                <SelectItem value="pending">Gözləyir</SelectItem>
-                <SelectItem value="rejected">Rədd edilmiş</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+          )}
+        </div>
+      </div>
 
       {/* Responses List */}
       {filteredResponses.length === 0 ? (
@@ -424,12 +450,12 @@ const MyResponses: React.FC = () => {
                   </div>
                 )}
 
-                {response.created_at && !response.completion_time && (
+                {response.last_saved_at && !response.completion_time && (
                   <div className="mb-4 p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center space-x-2">
                       <Clock className="h-4 w-4 text-blue-500" />
                       <span className="text-sm text-blue-600">
-                        Başlanıb: {format(new Date(response.created_at), 'dd.MM.yyyy HH:mm')}
+                        Başlanıb: {format(new Date(response.last_saved_at), 'dd.MM.yyyy HH:mm')}
                       </span>
                     </div>
                   </div>
@@ -496,91 +522,28 @@ const MyResponses: React.FC = () => {
         </div>
       )}
 
-      {/* Enhanced Stats */}
+      {/* Minimalist Completion Rate */}
       {responses.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Cavab Statistikaları</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">
-                  {responses.length}
-                </div>
-                <div className="text-sm text-gray-600">Ümumi</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-yellow-600">
-                  {responses.filter(r => r.status === 'draft').length}
-                </div>
-                <div className="text-sm text-gray-600">Qaralama</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-500">
-                  {responses.filter(r => r.status === 'in_progress').length}
-                </div>
-                <div className="text-sm text-gray-600">Davam edən</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">
-                  {responses.filter(r => r.status === 'submitted').length}
-                </div>
-                <div className="text-sm text-gray-600">Göndərilmiş</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {responses.filter(r => r.status === 'approved').length}
-                </div>
-                <div className="text-sm text-gray-600">Təsdiqlənmiş</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-emerald-600">
-                  {responses.filter(r => ['approved', 'completed'].includes(r.status)).length}
-                </div>
-                <div className="text-sm text-gray-600">Bitmiş</div>
-              </div>
-            </div>
-
-            {/* Enhanced insights */}
-            {responses.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                  <div>
-                    <div className="text-lg font-semibold text-gray-700">
-                      {Math.round(
-                        (responses.filter(r => ['approved', 'completed', 'submitted'].includes(r.status)).length / responses.length) * 100
-                      )}%
-                    </div>
-                    <div className="text-sm text-gray-500">Tamamlanma oranı</div>
-                  </div>
-
-                  {responses.filter(r => r.submitted_on_time).length > 0 && (
-                    <div>
-                      <div className="text-lg font-semibold text-green-600">
-                        {Math.round(
-                          (responses.filter(r => r.submitted_on_time).length / responses.filter(r => ['approved', 'completed', 'submitted'].includes(r.status)).length) * 100
-                        )}%
-                      </div>
-                      <div className="text-sm text-gray-500">Vaxtında təhvil oranı</div>
-                    </div>
-                  )}
-
-                  {responses.filter(r => r.score).length > 0 && (
-                    <div>
-                      <div className="text-lg font-semibold text-purple-600">
-                        {Math.round(
-                          responses.filter(r => r.score).reduce((sum, r) => sum + (r.score || 0), 0) / responses.filter(r => r.score).length
-                        )}%
-                      </div>
-                      <div className="text-sm text-gray-500">Orta bal</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <div className="mb-6">
+          <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
+            <span>Tamamlanma dərəcəsi</span>
+            <span>
+              {Math.round(
+                (responses.filter(r => ['approved', 'completed', 'submitted'].includes(r.status)).length / responses.length) * 100
+              )}%
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-blue-600 h-2 rounded-full" 
+              style={{
+                width: `${Math.round(
+                  (responses.filter(r => ['approved', 'completed', 'submitted'].includes(r.status)).length / responses.length) * 100
+                )}%`
+              }}
+            ></div>
+          </div>
+        </div>
       )}
     </div>
   );
