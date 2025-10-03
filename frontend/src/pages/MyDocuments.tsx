@@ -27,23 +27,12 @@ const MyDocuments: React.FC = () => {
       // Filter folders where user's institution is in targetInstitutions
       const userInstitutionId = (currentUser as any)?.institution?.id || (currentUser as any)?.institution_id;
 
-      console.log('=== MyDocuments Debug ===');
-      console.log('User:', currentUser);
-      console.log('User Institution:', (currentUser as any)?.institution);
-      console.log('User Institution ID:', userInstitutionId);
-      console.log('All Folders:', allFolders);
-      console.log('All Folders (raw JSON):', JSON.stringify(allFolders, null, 2));
-
       const myFolders = allFolders.filter((folder: any) => {
         // Backend returns snake_case (target_institutions), not camelCase (targetInstitutions)
         const targetInstitutions = folder.target_institutions || folder.targetInstitutions || [];
-        console.log(`Folder "${folder.name}" has ${targetInstitutions.length} target institutions:`, targetInstitutions.map((i: any) => i.id));
-        const isMatch = targetInstitutions.some((inst: any) => inst.id === userInstitutionId);
-        console.log(`  Match: ${isMatch}`);
-        return isMatch;
+        return targetInstitutions.some((inst: any) => inst.id === userInstitutionId);
       });
 
-      console.log('My Folders (filtered):', myFolders);
       setFolders(myFolders);
     } catch (err: any) {
       console.error('Error loading folders:', err);
