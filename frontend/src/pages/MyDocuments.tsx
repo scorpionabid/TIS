@@ -6,15 +6,17 @@ import type { DocumentCollection } from '../types/documentCollection';
 import FolderDocumentsView from '../components/documents/FolderDocumentsView';
 
 const MyDocuments: React.FC = () => {
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const [folders, setFolders] = useState<DocumentCollection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedFolder, setSelectedFolder] = useState<DocumentCollection | null>(null);
 
   useEffect(() => {
-    loadMyFolders();
-  }, []);
+    if (currentUser) {
+      loadMyFolders();
+    }
+  }, [currentUser]);
 
   const loadMyFolders = async () => {
     try {
@@ -23,12 +25,14 @@ const MyDocuments: React.FC = () => {
       const allFolders = await documentCollectionService.getAll();
 
       // Filter folders where user's institution is in targetInstitutions
-      const userInstitutionId = (user as any)?.institution?.id || (user as any)?.institution_id;
+      const userInstitutionId = (currentUser as any)?.institution?.id || (currentUser as any)?.institution_id;
 
       console.log('=== MyDocuments Debug ===');
-      console.log('User:', user);
+      console.log('User:', currentUser);
+      console.log('User Institution:', (currentUser as any)?.institution);
       console.log('User Institution ID:', userInstitutionId);
       console.log('All Folders:', allFolders);
+      console.log('All Folders (raw JSON):', JSON.stringify(allFolders, null, 2));
 
       const myFolders = allFolders.filter((folder: any) => {
         const targetInstitutions = folder.targetInstitutions || [];
