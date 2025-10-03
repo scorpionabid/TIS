@@ -25,11 +25,20 @@ const MyDocuments: React.FC = () => {
       // Filter folders where user's institution is in targetInstitutions
       const userInstitutionId = (user as any)?.institution?.id || (user as any)?.institution_id;
 
+      console.log('=== MyDocuments Debug ===');
+      console.log('User:', user);
+      console.log('User Institution ID:', userInstitutionId);
+      console.log('All Folders:', allFolders);
+
       const myFolders = allFolders.filter((folder: any) => {
         const targetInstitutions = folder.targetInstitutions || [];
-        return targetInstitutions.some((inst: any) => inst.id === userInstitutionId);
+        console.log(`Folder "${folder.name}" has ${targetInstitutions.length} target institutions:`, targetInstitutions.map((i: any) => i.id));
+        const isMatch = targetInstitutions.some((inst: any) => inst.id === userInstitutionId);
+        console.log(`  Match: ${isMatch}`);
+        return isMatch;
       });
 
+      console.log('My Folders (filtered):', myFolders);
       setFolders(myFolders);
     } catch (err: any) {
       console.error('Error loading folders:', err);
