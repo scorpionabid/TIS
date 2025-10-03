@@ -531,35 +531,19 @@ export const improvedNavigationConfig: MenuGroup[] = [
       },
       {
         id: 'resources',
-        label: 'Resurslər',
+        label: 'Resurs İdarəetməsi',
         path: '/resources',
         icon: Archive,
         roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
-        description: 'Linklər və sənədlərin vahid idarə edilməsi'
-      },
-      {
-        id: 'regional-folders',
-        label: 'Regional Folderlər',
-        path: '/regionadmin/folders',
-        icon: Folder,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN],
-        description: 'Regional folderlərin idarə edilməsi - Cədvəl, Fəaliyyət Planı, Əmrlər'
-      },
-      {
-        id: 'my-documents',
-        label: 'Mənim Fayllarım',
-        path: '/my-documents',
-        icon: FileText,
-        roles: [USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
-        description: 'Sizin üçün yaradılmış folderlər və sənədlər'
+        description: 'Linklər, sənədlər və folderlərin paylaşılması'
       },
       {
         id: 'my-resources',
         label: 'Mənim Resurslarım',
         path: '/my-resources',
-        icon: BookOpen,
+        icon: Folder,
         roles: [USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM],
-        description: 'Mənə təyin edilmiş linklər və sənədlər'
+        description: 'Mənə təyin edilmiş linklər, sənədlər və folderlər'
       }
     ]
   },

@@ -40,6 +40,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { resourceService } from "@/services/resources";
 import { Resource } from "@/types/resources";
 import { InstitutionalResourcesTable } from "@/components/resources/InstitutionalResourcesTable";
+import RegionalFolderManager from "@/components/documents/RegionalFolderManager";
 
 export default function Resources() {
   const { currentUser } = useAuth();
@@ -49,9 +50,10 @@ export default function Resources() {
 
   // State - initialize tab from URL parameter
   const initialTab = searchParams.get('tab');
-  const [activeTab, setActiveTab] = useState<'all' | 'links' | 'documents' | 'sub-institutions'>(() => {
+  const [activeTab, setActiveTab] = useState<'all' | 'links' | 'documents' | 'folders' | 'sub-institutions'>(() => {
     if (initialTab === 'documents') return 'documents';
     if (initialTab === 'links') return 'links';
+    if (initialTab === 'folders') return 'folders';
     if (initialTab === 'sub-institutions') return 'sub-institutions';
     return 'all';
   });
@@ -75,6 +77,9 @@ export default function Resources() {
   // Only hierarchical admins can see sub-institution documents
   const canViewSubInstitutions = currentUser &&
     ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin'].includes(currentUser.role);
+  // Only regional admins can manage folders
+  const canManageFolders = currentUser &&
+    ['superadmin', 'regionadmin'].includes(currentUser.role);
 
   // Fetch resources
   const { data: resources, isLoading, error, refetch } = useQuery({
@@ -388,7 +393,11 @@ export default function Resources() {
 
       {/* Tabbed Content */}
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
-        <TabsList className={`grid w-full ${canViewSubInstitutions ? 'grid-cols-4' : 'grid-cols-3'}`}>
+        <TabsList className={`grid w-full ${
+          canManageFolders && canViewSubInstitutions ? 'grid-cols-5' :
+          canManageFolders || canViewSubInstitutions ? 'grid-cols-4' :
+          'grid-cols-3'
+        }`}>
           <TabsTrigger value="all">
             Hamısı ({stats?.total_resources || 0})
           </TabsTrigger>
@@ -398,6 +407,11 @@ export default function Resources() {
           <TabsTrigger value="documents">
             Sənədlər ({stats?.total_documents || 0})
           </TabsTrigger>
+          {canManageFolders && (
+            <TabsTrigger value="folders">
+              Folderlər
+            </TabsTrigger>
+          )}
           {canViewSubInstitutions && (
             <TabsTrigger value="sub-institutions">
               Alt Müəssisələr ({subInstitutionDocs?.reduce((sum, inst) => sum + inst.document_count, 0) || 0})
@@ -421,6 +435,10 @@ export default function Resources() {
             resources={resourcesData.filter(r => r.type === 'document')}
             onResourceAction={handleResourceAction}
           />
+        </TabsContent>
+
+        <TabsContent value="folders" className="mt-6">
+          <RegionalFolderManager />
         </TabsContent>
 
         <TabsContent value="sub-institutions" className="mt-6">

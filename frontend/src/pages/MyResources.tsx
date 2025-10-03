@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,13 +19,18 @@ import {
   Building2,
   CheckCircle,
   Video,
-  Archive
+  Archive,
+  Folder,
+  Upload
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { resourceService } from "@/services/resources";
 import { AssignedResource } from "@/types/resources";
+import documentCollectionService from "@/services/documentCollectionService";
+import type { DocumentCollection } from "@/types/documentCollection";
+import FolderDocumentsView from "@/components/documents/FolderDocumentsView";
 
 export default function MyResources() {
   const { currentUser } = useAuth();
@@ -33,17 +38,38 @@ export default function MyResources() {
   const queryClient = useQueryClient();
 
   // State
-  const [activeTab, setActiveTab] = useState<'all' | 'links' | 'documents'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'links' | 'documents' | 'folders'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedFolder, setSelectedFolder] = useState<DocumentCollection | null>(null);
 
   // Check permissions
   const isAuthenticated = !!currentUser;
   const canViewAssignedResources = currentUser && ['sektoradmin', 'schooladmin', 'muellim'].includes(currentUser.role);
+  const canViewFolders = currentUser && ['sektoradmin', 'schooladmin'].includes(currentUser.role);
+
+  // Fetch assigned folders
+  const { data: folders, isLoading: isFoldersLoading } = useQuery({
+    queryKey: ['my-folders'],
+    queryFn: async () => {
+      const allFolders = await documentCollectionService.getAll();
+      const userInstitutionId = (currentUser as any)?.institution?.id || (currentUser as any)?.institution_id;
+
+      // Filter folders where user's institution is in targetInstitutions
+      const myFolders = allFolders.filter((folder: any) => {
+        const targetInstitutions = folder.target_institutions || folder.targetInstitutions || [];
+        return targetInstitutions.some((inst: any) => inst.id === userInstitutionId);
+      });
+
+      return myFolders;
+    },
+    enabled: isAuthenticated && canViewFolders,
+    staleTime: 2 * 60 * 1000,
+  });
 
   // Fetch assigned resources
   const { data: assignedResources, isLoading, error, refetch } = useQuery({
     queryKey: ['assigned-resources', {
-      type: activeTab === 'all' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
+      type: activeTab === 'all' || activeTab === 'folders' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
       search: searchTerm || undefined,
     }],
     queryFn: async () => {
@@ -54,14 +80,14 @@ export default function MyResources() {
         activeTab,
         searchTerm,
         queryParams: {
-          type: activeTab === 'all' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
+          type: activeTab === 'all' || activeTab === 'folders' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
           search: searchTerm || undefined,
           per_page: 50
         }
       });
 
       const result = await resourceService.getAssignedResources({
-        type: activeTab === 'all' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
+        type: activeTab === 'all' || activeTab === 'folders' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
         search: searchTerm || undefined,
         per_page: 50
       });
@@ -252,7 +278,7 @@ export default function MyResources() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -293,6 +319,22 @@ export default function MyResources() {
           </CardContent>
         </Card>
 
+        {canViewFolders && (
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-purple-600">
+                    {folders?.length || 0}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Folderlər</div>
+                </div>
+                <Folder className="h-8 w-8 text-purple-600 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -308,10 +350,13 @@ export default function MyResources() {
 
       {/* Tabbed Content */}
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className={`grid w-full ${canViewFolders ? 'grid-cols-4' : 'grid-cols-3'}`}>
           <TabsTrigger value="all">Hamısı ({resourcesData.length})</TabsTrigger>
           <TabsTrigger value="links">Linklər ({resourcesData.filter(r => r.type === 'link').length})</TabsTrigger>
           <TabsTrigger value="documents">Sənədlər ({resourcesData.filter(r => r.type === 'document').length})</TabsTrigger>
+          {canViewFolders && (
+            <TabsTrigger value="folders">Folderlər ({folders?.length || 0})</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="all" className="mt-6">
@@ -331,7 +376,97 @@ export default function MyResources() {
             onResourceAction={handleResourceAction}
           />
         </TabsContent>
+
+        <TabsContent value="folders" className="mt-6">
+          {isFoldersLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Folderlər yüklənir...</p>
+              </div>
+            </div>
+          ) : folders && folders.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {folders.map((folder: any) => (
+                <Card
+                  key={folder.id}
+                  onClick={() => setSelectedFolder(folder)}
+                  className="cursor-pointer hover:shadow-md hover:border-primary transition-all group"
+                >
+                  <CardHeader>
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-blue-50 rounded-lg group-hover:bg-blue-100 transition-colors">
+                        <Folder className="text-blue-600" size={28} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <CardTitle className="text-lg truncate group-hover:text-primary transition-colors">
+                          {folder.name}
+                        </CardTitle>
+                        {folder.description && (
+                          <CardDescription className="line-clamp-2">
+                            {folder.description}
+                          </CardDescription>
+                        )}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2 pt-2 border-t border-gray-100">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground flex items-center gap-2">
+                          <FileText size={16} />
+                          Sənədlər
+                        </span>
+                        <span className="font-semibold text-foreground">
+                          {folder.documents_count || 0}
+                        </span>
+                      </div>
+
+                      {(folder.owner_institution || folder.ownerInstitution) && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Sahibi</span>
+                          <span className="font-medium text-foreground truncate ml-2 max-w-[180px]">
+                            {(folder.owner_institution || folder.ownerInstitution)?.name}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2 pt-2 mt-2 border-t border-gray-100">
+                        <Upload size={14} className="text-green-600" />
+                        <span className="text-xs text-green-700 font-medium">
+                          Fayl yükləyə bilərsiniz
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <Folder className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Hələ heç bir folder yoxdur
+              </h3>
+              <p className="text-muted-foreground max-w-md mx-auto">
+                Sizin üçün yaradılmış folder olmadıqda, bu siyahı boş olacaq.
+                Regional adminlər tərəfindən folder yaradıldıqda burada görünəcək.
+              </p>
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
+
+      {/* Folder Documents Modal */}
+      {selectedFolder && (
+        <FolderDocumentsView
+          folder={selectedFolder}
+          onClose={() => {
+            setSelectedFolder(null);
+            queryClient.invalidateQueries({ queryKey: ['my-folders'] });
+          }}
+        />
+      )}
 
       {/* Loading State */}
       {isLoading && (

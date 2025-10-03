@@ -54,7 +54,6 @@ const RegionAdminIndex = lazy(() => import("./pages/regionadmin/RegionAdminIndex
 const RegionAdminUsers = lazy(() => import("./pages/regionadmin/RegionAdminUsers"));
 const RegionAdminSectors = lazy(() => import("./pages/regionadmin/RegionAdminSectors"));
 const RegionSchedules = lazy(() => import("./pages/regionadmin/RegionSchedules"));
-const RegionalFoldersPage = lazy(() => import("./pages/regionadmin/RegionalFoldersPage"));
 
 // School pages  
 const SchoolTasks = lazy(() => import("./pages/school/SchoolTasks"));
@@ -73,9 +72,6 @@ const TeacherSchedule = lazy(() => import("./pages/teacher/TeacherSchedule"));
 // My Surveys pages
 const PendingSurveys = lazy(() => import("./pages/my-surveys/PendingSurveys"));
 const MyResponses = lazy(() => import("./pages/my-surveys/MyResponses"));
-
-// My Documents page (for school/sector admins)
-const MyDocuments = lazy(() => import("./pages/MyDocuments"));
 
 // Advanced Schedule Management pages
 const ScheduleBuilderPage = lazy(() => import("./components/schedules/ScheduleBuilderPage"));
@@ -404,13 +400,13 @@ const App = () => {
               <Route path="regionadmin/tasks/*" element={<div className="p-6"><h1>Regional Tasks</h1><p>Hazırlanmaqdadır...</p></div>} />
               <Route path="regionadmin/surveys/*" element={<div className="p-6"><h1>Regional Surveys</h1><p>Hazırlanmaqdadır...</p></div>} />
               <Route path="regionadmin/documents/*" element={<div className="p-6"><h1>Regional Documents</h1><p>Hazırlanmaqdadır...</p></div>} />
-              <Route path="regionadmin/folders" element={<LazyWrapper><RegionalFoldersPage /></LazyWrapper>} />
               <Route path="regionadmin/reports/*" element={<div className="p-6"><h1>Regional Reports</h1><p>Hazırlanmaqdadır...</p></div>} />
               <Route path="regionadmin/settings/*" element={<div className="p-6"><h1>Regional Settings</h1><p>Hazırlanmaqdadır...</p></div>} />
               <Route path="regionadmin/schedules" element={<LazyWrapper><RegionSchedules /></LazyWrapper>} />
 
-              {/* My Documents - For SchoolAdmin and SektorAdmin */}
-              <Route path="my-documents" element={<LazyWrapper><MyDocuments /></LazyWrapper>} />
+              {/* REDIRECTS for old routes - backward compatibility */}
+              <Route path="regionadmin/folders" element={<Navigate to="/resources?tab=folders" replace />} />
+              <Route path="my-documents" element={<Navigate to="/my-resources?tab=folders" replace />} />
               
               {/* SchoolAdmin Routes */}
               <Route path="school/tasks" element={
