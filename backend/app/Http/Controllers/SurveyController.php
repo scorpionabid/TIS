@@ -577,13 +577,13 @@ class SurveyController extends BaseController
                 ->with(['questions', 'responses' => function($q) use ($user) {
                     $q->where('respondent_id', $user->id);
                 }])
+                ->select('*')
                 ->paginate($perPage);
 
             // Add response status to each survey
             $surveys->getCollection()->transform(function($survey) use ($user) {
                 $response = $survey->responses->first();
                 $survey->response_status = $response ? $response->status : 'not_started';
-
                 if (!$response && $survey->end_date && $survey->end_date < now()) {
                     $survey->response_status = 'overdue';
                 }
