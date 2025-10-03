@@ -240,7 +240,7 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
                             <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-600">
                               <span className="flex items-center gap-1">
                                 <User size={14} />
-                                {doc.user?.name || 'N/A'}
+                                {doc.uploader?.name || doc.user?.name || 'N/A'}
                               </span>
                               <span className="flex items-center gap-1">
                                 <Calendar size={14} />

@@ -263,7 +263,7 @@ class DocumentCollectionService
             $query->where('institution_id', $user->institution_id);
         }
 
-        return $query->with(['institution', 'user'])->get();
+        return $query->with(['institution', 'uploader'])->get();
     }
 
     /**
@@ -277,26 +277,45 @@ class DocumentCollectionService
             $path = $file->store('documents', 'local');
 
             // Create document record
+            $originalFilename = $file->getClientOriginalName();
+            $fileExtension = $file->getClientOriginalExtension();
+
             $document = Document::create([
-                'file_name' => $file->getClientOriginalName(),
+                'title' => pathinfo($originalFilename, PATHINFO_FILENAME), // Filename without extension
+                'original_filename' => $originalFilename,
+                'stored_filename' => basename($path),
                 'file_path' => $path,
+                'file_extension' => $fileExtension,
                 'file_size' => $file->getSize(),
                 'mime_type' => $file->getMimeType(),
+                'file_type' => $this->getFileType($fileExtension),
+                'uploaded_by' => $user->id,
                 'institution_id' => $user->institution_id,
-                'user_id' => $user->id,
-                'collection_id' => $folder->id,
+                'category' => 'other',
+                'status' => 'active',
+                'is_downloadable' => true,
+                'is_viewable_online' => true,
+                'published_at' => now(),
                 'cascade_deletable' => true, // Can be deleted with folder
+            ]);
+
+            // Attach document to folder via pivot table
+            $folder->documents()->attach($document->id, [
+                'added_by' => $user->id,
+                'sort_order' => $folder->documents()->count() + 1,
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
 
             // Log document upload to audit trail
             $this->logFolderAction($folder, $user, 'document_uploaded', null, [
                 'document_id' => $document->id,
-                'file_name' => $document->file_name,
+                'file_name' => $document->original_filename,
                 'file_size' => $document->file_size,
             ]);
 
             DB::commit();
-            return $document->load(['institution', 'user']);
+            return $document->load(['institution', 'uploader']);
         } catch (\Exception $e) {
             DB::rollBack();
             // Delete uploaded file if database transaction fails
@@ -327,6 +346,30 @@ class DocumentCollectionService
             'reason' => $reason,
             'ip_address' => request()->ip(),
         ]);
+    }
+
+    /**
+     * Get file type from extension
+     */
+    private function getFileType(string $extension): string
+    {
+        $extension = strtolower($extension);
+
+        $typeMapping = [
+            'pdf' => 'pdf',
+            'doc' => 'word',
+            'docx' => 'word',
+            'xls' => 'excel',
+            'xlsx' => 'excel',
+            'csv' => 'excel',
+            'jpg' => 'image',
+            'jpeg' => 'image',
+            'png' => 'image',
+            'gif' => 'image',
+            'webp' => 'image',
+        ];
+
+        return $typeMapping[$extension] ?? 'other';
     }
 
     /**
