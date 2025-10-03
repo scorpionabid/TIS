@@ -287,11 +287,21 @@ class DocumentCollectionController extends Controller
      */
     public function uploadDocument(Request $request, DocumentCollection $folder): JsonResponse
     {
+        \Log::info('uploadDocument called', [
+            'folder_id' => $folder->id,
+            'user_id' => $request->user()->id,
+            'has_file' => $request->hasFile('file'),
+            'file_name' => $request->hasFile('file') ? $request->file('file')->getClientOriginalName() : null,
+        ]);
+
         $validator = Validator::make($request->all(), [
             'file' => 'required|file|max:102400', // Max 100MB
         ]);
 
         if ($validator->fails()) {
+            \Log::error('uploadDocument validation failed', [
+                'errors' => $validator->errors(),
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -304,9 +314,18 @@ class DocumentCollectionController extends Controller
             $user = $request->user();
             $userInstitutionId = $user->institution_id;
 
+            \Log::info('Checking target institutions', [
+                'user_institution_id' => $userInstitutionId,
+                'folder_id' => $folder->id,
+            ]);
+
             $isTargetInstitution = $folder->targetInstitutions()
                 ->where('institution_id', $userInstitutionId)
                 ->exists();
+
+            \Log::info('Target institution check result', [
+                'is_target' => $isTargetInstitution,
+            ]);
 
             if (!$isTargetInstitution) {
                 return response()->json([
@@ -315,11 +334,17 @@ class DocumentCollectionController extends Controller
                 ], 403);
             }
 
+            \Log::info('Starting document upload to service');
+
             $document = $this->service->uploadDocumentToFolder(
                 $folder,
                 $request->file('file'),
                 $user
             );
+
+            \Log::info('Document uploaded successfully', [
+                'document_id' => $document->id,
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -327,6 +352,13 @@ class DocumentCollectionController extends Controller
                 'data' => $document,
             ], 201);
         } catch (\Exception $e) {
+            \Log::error('uploadDocument exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload document',

@@ -271,14 +271,28 @@ class DocumentCollectionService
      */
     public function uploadDocumentToFolder(DocumentCollection $folder, $file, User $user): Document
     {
+        \Log::info('uploadDocumentToFolder service called', [
+            'folder_id' => $folder->id,
+            'user_id' => $user->id,
+            'file_size' => $file->getSize(),
+            'file_name' => $file->getClientOriginalName(),
+        ]);
+
         DB::beginTransaction();
         try {
             // Store the file
+            \Log::info('Storing file to storage');
             $path = $file->store('documents', 'local');
+            \Log::info('File stored', ['path' => $path]);
 
             // Create document record
             $originalFilename = $file->getClientOriginalName();
             $fileExtension = $file->getClientOriginalExtension();
+
+            \Log::info('Creating document record', [
+                'original_filename' => $originalFilename,
+                'extension' => $fileExtension,
+            ]);
 
             $document = Document::create([
                 'title' => pathinfo($originalFilename, PATHINFO_FILENAME), // Filename without extension
@@ -299,7 +313,10 @@ class DocumentCollectionService
                 'cascade_deletable' => true, // Can be deleted with folder
             ]);
 
+            \Log::info('Document created', ['document_id' => $document->id]);
+
             // Attach document to folder via pivot table
+            \Log::info('Attaching document to folder via pivot table');
             $folder->documents()->attach($document->id, [
                 'added_by' => $user->id,
                 'sort_order' => $folder->documents()->count() + 1,
@@ -307,20 +324,36 @@ class DocumentCollectionService
                 'updated_at' => now(),
             ]);
 
+            \Log::info('Document attached to folder');
+
             // Log document upload to audit trail
+            \Log::info('Creating audit log');
             $this->logFolderAction($folder, $user, 'document_uploaded', null, [
                 'document_id' => $document->id,
                 'file_name' => $document->original_filename,
                 'file_size' => $document->file_size,
             ]);
 
+            \Log::info('Committing transaction');
             DB::commit();
+
+            \Log::info('Transaction committed, loading relationships');
             return $document->load(['institution', 'uploader']);
         } catch (\Exception $e) {
+            \Log::error('uploadDocumentToFolder service exception', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             DB::rollBack();
+            \Log::info('Transaction rolled back');
+
             // Delete uploaded file if database transaction fails
             if (isset($path) && Storage::exists($path)) {
                 Storage::delete($path);
+                \Log::info('Uploaded file deleted', ['path' => $path]);
             }
             throw $e;
         }
