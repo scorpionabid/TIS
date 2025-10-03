@@ -44,16 +44,33 @@ class DocumentCollectionController extends Controller
     public function show(Request $request, DocumentCollection $folder): JsonResponse
     {
         try {
+            \Log::info('DocumentCollection show() called', [
+                'folder_id' => $folder->id,
+                'user_id' => $request->user()->id,
+                'user_role' => $request->user()->roles->pluck('name'),
+            ]);
+
             $documents = $this->service->getFolderDocuments($folder, $request->user());
+
+            \Log::info('DocumentCollection documents fetched', [
+                'documents_count' => $documents->count(),
+            ]);
 
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'folder' => $folder->load(['ownerInstitution', 'institution', 'user', 'targetInstitutions']),
+                    'folder' => $folder->load(['ownerInstitution', 'institution', 'creator', 'targetInstitutions']),
                     'documents' => $documents,
                 ],
             ]);
         } catch (\Exception $e) {
+            \Log::error('DocumentCollection show() error', [
+                'folder_id' => $folder->id ?? null,
+                'user_id' => $request->user()->id ?? null,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch folder details',
