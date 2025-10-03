@@ -4,8 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Clock, Calendar, Search, AlertCircle, Users, Play } from 'lucide-react';
+import { Clock, Calendar, Search, AlertCircle, Users, Play, Lock, Eye, ArrowRight } from 'lucide-react';
 import { formatDistanceToNow, format, isAfter, isBefore } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
@@ -18,6 +20,11 @@ interface SurveyWithStatus extends Survey {
   due_date?: string;
   estimated_duration?: number;
   priority?: 'low' | 'medium' | 'high';
+  is_anonymous: boolean;  // Made required to match parent interface
+  questions_count?: number;
+  completion_percentage?: number;
+  actual_responses?: number;
+  estimated_recipients?: number | string;
 }
 
 const PendingSurveys: React.FC = () => {
@@ -84,6 +91,17 @@ const PendingSurveys: React.FC = () => {
       addSuffix: true,
       locale: az
     });
+  };
+
+  const getDaysRemaining = (dueDate: string) => {
+    const due = new Date(dueDate);
+    const now = new Date();
+    // Reset time part to compare only dates
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dueDateOnly = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+    
+    const diffTime = dueDateOnly.getTime() - today.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
   const handleStartSurvey = (surveyId: number) => {
@@ -227,15 +245,34 @@ const PendingSurveys: React.FC = () => {
 
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  {survey.due_date && (
-                    <div className="flex items-center space-x-2 text-sm">
-                      <Calendar className="h-4 w-4 text-gray-500" />
-                      <span className="text-gray-600">Son tarix:</span>
-                      <span className={isOverdue(survey.due_date) ? 'text-red-600 font-medium' : 'text-gray-900'}>
-                        {format(new Date(survey.due_date), 'dd.MM.yyyy')}
-                      </span>
+                  <div className="flex flex-col space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="h-5 w-5 text-blue-600" />
+                      <span className="font-medium text-gray-900">Bitmə Tarixi</span>
                     </div>
-                  )}
+                    {survey.due_date ? (
+                      <div className="flex items-center space-x-2">
+                        <span className={`text-lg font-semibold ${
+                          isOverdue(survey.due_date) ? 'text-red-600' : 'text-gray-900'
+                        }`}>
+                          {format(new Date(survey.due_date), 'dd MMMM yyyy', { locale: az })}
+                        </span>
+                        <Badge 
+                          variant={isOverdue(survey.due_date) ? 'destructive' : 'outline'}
+                          className="ml-2"
+                        >
+                          {isOverdue(survey.due_date) 
+                            ? `${getDaysRemaining(survey.due_date) * -1} gün gecikib`
+                            : getDaysRemaining(survey.due_date) === 0 
+                              ? 'Bu gün son gün' 
+                              : `${getDaysRemaining(survey.due_date)} gün qalıb`
+                          }
+                        </Badge>
+                      </div>
+                    ) : (
+                      <span className="text-gray-500">Müəyyən edilməyib</span>
+                    )}
+                  </div>
 
                   {survey.estimated_duration && (
                     <div className="flex items-center space-x-2 text-sm">
@@ -255,16 +292,30 @@ const PendingSurveys: React.FC = () => {
                 </div>
 
                 {survey.due_date && (
-                  <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                  <div className={`mb-4 p-3 rounded-lg ${
+                    isOverdue(survey.due_date) 
+                      ? 'bg-red-50 border border-red-100' 
+                      : 'bg-blue-50 border border-blue-100'
+                  }`}>
                     <div className="flex items-center space-x-2">
-                      <AlertCircle className={`h-4 w-4 ${
+                      <AlertCircle className={`h-5 w-5 ${
                         isOverdue(survey.due_date) ? 'text-red-500' : 'text-blue-500'
                       }`} />
-                      <span className={`text-sm font-medium ${
-                        isOverdue(survey.due_date) ? 'text-red-600' : 'text-blue-600'
-                      }`}>
-                        {getDaysUntilDue(survey.due_date)}
-                      </span>
+                      <div>
+                        <p className={`text-sm font-medium ${
+                          isOverdue(survey.due_date) ? 'text-red-700' : 'text-blue-700'
+                        }`}>
+                          {isOverdue(survey.due_date) 
+                            ? 'Sorğunun müddəti bitib!' 
+                            : getDaysRemaining(survey.due_date) === 0 
+                              ? 'Bu gün son gündür!' 
+                              : `Bitməyinə ${getDaysRemaining(survey.due_date)} gün qalıb`
+                          }
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {format(new Date(survey.due_date), 'd MMMM yyyy, EEEE', { locale: az })}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
