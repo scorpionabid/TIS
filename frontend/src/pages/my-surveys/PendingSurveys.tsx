@@ -33,17 +33,56 @@ const PendingSurveys: React.FC = () => {
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('pending');
 
-  const { data: surveys = [], isLoading, error } = useQuery<SurveyWithStatus[]>({
+  const { data: apiResponse, isLoading, error } = useQuery({
     queryKey: ['pending-surveys'],
     queryFn: async () => {
-      const response = await surveyService.getAssignedSurveys();
-      // Add type assertion to ensure TypeScript understands the response structure
-      return (response as { data: SurveyWithStatus[] }).data.filter((survey) =>
-        survey.response_status === 'not_started' || survey.response_status === 'overdue'
-      );
+      try {
+        const response = await surveyService.getAssignedSurveys();
+        console.log('API Response:', response);
+        return response;
+      } catch (err) {
+        console.error('Error fetching surveys:', err);
+        throw err;
+      }
     },
     refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
   });
+
+  // Log any errors
+  React.useEffect(() => {
+    if (error) {
+      console.error('Error in useQuery:', error);
+    }
+  }, [error]);
+
+  // Process the surveys data
+  const surveys = React.useMemo(() => {
+    if (!apiResponse) return [];
+    
+    // Handle different possible response structures
+    let surveysData: SurveyWithStatus[] = [];
+    
+    if (Array.isArray(apiResponse)) {
+      // Direct array response
+      surveysData = apiResponse as SurveyWithStatus[];
+    } else if (apiResponse && typeof apiResponse === 'object' && 'data' in apiResponse) {
+      // Response with { data: [...] } structure
+      surveysData = Array.isArray(apiResponse.data) ? apiResponse.data : [];
+    }
+    
+    // Filter for pending, in-progress, and overdue surveys
+    return surveysData.filter(survey => {
+      const status = survey.response_status?.toLowerCase();
+      return (
+        status === 'not_started' || 
+        status === 'in_progress' ||
+        status === 'overdue' ||
+        status === 'draft' ||
+        status === 'started' ||
+        status === 'pending'
+      );
+    });
+  }, [apiResponse]);
 
   const filteredSurveys = surveys.filter((survey: SurveyWithStatus) => {
     const matchesSearch = survey.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
