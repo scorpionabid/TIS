@@ -97,18 +97,19 @@ const PendingSurveys: React.FC = () => {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'bg-red-100 text-red-800 border-red-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low': return 'bg-green-100 text-green-800 border-green-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'high': return 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100 transition-colors';
+      case 'medium': return 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100 transition-colors';
+      case 'low': return 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100 transition-colors';
+      default: return 'bg-gray-50 text-gray-700 border-gray-200';
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'overdue': return 'bg-red-100 text-red-800 border-red-200';
-      case 'not_started': return 'bg-blue-100 text-blue-800 border-blue-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'overdue': return 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100 transition-colors';
+      case 'not_started': return 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 transition-colors';
+      case 'in_progress': return 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 transition-colors';
+      default: return 'bg-gray-50 text-gray-700 border-gray-200';
     }
   };
 
@@ -264,19 +265,71 @@ const PendingSurveys: React.FC = () => {
                     </CardDescription>
                   </div>
 
-                  <div className="flex flex-col items-end space-y-2">
-                    <div className="flex space-x-2">
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="flex flex-wrap justify-end gap-1.5">
+                      {/* Priority Badge */}
                       {survey.priority && (
-                        <Badge className={getPriorityColor(survey.priority)}>
-                          {survey.priority === 'high' && 'Yüksək'}
-                          {survey.priority === 'medium' && 'Orta'}
-                          {survey.priority === 'low' && 'Aşağı'}
-                        </Badge>
+                        <div className="relative group">
+                          <Badge 
+                            variant="outline"
+                            className={`font-medium px-2.5 py-1 text-xs rounded-md border-2 ${getPriorityColor(survey.priority)}`}
+                          >
+                            {survey.priority === 'high' && (
+                              <>
+                                <span className="w-1.5 h-1.5 bg-red-500 rounded-full mr-1.5"></span>
+                                Yüksək Prioritet
+                              </>
+                            )}
+                            {survey.priority === 'medium' && (
+                              <>
+                                <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full mr-1.5"></span>
+                                Orta Prioritet
+                              </>
+                            )}
+                            {survey.priority === 'low' && (
+                              <>
+                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5"></span>
+                                Aşağı Prioritet
+                              </>
+                            )}
+                          </Badge>
+                          <div className="absolute z-10 hidden group-hover:block bg-white shadow-lg rounded-md p-2 text-xs text-gray-600 w-40 right-0 mt-1 border border-gray-200">
+                            Sorğunun prioritet səviyyəsi
+                          </div>
+                        </div>
                       )}
-                      <Badge className={getStatusColor(survey.response_status)}>
-                        {survey.response_status === 'overdue' && 'Gecikmiş'}
-                        {survey.response_status === 'not_started' && 'Başlanmamış'}
-                      </Badge>
+                      
+                      {/* Status Badge */}
+                      <div className="relative group">
+                        <Badge 
+                          variant="outline"
+                          className={`font-medium px-2.5 py-1 text-xs rounded-md border-2 ${getStatusColor(survey.response_status)}`}
+                        >
+                          {survey.response_status === 'overdue' && (
+                            <>
+                              <Clock className="w-3 h-3 mr-1.5" />
+                              Gecikmiş
+                            </>
+                          )}
+                          {survey.response_status === 'not_started' && (
+                            <>
+                              <Clock className="w-3 h-3 mr-1.5" />
+                              Gözləyir
+                            </>
+                          )}
+                          {survey.response_status === 'in_progress' && (
+                            <>
+                              <Clock className="w-3 h-3 mr-1.5 animate-pulse" />
+                              Davam edir
+                            </>
+                          )}
+                        </Badge>
+                        <div className="absolute z-10 hidden group-hover:block bg-white shadow-lg rounded-md p-2 text-xs text-gray-600 w-40 right-0 mt-1 border border-gray-200">
+                          {survey.response_status === 'overdue' && 'Son müddət keçib'}
+                          {survey.response_status === 'not_started' && 'Cavab göndərilməyib'}
+                          {survey.response_status === 'in_progress' && 'Cavablandırılma davam edir'}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
