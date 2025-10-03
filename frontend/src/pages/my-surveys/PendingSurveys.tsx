@@ -198,43 +198,55 @@ const PendingSurveys: React.FC = () => {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header */}
-      <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">Gözləyən Sorğular</h2>
-      
-      {/* Filters */}
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <h2 className="text-xl font-semibold text-gray-900">Gözləyən Sorğular</h2>
+        
+        {/* Search and Filters */}
+        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
           {/* Search Input */}
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Sorğu adı və ya təsviri ilə axtarış..."
+              placeholder="Axtarış..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-8 py-1 h-9 text-sm border-gray-300 focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
             />
           </div>
           
-          {/* Toggle Filters Button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-1.5 h-9"
+          {/* Priority Filter */}
+          <Select 
+            value={priorityFilter}
+            onValueChange={(value) => setPriorityFilter(value as any)}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-              <path d="M3 6h18"></path>
-              <path d="M6 12h12"></path>
-              <path d="M9 18h6"></path>
-            </svg>
-            Filtrlər
-            {isFilterActive && (
-              <span className="ml-1 w-5 h-5 flex items-center justify-center bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
-                {[searchTerm, priorityFilter, statusFilter].filter(Boolean).length - 1}
-              </span>
-            )}
-          </Button>
+            <SelectTrigger className="w-[150px] h-9">
+              <SelectValue placeholder="Prioritet" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Bütün prioritetlər</SelectItem>
+              <SelectItem value="high">Yüksək</SelectItem>
+              <SelectItem value="medium">Orta</SelectItem>
+              <SelectItem value="low">Aşağı</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          {/* Status Filter */}
+          <Select 
+            value={statusFilter}
+            onValueChange={(value) => setStatusFilter(value as any)}
+          >
+            <SelectTrigger className="w-[150px] h-9">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Bütün statuslar</SelectItem>
+              <SelectItem value="not_started">Başlanmayıb</SelectItem>
+              <SelectItem value="in_progress">Davam edir</SelectItem>
+              <SelectItem value="overdue">Gecikmiş</SelectItem>
+            </SelectContent>
+          </Select>
           
           {isFilterActive && (
             <Button
@@ -247,113 +259,6 @@ const PendingSurveys: React.FC = () => {
             </Button>
           )}
         </div>
-        
-        {/* Expanded Filters */}
-        {showFilters && (
-          <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Priority Filter */}
-              <div>
-                <h4 className="text-xs font-medium text-gray-500 mb-2">Prioritet</h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { value: 'all', label: 'Hamısı' },
-                    { value: 'high', label: 'Yüksək' },
-                    { value: 'medium', label: 'Orta' },
-                    { value: 'low', label: 'Aşağı' }
-                  ].map(({ value, label }) => (
-                    <button
-                      key={value}
-                      onClick={() => setPriorityFilter(value as any)}
-                      className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                        priorityFilter === value
-                          ? 'bg-white shadow-sm border border-gray-200 font-medium text-blue-700'
-                          : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Status Filter */}
-              <div>
-                <h4 className="text-xs font-medium text-gray-500 mb-2">Status</h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { value: 'all', label: 'Hamısı' },
-                    { value: 'not_started', label: 'Başlanmayıb' },
-                    { value: 'in_progress', label: 'Davam edir' },
-                    { value: 'overdue', label: 'Gecikmiş' }
-                  ].map(({ value, label }) => (
-                    <button
-                      key={value}
-                      onClick={() => setStatusFilter(value as any)}
-                      className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                        statusFilter === value
-                          ? 'bg-white shadow-sm border border-gray-200 font-medium text-blue-700'
-                          : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Active Filters */}
-        {isFilterActive && (
-          <div className="flex flex-wrap items-center gap-2">
-            {searchTerm && (
-              <div className="flex items-center bg-blue-50 text-blue-700 text-sm px-3 py-1 rounded-full">
-                <span className="mr-1">Açar söz:</span>
-                <span className="font-medium">{searchTerm}</span>
-                <button 
-                  onClick={() => setSearchTerm('')}
-                  className="ml-2 text-blue-500 hover:text-blue-700"
-                >
-                  &times;
-                </button>
-              </div>
-            )}
-            
-            {priorityFilter !== 'all' && (
-              <div className="flex items-center bg-blue-50 text-blue-700 text-sm px-3 py-1 rounded-full">
-                <span className="mr-1">Prioritet:</span>
-                <span className="font-medium">
-                  {priorityFilter === 'high' ? 'Yüksək' : 
-                   priorityFilter === 'medium' ? 'Orta' : 'Aşağı'}
-                </span>
-                <button 
-                  onClick={() => setPriorityFilter('all')}
-                  className="ml-2 text-blue-500 hover:text-blue-700"
-                >
-                  &times;
-                </button>
-              </div>
-            )}
-            
-            {statusFilter !== 'all' && (
-              <div className="flex items-center bg-blue-50 text-blue-700 text-sm px-3 py-1 rounded-full">
-                <span className="mr-1">Status:</span>
-                <span className="font-medium">
-                  {statusFilter === 'not_started' ? 'Başlanmayıb' : 
-                   statusFilter === 'in_progress' ? 'Davam edir' : 'Gecikmiş'}
-                </span>
-                <button 
-                  onClick={() => setStatusFilter('all')}
-                  className="ml-2 text-blue-500 hover:text-blue-700"
-                >
-                  &times;
-                </button>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Survey List */}
@@ -374,8 +279,8 @@ const PendingSurveys: React.FC = () => {
       ) : (
         <div className="grid gap-4">
           {filteredSurveys.map((survey: SurveyWithStatus) => (
-            <Card key={survey.id} className={`transition-shadow hover:shadow-md ${
-              survey.response_status === 'overdue' ? 'border-red-200 bg-red-50' : ''
+            <Card key={survey.id} className={`transition-shadow hover:shadow-sm ${
+              survey.response_status === 'overdue' ? 'border-l-2 border-l-red-500' : ''
             }`}>
               <CardHeader>
                 <div className="flex justify-between items-start">
@@ -389,70 +294,31 @@ const PendingSurveys: React.FC = () => {
                   </div>
 
                   <div className="flex flex-col items-end gap-2">
-                    <div className="flex flex-wrap justify-end gap-1.5">
-                      {/* Priority Badge */}
+                    <div className="flex items-center gap-2">
+                      {/* Priority Indicator */}
                       {survey.priority && (
-                        <div className="relative group">
-                          <Badge 
-                            variant="outline"
-                            className={`font-medium px-2.5 py-1 text-xs rounded-md border-2 ${getPriorityColor(survey.priority)}`}
-                          >
-                            {survey.priority === 'high' && (
-                              <>
-                                <span className="w-1.5 h-1.5 bg-red-500 rounded-full mr-1.5"></span>
-                                Yüksək Prioritet
-                              </>
-                            )}
-                            {survey.priority === 'medium' && (
-                              <>
-                                <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full mr-1.5"></span>
-                                Orta Prioritet
-                              </>
-                            )}
-                            {survey.priority === 'low' && (
-                              <>
-                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5"></span>
-                                Aşağı Prioritet
-                              </>
-                            )}
-                          </Badge>
-                          <div className="absolute z-10 hidden group-hover:block bg-white shadow-lg rounded-md p-2 text-xs text-gray-600 w-40 right-0 mt-1 border border-gray-200">
-                            Sorğunun prioritet səviyyəsi
-                          </div>
-                        </div>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className={`w-2.5 h-2.5 rounded-full ${
+                              survey.priority === 'high' ? 'bg-red-500' : 
+                              survey.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
+                            }`}></div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">
+                            {survey.priority === 'high' ? 'Yüksək prioritet' : 
+                             survey.priority === 'medium' ? 'Orta prioritet' : 'Aşağı prioritet'}
+                          </TooltipContent>
+                        </Tooltip>
                       )}
                       
                       {/* Status Badge */}
-                      <div className="relative group">
-                        <Badge 
-                          variant="outline"
-                          className={`font-medium px-2.5 py-1 text-xs rounded-md border-2 ${getStatusColor(survey.response_status)}`}
-                        >
-                          {survey.response_status === 'overdue' && (
-                            <>
-                              <Clock className="w-3 h-3 mr-1.5" />
-                              Gecikmiş
-                            </>
-                          )}
-                          {survey.response_status === 'not_started' && (
-                            <>
-                              <Clock className="w-3 h-3 mr-1.5" />
-                              Gözləyir
-                            </>
-                          )}
-                          {survey.response_status === 'in_progress' && (
-                            <>
-                              <Clock className="w-3 h-3 mr-1.5 animate-pulse" />
-                              Davam edir
-                            </>
-                          )}
-                        </Badge>
-                        <div className="absolute z-10 hidden group-hover:block bg-white shadow-lg rounded-md p-2 text-xs text-gray-600 w-40 right-0 mt-1 border border-gray-200">
-                          {survey.response_status === 'overdue' && 'Son müddət keçib'}
-                          {survey.response_status === 'not_started' && 'Cavab göndərilməyib'}
-                          {survey.response_status === 'in_progress' && 'Cavablandırılma davam edir'}
-                        </div>
-                      </div>
+                      <Badge 
+                        variant="outline"
+                        className={`text-xs font-normal px-2 h-5 ${getStatusColor(survey.response_status)}`}
+                      >
+                        {survey.response_status === 'overdue' ? 'Gecikmiş' : 
+                         survey.response_status === 'in_progress' ? 'Davam edir' : 'Gözləyir'}
+                      </Badge>
                     </div>
                   </div>
                 </div>
@@ -492,68 +358,40 @@ const PendingSurveys: React.FC = () => {
                   {survey.estimated_duration && (
                     <div className="flex items-center space-x-2 text-sm">
                       <Clock className="h-4 w-4 text-gray-500" />
-                      <span className="text-gray-600">Təxmini müddət:</span>
-                      <span className="text-gray-900">{survey.estimated_duration} dəqiqə</span>
+                      <span className="text-gray-600">Müddət:</span>
+                      <span className="font-medium text-gray-900">{survey.estimated_duration} dəq</span>
                     </div>
                   )}
 
                   {survey.questions_count && (
                     <div className="flex items-center space-x-2 text-sm">
                       <Users className="h-4 w-4 text-gray-500" />
-                      <span className="text-gray-600">Sual sayı:</span>
-                      <span className="text-gray-900">{survey.questions_count}</span>
+                      <span className="text-gray-600">Suallar:</span>
+                      <span className="font-medium text-gray-900">{survey.questions_count}</span>
                     </div>
                   )}
                 </div>
 
-                {survey.end_date && (
-                  <div className={`mb-4 p-3 rounded-lg ${
-                    isOverdue(survey.end_date) 
-                      ? 'bg-red-50 border border-red-100' 
-                      : 'bg-blue-50 border border-blue-100'
-                  }`}>
+                {survey.end_date && isOverdue(survey.end_date) && (
+                  <div className="mb-3 p-2 rounded-md bg-red-50 border border-red-100 text-sm text-red-700">
                     <div className="flex items-center space-x-2">
-                      <AlertCircle className={`h-5 w-5 ${
-                        isOverdue(survey.end_date) ? 'text-red-500' : 'text-blue-500'
-                      }`} />
-                      <div>
-                        <p className={`text-sm font-medium ${
-                          isOverdue(survey.end_date) ? 'text-red-700' : 'text-blue-700'
-                        }`}>
-                          {isOverdue(survey.end_date)
-                            ? 'Sorğunun müddəti bitib!'
-                            : getDaysRemaining(survey.end_date) === 0
-                              ? 'Bu gün son gündür!'
-                              : `Bitməyinə ${getDaysRemaining(survey.end_date)} gün qalıb`
-                          }
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {format(new Date(survey.end_date), 'd MMMM yyyy, EEEE', { locale: az })}
-                        </p>
-                      </div>
+                      <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                      <span>Sorğunun müddəti bitib!</span>
                     </div>
                   </div>
                 )}
 
-                <div className="flex justify-between items-center">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePreviewSurvey(survey.id)}
-                  >
-                    Önizləmə
-                  </Button>
-
+                <div className="flex justify-end">
                   <Button
                     onClick={() => handleStartSurvey(survey.id)}
-                    className={`${
+                    size="sm"
+                    className={`h-8 text-sm w-full sm:w-auto ${
                       survey.response_status === 'overdue'
                         ? 'bg-red-600 hover:bg-red-700'
                         : 'bg-blue-600 hover:bg-blue-700'
                     }`}
                   >
-                    <Play className="h-4 w-4 mr-2" />
-                    {survey.response_status === 'overdue' ? 'Təcili Başla' : 'Başla'}
+                    {survey.response_status === 'overdue' ? 'Təcili başla' : 'Başla'}
                   </Button>
                 </div>
               </CardContent>
