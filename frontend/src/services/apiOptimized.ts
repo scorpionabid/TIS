@@ -460,7 +460,14 @@ class ApiClientOptimized {
     };
 
     if (data && (method === 'POST' || method === 'PUT' || method === 'DELETE')) {
-      requestInit.body = JSON.stringify(data);
+      // Don't stringify FormData - send it directly
+      if (data instanceof FormData) {
+        requestInit.body = data;
+        // Remove Content-Type header for FormData - browser sets it automatically with boundary
+        delete (requestInit.headers as Record<string, string>)['Content-Type'];
+      } else {
+        requestInit.body = JSON.stringify(data);
+      }
     }
 
     if (isDevelopment) {

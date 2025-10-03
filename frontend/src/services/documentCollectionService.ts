@@ -96,12 +96,7 @@ class DocumentCollectionService {
 
     const response = await api.post(
       `${this.basePath}/${folderId}/documents`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
+      formData
     );
     return (response as any).data;
   }
