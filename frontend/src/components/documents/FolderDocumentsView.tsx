@@ -3,6 +3,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import documentCollectionService from '../../services/documentCollectionService';
 import type { DocumentCollection, Document, FolderWithDocuments } from '../../types/documentCollection';
 import { X, FileText, Download, Building2, User, Calendar, Upload, Trash2 } from 'lucide-react';
+import { FileUploadZone } from './FileUploadZone';
+import { formatFileSize as utilFormatFileSize, getFileIcon } from '../../utils/fileValidation';
 
 interface FolderDocumentsViewProps {
   folder: DocumentCollection;
@@ -14,8 +16,7 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [showUploadZone, setShowUploadZone] = useState(false);
 
   useEffect(() => {
     loadDocuments();
@@ -62,30 +63,9 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
-      handleUpload(e.target.files[0]);
-    }
-  };
-
   const handleUpload = async (file: File) => {
-    if (!file) return;
-
-    setUploading(true);
-    setError(null);
-
-    try {
-      await documentCollectionService.uploadDocument(folder.id, file);
-      setSelectedFile(null);
-      await loadDocuments();
-      alert('Fayl uğurla yükləndi');
-    } catch (err: any) {
-      console.error('Error uploading file:', err);
-      setError(err.response?.data?.message || 'Fayl yüklənərkən xəta baş verdi');
-    } finally {
-      setUploading(false);
-    }
+    await documentCollectionService.uploadDocument(folder.id, file);
+    await loadDocuments();
   };
 
   const handleDelete = async (documentId: number) => {
@@ -149,16 +129,13 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
           </div>
           <div className="flex items-center gap-3">
             {canUpload() && (
-              <label className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors cursor-pointer">
+              <button
+                onClick={() => setShowUploadZone(!showUploadZone)}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+              >
                 <Upload size={20} />
-                {uploading ? 'Yüklənir...' : 'Fayl Yüklə'}
-                <input
-                  type="file"
-                  onChange={handleFileSelect}
-                  disabled={uploading}
-                  className="hidden"
-                />
-              </label>
+                {showUploadZone ? 'Sənədləri Gizlət' : 'Fayl Yüklə'}
+              </button>
             )}
             <button
               onClick={onClose}
@@ -171,6 +148,13 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6">
+          {/* Upload Zone */}
+          {showUploadZone && canUpload() && (
+            <div className="mb-6">
+              <FileUploadZone onUpload={handleUpload} />
+            </div>
+          )}
+
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -179,7 +163,7 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
               {error}
             </div>
-          ) : documents.length === 0 ? (
+          ) : documents.length === 0 && !showUploadZone ? (
             <div className="text-center py-12 bg-gray-50 rounded-lg">
               <FileText size={48} className="mx-auto text-gray-400 mb-4" />
               <p className="text-gray-600">Bu folderdə hələ sənəd yoxdur</p>
@@ -194,8 +178,8 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3 flex-1">
-                      <div className="p-2 bg-blue-100 rounded">
-                        <FileText className="text-blue-600" size={20} />
+                      <div className="text-3xl">
+                        {getFileIcon(doc.mime_type)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-gray-900 truncate">{doc.file_name}</h3>
@@ -248,8 +232,8 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex items-start gap-3 flex-1">
-                          <div className="p-2 bg-blue-100 rounded">
-                            <FileText className="text-blue-600" size={20} />
+                          <div className="text-3xl">
+                            {getFileIcon(doc.mime_type)}
                           </div>
                           <div className="flex-1 min-w-0">
                             <h4 className="font-semibold text-gray-900 truncate">{doc.file_name}</h4>
