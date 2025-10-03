@@ -49,7 +49,7 @@ class DocumentCollectionController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'folder' => $folder->load(['ownerInstitution', 'institution', 'user']),
+                    'folder' => $folder->load(['ownerInstitution', 'institution', 'user', 'targetInstitutions']),
                     'documents' => $documents,
                 ],
             ]);

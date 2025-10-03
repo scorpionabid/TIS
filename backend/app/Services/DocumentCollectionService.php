@@ -146,7 +146,7 @@ class DocumentCollectionService
     public function getAccessibleFolders(User $user): Collection
     {
         $query = DocumentCollection::query()
-            ->with(['ownerInstitution', 'institution', 'creator']);
+            ->with(['ownerInstitution', 'institution', 'creator', 'targetInstitutions']);
 
         // SuperAdmin sees all folders
         if ($user->hasRole('superadmin')) {
