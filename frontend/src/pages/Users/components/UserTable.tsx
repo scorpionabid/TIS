@@ -178,7 +178,7 @@ export const UserTable = memo(({
                 )}
               </TableCell>
               <TableCell>
-                {user.profile?.phone || 'Əlavə edilməyib'}
+                {user.contact_phone || user.phone || 'Əlavə edilməyib'}
               </TableCell>
               <TableCell>
                 <Badge variant={getStatusBadgeVariant(user.is_active ? 'active' : 'inactive')}>
@@ -189,9 +189,9 @@ export const UserTable = memo(({
                 <div className="text-sm">
                   {user.created_at ? new Date(user.created_at).toLocaleDateString('az-AZ') : 'Məlum deyil'}
                 </div>
-                {user.last_login_at && (
+                {user.last_login && (
                   <div className="text-xs text-muted-foreground">
-                    Son giriş: {new Date(user.last_login_at).toLocaleDateString('az-AZ')}
+                    Son giriş: {new Date(user.last_login).toLocaleDateString('az-AZ')}
                   </div>
                 )}
               </TableCell>

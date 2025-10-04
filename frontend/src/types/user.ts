@@ -30,6 +30,7 @@ export interface User {
   // Status
   is_active: boolean;
   status?: 'active' | 'inactive'; // computed from is_active
+  last_login?: string; // Last login timestamp
   
   // Hierarchical relationships
   institution?: {
