@@ -85,17 +85,17 @@ export const UserTable = memo(({
 
   if (isLoading) {
     return (
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
+      <div className="rounded-md border max-h-[calc(100vh-300px)] overflow-auto">
+        <Table className="relative">
+          <TableHeader className="sticky top-0 bg-background z-10">
             <TableRow>
-              <TableHead className="w-[250px]">İstifadəçi</TableHead>
+              <TableHead className="w-[250px] sticky left-0 bg-background z-20">İstifadəçi</TableHead>
               <TableHead>Rol</TableHead>
               <TableHead>Region/Müəssisə</TableHead>
               <TableHead>Telefon</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Yaradıldı</TableHead>
-              <TableHead className="text-right w-[100px]">Əməliyyat</TableHead>
+              <TableHead className="text-right w-[100px] sticky right-0 bg-background z-20">Əməliyyat</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -127,17 +127,17 @@ export const UserTable = memo(({
   }
 
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
+    <div className="rounded-md border max-h-[calc(100vh-300px)] overflow-auto">
+      <Table className="relative">
+        <TableHeader className="sticky top-0 bg-background z-10">
           <TableRow>
-            <TableHead className="w-[250px]">İstifadəçi</TableHead>
+            <TableHead className="w-[250px] sticky left-0 bg-background z-20">İstifadəçi</TableHead>
             <TableHead>Rol</TableHead>
             <TableHead>Region/Müəssisə</TableHead>
             <TableHead>Telefon</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Yaradıldı</TableHead>
-            <TableHead className="text-right w-[100px]">Əməliyyat</TableHead>
+            <TableHead className="text-right w-[100px] sticky right-0 bg-background z-20">Əməliyyat</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
