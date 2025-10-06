@@ -422,25 +422,55 @@ class SurveyApprovalService extends BaseService
         $currentLevel = $approvalRequest->current_approval_level;
 
         // SuperAdmin can approve any pending or in_progress approval
-        if ($approver->role === 'superadmin') {
+        if ($approver->hasRole('superadmin')) {
             return in_array($currentStatus, ['pending', 'in_progress']);
         }
 
-        // Check if status allows approval
+        // SektorAdmin can approve responses from schools in their sector
+        if ($approver->hasRole('sektoradmin')) {
+            $responseInstitution = $response->institution;
+            if (!$responseInstitution) {
+                return false;
+            }
+
+            $approverInstitution = $approver->institution;
+            if (!$approverInstitution) {
+                return false;
+            }
+
+            // Check if response is from a school under this sector
+            // Schools have parent_id pointing to sector
+            if ($responseInstitution->parent_id === $approverInstitution->id) {
+                return in_array($currentStatus, ['pending', 'in_progress']);
+            }
+
+            return false;
+        }
+
+        // RegionAdmin can approve responses from institutions in their region
+        if ($approver->hasRole('regionadmin')) {
+            // Check if response institution is within RegionAdmin's region
+            $responseInstitution = $response->institution;
+            if (!$responseInstitution) {
+                return false;
+            }
+
+            // Check region_id match
+            if ($responseInstitution->region_id === $approver->region_id) {
+                return in_array($currentStatus, ['pending', 'in_progress']);
+            }
+
+            return false;
+        }
+
+        // Check if status allows approval for other roles
         if ($currentStatus === 'pending') {
             return true; // Anyone with approval permission can start the chain
         }
 
         if ($currentStatus === 'in_progress') {
-            // SektorAdmin approves at level 2
-            if ($approver->role === 'sektoradmin' && $currentLevel === 2) {
-                return true;
-            }
-
-            // RegionAdmin approves at level 3
-            if ($approver->role === 'regionadmin' && $currentLevel === 3) {
-                return true;
-            }
+            // Other role-level checks can be added here if needed
+            return false;
         }
 
         return false;
