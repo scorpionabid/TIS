@@ -144,45 +144,78 @@ class DataIsolationHelper
     private static function applySektorAdminScope(Builder $query, User $user, string $resourceType): Builder
     {
         $userSector = $user->institution;
-        
-        if (!$userSector || $userSector->type !== 'sector_education_office') {
+
+        // Robust validation: Check institution existence and level
+        if (!$userSector) {
+            \Log::warning('SektorAdmin user has no institution assigned', [
+                'user_id' => $user->id,
+                'username' => $user->username
+            ]);
             return $query->whereRaw('1 = 0');
         }
 
-        // Get all schools under this sector
+        // Level-based validation (more robust than type checking)
+        if ($userSector->level !== 3) {
+            \Log::warning('SektorAdmin user institution is not level 3 (sector)', [
+                'user_id' => $user->id,
+                'username' => $user->username,
+                'institution_id' => $userSector->id,
+                'institution_name' => $userSector->name,
+                'actual_level' => $userSector->level,
+                'expected_level' => 3
+            ]);
+            return $query->whereRaw('1 = 0');
+        }
+
+        // Get all schools under this sector (level 4)
         $allowedInstitutionIds = Institution::where('parent_id', $userSector->id)
             ->where('level', 4) // School level
             ->pluck('id')
             ->prepend($userSector->id); // Include sector itself
 
+        \Log::info('🔒 SektorAdmin Scope Applied', [
+            'user_id' => $user->id,
+            'username' => $user->username,
+            'sector_id' => $userSector->id,
+            'sector_name' => $userSector->name,
+            'sector_level' => $userSector->level,
+            'resource_type' => $resourceType,
+            'allowed_institutions_count' => $allowedInstitutionIds->count(),
+            'allowed_institution_ids' => $allowedInstitutionIds->toArray()
+        ]);
+
         switch ($resourceType) {
             case 'users':
                 return $query->whereIn('institution_id', $allowedInstitutionIds);
-                
+
             case 'institutions':
                 return $query->whereIn('id', $allowedInstitutionIds);
-                
+
             case 'departments':
                 return $query->whereIn('institution_id', $allowedInstitutionIds);
-                
+
             case 'surveys':
                 return $query->where(function($q) use ($allowedInstitutionIds) {
                     $q->whereHas('targets', function($subQ) use ($allowedInstitutionIds) {
                         $subQ->whereIn('institution_id', $allowedInstitutionIds);
                     })->orWhere('created_by', auth()->id());
                 });
-                
+
             case 'students':
                 // SektorAdmin can see students from all schools in their sector
                 return $query->whereIn('institution_id', $allowedInstitutionIds);
-                
+
             case 'teachers':
                 // SektorAdmin can see teachers from all schools in their sector
                 return $query->whereIn('institution_id', $allowedInstitutionIds)
                              ->whereHas('roles', function($q) {
                                  $q->where('name', 'müəllim');
                              });
-                
+
+            case 'approvals':
+                // SektorAdmin can see approvals from their sector institutions
+                return $query->whereIn('institution_id', $allowedInstitutionIds);
+
             default:
                 return $query->whereIn('institution_id', $allowedInstitutionIds);
         }
@@ -318,10 +351,16 @@ class DataIsolationHelper
                 
             case 'sektoradmin':
                 $userSector = $user->institution;
-                if (!$userSector || $userSector->type !== 'sector_education_office') {
+                // Use level-based validation instead of type
+                if (!$userSector || $userSector->level !== 3) {
+                    \Log::warning('SektorAdmin getAllowedInstitutionIds: Invalid sector institution', [
+                        'user_id' => $user->id,
+                        'institution_id' => $userSector?->id,
+                        'institution_level' => $userSector?->level
+                    ]);
                     return collect([]);
                 }
-                
+
                 return Institution::where('parent_id', $userSector->id)
                     ->where('level', 4)
                     ->pluck('id')

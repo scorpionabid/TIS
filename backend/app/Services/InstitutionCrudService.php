@@ -182,27 +182,12 @@ class InstitutionCrudService extends BaseService
 
     /**
      * Apply user-based access control
+     * REFACTORED: Now uses DataIsolationHelper for consistency
      */
     private function applyUserAccessControl($query, $user)
     {
-        if ($user->hasRole('regionadmin')) {
-            $regionInstitution = $user->institution;
-            if ($regionInstitution && $regionInstitution->level == 2) {
-                $childIds = $regionInstitution->getAllChildrenIds();
-                $query->whereIn('id', $childIds);
-            }
-        } elseif ($user->hasRole('sektoradmin')) {
-            $sectorInstitution = $user->institution;
-            if ($sectorInstitution && $sectorInstitution->level == 3) {
-                $childIds = $sectorInstitution->getAllChildrenIds();
-                $query->whereIn('id', $childIds);
-            }
-        } elseif ($user->hasRole('schooladmin')) {
-            $schoolInstitution = $user->institution;
-            if ($schoolInstitution) {
-                $query->where('id', $schoolInstitution->id);
-            }
-        }
+        // Use centralized DataIsolationHelper for all role-based filtering
+        \App\Helpers\DataIsolationHelper::applyRegionalScope($query, $user, 'institutions');
 
         return $query;
     }
@@ -253,6 +238,7 @@ class InstitutionCrudService extends BaseService
 
     /**
      * Check institution access for user
+     * REFACTORED: Now uses DataIsolationHelper for consistency
      */
     private function checkInstitutionAccess($user, $institution): bool
     {
@@ -260,34 +246,8 @@ class InstitutionCrudService extends BaseService
             return false;
         }
 
-        // SuperAdmin has access to all
-        if ($user->hasRole('superadmin')) {
-            return true;
-        }
-
-        $userInstitution = $user->institution;
-        if (!$userInstitution) {
-            return false;
-        }
-
-        // RegionAdmin can access their region and all children
-        if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
-            $allowedIds = $userInstitution->getAllChildrenIds();
-            return in_array($institution->id, $allowedIds);
-        }
-
-        // SektorAdmin can access their sector and all children
-        if ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
-            $allowedIds = $userInstitution->getAllChildrenIds();
-            return in_array($institution->id, $allowedIds);
-        }
-
-        // SchoolAdmin can only access their own school
-        if ($user->hasRole('schooladmin')) {
-            return $userInstitution->id === $institution->id;
-        }
-
-        return false;
+        // Use centralized DataIsolationHelper
+        return \App\Helpers\DataIsolationHelper::canAccessInstitution($user, $institution->id);
     }
 
     /**

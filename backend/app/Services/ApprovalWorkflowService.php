@@ -544,6 +544,7 @@ class ApprovalWorkflowService extends BaseService
 
     /**
      * Filter by user's approval authority
+     * REFACTORED: Now uses DataIsolationHelper for institution filtering
      */
     private function filterByApprovalAuthority($query, $user): void
     {
@@ -551,32 +552,13 @@ class ApprovalWorkflowService extends BaseService
             return; // SuperAdmin can see all
         }
 
-        if ($user->hasRole('regionadmin')) {
-            $regionInstitution = $user->institution;
-            if ($regionInstitution && $regionInstitution->level == 2) {
-                $childIds = $regionInstitution->getAllChildrenIds();
-                // RegionAdmin only sees approval requests from subordinate sectors/schools,
-                // but NOT their own submissions (those go to SuperAdmin)
-                $query->whereIn('institution_id', $childIds)
-                      ->where('submitted_by', '!=', $user->id);
-            }
-        } elseif ($user->hasRole('sektoradmin')) {
-            $sectorInstitution = $user->institution;
-            if ($sectorInstitution && $sectorInstitution->level == 3) {
-                $childIds = $sectorInstitution->getAllChildrenIds();
-                // SektorAdmin only sees approval requests from subordinate schools,
-                // but NOT their own submissions (those go to RegionAdmin)
-                $query->whereIn('institution_id', $childIds)
-                      ->where('submitted_by', '!=', $user->id);
-            }
-        } elseif ($user->hasRole('schooladmin')) {
-            $schoolInstitution = $user->institution;
-            if ($schoolInstitution) {
-                // SchoolAdmin only sees approval requests from their own school,
-                // but NOT their own submissions (those go to SektorAdmin)
-                $query->where('institution_id', $schoolInstitution->id)
-                      ->where('submitted_by', '!=', $user->id);
-            }
+        // Get allowed institution IDs using centralized helper
+        $allowedIds = \App\Helpers\DataIsolationHelper::getAllowedInstitutionIds($user);
+
+        if ($allowedIds->isNotEmpty()) {
+            // Filter by institutional hierarchy, but exclude own submissions
+            $query->whereIn('institution_id', $allowedIds)
+                  ->where('submitted_by', '!=', $user->id);
         } else {
             // For other roles, show requests where they are the current approver or submitter
             $query->where(function ($q) use ($user) {
@@ -588,6 +570,7 @@ class ApprovalWorkflowService extends BaseService
 
     /**
      * Check if user can view approval request
+     * REFACTORED: Now uses DataIsolationHelper for consistency
      */
     private function canUserViewApproval($user, DataApprovalRequest $approval): bool
     {
@@ -605,27 +588,8 @@ class ApprovalWorkflowService extends BaseService
             return true;
         }
 
-        // Check institutional hierarchy access
-        $userInstitution = $user->institution;
-        if (!$userInstitution) {
-            return false;
-        }
-
-        if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
-            $allowedIds = $userInstitution->getAllChildrenIds();
-            return in_array($approval->institution_id, $allowedIds);
-        }
-
-        if ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
-            $allowedIds = $userInstitution->getAllChildrenIds();
-            return in_array($approval->institution_id, $allowedIds);
-        }
-
-        if ($user->hasRole('schooladmin')) {
-            return $userInstitution->id === $approval->institution_id;
-        }
-
-        return false;
+        // Check institutional hierarchy access using centralized helper
+        return \App\Helpers\DataIsolationHelper::canAccessInstitution($user, $approval->institution_id);
     }
 
     /**

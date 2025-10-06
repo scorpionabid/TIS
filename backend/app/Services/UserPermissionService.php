@@ -341,14 +341,12 @@ class UserPermissionService extends BaseService
 
     /**
      * Apply SektorAdmin filtering - can see users in their sector and schools
+     * REFACTORED: Now uses DataIsolationHelper for consistency
      */
     private function applySektorAdminFiltering(Builder $query, User $currentUser): void
     {
-        $userSektorId = $currentUser->institution_id;
-        $allInstitutionIds = $this->getSectorInstitutions($userSektorId);
-        
-        // Filter users to only show those in these institutions
-        $query->whereIn('institution_id', $allInstitutionIds);
+        // Use centralized DataIsolationHelper
+        \App\Helpers\DataIsolationHelper::applyRegionalScope($query, $currentUser, 'users');
     }
 
     /**
@@ -371,14 +369,17 @@ class UserPermissionService extends BaseService
 
     /**
      * Get all institutions in user's sector
+     * REFACTORED: Now uses DataIsolationHelper for consistency
      */
     private function getSectorInstitutions($sektorId)
     {
-        // Get all schools under this sector
-        $sektorSchools = Institution::where('parent_id', $sektorId)->pluck('id');
-        
-        // Include the sector itself
-        return $sektorSchools->push($sektorId);
+        $user = User::with('institution')->find(auth()->id());
+        if (!$user) {
+            return collect([]);
+        }
+
+        // Use centralized DataIsolationHelper
+        return \App\Helpers\DataIsolationHelper::getAllowedInstitutionIds($user);
     }
 
     /**
@@ -392,11 +393,12 @@ class UserPermissionService extends BaseService
 
     /**
      * Check if target user is in current user's sector scope
+     * REFACTORED: Now uses DataIsolationHelper for consistency
      */
     private function isUserInSectorScope(User $currentUser, User $targetUser): bool
     {
-        $allowedInstitutions = $this->getSectorInstitutions($currentUser->institution_id);
-        return $allowedInstitutions->contains($targetUser->institution_id);
+        // Use centralized DataIsolationHelper
+        return \App\Helpers\DataIsolationHelper::canAccessInstitution($currentUser, $targetUser->institution_id);
     }
 
     /**
