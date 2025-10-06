@@ -124,13 +124,13 @@ export const UserManagement = memo(() => {
   const handleUserSubmit = async (userData: CreateUserData | UpdateUserData) => {
     try {
       if (selectedUser) {
-        await userService.update(selectedUser.id, userData as UpdateUserData);
+        await userService.update(selectedUser.id, userData as UpdateUserData, currentUser?.role);
         toast({
           title: "Uğur",
           description: "İstifadəçi məlumatları yeniləndi",
         });
       } else {
-        await userService.create(userData as CreateUserData);
+        await userService.create(userData as CreateUserData, currentUser?.role);
         toast({
           title: "Uğur",
           description: "Yeni istifadəçi yaradıldı",

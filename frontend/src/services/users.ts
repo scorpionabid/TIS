@@ -76,12 +76,12 @@ class UserService {
     return this.getUsers(filters);
   }
 
-  async create(data: CreateUserData): Promise<User> {
-    return this.createUser(data);
+  async create(data: CreateUserData, currentUserRole?: string): Promise<User> {
+    return this.createUser(data, currentUserRole);
   }
 
-  async update(id: number, data: UpdateUserData): Promise<User> {
-    return this.updateUser(id, data);
+  async update(id: number, data: UpdateUserData, currentUserRole?: string): Promise<User> {
+    return this.updateUser(id, data, currentUserRole);
   }
 
   async delete(id: number, currentUserRole?: string, deleteType: 'soft' | 'hard' = 'soft'): Promise<void> {
@@ -133,13 +133,35 @@ class UserService {
     throw new Error('Failed to create user');
   }
 
-  async updateUser(id: number, data: UpdateUserData): Promise<User> {
-    const response = await apiClient.put<User>(`/users/${id}`, data);
-    
+  async updateUser(id: number, data: UpdateUserData, currentUserRole?: string): Promise<User> {
+    // Use passed role or fallback to localStorage
+    let role = currentUserRole;
+    if (!role) {
+      const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+      role = currentUser?.role;
+    }
+
+    let endpoint = `/users/${id}`;
+
+    // Use role-specific endpoints for better permission handling
+    switch(role) {
+      case 'regionadmin':
+        endpoint = `/regionadmin/users/${id}`;
+        break;
+      case 'sektoradmin':
+        endpoint = `/sektoradmin/users/${id}`;
+        break;
+      default:
+        endpoint = `/users/${id}`;
+        break;
+    }
+
+    const response = await apiClient.put<User>(endpoint, data);
+
     if (response.data) {
       return response.data;
     }
-    
+
     throw new Error('Failed to update user');
   }
 
