@@ -283,6 +283,38 @@ class DocumentPermissionService extends BaseService
      */
     public function canUserDownloadDocument($user, Document $document): bool
     {
+        // SuperAdmin can always download
+        if ($user->hasRole('superadmin')) {
+            return true;
+        }
+
+        // RegionAdmin special case: If they created a folder that contains this document
+        // Or if their institution is in accessible_institutions, they can download
+        if ($user->hasRole(['regionadmin', 'regionoperator'])) {
+            // Check if user's institution is in accessible_institutions
+            if ($document->accessible_institutions && is_array($document->accessible_institutions)) {
+                $userInstitutionId = $user->institution_id;
+                if (in_array($userInstitutionId, $document->accessible_institutions, false)) {
+                    return true;
+                }
+            }
+
+            // Check if document is in a folder created by this RegionAdmin
+            $folderCollections = $document->collections()
+                ->where('created_by', $user->id)
+                ->where('scope', 'regional')
+                ->exists();
+
+            if ($folderCollections) {
+                return true;
+            }
+
+            // Check if document is in user's region
+            if ($this->isDocumentInUserRegion($document, $user->institution_id)) {
+                return true;
+            }
+        }
+
         // Must have access first
         if (!$this->canUserAccessDocument($user, $document)) {
             return false;

@@ -40,12 +40,14 @@ export interface User {
 
 export interface Document {
   id: number;
-  file_name: string;
+  file_name?: string; // May be undefined, fallback to original_filename
+  original_filename: string; // Backend uses this field
   file_path: string;
   file_size: number;
   mime_type: string;
   institution_id: number;
   user_id: number;
+  uploaded_by?: number; // User who uploaded (same as user_id)
   collection_id?: number;
   cascade_deletable: boolean;
   created_at: string;
@@ -55,6 +57,7 @@ export interface Document {
   // Relationships
   institution?: Institution;
   user?: User;
+  uploader?: User; // User who uploaded the document
 }
 
 export interface FolderAuditLog {

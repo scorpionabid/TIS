@@ -71,9 +71,11 @@ class DocumentCollectionService {
    * Bulk download folder contents as ZIP
    */
   async bulkDownload(folderId: number): Promise<Blob> {
-    const response = await api.get(`${this.basePath}/${folderId}/download`, {
-      responseType: 'blob',
-    });
+    const response = await api.get(
+      `${this.basePath}/${folderId}/download`,
+      undefined, // params
+      { responseType: 'blob' } // options
+    );
     return response.data;
   }
 
@@ -106,6 +108,27 @@ class DocumentCollectionService {
    */
   async deleteDocument(documentId: number): Promise<void> {
     await api.delete(`/documents/${documentId}`);
+  }
+
+  /**
+   * Download document by ID
+   */
+  async downloadDocument(documentId: number): Promise<Blob> {
+    // IMPORTANT: Pass responseType in third argument (options), NOT in params
+    const response = await api.get(
+      `/documents/${documentId}/download`,
+      undefined, // params
+      { responseType: 'blob' } // options
+    );
+
+    // apiOptimized returns {data: blob} for blob responses
+    const blob = response.data || response;
+
+    if (!(blob instanceof Blob)) {
+      throw new Error('Invalid file response from server');
+    }
+
+    return blob;
   }
 
   /**

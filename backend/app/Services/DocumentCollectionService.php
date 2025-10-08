@@ -294,6 +294,14 @@ class DocumentCollectionService
                 'extension' => $fileExtension,
             ]);
 
+            // Get target institution IDs from relationship
+            $targetInstitutionIds = $folder->targetInstitutions()->pluck('institutions.id')->toArray();
+
+            \Log::info('Creating document with accessible_institutions', [
+                'target_institution_ids' => $targetInstitutionIds,
+                'folder_id' => $folder->id,
+            ]);
+
             $document = Document::create([
                 'title' => pathinfo($originalFilename, PATHINFO_FILENAME), // Filename without extension
                 'original_filename' => $originalFilename,
@@ -311,6 +319,7 @@ class DocumentCollectionService
                 'is_viewable_online' => true,
                 'published_at' => now(),
                 'cascade_deletable' => true, // Can be deleted with folder
+                'accessible_institutions' => $targetInstitutionIds, // Allow folder owner and target institutions to access
             ]);
 
             \Log::info('Document created', ['document_id' => $document->id]);

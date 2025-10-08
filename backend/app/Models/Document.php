@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
@@ -183,6 +184,16 @@ class Document extends Model
     public function downloads(): HasMany
     {
         return $this->hasMany(DocumentDownload::class);
+    }
+
+    /**
+     * Document collections relationship (folders this document belongs to)
+     */
+    public function collections(): BelongsToMany
+    {
+        return $this->belongsToMany(DocumentCollection::class, 'document_collection_items', 'document_id', 'collection_id')
+                    ->withPivot(['added_by', 'sort_order', 'notes', 'created_at'])
+                    ->withTimestamps();
     }
 
     /**

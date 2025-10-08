@@ -54,12 +54,18 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
     });
   };
 
-  const handleDownload = async (document: Document) => {
+  const handleDownload = async (doc: Document) => {
     try {
-      window.open(`/api/documents/${document.id}/download`, '_blank');
-    } catch (err) {
+      // Use service to download document with proper authentication
+      const blob = await documentCollectionService.downloadDocument(doc.id);
+
+      // Download the blob as a file
+      const fileName = doc.file_name || doc.original_filename || 'document';
+      documentCollectionService.downloadFile(blob, fileName);
+    } catch (err: any) {
       console.error('Error downloading document:', err);
-      alert('Sənəd yüklənərkən xəta baş verdi');
+      const errorMessage = err.response?.data?.message || err.message || 'Sənəd yüklənərkən xəta baş verdi';
+      alert(errorMessage);
     }
   };
 
