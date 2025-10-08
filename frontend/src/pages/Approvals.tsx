@@ -54,7 +54,7 @@ const Approvals: React.FC = () => {
   return (
     <div className="container mx-auto p-6">
 
-      <Tabs defaultValue="survey-responses" className="space-y-6">
+      <Tabs defaultValue="survey-responses" className="space-y-2">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="survey-responses" className="flex items-center gap-2">
             <Target className="h-4 w-4" />
