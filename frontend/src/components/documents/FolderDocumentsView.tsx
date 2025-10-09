@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import documentCollectionService from '../../services/documentCollectionService';
 import type { DocumentCollection, Document, FolderWithDocuments } from '../../types/documentCollection';
-import { X, FileText, Download, Building2, User, Calendar, Upload, Trash2 } from 'lucide-react';
+import { X, FileText, Download, Building2, User, Calendar, Upload, Trash2, Archive, Search, ChevronDown, ChevronRight } from 'lucide-react';
 import { FileUploadZone } from './FileUploadZone';
 import { formatFileSize as utilFormatFileSize, getFileIcon } from '../../utils/fileValidation';
 
@@ -17,6 +17,9 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showUploadZone, setShowUploadZone] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [expandedInstitutions, setExpandedInstitutions] = useState<Set<string>>(new Set());
+  const [bulkDownloading, setBulkDownloading] = useState(false);
 
   useEffect(() => {
     loadDocuments();
@@ -106,6 +109,35 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
     }
   };
 
+  const handleBulkDownload = async () => {
+    if (documents.length === 0) {
+      alert('Yükləmək üçün sənəd yoxdur');
+      return;
+    }
+
+    try {
+      setBulkDownloading(true);
+      const blob = await documentCollectionService.bulkDownload(folder.id);
+      const fileName = `${folder.name}_${new Date().toISOString().split('T')[0]}.zip`;
+      documentCollectionService.downloadFile(blob, fileName);
+    } catch (err: any) {
+      console.error('Error bulk downloading:', err);
+      alert(err.response?.data?.message || 'ZIP faylı yaradılarkən xəta baş verdi');
+    } finally {
+      setBulkDownloading(false);
+    }
+  };
+
+  const toggleInstitution = (institutionName: string) => {
+    const newExpanded = new Set(expandedInstitutions);
+    if (newExpanded.has(institutionName)) {
+      newExpanded.delete(institutionName);
+    } else {
+      newExpanded.add(institutionName);
+    }
+    setExpandedInstitutions(newExpanded);
+  };
+
   // Check if user can upload to this folder
   const canUpload = () => {
     if (!user || !folder) return false;
@@ -125,15 +157,45 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
     return document.user_id === user.id;
   };
 
+  // Filtered documents based on search
+  const filteredDocuments = useMemo(() => {
+    if (!searchQuery.trim()) return documents;
+
+    const query = searchQuery.toLowerCase();
+    return documents.filter(doc => {
+      const fileName = (doc.file_name || doc.original_filename || '').toLowerCase();
+      const institutionName = (doc.institution?.name || '').toLowerCase();
+      const uploaderName = (doc.uploader?.name || doc.user?.name || '').toLowerCase();
+
+      return fileName.includes(query) ||
+             institutionName.includes(query) ||
+             uploaderName.includes(query);
+    });
+  }, [documents, searchQuery]);
+
   // Group documents by institution (for SektorAdmin and RegionAdmin)
-  const groupedDocuments = documents.reduce((acc, doc) => {
-    const institutionName = doc.institution?.name || 'Naməlum';
-    if (!acc[institutionName]) {
-      acc[institutionName] = [];
-    }
-    acc[institutionName].push(doc);
-    return acc;
-  }, {} as Record<string, Document[]>);
+  const groupedDocuments = useMemo(() => {
+    return filteredDocuments.reduce((acc, doc) => {
+      const institutionName = doc.institution?.name || 'Naməlum';
+      if (!acc[institutionName]) {
+        acc[institutionName] = [];
+      }
+      acc[institutionName].push(doc);
+      return acc;
+    }, {} as Record<string, Document[]>);
+  }, [filteredDocuments]);
+
+  // Statistics
+  const statistics = useMemo(() => {
+    const totalSize = filteredDocuments.reduce((sum, doc) => sum + doc.file_size, 0);
+    const institutionCount = Object.keys(groupedDocuments).length;
+
+    return {
+      totalDocuments: filteredDocuments.length,
+      totalSize,
+      institutionCount,
+    };
+  }, [filteredDocuments, groupedDocuments]);
 
   // Support both role (string) and roles (array) formats
   const userRoles = (user as any)?.roles || [];
@@ -145,28 +207,83 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div>
-            <h2 className="text-2xl font-semibold text-gray-900">{folder.name}</h2>
-            <p className="text-gray-600 mt-1">{folder.description || 'Folder sənədləri'}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            {canUpload() && (
+        <div className="p-6 border-b border-gray-200 space-y-4">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h2 className="text-2xl font-semibold text-gray-900">{folder.name}</h2>
+              <p className="text-gray-600 mt-1">{folder.description || 'Folder sənədləri'}</p>
+
+              {/* Statistics */}
+              <div className="flex items-center gap-4 mt-3 text-sm text-gray-600">
+                <span className="flex items-center gap-1">
+                  <FileText size={16} />
+                  <strong>{statistics.totalDocuments}</strong> sənəd
+                </span>
+                {!isSchoolAdmin && (
+                  <span className="flex items-center gap-1">
+                    <Building2 size={16} />
+                    <strong>{statistics.institutionCount}</strong> müəssisə
+                  </span>
+                )}
+                <span className="flex items-center gap-1">
+                  <Archive size={16} />
+                  {formatFileSize(statistics.totalSize)}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {canUpload() && (
+                <button
+                  onClick={() => setShowUploadZone(!showUploadZone)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Upload size={20} />
+                  {showUploadZone ? 'Gizlət' : 'Yüklə'}
+                </button>
+              )}
+
+              {documents.length > 0 && (
+                <button
+                  onClick={handleBulkDownload}
+                  disabled={bulkDownloading}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Archive size={20} />
+                  {bulkDownloading ? 'Hazırlanır...' : 'Hamısını Yüklə (ZIP)'}
+                </button>
+              )}
+
               <button
-                onClick={() => setShowUploadZone(!showUploadZone)}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
               >
-                <Upload size={20} />
-                {showUploadZone ? 'Sənədləri Gizlət' : 'Fayl Yüklə'}
+                <X size={24} />
               </button>
-            )}
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X size={24} />
-            </button>
+            </div>
           </div>
+
+          {/* Search Bar */}
+          {documents.length > 0 && (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <input
+                type="text"
+                placeholder="Sənəd, müəssisə və ya istifadəçi adına görə axtar..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Body */}
@@ -194,32 +311,37 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
           ) : isSchoolAdmin ? (
             // School view: Simple list (they only see their own documents)
             <div className="space-y-3">
-              {documents.map((doc) => (
+              {filteredDocuments.map((doc) => (
                 <div
                   key={doc.id}
                   className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3 flex-1">
-                      <div className="text-3xl">
+                      <div className="text-3xl flex-shrink-0">
                         {getFileIcon(doc.mime_type)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-900 truncate">{doc.file_name}</h3>
+                        <h3
+                          className="font-semibold text-gray-900 break-words"
+                          title={doc.file_name || doc.original_filename}
+                        >
+                          {doc.file_name || doc.original_filename}
+                        </h3>
                         <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-600">
                           <span className="flex items-center gap-1">
                             <Calendar size={14} />
                             {formatDate(doc.created_at)}
                           </span>
                           <span>{formatFileSize(doc.file_size)}</span>
-                          <span className="text-gray-400">{doc.mime_type}</span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 ml-4">
+                    <div className="flex items-center gap-2 ml-4 flex-shrink-0">
                       <button
                         onClick={() => handleDownload(doc)}
                         className="flex items-center gap-2 px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded transition-colors"
+                        title="Sənədi yüklə"
                       >
                         <Download size={16} />
                         Yüklə
@@ -228,6 +350,7 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
                         <button
                           onClick={() => handleDelete(doc.id)}
                           className="flex items-center gap-2 px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors"
+                          title="Sənədi sil"
                         >
                           <Trash2 size={16} />
                           Sil
@@ -239,64 +362,101 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
               ))}
             </div>
           ) : (
-            // SektorAdmin/RegionAdmin view: Grouped by institution
-            <div className="space-y-6">
-              {Object.entries(groupedDocuments).map(([institutionName, docs]) => (
-                <div key={institutionName} className="space-y-3">
-                  <div className="flex items-center gap-2 pb-2 border-b border-gray-300">
-                    <Building2 size={20} className="text-gray-600" />
-                    <h3 className="font-semibold text-gray-900">{institutionName}</h3>
-                    <span className="text-sm text-gray-500">({docs.length} sənəd)</span>
-                  </div>
-                  {docs.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow ml-6"
+            // SektorAdmin/RegionAdmin view: Grouped by institution with collapse
+            <div className="space-y-4">
+              {Object.entries(groupedDocuments).map(([institutionName, docs]) => {
+                const isExpanded = expandedInstitutions.has(institutionName);
+                const institutionSize = docs.reduce((sum, doc) => sum + doc.file_size, 0);
+
+                return (
+                  <div key={institutionName} className="border border-gray-200 rounded-lg overflow-hidden">
+                    {/* Institution Header - Clickable */}
+                    <button
+                      onClick={() => toggleInstitution(institutionName)}
+                      className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-3 flex-1">
-                          <div className="text-3xl">
-                            {getFileIcon(doc.mime_type)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-gray-900 truncate">{doc.file_name}</h4>
-                            <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-600">
-                              <span className="flex items-center gap-1">
-                                <User size={14} />
-                                {doc.uploader?.name || doc.user?.name || 'N/A'}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Calendar size={14} />
-                                {formatDate(doc.created_at)}
-                              </span>
-                              <span>{formatFileSize(doc.file_size)}</span>
+                      <div className="flex items-center gap-3">
+                        {isExpanded ? (
+                          <ChevronDown size={20} className="text-gray-600" />
+                        ) : (
+                          <ChevronRight size={20} className="text-gray-600" />
+                        )}
+                        <Building2 size={20} className="text-gray-600" />
+                        <h3 className="font-semibold text-gray-900">{institutionName}</h3>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-gray-600">
+                        <span className="flex items-center gap-1">
+                          <FileText size={16} />
+                          {docs.length} sənəd
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Archive size={16} />
+                          {formatFileSize(institutionSize)}
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Documents List - Collapsible */}
+                    {isExpanded && (
+                      <div className="p-4 space-y-3 bg-white">
+                        {docs.map((doc) => (
+                          <div
+                            key={doc.id}
+                            className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-start gap-3 flex-1">
+                                <div className="text-3xl flex-shrink-0">
+                                  {getFileIcon(doc.mime_type)}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h4
+                                    className="font-semibold text-gray-900 break-words"
+                                    title={doc.file_name || doc.original_filename}
+                                  >
+                                    {doc.file_name || doc.original_filename}
+                                  </h4>
+                                  <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-600">
+                                    <span className="flex items-center gap-1">
+                                      <User size={14} />
+                                      {doc.uploader?.name || doc.user?.name || 'N/A'}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <Calendar size={14} />
+                                      {formatDate(doc.created_at)}
+                                    </span>
+                                    <span>{formatFileSize(doc.file_size)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                                <button
+                                  onClick={() => handleDownload(doc)}
+                                  className="flex items-center gap-2 px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded transition-colors"
+                                  title="Sənədi yüklə"
+                                >
+                                  <Download size={16} />
+                                  Yüklə
+                                </button>
+                                {canDelete(doc) && (
+                                  <button
+                                    onClick={() => handleDelete(doc.id)}
+                                    className="flex items-center gap-2 px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors"
+                                    title="Sənədi sil"
+                                  >
+                                    <Trash2 size={16} />
+                                    Sil
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2 ml-4">
-                          <button
-                            onClick={() => handleDownload(doc)}
-                            className="flex items-center gap-2 px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded transition-colors"
-                          >
-                            <Download size={16} />
-                            Yüklə
-                          </button>
-                          {canDelete(doc) && (
-                            <button
-                              onClick={() => handleDelete(doc.id)}
-                              className="flex items-center gap-2 px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors"
-                            >
-                              <Trash2 size={16} />
-                              Sil
-                            </button>
-                          )}
-                        </div>
+                        ))}
                       </div>
-                    </div>
-                  ))}
-
-                </div>
-              ))}
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -304,9 +464,30 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
         {/* Footer */}
         <div className="p-6 border-t border-gray-200 bg-gray-50">
           <div className="flex justify-between items-center">
-            <p className="text-sm text-gray-600">
-              Cəmi: <strong>{documents.length}</strong> sənəd
-            </p>
+            <div className="flex items-center gap-4">
+              {!isSchoolAdmin && filteredDocuments.length > 0 && Object.keys(groupedDocuments).length > 1 && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setExpandedInstitutions(new Set(Object.keys(groupedDocuments)))}
+                    className="text-sm text-blue-600 hover:text-blue-700 underline"
+                  >
+                    Hamısını Aç
+                  </button>
+                  <span className="text-gray-400">|</span>
+                  <button
+                    onClick={() => setExpandedInstitutions(new Set())}
+                    className="text-sm text-blue-600 hover:text-blue-700 underline"
+                  >
+                    Hamısını Bağla
+                  </button>
+                </div>
+              )}
+              {searchQuery && (
+                <p className="text-sm text-gray-600">
+                  <strong>{filteredDocuments.length}</strong> / {documents.length} sənəd tapıldı
+                </p>
+              )}
+            </div>
             <button
               onClick={onClose}
               className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors"
