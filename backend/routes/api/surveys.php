@@ -28,6 +28,7 @@ Route::middleware('permission:surveys.read')->group(function () {
     Route::get('surveys/{survey}/analytics/overview', [SurveyAnalyticsController::class, 'analyticsOverview']);
     Route::get('surveys/{survey}/analytics/trends', [SurveyAnalyticsController::class, 'responseTimeTrends']);
     Route::get('surveys/{survey}/analytics/hierarchical-institutions', [SurveyAnalyticsController::class, 'hierarchicalInstitutionsAnalytics']);
+    Route::get('surveys/{survey}/analytics/non-responding-institutions', [SurveyAnalyticsController::class, 'nonRespondingInstitutions']);
 
     // Generic analytics routes (after specific ones)
     Route::get('surveys/{survey}/analytics', [SurveyAnalyticsController::class, 'analytics']);

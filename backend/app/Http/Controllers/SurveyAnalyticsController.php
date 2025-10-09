@@ -354,4 +354,23 @@ class SurveyAnalyticsController extends Controller
             return $this->error($e->getMessage(), 500);
         }
     }
+
+    /**
+     * Get non-responding institutions for a survey
+     */
+    public function nonRespondingInstitutions(Survey $survey): JsonResponse
+    {
+        try {
+            $data = $this->analyticsService->getNonRespondingInstitutions($survey);
+            return $this->success($data, 'Non-responding institutions retrieved successfully');
+        } catch (\Exception $e) {
+            \Log::error('Non-responding institutions error', [
+                'survey_id' => $survey->id,
+                'user_id' => auth()->id(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->error($e->getMessage(), 500);
+        }
+    }
 }

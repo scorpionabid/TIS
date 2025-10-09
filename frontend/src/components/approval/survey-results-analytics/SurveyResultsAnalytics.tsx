@@ -5,9 +5,8 @@ import { AlertTriangle, BarChart3 } from 'lucide-react';
 import { surveyService, Survey } from '../../../services/surveys';
 import SurveySelectionCard from './SurveySelectionCard';
 import SurveyKPIMetrics from './SurveyKPIMetrics';
-import ResponseTrendsChart from './ResponseTrendsChart';
-import ResponseStatusPieChart from './ResponseStatusPieChart';
 import HierarchicalInstitutionAnalysis from './HierarchicalInstitutionAnalysis';
+import NonRespondingInstitutions from './NonRespondingInstitutions';
 import ResponseDetailsSection from './ResponseDetailsSection';
 
 const STORAGE_KEY = 'surveyResultsAnalytics_selectedSurveyId';
@@ -75,14 +74,6 @@ const SurveyResultsAnalytics: React.FC = () => {
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
-  // Fetch trends data
-  const { data: trendsData, isLoading: trendsLoading } = useQuery({
-    queryKey: ['survey-response-trends', selectedSurvey?.id],
-    queryFn: () => selectedSurvey ? surveyService.getResponseTrends(selectedSurvey.id, 30) : null,
-    enabled: !!selectedSurvey,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-
   // Fetch hierarchical data
   const { data: hierarchyData, isLoading: hierarchyLoading } = useQuery({
     queryKey: ['survey-hierarchical-institutions', selectedSurvey?.id],
@@ -136,21 +127,15 @@ const SurveyResultsAnalytics: React.FC = () => {
             isLoading={analyticsLoading}
           />
 
-          {/* Charts Grid */}
-          <div className="grid md:grid-cols-2 gap-6">
-            <ResponseTrendsChart
-              data={trendsData}
-              isLoading={trendsLoading}
-            />
-            <ResponseStatusPieChart
-              data={analyticsData?.status_distribution}
-              isLoading={analyticsLoading}
-            />
-          </div>
-
           {/* Hierarchical Institution Analysis */}
           <HierarchicalInstitutionAnalysis
             data={hierarchyData}
+            isLoading={hierarchyLoading}
+          />
+
+          {/* Non-Responding Institutions */}
+          <NonRespondingInstitutions
+            hierarchyData={hierarchyData}
             isLoading={hierarchyLoading}
           />
 

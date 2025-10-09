@@ -277,6 +277,11 @@ class SurveyService extends BaseService<Survey> {
     return response.data;
   }
 
+  async getNonRespondingInstitutions(id: number) {
+    const response = await apiClient.get(`${this.baseEndpoint}/${id}/analytics/non-responding-institutions`);
+    return response.data;
+  }
+
   async getAvailableTargets() {
     const response = await apiClient.get(`${this.baseEndpoint}/targets`);
     return response.data;
