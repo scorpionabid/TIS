@@ -232,11 +232,15 @@ class DocumentCollectionService
         $documents = $documents->get();
 
         foreach ($documents as $document) {
-            $filePath = Storage::path($document->file_path);
+            // Use 'local' disk explicitly since documents are stored there
+            $filePath = Storage::disk('local')->path($document->file_path);
+
             if (file_exists($filePath)) {
                 // Organize by institution name if multi-institution view
                 $institutionName = $document->institution?->name ?? 'Unknown';
-                $zip->addFile($filePath, "{$institutionName}/{$document->file_name}");
+                $fileName = $document->original_filename ?? $document->stored_filename ?? 'document';
+
+                $zip->addFile($filePath, "{$institutionName}/{$fileName}");
             }
         }
 
