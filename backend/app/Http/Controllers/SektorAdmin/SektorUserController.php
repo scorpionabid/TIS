@@ -89,14 +89,14 @@ class SektorUserController extends Controller
             $statistics = [
                 'total_users' => $users->total(),
                 'by_role' => User::whereIn('institution_id', $institutionIds)
-                    ->where('is_active', true)
+                    ->where('users.is_active', true)
                     ->join('model_has_roles', 'users.id', '=', 'model_has_roles.model_id')
                     ->join('roles', 'model_has_roles.role_id', '=', 'roles.id')
                     ->selectRaw('roles.name as role_name, roles.display_name, COUNT(*) as count')
                     ->groupBy('roles.name', 'roles.display_name')
                     ->get(),
                 'by_institution' => User::whereIn('institution_id', $institutionIds)
-                    ->where('is_active', true)
+                    ->where('users.is_active', true)
                     ->join('institutions', 'users.institution_id', '=', 'institutions.id')
                     ->selectRaw('institutions.id, institutions.name, COUNT(*) as count')
                     ->groupBy('institutions.id', 'institutions.name')
@@ -208,7 +208,7 @@ class SektorUserController extends Controller
                     ->whereHas('roles', function($q) {
                         $q->where('name', 'müəllim');
                     })
-                    ->where('is_active', true)
+                    ->where('users.is_active', true)
                     ->join('institutions', 'users.institution_id', '=', 'institutions.id')
                     ->selectRaw('institutions.id, institutions.name, COUNT(*) as count')
                     ->groupBy('institutions.id', 'institutions.name')

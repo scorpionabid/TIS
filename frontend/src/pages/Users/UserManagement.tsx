@@ -1,6 +1,7 @@
 import { useState, Suspense, lazy, memo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { User, CreateUserData, UpdateUserData, userService } from "@/services/users";
+import { sektorAdminService } from "@/services/sektoradmin";
 import { apiClient } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 import { usePagination } from "@/hooks/usePagination";
@@ -60,22 +61,43 @@ export const UserManagement = memo(() => {
   const [isImportExportModalOpen, setIsImportExportModalOpen] = useState(false);
   const [isTrashedUsersModalOpen, setIsTrashedUsersModalOpen] = useState(false);
 
-  // Data fetching
-  const { 
-    data: usersResponse, 
-    isLoading, 
+  // Data fetching with role-based endpoint selection
+  const {
+    data: usersResponse,
+    isLoading,
     error,
-    refetch 
+    refetch
   } = useQuery({
-    queryKey: ['users'], // Fixed - removed Date.now() to prevent infinite loop
-    queryFn: () => userService.getAll({ per_page: 1000 }), // Load more users for better filtering
+    queryKey: ['users', currentUser?.role], // Include role in cache key
+    queryFn: async () => {
+      // Use role-specific endpoints for proper hierarchy filtering
+      if (currentUser?.role === 'sektoradmin') {
+        const response: any = await sektorAdminService.getSectorUsers({ per_page: 1000 });
+        // Transform SektorAdmin response to match PaginatedResponse format
+        return {
+          data: response.users || [],
+          total: response.pagination?.total || 0,
+          current_page: response.pagination?.current_page || 1,
+          last_page: response.pagination?.last_page || 1,
+          per_page: response.pagination?.per_page || 1000,
+          from: response.pagination?.from || 1,
+          to: response.pagination?.to || 0,
+          first_page_url: '',
+          last_page_url: '',
+          next_page_url: null,
+          prev_page_url: null,
+          path: ''
+        };
+      }
+      // Default to userService for other roles
+      return userService.getAll({ per_page: 1000 });
+    },
     staleTime: 5 * 60 * 1000, // 5 minutes cache
     retry: 1,
     enabled: !!currentUser, // Only run when user is authenticated
   });
 
   const users = usersResponse?.data || [];
-  const totalUsers = usersResponse?.total || usersResponse?.pagination?.total || 0;
 
 
   // Filtering and sorting
