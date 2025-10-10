@@ -6,7 +6,7 @@ import { Folder, Plus, Edit, Trash2, Download, History, FileText } from 'lucide-
 import CreateFolderDialog from './CreateFolderDialog';
 import RenameFolderDialog from './RenameFolderDialog';
 import DeleteFolderDialog from './DeleteFolderDialog';
-import FolderDocumentsView from './FolderDocumentsView';
+import FolderDocumentsViewOptimizedV2 from './FolderDocumentsViewOptimizedV2';
 import AuditLogViewer from './AuditLogViewer';
 
 const RegionalFolderManager: React.FC = () => {
@@ -317,7 +317,7 @@ const RegionalFolderManager: React.FC = () => {
       )}
 
       {showDocumentsView && selectedFolder && (
-        <FolderDocumentsView
+        <FolderDocumentsViewOptimizedV2
           folder={selectedFolder}
           onClose={() => {
             setShowDocumentsView(false);

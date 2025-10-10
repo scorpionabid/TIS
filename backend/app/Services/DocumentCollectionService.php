@@ -271,6 +271,168 @@ class DocumentCollectionService
     }
 
     /**
+     * Get folder documents with pagination and filtering (optimized for 600+ institutions)
+     * This method groups documents by institution and provides pagination at institution level
+     */
+    public function getFolderDocumentsPaginated(DocumentCollection $folder, User $user, array $filters): array
+    {
+        $page = $filters['page'] ?? 1;
+        $perPage = $filters['per_page'] ?? 20;
+        $search = $filters['search'] ?? null;
+        $regionId = $filters['region_id'] ?? null;
+        $sectorId = $filters['sector_id'] ?? null;
+        $fileType = $filters['file_type'] ?? null;
+        $sortBy = $filters['sort_by'] ?? 'institution_name';
+        $sortDirection = $filters['sort_direction'] ?? 'asc';
+
+        // Base query for documents in this folder
+        $documentsQuery = $folder->documents()
+            ->whereNull('documents.deleted_at')
+            ->with(['institution', 'uploader']);
+
+        // SchoolAdmin sees only their own institution's documents
+        if ($user->hasRole('schooladmin')) {
+            $documentsQuery->where('documents.institution_id', $user->institution_id);
+        }
+
+        // Apply file type filter
+        if ($fileType) {
+            $documentsQuery->where('documents.file_type', $fileType);
+        }
+
+        // Get all documents matching filters
+        $allDocuments = $documentsQuery->get();
+
+        // Group documents by institution with parent (sector) information
+        $groupedByInstitution = $allDocuments->groupBy('institution_id')->map(function ($docs, $institutionId) {
+            $institution = $docs->first()->institution;
+            $parentInstitution = $institution && $institution->parent_id
+                ? Institution::find($institution->parent_id)
+                : null;
+
+            return [
+                'institution_id' => $institutionId,
+                'institution_name' => $institution ? $institution->name : 'Naməlum',
+                'institution_level' => $institution ? $institution->level : null,
+                'institution_type' => $institution && $institution->institutionType
+                    ? $institution->institutionType->name
+                    : null,
+                'parent_id' => $institution ? $institution->parent_id : null,
+                'parent_name' => $parentInstitution ? $parentInstitution->name : null,
+                'parent_level' => $parentInstitution ? $parentInstitution->level : null,
+                'document_count' => $docs->count(),
+                'total_size' => $docs->sum('file_size'),
+                'last_upload' => $docs->max('created_at'),
+                'documents' => $docs->values()->all(),
+            ];
+        })->values();
+
+        // Apply search filter (institution name)
+        if ($search) {
+            $groupedByInstitution = $groupedByInstitution->filter(function ($inst) use ($search) {
+                return stripos($inst['institution_name'], $search) !== false;
+            })->values();
+        }
+
+        // Apply region filter
+        if ($regionId) {
+            $groupedByInstitution = $groupedByInstitution->filter(function ($inst) use ($regionId) {
+                // Check if institution is under this region
+                $institution = Institution::find($inst['institution_id']);
+                if (!$institution) return false;
+
+                // Check if institution is in this region (either directly or through parent)
+                return $institution->id === $regionId ||
+                       $institution->parent_id === $regionId ||
+                       $this->isInRegion($institution, $regionId);
+            })->values();
+        }
+
+        // Apply sector filter
+        if ($sectorId) {
+            $groupedByInstitution = $groupedByInstitution->filter(function ($inst) use ($sectorId) {
+                $institution = Institution::find($inst['institution_id']);
+                if (!$institution) return false;
+
+                return $institution->id === $sectorId ||
+                       $institution->parent_id === $sectorId;
+            })->values();
+        }
+
+        // Sort institutions
+        $groupedByInstitution = $this->sortInstitutions($groupedByInstitution, $sortBy, $sortDirection);
+
+        // Calculate pagination
+        $totalInstitutions = $groupedByInstitution->count();
+        $totalPages = ceil($totalInstitutions / $perPage);
+        $offset = ($page - 1) * $perPage;
+
+        // Slice for current page
+        $paginatedInstitutions = $groupedByInstitution->slice($offset, $perPage)->values();
+
+        return [
+            'data' => [
+                'folder' => $folder->load(['ownerInstitution', 'institution', 'creator', 'targetInstitutions']),
+                'institutions' => $paginatedInstitutions,
+            ],
+            'meta' => [
+                'current_page' => $page,
+                'per_page' => $perPage,
+                'total_institutions' => $totalInstitutions,
+                'total_pages' => $totalPages,
+                'total_documents' => $allDocuments->count(),
+                'total_size' => $allDocuments->sum('file_size'),
+                'from' => $offset + 1,
+                'to' => min($offset + $perPage, $totalInstitutions),
+            ],
+        ];
+    }
+
+    /**
+     * Check if institution is in a specific region (recursive parent check)
+     */
+    private function isInRegion(Institution $institution, int $regionId): bool
+    {
+        $current = $institution;
+        $maxDepth = 5; // Prevent infinite loops
+        $depth = 0;
+
+        while ($current && $depth < $maxDepth) {
+            if ($current->parent_id === $regionId) {
+                return true;
+            }
+
+            $current = $current->parent;
+            $depth++;
+        }
+
+        return false;
+    }
+
+    /**
+     * Sort institutions by specified field
+     */
+    private function sortInstitutions(Collection $institutions, string $sortBy, string $sortDirection): Collection
+    {
+        $ascending = $sortDirection === 'asc';
+
+        return $institutions->sortBy(function ($inst) use ($sortBy) {
+            switch ($sortBy) {
+                case 'institution_name':
+                    return $inst['institution_name'];
+                case 'document_count':
+                    return $inst['document_count'];
+                case 'last_upload':
+                    return $inst['last_upload'] ?? '';
+                case 'total_size':
+                    return $inst['total_size'];
+                default:
+                    return $inst['institution_name'];
+            }
+        }, SORT_REGULAR, !$ascending)->values();
+    }
+
+    /**
      * Upload document to folder
      */
     public function uploadDocumentToFolder(DocumentCollection $folder, $file, User $user): Document

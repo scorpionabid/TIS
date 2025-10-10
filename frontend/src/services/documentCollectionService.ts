@@ -39,6 +39,41 @@ class DocumentCollectionService {
   }
 
   /**
+   * Get specific folder with paginated and filtered documents (optimized for 600+ institutions)
+   */
+  async getByIdPaginated(
+    folderId: number,
+    params?: {
+      page?: number;
+      per_page?: number;
+      search?: string;
+      region_id?: number;
+      sector_id?: number;
+      file_type?: string;
+      sort_by?: string;
+      sort_direction?: string;
+    }
+  ): Promise<{
+    data: {
+      folder: DocumentCollection;
+      institutions: any[];
+    };
+    meta: {
+      current_page: number;
+      per_page: number;
+      total_institutions: number;
+      total_pages: number;
+      total_documents: number;
+      total_size: number;
+      from: number;
+      to: number;
+    };
+  }> {
+    const response = await api.get(`${this.basePath}/${folderId}`, params);
+    return response as any;
+  }
+
+  /**
    * Create regional folders from templates
    */
   async createRegionalFolders(data: CreateRegionalFoldersRequest): Promise<DocumentCollection[]> {

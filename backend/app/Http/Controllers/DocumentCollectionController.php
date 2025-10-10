@@ -39,7 +39,7 @@ class DocumentCollectionController extends Controller
     }
 
     /**
-     * Show a specific folder with its documents
+     * Show a specific folder with its documents (with pagination and filtering for 600+ institutions)
      */
     public function show(Request $request, DocumentCollection $folder): JsonResponse
     {
@@ -50,18 +50,48 @@ class DocumentCollectionController extends Controller
                 'user_role' => $request->user()->roles->pluck('name'),
             ]);
 
-            $documents = $this->service->getFolderDocuments($folder, $request->user());
+            // Validate pagination and filter parameters
+            $validator = Validator::make($request->all(), [
+                'page' => 'nullable|integer|min:1',
+                'per_page' => 'nullable|integer|min:5|max:100',
+                'search' => 'nullable|string|max:255',
+                'region_id' => 'nullable|exists:institutions,id',
+                'sector_id' => 'nullable|exists:institutions,id',
+                'file_type' => 'nullable|string|in:pdf,word,excel,image,other',
+                'sort_by' => 'nullable|string|in:institution_name,document_count,last_upload,total_size',
+                'sort_direction' => 'nullable|string|in:asc,desc',
+            ]);
 
-            \Log::info('DocumentCollection documents fetched', [
-                'documents_count' => $documents->count(),
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $filters = [
+                'page' => $request->input('page', 1),
+                'per_page' => $request->input('per_page', 20),
+                'search' => $request->input('search'),
+                'region_id' => $request->input('region_id'),
+                'sector_id' => $request->input('sector_id'),
+                'file_type' => $request->input('file_type'),
+                'sort_by' => $request->input('sort_by', 'institution_name'),
+                'sort_direction' => $request->input('sort_direction', 'asc'),
+            ];
+
+            $result = $this->service->getFolderDocumentsPaginated($folder, $request->user(), $filters);
+
+            \Log::info('DocumentCollection documents fetched with pagination', [
+                'institutions_count' => $result['meta']['total_institutions'],
+                'current_page' => $result['meta']['current_page'],
             ]);
 
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'folder' => $folder->load(['ownerInstitution', 'institution', 'creator', 'targetInstitutions']),
-                    'documents' => $documents,
-                ],
+                'data' => $result['data'],
+                'meta' => $result['meta'],
             ]);
         } catch (\Exception $e) {
             \Log::error('DocumentCollection show() error', [
