@@ -6,14 +6,16 @@ interface StatsCardProps {
   title: string;
   value: string | number;
   icon: LucideIcon;
-  variant?: "default" | "primary" | "success" | "warning" | "destructive";
+  variant?: "default" | "primary" | "success" | "warning" | "destructive" | "info";
+  onClick?: () => void;
 }
 
-export const StatsCard = ({ 
-  title, 
-  value, 
-  icon: Icon, 
-  variant = "default"
+export const StatsCard = ({
+  title,
+  value,
+  icon: Icon,
+  variant = "default",
+  onClick
 }: StatsCardProps) => {
   const getVariantStyles = () => {
     switch (variant) {
@@ -25,13 +27,22 @@ export const StatsCard = ({
         return "border-l-4 border-warning";
       case "destructive":
         return "border-l-4 border-destructive";
+      case "info":
+        return "border-l-4 border-blue-500";
       default:
         return "border-l-4 border-border";
     }
   };
 
   return (
-    <Card className={cn("shadow-sm hover:shadow transition-all duration-200 bg-card", getVariantStyles())}>
+    <Card
+      className={cn(
+        "shadow-sm hover:shadow transition-all duration-200 bg-card",
+        getVariantStyles(),
+        onClick && "cursor-pointer hover:scale-[1.02]"
+      )}
+      onClick={onClick}
+    >
       <CardContent className="p-4">
         <div className="flex items-center justify-between">
           <div>

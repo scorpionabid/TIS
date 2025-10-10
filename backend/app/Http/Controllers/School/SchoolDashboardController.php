@@ -369,7 +369,7 @@ class SchoolDashboardController extends Controller
     public function getQuickActions(): JsonResponse
     {
         $user = Auth::user();
-        
+
         if (!$user->hasRole(['superadmin', 'schooladmin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
@@ -399,6 +399,68 @@ class SchoolDashboardController extends Controller
                 'path' => '/school/tasks',
                 'color' => 'info'
             ]
+        ]);
+    }
+
+    /**
+     * Get pending surveys list with details
+     */
+    public function getPendingSurveys(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        $school = $user->institution;
+        $limit = $request->get('limit', 10);
+
+        if (!$school) {
+            return response()->json(['error' => 'User is not associated with a school'], 400);
+        }
+
+        $surveys = $this->dashboardService->getPendingSurveysList($school, $limit);
+
+        return response()->json([
+            'success' => true,
+            'data' => $surveys
+        ]);
+    }
+
+    /**
+     * Get today's priority items
+     */
+    public function getTodayPriority(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        $school = $user->institution;
+
+        if (!$school) {
+            return response()->json(['error' => 'User is not associated with a school'], 400);
+        }
+
+        $priorityItems = $this->dashboardService->getTodayPriorityItemsList($school);
+
+        return response()->json([
+            'success' => true,
+            'data' => $priorityItems
+        ]);
+    }
+
+    /**
+     * Get recent documents
+     */
+    public function getRecentDocuments(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        $school = $user->institution;
+        $limit = $request->get('limit', 10);
+
+        if (!$school) {
+            return response()->json(['error' => 'User is not associated with a school'], 400);
+        }
+
+        $documents = $this->dashboardService->getRecentDocuments($school, $limit);
+
+        return response()->json([
+            'success' => true,
+            'data' => $documents
         ]);
     }
 }

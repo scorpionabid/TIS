@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  ClipboardList, 
-  CheckSquare, 
-  Users, 
-  Calendar, 
+import {
+  ClipboardList,
+  CheckSquare,
+  Users,
+  Calendar,
   AlertTriangle,
   TrendingUp,
   Bell,
@@ -22,9 +23,14 @@ import {
   RefreshCw,
   Eye,
   Edit,
-  ArrowRight
+  ArrowRight,
+  FolderOpen
 } from 'lucide-react';
 import { StatsCard } from './StatsCard';
+import { PriorityAlertBar } from './PriorityAlertBar';
+import { TodayPriorityPanel } from './TodayPriorityPanel';
+import { QuickResponsePanel } from './QuickResponsePanel';
+import { RecentDocumentsWidget } from './RecentDocumentsWidget';
 import { NotificationDropdown } from '@/components/layout/components/Header/NotificationDropdown';
 import { SurveyAnalyticsDashboard } from '@/components/analytics/SurveyAnalyticsDashboard';
 import { SurveyDashboardWidget } from './SurveyDashboardWidget';
@@ -36,6 +42,7 @@ import { toast } from 'sonner';
 
 export const SchoolAdminDashboard: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
+  const navigate = useNavigate();
 
   // Fetch dashboard stats
   const { 
@@ -83,13 +90,46 @@ export const SchoolAdminDashboard: React.FC = () => {
   });
 
   // Fetch quick actions
-  const { 
-    data: quickActions 
+  const {
+    data: quickActions
   } = useQuery({
     queryKey: ['schoolAdmin', 'quickActions'],
     queryFn: () => schoolAdminService.getQuickActions(),
     refetchOnWindowFocus: false,
     staleTime: 1000 * 60 * 30, // 30 minutes
+  });
+
+  // Fetch pending surveys list
+  const {
+    data: pendingSurveys,
+    isLoading: pendingSurveysLoading
+  } = useQuery({
+    queryKey: schoolAdminKeys.pendingSurveys(),
+    queryFn: () => schoolAdminService.getPendingSurveysList(10),
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+
+  // Fetch today priority items
+  const {
+    data: todayPriority,
+    isLoading: todayPriorityLoading
+  } = useQuery({
+    queryKey: schoolAdminKeys.todayPriority(),
+    queryFn: () => schoolAdminService.getTodayPriority(),
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 1, // 1 minute
+  });
+
+  // Fetch recent documents
+  const {
+    data: recentDocuments,
+    isLoading: recentDocumentsLoading
+  } = useQuery({
+    queryKey: schoolAdminKeys.recentDocuments(),
+    queryFn: () => schoolAdminService.getRecentDocumentsList(10),
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   const handleRefresh = async () => {
@@ -149,6 +189,42 @@ export const SchoolAdminDashboard: React.FC = () => {
     );
   }
 
+  const handlePriorityItemClick = (item: any) => {
+    if (item.type === 'survey') {
+      navigate(`/survey-response/${item.id}`);
+    } else if (item.type === 'task') {
+      navigate(`/school/tasks`);
+      toast.info(`Tapşırıq: ${item.title}`);
+    }
+  };
+
+  const handleSurveyRespond = (surveyId: number) => {
+    navigate(`/survey-response/${surveyId}`);
+  };
+
+  const handleDocumentView = (docId: number) => {
+    // Navigate to documents page with selected document
+    navigate('/school/documents');
+    toast.info(`Sənəd #${docId} seçildi`);
+  };
+
+  const handleAlertClick = (type: string) => {
+    switch (type) {
+      case 'surveys':
+        navigate('/surveys');
+        break;
+      case 'tasks':
+        navigate('/school/tasks');
+        break;
+      case 'approvals':
+        navigate('/approvals');
+        break;
+      default:
+        // Scroll to priority panel
+        document.querySelector('[data-priority-panel]')?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -161,8 +237,8 @@ export const SchoolAdminDashboard: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <NotificationDropdown className="mr-2" />
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={handleRefresh}
             disabled={refreshing}
           >
@@ -176,6 +252,15 @@ export const SchoolAdminDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Priority Alert Bar */}
+      <PriorityAlertBar
+        urgentSurveys={todayPriority?.filter(item => item.type === 'survey' && item.hours_remaining <= 6).length || 0}
+        urgentTasks={todayPriority?.filter(item => item.type === 'task' && item.hours_remaining <= 6).length || 0}
+        pendingApprovals={stats?.pending_approvals || 0}
+        todayPriorityItems={stats?.today_priority_items || 0}
+        onClick={handleAlertClick}
+      />
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard
@@ -183,24 +268,53 @@ export const SchoolAdminDashboard: React.FC = () => {
           value={stats?.pending_surveys || 0}
           icon={ClipboardList}
           variant={stats && stats.pending_surveys > 0 ? "warning" : "default"}
+          onClick={() => navigate('/surveys')}
         />
         <StatsCard
           title="Aktiv Tapşırıqlar"
           value={stats?.active_tasks || 0}
           icon={CheckSquare}
           variant="primary"
+          onClick={() => navigate('/school/tasks')}
         />
         <StatsCard
-          title="Ümumi Şagirdlər"
-          value={stats?.total_students || 0}
-          icon={Users}
-          variant="success"
+          title="Yeni Fayllar"
+          value={stats?.new_documents_count || 0}
+          icon={FolderOpen}
+          variant={stats && stats.new_documents_count > 0 ? "info" : "default"}
+          onClick={() => navigate('/school/documents')}
         />
         <StatsCard
           title="Bugünkü Davamiyyət"
           value={stats?.today_attendance_rate ? `${stats.today_attendance_rate}%` : '0%'}
           icon={UserCheck}
           variant={stats && stats.today_attendance_rate >= 90 ? "success" : "warning"}
+          onClick={() => navigate('/school/attendance')}
+        />
+      </div>
+
+      {/* Action Hub - 3 Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" data-priority-panel>
+        {/* Today Priority */}
+        <TodayPriorityPanel
+          items={todayPriority || []}
+          isLoading={todayPriorityLoading}
+          onItemClick={handlePriorityItemClick}
+        />
+
+        {/* Quick Response */}
+        <QuickResponsePanel
+          surveys={pendingSurveys || []}
+          isLoading={pendingSurveysLoading}
+          onRespond={handleSurveyRespond}
+        />
+
+        {/* Recent Documents */}
+        <RecentDocumentsWidget
+          documents={recentDocuments || []}
+          isLoading={recentDocumentsLoading}
+          onViewDocument={handleDocumentView}
+          onViewAll={() => navigate('/school/documents')}
         />
       </div>
 

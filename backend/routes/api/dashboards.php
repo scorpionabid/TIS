@@ -192,11 +192,16 @@ Route::prefix('schooladmin')->middleware(['auth:sanctum', 'role_or_permission:su
     
     // Legacy MektebAdmin dashboard endpoints for backward compatibility
     Route::get('dashboard', [MektebAdminDashboardController::class, 'getDashboard']);
-    Route::get('dashboard/stats', [MektebAdminDashboardController::class, 'getStats']);
+    Route::get('dashboard/stats', [SchoolDashboardController::class, 'getDashboardStats']);
     Route::get('dashboard/recent-activity', [SchoolDashboardController::class, 'getRecentActivities']);
     Route::get('dashboard/quick-actions', [SchoolDashboardController::class, 'getQuickActions']);
     Route::get('dashboard/notifications', [SchoolDashboardController::class, 'getNotifications']);
     Route::get('dashboard/deadlines', [SchoolDashboardController::class, 'getUpcomingDeadlines']);
+
+    // New enhanced dashboard endpoints
+    Route::get('dashboard/pending-surveys', [SchoolDashboardController::class, 'getPendingSurveys']);
+    Route::get('dashboard/today-priority', [SchoolDashboardController::class, 'getTodayPriority']);
+    Route::get('dashboard/recent-documents', [SchoolDashboardController::class, 'getRecentDocuments']);
     
     // Student management endpoints
     Route::get('students', [SchoolStudentController::class, 'index']);

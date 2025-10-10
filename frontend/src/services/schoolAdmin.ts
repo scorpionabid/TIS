@@ -14,6 +14,9 @@ export interface SchoolDashboardStats {
   overdue_tasks: number;
   upcoming_deadlines: number;
   recent_activities_count: number;
+  new_documents_count: number;
+  today_priority_items: number;
+  pending_approvals: number;
 }
 
 export interface SchoolActivity {
@@ -55,6 +58,41 @@ export interface QuickAction {
   action_type: 'navigate' | 'modal' | 'external';
   action_url?: string;
   permission_required?: string[];
+}
+
+export interface PendingSurveyDetail {
+  id: number;
+  title: string;
+  description: string;
+  deadline: string;
+  priority: 'low' | 'medium' | 'high';
+  question_count: number;
+  estimated_duration: number;
+  days_remaining: number;
+  is_urgent: boolean;
+  created_by: string;
+}
+
+export interface TodayPriorityItem {
+  id: number;
+  type: 'survey' | 'task';
+  title: string;
+  description: string;
+  deadline: string;
+  hours_remaining: number;
+  is_overdue: boolean;
+  priority: string;
+  status?: string;
+}
+
+export interface RecentDocument {
+  id: number;
+  name: string;
+  type: string;
+  size: number;
+  uploaded_by: string;
+  uploaded_at: string;
+  department_name: string;
 }
 
 // School Student interfaces  
@@ -248,6 +286,21 @@ class SchoolAdminService {
   async getQuickActions(): Promise<QuickAction[]> {
     const response = await apiClient.get<QuickAction[]>(`${this.baseEndpoint}/dashboard/quick-actions`);
     return response.data || response as QuickAction[];
+  }
+
+  async getPendingSurveysList(limit: number = 10): Promise<PendingSurveyDetail[]> {
+    const response = await apiClient.get<{data: PendingSurveyDetail[]}>(`${this.baseEndpoint}/dashboard/pending-surveys`, { limit });
+    return response.data?.data || response.data || [] as any;
+  }
+
+  async getTodayPriority(): Promise<TodayPriorityItem[]> {
+    const response = await apiClient.get<{data: TodayPriorityItem[]}>(`${this.baseEndpoint}/dashboard/today-priority`);
+    return response.data?.data || response.data || [] as any;
+  }
+
+  async getRecentDocumentsList(limit: number = 10): Promise<RecentDocument[]> {
+    const response = await apiClient.get<{data: RecentDocument[]}>(`${this.baseEndpoint}/dashboard/recent-documents`, { limit });
+    return response.data?.data || response.data || [] as any;
   }
 
 
@@ -545,6 +598,9 @@ export const schoolAdminKeys = {
   activities: () => [...schoolAdminKeys.dashboard(), 'activities'] as const,
   deadlines: () => [...schoolAdminKeys.dashboard(), 'deadlines'] as const,
   notifications: () => [...schoolAdminKeys.all, 'notifications'] as const,
+  pendingSurveys: () => [...schoolAdminKeys.dashboard(), 'pendingSurveys'] as const,
+  todayPriority: () => [...schoolAdminKeys.dashboard(), 'todayPriority'] as const,
+  recentDocuments: () => [...schoolAdminKeys.dashboard(), 'recentDocuments'] as const,
   tasks: () => [...schoolAdminKeys.all, 'tasks'] as const,
   task: (id: number) => [...schoolAdminKeys.tasks(), id] as const,
   classes: () => [...schoolAdminKeys.all, 'classes'] as const,
