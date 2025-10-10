@@ -36,7 +36,7 @@ const NonRespondingInstitutions: React.FC<NonRespondingInstitutionsProps> = ({
   // Extract non-responding institutions from hierarchy
   const nonRespondingData = useMemo(() => {
     if (!hierarchyData?.nodes) {
-      return { sectors: [], totalNonResponding: 0 };
+      return { sectors: [], totalNonResponding: 0, showSchoolsOnly: false };
     }
 
     const sectors: Array<{
@@ -46,13 +46,33 @@ const NonRespondingInstitutions: React.FC<NonRespondingInstitutionsProps> = ({
     }> = [];
 
     let totalNonResponding = 0;
+    let showSchoolsOnly = false;
 
     hierarchyData.nodes.forEach((node) => {
       // hierarchy_type determines structure:
-      // - "sectors_schools": nodes are sectors (level 3), children are schools (level 4)
-      // - "regions_sectors_schools": nodes are regions (level 2), children are sectors (level 3), grandchildren are schools (level 4)
+      // - "schools": direct schools list (SektorAdmin view)
+      // - "sectors_schools": nodes are sectors (level 3), children are schools (level 4) (RegionAdmin view)
+      // - "regions_sectors_schools": nodes are regions (level 2), children are sectors (level 3), grandchildren are schools (level 4) (SuperAdmin view)
 
-      if (hierarchyData.hierarchy_type === 'sectors_schools') {
+      if (hierarchyData.hierarchy_type === 'schools') {
+        // Direct schools list (SektorAdmin view)
+        // No sector grouping needed - collect all non-responding schools
+        if (node.level === 4 && node.total_responses === 0) {
+          showSchoolsOnly = true;
+          totalNonResponding++;
+
+          // For SektorAdmin, we'll group all schools under a virtual "sector"
+          // to reuse the same UI structure
+          if (sectors.length === 0) {
+            sectors.push({
+              id: 0, // Virtual sector ID
+              name: 'Sizin sektorunuz',
+              nonRespondingSchools: []
+            });
+          }
+          sectors[0].nonRespondingSchools.push(node);
+        }
+      } else if (hierarchyData.hierarchy_type === 'sectors_schools') {
         // Direct sector → schools structure (RegionAdmin view)
         if (node.level === 3 && node.children) {
           // These children are SCHOOLS, not sectors!
@@ -92,7 +112,7 @@ const NonRespondingInstitutions: React.FC<NonRespondingInstitutionsProps> = ({
       }
     });
 
-    return { sectors, totalNonResponding };
+    return { sectors, totalNonResponding, showSchoolsOnly };
   }, [hierarchyData]);
 
   const toggleSector = (sectorId: number) => {
@@ -173,36 +193,39 @@ const NonRespondingInstitutions: React.FC<NonRespondingInstitutionsProps> = ({
         <div className="space-y-3">
           {nonRespondingData.sectors.map(sector => {
             const isExpanded = expandedSectors.has(sector.id);
+            const isSektorAdminView = nonRespondingData.showSchoolsOnly;
 
             return (
               <div key={sector.id} className="border rounded-lg overflow-hidden">
-                {/* Sector Header */}
-                <button
-                  onClick={() => toggleSector(sector.id)}
-                  className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    {isExpanded ? (
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
-                    <div className="text-left">
-                      <p className="font-medium text-sm">{sector.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {sector.nonRespondingSchools.length} məktəb cavab verməyib
-                      </p>
+                {/* Sector Header - Hide for SektorAdmin (always expanded, single virtual sector) */}
+                {!isSektorAdminView && (
+                  <button
+                    onClick={() => toggleSector(sector.id)}
+                    className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      <div className="text-left">
+                        <p className="font-medium text-sm">{sector.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {sector.nonRespondingSchools.length} məktəb cavab verməyib
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">
-                    {sector.nonRespondingSchools.length}
-                  </Badge>
-                </button>
+                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">
+                      {sector.nonRespondingSchools.length}
+                    </Badge>
+                  </button>
+                )}
 
-                {/* Schools List */}
-                {isExpanded && (
-                  <div className="border-t bg-muted/20">
+                {/* Schools List - Always show for SektorAdmin, conditional for others */}
+                {(isSektorAdminView || isExpanded) && (
+                  <div className={isSektorAdminView ? '' : 'border-t bg-muted/20'}>
                     <table className="w-full">
                       <thead className="bg-muted/50">
                         <tr className="text-xs">
