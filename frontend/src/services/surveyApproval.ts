@@ -172,7 +172,12 @@ class SurveyApprovalService {
    */
   async getPublishedSurveys(): Promise<PublishedSurvey[]> {
     try {
-      const response = await apiClient.get(`${this.baseURL}/surveys/published`);
+      // Disable cache for published surveys to ensure user sees only their authorized surveys
+      const response = await apiClient.get(
+        `${this.baseURL}/surveys/published`,
+        undefined,
+        { cache: false } // User-specific data, no cache
+      );
 
       if (!response || !response.success) {
         throw new Error(response?.message || 'Failed to fetch published surveys');
@@ -203,8 +208,12 @@ class SurveyApprovalService {
     });
 
     try {
+      // CRITICAL: Disable caching for approval responses to ensure fresh data per user
+      // Different users (especially SektorAdmin) must see only their authorized institutions
       const response = await apiClient.get(
-        `${this.baseURL}/surveys/${surveyId}/responses?${params.toString()}`
+        `${this.baseURL}/surveys/${surveyId}/responses?${params.toString()}`,
+        undefined, // no additional params
+        { cache: false } // Disable cache - security critical for role-based data
       );
       
       console.log('✅ [SurveyApproval] Responses response received:', {

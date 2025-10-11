@@ -557,41 +557,19 @@ class SurveyApprovalService extends BaseService
                 // SuperAdmin can see everything
                 break;
             case 'regionadmin':
-                // RegionAdmin can see:
-                // 1. Responses from subordinate institutions that need their approval
-                // 2. Responses currently at their approval level (level 3)
+                // RegionAdmin can see responses from all subordinate institutions
+                // (sectors, schools, and other institutions in their hierarchy)
                 if ($user->institution) {
                     $childIds = $user->institution->getAllChildrenIds();
-
-                    $query->where(function($q) use ($childIds, $user) {
-                        // Responses from subordinate institutions
-                        $q->whereIn('institution_id', $childIds);
-
-                        // OR responses currently awaiting RegionAdmin approval (level 3)
-                        $q->orWhereHas('approvalRequest', function($approvalQuery) {
-                            $approvalQuery->where('current_approval_level', 3)
-                                         ->where('current_status', 'in_progress');
-                        });
-                    });
+                    $query->whereIn('institution_id', $childIds);
                 }
                 break;
             case 'sektoradmin':
-                // SektorAdmin can see:
-                // 1. Responses from subordinate schools that need their approval
-                // 2. Responses currently at their approval level (level 2)
+                // SektorAdmin can see responses ONLY from subordinate schools in their sector
+                // (not from other sectors in the same region)
                 if ($user->institution) {
                     $childIds = $user->institution->getAllChildrenIds();
-
-                    $query->where(function($q) use ($childIds, $user) {
-                        // Responses from subordinate institutions
-                        $q->whereIn('institution_id', $childIds);
-
-                        // OR responses currently awaiting SektorAdmin approval (level 2)
-                        $q->orWhereHas('approvalRequest', function($approvalQuery) {
-                            $approvalQuery->where('current_approval_level', 2)
-                                         ->where('current_status', 'in_progress');
-                        });
-                    });
+                    $query->whereIn('institution_id', $childIds);
                 }
                 break;
             case 'schooladmin':

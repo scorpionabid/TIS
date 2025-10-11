@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { authService, LoginCredentials } from '@/services/auth';
 import { apiClient } from '@/services/apiOptimized';
 import { User } from '@/types/user';
@@ -96,6 +97,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   // Refs for cleanup and preventing memory leaks
   const authCheckTimeoutRef = useRef<NodeJS.Timeout>();
@@ -115,14 +117,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const clearAuth = useCallback(() => {
     apiClient.clearToken();
     localStorage.removeItem(USER_STORAGE_KEY);
-    
+
+    // CRITICAL: Clear React Query cache on logout to prevent cross-user data leakage
+    // This ensures new user doesn't see previous user's cached data
+    queryClient.clear();
+
+    // Also clear API client cache
+    apiClient.clearCache();
+
     if (isMountedRef.current) {
       setIsAuthenticated(false);
       setCurrentUser(null);
     }
-    
-    log('info', 'Authentication cleared');
-  }, []);
+
+    log('info', 'Authentication cleared - all caches purged');
+  }, [queryClient]);
 
   // Store auth functions in refs to avoid recreating debouncedAuthCheck
   const getTokenRef = useRef(getToken);
@@ -274,44 +283,51 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = useCallback(async (credentials: LoginCredentials): Promise<boolean> => {
     try {
       setLoading(true);
+
+      // CRITICAL: Clear all caches BEFORE login to prevent previous user's data from leaking
+      // This is essential when switching between different SektorAdmin users
+      queryClient.clear();
+      apiClient.clearCache();
+      log('info', 'Pre-login cache cleared');
+
       const response = await authService.login(credentials);
-      
+
       log('info', 'Login successful', { username: response.user.username });
 
       const mappedUser = {
         ...response.user,
         role: mapBackendRoleToFrontend(response.user.role)
       };
-      
+
       // Store token and user data
       setToken(response.token || response.access_token);
       setCurrentUser(mappedUser);
       setIsAuthenticated(true);
-      
+
       // Cache user data
       localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(mappedUser));
-      
+
       toast({
         title: 'Uğurlu giriş',
         description: `Xoş gəlmisiniz, ${mappedUser.name}!`,
       });
-      
+
       return true;
     } catch (error: any) {
       const message = error.message || 'Giriş xətası baş verdi';
       log('error', 'Login failed', message);
-      
+
       toast({
         title: 'Giriş xətası',
         description: message,
         variant: 'destructive',
       });
-      
+
       return false;
     } finally {
       setLoading(false);
     }
-  }, [setToken, toast]);
+  }, [setToken, toast, queryClient]);
 
   const logout = useCallback(async (): Promise<void> => {
     try {
