@@ -27,8 +27,9 @@ export function GenericManagerV2<
   const manager = useEntityManagerV2(config, customLogic);
   const features = config.features || {};
 
-  // Pagination for filtered entities
-  const pagination = usePagination(manager.filteredEntities, {
+  // Pagination for filtered entities (ensure we always pass an array)
+  const safeFilteredEntities = manager.filteredEntities || [];
+  const pagination = usePagination(safeFilteredEntities, {
     initialPage: 1,
     initialItemsPerPage: 20
   });

@@ -1027,13 +1027,117 @@ class GradeUnifiedController extends Controller
     }
 
     /**
+     * Get naming options for grade creation dropdown
+     *
+     * This provides standardized dropdown options for:
+     * - Class levels (1-12)
+     * - Letters (A, B, C, Ç, D, E, Ə...)
+     * - Specialties (Riyazi, Humanitar, etc.)
+     * - Existing grade names to prevent duplicates
+     */
+    public function getNamingOptions(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'institution_id' => 'required|exists:institutions,id',
+                'class_level' => 'sometimes|integer|min:0|max:12',
+                'academic_year_id' => 'required|exists:academic_years,id',
+                'extended_letters' => 'sometimes|boolean',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $institutionId = $request->get('institution_id');
+            $classLevel = $request->get('class_level');
+            $academicYearId = $request->get('academic_year_id');
+            $extendedLetters = $request->get('extended_letters', false);
+
+            // Import naming constants
+            $namingConstants = \App\Constants\GradeNamingConstants::class;
+
+            // Get available letters
+            $availableLetters = $namingConstants::getAvailableLetters($extendedLetters);
+
+            // Get existing grade names for this institution/level/year to mark as used
+            $existingGradesQuery = Grade::where('institution_id', $institutionId)
+                ->where('academic_year_id', $academicYearId);
+
+            if ($classLevel) {
+                $existingGradesQuery->where('class_level', $classLevel);
+            }
+
+            $existingNames = $existingGradesQuery->pluck('name')->toArray();
+
+            // Mark used letters
+            $lettersWithAvailability = array_map(function($letter) use ($existingNames) {
+                return [
+                    'value' => $letter['value'],
+                    'label' => $letter['label'],
+                    'available' => !in_array($letter['value'], $existingNames),
+                    'used' => in_array($letter['value'], $existingNames),
+                ];
+            }, $availableLetters);
+
+            // Get available class levels
+            $classLevels = $namingConstants::getAvailableClassLevels(false);
+
+            // Get available specialties
+            $specialties = $namingConstants::getAvailableSpecialties();
+
+            // Get capacity recommendation for the class level
+            $capacityRecommendation = $classLevel
+                ? $namingConstants::getCapacityRecommendation($classLevel)
+                : null;
+
+            // Should show specialty field (typically for grades 10-12)
+            $shouldShowSpecialty = $classLevel
+                ? $namingConstants::shouldShowSpecialty($classLevel)
+                : false;
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'class_levels' => $classLevels,
+                    'letters' => $lettersWithAvailability,
+                    'specialties' => $specialties,
+                    'existing_names' => $existingNames,
+                    'capacity_recommendation' => $capacityRecommendation,
+                    'should_show_specialty' => $shouldShowSpecialty,
+                    'naming_pattern' => $namingConstants::DEFAULT_NAMING_PATTERN,
+                    'naming_patterns' => $namingConstants::NAMING_PATTERNS,
+                ],
+                'message' => 'Adlandırma seçimləri uğurla alındı',
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Grade naming options error: ' . $e->getMessage(), [
+                'user_id' => Auth::id(),
+                'request' => $request->all(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Adlandırma seçimləri alınarkən səhv baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
+
+    /**
      * Get naming system statistics
      */
     public function getNamingSystemStats(Request $request): JsonResponse
     {
         try {
             $user = Auth::user();
-            
+
             // Check permissions
             if (!$user->can('grades.read')) {
                 return response()->json([

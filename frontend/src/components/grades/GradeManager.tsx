@@ -2,7 +2,7 @@ import React from 'react';
 import { GenericManagerV2 } from '@/components/generic/GenericManagerV2';
 import { Grade, GradeFilters } from '@/services/grades';
 import { gradeEntityConfig, gradeCustomLogic, GradeFiltersComponent } from './configurations/gradeConfig';
-import { GradeCreateDialog } from './GradeCreateDialog';
+import { GradeCreateDialogSimplified as GradeCreateDialog } from './GradeCreateDialogSimplified';
 import { GradeDetailsDialog } from './GradeDetailsDialog';
 import { GradeStudentsDialog } from './GradeStudentsDialog';
 import { GradeAnalyticsModal } from './GradeAnalyticsModal';

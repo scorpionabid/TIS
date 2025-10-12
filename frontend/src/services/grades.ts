@@ -550,11 +550,48 @@ class GradeService {
   }
 
   /**
+   * Get naming options for grade creation dropdown (NEW - Standardized)
+   */
+  async getNamingOptions(
+    institutionId: number,
+    academicYearId: number,
+    classLevel?: number,
+    extendedLetters: boolean = false
+  ): Promise<ApiResponse<{
+    class_levels: Array<{ value: number; label: string; stage: string }>;
+    letters: Array<{ value: string; label: string; available: boolean; used: boolean }>;
+    specialties: Array<{ value: string; label: string; recommended_for: number[] }>;
+    existing_names: string[];
+    capacity_recommendation: { min: number; recommended: number; max: number } | null;
+    should_show_specialty: boolean;
+    naming_pattern: string;
+    naming_patterns: Record<string, string>;
+  }>> {
+    logger.debug('Fetching grade naming options', {
+      component: 'GradeService',
+      action: 'getNamingOptions',
+      data: { institutionId, classLevel, academicYearId }
+    });
+
+    const params = new URLSearchParams({
+      institution_id: institutionId.toString(),
+      academic_year_id: academicYearId.toString(),
+      extended_letters: extendedLetters ? '1' : '0',
+    });
+
+    if (classLevel !== undefined) {
+      params.append('class_level', classLevel.toString());
+    }
+
+    return apiClient.get<any>(`${this.baseURL}/naming/options?${params}`);
+  }
+
+  /**
    * Get smart naming suggestions for grade creation
    */
   async getNamingSuggestions(
-    institutionId: number, 
-    classLevel: number, 
+    institutionId: number,
+    classLevel: number,
     academicYearId: number
   ): Promise<ApiResponse<any>> {
     logger.debug('Fetching grade naming suggestions', {

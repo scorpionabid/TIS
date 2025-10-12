@@ -50,6 +50,19 @@ export function useEntityManagerV2<
         const result = await service.get(filters);
         console.log(`✅ EntityManagerV2(${entityType}): Fetched ${Array.isArray(result) ? result.length : 'unknown'} entities`);
         console.log(`📊 EntityManagerV2(${entityType}): Raw result:`, result);
+
+        // Deep inspection of first entity
+        if (Array.isArray(result) && result.length > 0) {
+          console.log(`🔬 DEEP INSPECTION - First entity:`, {
+            fullObject: result[0],
+            id: result[0]?.id,
+            name: result[0]?.name,
+            name_type: typeof result[0]?.name,
+            class_level: result[0]?.class_level,
+            keys: Object.keys(result[0] || {})
+          });
+        }
+
         return Array.isArray(result) ? result : [];
       } catch (error) {
         console.error(`❌ EntityManagerV2(${entityType}): Failed to fetch entities:`, error);
@@ -88,7 +101,7 @@ export function useEntityManagerV2<
     }
     
     // Apply search filtering
-    if (searchTerm.trim()) {
+    if (searchTerm && searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(item => {
         // Search through searchable fields from columns

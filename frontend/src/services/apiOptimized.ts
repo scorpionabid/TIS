@@ -326,6 +326,19 @@ class ApiClientOptimized {
         throw enhancedError;
       }
       
+      // Log response structure for debugging
+      if (isDevelopment && response.url.includes('/grades')) {
+        console.log('📦 GRADES API RESPONSE STRUCTURE:', {
+          hasData: 'data' in data,
+          hasSuccess: 'success' in data,
+          dataType: typeof data.data,
+          dataIsArray: Array.isArray(data.data),
+          topLevelKeys: Object.keys(data),
+          firstItemKeys: Array.isArray(data.data) && data.data.length > 0 ? Object.keys(data.data[0]) : [],
+          fullResponse: data
+        });
+      }
+
       return data;
     } else {
       if (!response.ok) {

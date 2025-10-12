@@ -229,6 +229,7 @@ Route::prefix('grades')->group(function () {
     Route::get('/{grade}/analytics', [GradeUnifiedController::class, 'getAnalytics'])->middleware('permission:grades.analytics');
     
     // Smart naming system routes
+    Route::get('/naming/options', [GradeUnifiedController::class, 'getNamingOptions'])->middleware('permission:grades.create');
     Route::get('/naming/suggestions', [GradeUnifiedController::class, 'getNamingSuggestions'])->middleware('permission:grades.create');
     Route::get('/naming/system-stats', [GradeUnifiedController::class, 'getNamingSystemStats'])->middleware('permission:grades.read');
     

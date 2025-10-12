@@ -41,11 +41,16 @@ const getCapacityStatusBadge = (status: string, utilizationRate: number) => {
 };
 
 // Grade entity configuration for GenericManagerV2
-export const gradeEntityConfig: EntityConfig<Grade, GradeFilters> = {
+export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
+  // Basic info
+  entityType: 'grades',
+  entityName: 'Sinif',
+  entityNamePlural: 'Siniflər',
+
   // Service configuration
   service: gradeService,
   queryKey: ['grades'],
-  
+
   // Display configuration
   title: 'Sinif İdarəetməsi',
   description: 'Məktəb siniflərinin idarə edilməsi və tələbə yazılışları',
@@ -85,9 +90,9 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters> = {
       width: 150,
       render: (grade: Grade) => (
         <div className="flex flex-col">
-          <span className="font-medium">{grade.full_name}</span>
+          <span className="font-medium">{grade.full_name || `${grade.class_level || ''}-${grade.name || ''}`}</span>
           <span className="text-xs text-muted-foreground">
-            {grade.class_level}. sinif
+            {grade.class_level || 0}. sinif
           </span>
         </div>
       )
@@ -373,19 +378,34 @@ export const gradeCustomLogic = {
 
   // Sort helpers
   getSortValue: (grade: Grade, key: string) => {
-    switch (key) {
-      case 'name':
-        return grade.name.toLowerCase();
-      case 'class_level':
-        return grade.class_level;
-      case 'student_count':
-        return grade.student_count;
-      case 'utilization_rate':
-        return grade.utilization_rate;
-      case 'created_at':
-        return new Date(grade.created_at).getTime();
-      default:
-        return '';
+    console.log('🔍 getSortValue DEBUG:', {
+      gradeId: grade?.id,
+      key,
+      grade_name: grade?.name,
+      grade_name_type: typeof grade?.name,
+      full_grade_object: grade
+    });
+
+    try {
+      switch (key) {
+        case 'name':
+          const name = grade?.name;
+          console.log('🔍 Processing name:', { name, type: typeof name, isNull: name === null, isUndefined: name === undefined });
+          return name && typeof name === 'string' ? name.toLowerCase() : '';
+        case 'class_level':
+          return grade?.class_level || 0;
+        case 'student_count':
+          return grade?.student_count || 0;
+        case 'utilization_rate':
+          return grade?.utilization_rate || 0;
+        case 'created_at':
+          return grade?.created_at ? new Date(grade.created_at).getTime() : 0;
+        default:
+          return '';
+      }
+    } catch (error) {
+      console.error('❌ getSortValue ERROR:', { error, grade, key });
+      return '';
     }
   }
 };
