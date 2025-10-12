@@ -123,15 +123,21 @@ class SubjectService {
   /**
    * Get subjects with detailed data wrapper
    */
-  getSubjects = async (): Promise<ApiResponse<Subject[]>> => {
-    console.log('🔍 SubjectService.getSubjects called');
-    
+  getSubjects = async (params?: { category?: string; search?: string; grade?: number }): Promise<ApiResponse<Subject[]>> => {
+    console.log('🔍 SubjectService.getSubjects called', params);
+
     try {
-      // Use direct URL instead of this.baseUrl to avoid binding issues  
-      const response = await apiClient.get<Subject[]>('/subjects');
+      const queryString = params ? new URLSearchParams(
+        Object.entries(params)
+          .filter(([, value]) => value !== undefined && value !== '')
+          .map(([key, value]) => [key, String(value)])
+      ).toString() : '';
+
+      const url = queryString ? `/subjects?${queryString}` : '/subjects';
+      const response = await apiClient.get<Subject[]>(url);
       const subjects = response.data || [];
       console.log('✅ SubjectService.getSubjects success', subjects);
-      
+
       return {
         data: subjects,
         message: 'Subjects retrieved successfully'
@@ -145,9 +151,32 @@ class SubjectService {
   /**
    * Get subjects statistics
    */
-  async getStatistics(): Promise<any> {
-    const response = await apiClient.get(`${this.baseUrl}/statistics`);
-    return response.data;
+  getSubjectStatistics = async (): Promise<ApiResponse<any>> => {
+    try {
+      const response = await apiClient.get(`${this.baseUrl}/statistics`);
+      return {
+        data: response.data,
+        message: 'Statistics retrieved successfully'
+      };
+    } catch (error) {
+      console.error('❌ SubjectService: Statistics fetch failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a subject by ID
+   */
+  deleteSubject = async (id: number): Promise<void> => {
+    console.log(`🔥 SubjectService.deleteSubject called for ID ${id}`);
+
+    try {
+      await apiClient.delete(`${this.baseUrl}/${id}`);
+      console.log('✅ SubjectService.deleteSubject success');
+    } catch (error) {
+      console.error('❌ SubjectService.deleteSubject error', error);
+      throw error;
+    }
   }
 
   /**

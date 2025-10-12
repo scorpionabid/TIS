@@ -125,14 +125,14 @@ class SubjectController extends BaseController
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'code' => 'required|string|max:50|unique:subjects,code',
-            'category' => 'required|in:core,elective,extra,vocational',
+            'code' => 'required|string|max:10|unique:subjects,code',
             'description' => 'nullable|string',
-            'grade_levels' => 'required|array',
-            'grade_levels.*' => 'integer|min:1|max:12',
+            'grade_levels' => 'nullable|array',
+            'grade_levels.*' => 'integer|min:1|max:11',
+            'weekly_hours' => 'nullable|integer|min:1|max:10',
+            'category' => 'nullable|string|in:core,science,humanities,language,arts,physical,technical,elective',
+            'metadata' => 'nullable|array',
             'is_active' => 'boolean',
-            'class_level_start' => 'required|integer|min:1|max:12',
-            'class_level_end' => 'required|integer|min:1|max:12|gte:class_level_start',
         ]);
 
         if ($validator->fails()) {
@@ -142,12 +142,12 @@ class SubjectController extends BaseController
         $subject = Subject::create([
             'name' => $request->name,
             'code' => $request->code,
-            'category' => $request->category,
             'description' => $request->description,
-            'grade_levels' => $request->grade_levels,
+            'grade_levels' => $request->grade_levels ?? [1,2,3,4,5,6,7,8,9,10,11],
+            'weekly_hours' => $request->weekly_hours ?? 1,
+            'category' => $request->category ?? 'core',
+            'metadata' => $request->metadata ?? [],
             'is_active' => $request->boolean('is_active', true),
-            'class_level_start' => $request->class_level_start,
-            'class_level_end' => $request->class_level_end,
         ]);
 
         return $this->successResponse($subject, 'Fən uğurla yaradıldı', 201);
@@ -171,14 +171,14 @@ class SubjectController extends BaseController
 
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|required|string|max:255',
-            'code' => ['sometimes', 'required', 'string', 'max:50', Rule::unique('subjects')->ignore($subject->id)],
-            'category' => 'sometimes|required|in:core,elective,extra,vocational',
+            'code' => ['sometimes', 'required', 'string', 'max:10', Rule::unique('subjects')->ignore($subject->id)],
             'description' => 'nullable|string',
-            'grade_levels' => 'sometimes|required|array',
-            'grade_levels.*' => 'integer|min:1|max:12',
+            'grade_levels' => 'nullable|array',
+            'grade_levels.*' => 'integer|min:1|max:11',
+            'weekly_hours' => 'nullable|integer|min:1|max:10',
+            'category' => 'nullable|string|in:core,science,humanities,language,arts,physical,technical,elective',
+            'metadata' => 'nullable|array',
             'is_active' => 'sometimes|boolean',
-            'class_level_start' => 'sometimes|required|integer|min:1|max:12',
-            'class_level_end' => 'sometimes|required|integer|min:1|max:12|gte:class_level_start',
         ]);
 
         if ($validator->fails()) {

@@ -14,148 +14,196 @@ class SubjectSeeder extends Seeder
     public function run(): void
     {
         $subjects = [
-            // Core subjects (Əsas fənlər)
-            [
-                'name' => 'Riyaziyyat',
-                'code' => 'RIY',
-                'description' => 'Riyaziyyat fənni - hesablama, həndəsə və cəbr',
-                'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
-                'weekly_hours' => 4,
-                'category' => 'core',
-                'is_active' => true,
-                'metadata' => json_encode(['priority' => 'high', 'exam_required' => true])
-            ],
+            // Əsas fənlər (Core subjects)
             [
                 'name' => 'Azərbaycan dili',
                 'code' => 'AZD',
-                'description' => 'Ana dil - qrammatika, ədəbiyyat və yazı',
+                'description' => null,
                 'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
-                'weekly_hours' => 5,
+                'weekly_hours' => 1,
+                'category' => 'language',
+                'is_active' => true,
+                'metadata' => json_encode([])
+            ],
+            [
+                'name' => 'Ədəbiyyat',
+                'code' => 'ƏDƏ',
+                'description' => null,
+                'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+                'weekly_hours' => 1,
+                'category' => 'humanities',
+                'is_active' => true,
+                'metadata' => json_encode([])
+            ],
+            [
+                'name' => 'Riyaziyyat',
+                'code' => 'RIY',
+                'description' => null,
+                'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+                'weekly_hours' => 1,
                 'category' => 'core',
                 'is_active' => true,
-                'metadata' => json_encode(['priority' => 'high', 'exam_required' => true])
+                'metadata' => json_encode([])
             ],
-            
-            // Science subjects (Elm fənləri)
+
+            // Elm fənləri (Science subjects)
             [
                 'name' => 'Fizika',
                 'code' => 'FIZ',
-                'description' => 'Fizika fənni - mexanika, termodinamika, elektrik',
-                'grade_levels' => json_encode([7, 8, 9, 10, 11]),
-                'weekly_hours' => 3,
+                'description' => null,
+                'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+                'weekly_hours' => 1,
                 'category' => 'science',
                 'is_active' => true,
-                'metadata' => json_encode(['lab_required' => true, 'exam_required' => true])
+                'metadata' => json_encode([])
             ],
             [
                 'name' => 'Kimya',
                 'code' => 'KIM',
-                'description' => 'Kimya fənni - maddələrin strukturu və reaksiyalar',
-                'grade_levels' => json_encode([8, 9, 10, 11]),
-                'weekly_hours' => 2,
+                'description' => null,
+                'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+                'weekly_hours' => 1,
                 'category' => 'science',
                 'is_active' => true,
-                'metadata' => json_encode(['lab_required' => true, 'exam_required' => true])
+                'metadata' => json_encode([])
             ],
             [
                 'name' => 'Biologiya',
                 'code' => 'BIO',
-                'description' => 'Biologiya fənni - canlı orqanizmlər və həyat prosesləri',
-                'grade_levels' => json_encode([6, 7, 8, 9, 10, 11]),
-                'weekly_hours' => 2,
+                'description' => null,
+                'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+                'weekly_hours' => 1,
                 'category' => 'science',
                 'is_active' => true,
-                'metadata' => json_encode(['lab_required' => true, 'exam_required' => true])
+                'metadata' => json_encode([])
             ],
 
-            // Language subjects (Dil fənləri)
+            // Humanitar fənlər (Humanities)
             [
-                'name' => 'İngilis dili',
-                'code' => 'İNG',
-                'description' => 'İngilis dili - danışıq, yazı və qrammatika',
-                'grade_levels' => json_encode([2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
-                'weekly_hours' => 3,
-                'category' => 'language',
-                'is_active' => true,
-                'metadata' => json_encode(['speaking_required' => true, 'exam_required' => true])
-            ],
-            [
-                'name' => 'Rus dili',
-                'code' => 'RUS',
-                'description' => 'Rus dili - əsas qrammatika və leksika',
-                'grade_levels' => json_encode([2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
-                'weekly_hours' => 2,
-                'category' => 'language',
-                'is_active' => true,
-                'metadata' => json_encode(['optional' => true])
-            ],
-
-            // Humanities (Humanitar fənlər)
-            [
-                'name' => 'Tarix',
-                'code' => 'TRX',
-                'description' => 'Dünya və Azərbaycan tarixi',
-                'grade_levels' => json_encode([5, 6, 7, 8, 9, 10, 11]),
-                'weekly_hours' => 2,
+                'name' => 'Azərbaycan tarixi',
+                'code' => 'AZTRX',
+                'description' => null,
+                'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+                'weekly_hours' => 1,
                 'category' => 'humanities',
                 'is_active' => true,
-                'metadata' => json_encode(['exam_required' => true])
+                'metadata' => json_encode([])
+            ],
+            [
+                'name' => 'Ümumi tarix',
+                'code' => 'UMTRX',
+                'description' => null,
+                'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+                'weekly_hours' => 1,
+                'category' => 'humanities',
+                'is_active' => true,
+                'metadata' => json_encode([])
             ],
             [
                 'name' => 'Coğrafiya',
                 'code' => 'COĞ',
-                'description' => 'Fiziki və iqtisadi coğrafiya',
-                'grade_levels' => json_encode([6, 7, 8, 9, 10, 11]),
-                'weekly_hours' => 2,
+                'description' => null,
+                'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+                'weekly_hours' => 1,
                 'category' => 'humanities',
                 'is_active' => true,
-                'metadata' => json_encode(['map_work' => true])
+                'metadata' => json_encode([])
             ],
-
-            // Technical subjects (Texniki fənlər)
             [
-                'name' => 'İnformatika',
-                'code' => 'İNF',
-                'description' => 'Kompüter elmləri və proqramlaşdırma',
-                'grade_levels' => json_encode([5, 6, 7, 8, 9, 10, 11]),
+                'name' => 'Həyat bilgisi',
+                'code' => 'HƏY',
+                'description' => null,
+                'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
                 'weekly_hours' => 1,
-                'category' => 'technical',
+                'category' => 'humanities',
                 'is_active' => true,
-                'metadata' => json_encode(['computer_required' => true])
+                'metadata' => json_encode([])
             ],
 
-            // Arts (İncəsənət)
+            // Xarici dillər (Foreign languages)
+            [
+                'name' => 'İngilis dili',
+                'code' => 'İNG',
+                'description' => null,
+                'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+                'weekly_hours' => 1,
+                'category' => 'language',
+                'is_active' => true,
+                'metadata' => json_encode([])
+            ],
+            [
+                'name' => 'Rus dili',
+                'code' => 'RUS',
+                'description' => null,
+                'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+                'weekly_hours' => 1,
+                'category' => 'language',
+                'is_active' => true,
+                'metadata' => json_encode([])
+            ],
+
+            // İncəsənət (Arts)
             [
                 'name' => 'Musiqi',
                 'code' => 'MUS',
-                'description' => 'Musiqi nəzəriyyəsi və praktikası',
-                'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8]),
+                'description' => null,
+                'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
                 'weekly_hours' => 1,
                 'category' => 'arts',
                 'is_active' => true,
-                'metadata' => json_encode(['instruments' => true])
+                'metadata' => json_encode([])
             ],
             [
-                'name' => 'Təsviri sənət',
+                'name' => 'Təsviri incəsənət',
                 'code' => 'TSN',
-                'description' => 'Rəsm və əl işləri',
-                'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8]),
+                'description' => null,
+                'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
                 'weekly_hours' => 1,
                 'category' => 'arts',
                 'is_active' => true,
-                'metadata' => json_encode(['materials_required' => true])
+                'metadata' => json_encode([])
             ],
 
-            // Physical Education
+            // Fiziki və texniki fənlər (Physical & Technical)
             [
-                'name' => 'Bədən tərbiyəsi',
+                'name' => 'Fiziki tərbiyə',
                 'code' => 'BDN',
-                'description' => 'Fiziki inkişaf və idman',
+                'description' => null,
                 'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
-                'weekly_hours' => 2,
+                'weekly_hours' => 1,
                 'category' => 'physical',
                 'is_active' => true,
-                'metadata' => json_encode(['gym_required' => true, 'health_check' => true])
+                'metadata' => json_encode([])
+            ],
+            [
+                'name' => 'İnformatika',
+                'code' => 'İNF',
+                'description' => null,
+                'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+                'weekly_hours' => 1,
+                'category' => 'technical',
+                'is_active' => true,
+                'metadata' => json_encode([])
+            ],
+            [
+                'name' => 'Texnologiya',
+                'code' => 'TEX',
+                'description' => null,
+                'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+                'weekly_hours' => 1,
+                'category' => 'technical',
+                'is_active' => true,
+                'metadata' => json_encode([])
+            ],
+            [
+                'name' => 'Çağırışaqədərki hazırlıq',
+                'code' => 'ÇĞR',
+                'description' => null,
+                'grade_levels' => json_encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+                'weekly_hours' => 1,
+                'category' => 'physical',
+                'is_active' => true,
+                'metadata' => json_encode([])
             ]
         ];
 
