@@ -24,7 +24,11 @@ class Grade extends Model
         'room_id',
         'homeroom_teacher_id',
         'student_count',
+        'male_student_count',
+        'female_student_count',
         'specialty',
+        'grade_category',
+        'education_program',
         'description',
         'metadata',
         'is_active',
@@ -44,6 +48,8 @@ class Grade extends Model
         return [
             'class_level' => 'integer',
             'student_count' => 'integer',
+            'male_student_count' => 'integer',
+            'female_student_count' => 'integer',
             'metadata' => 'array',
             'is_active' => 'boolean',
             'teacher_assigned_at' => 'datetime',
@@ -82,6 +88,31 @@ class Grade extends Model
     public function homeroomTeacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'homeroom_teacher_id');
+    }
+
+    /**
+     * Get the tags associated with this grade.
+     */
+    public function tags()
+    {
+        return $this->belongsToMany(GradeTag::class, 'grade_grade_tag')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Get active tags for this grade.
+     */
+    public function activeTags()
+    {
+        return $this->tags()->where('is_active', true);
+    }
+
+    /**
+     * Get tags by category for this grade.
+     */
+    public function tagsByCategory(string $category)
+    {
+        return $this->tags()->where('category', $category);
     }
 
     /**
@@ -510,5 +541,129 @@ class Grade extends Model
 
         // Suggest 85% of room capacity as optimal
         return floor($this->room->capacity * 0.85);
+    }
+
+    /**
+     * Get education program display name.
+     */
+    public function getEducationProgramNameAttribute(): string
+    {
+        $programs = [
+            'umumi' => 'Ümumi təhsil',
+            'xususi' => 'Xüsusi təhsil',
+            'mektebde_ferdi' => 'Məktəbdə fərdi təhsil',
+            'evde_ferdi' => 'Evdə fərdi təhsil',
+        ];
+
+        return $programs[$this->education_program] ?? $this->education_program;
+    }
+
+    /**
+     * Get gender distribution percentage.
+     */
+    public function getGenderDistribution(): array
+    {
+        if ($this->student_count === 0) {
+            return [
+                'male_percentage' => 0,
+                'female_percentage' => 0,
+            ];
+        }
+
+        return [
+            'male_percentage' => round(($this->male_student_count / $this->student_count) * 100, 1),
+            'female_percentage' => round(($this->female_student_count / $this->student_count) * 100, 1),
+        ];
+    }
+
+    /**
+     * Update student count from gender counts.
+     */
+    public function updateStudentCountFromGender(): void
+    {
+        $total = $this->male_student_count + $this->female_student_count;
+        $this->update(['student_count' => $total]);
+    }
+
+    /**
+     * Validate gender count sum.
+     */
+    public function validateGenderCounts(): bool
+    {
+        return $this->student_count === ($this->male_student_count + $this->female_student_count);
+    }
+
+    /**
+     * Get full grade type description with tags.
+     */
+    public function getFullTypeDescription(): string
+    {
+        $parts = [];
+
+        // Add category if set
+        if ($this->grade_category) {
+            $parts[] = $this->grade_category;
+        }
+
+        // Add tags
+        $tagNames = $this->activeTags()->pluck('name')->toArray();
+        if (!empty($tagNames)) {
+            $parts[] = implode(', ', $tagNames);
+        }
+
+        // Add education program
+        $parts[] = $this->education_program_name;
+
+        return implode(' | ', $parts);
+    }
+
+    /**
+     * Scope to filter by education program.
+     */
+    public function scopeByEducationProgram($query, string $program)
+    {
+        return $query->where('education_program', $program);
+    }
+
+    /**
+     * Scope to filter by grade category.
+     */
+    public function scopeByGradeCategory($query, string $category)
+    {
+        return $query->where('grade_category', $category);
+    }
+
+    /**
+     * Scope to filter by tag.
+     */
+    public function scopeWithTag($query, int $tagId)
+    {
+        return $query->whereHas('tags', function ($q) use ($tagId) {
+            $q->where('grade_tags.id', $tagId);
+        });
+    }
+
+    /**
+     * Scope to filter by multiple tags (AND condition).
+     */
+    public function scopeWithAllTags($query, array $tagIds)
+    {
+        foreach ($tagIds as $tagId) {
+            $query->whereHas('tags', function ($q) use ($tagId) {
+                $q->where('grade_tags.id', $tagId);
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * Scope to filter by any of the tags (OR condition).
+     */
+    public function scopeWithAnyTag($query, array $tagIds)
+    {
+        return $query->whereHas('tags', function ($q) use ($tagIds) {
+            $q->whereIn('grade_tags.id', $tagIds);
+        });
     }
 }

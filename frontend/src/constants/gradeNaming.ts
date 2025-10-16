@@ -20,30 +20,38 @@ export const AZERBAIJANI_ALPHABET = [
 ] as const;
 
 /**
- * Commonly used letters for grade naming (first 12 letters)
- * Most schools don't need more than H/İ classes per grade level
+ * Commonly used letters for grade naming (full Azerbaijani alphabet)
+ * All 32 letters of the Azerbaijani alphabet available for class naming
  */
 export const COMMON_GRADE_LETTERS = [
-  'A', 'B', 'C', 'Ç', 'D', 'E', 'Ə', 'F', 'G', 'Ğ', 'H', 'İ'
+  'A', 'B', 'C', 'Ç', 'D', 'E', 'Ə', 'F',
+  'G', 'Ğ', 'H', 'X', 'I', 'İ', 'J', 'K',
+  'Q', 'L', 'M', 'N', 'O', 'Ö', 'P', 'R',
+  'S', 'Ş', 'T', 'U', 'Ü', 'V', 'Y', 'Z'
 ] as const;
 
 /**
- * Extended grade letters (for large schools)
- * Includes letters beyond common usage
+ * Extended grade letters (full Azerbaijani alphabet - same as COMMON)
+ * All schools have access to the complete alphabet
+ * Note: This is kept for backward compatibility but is identical to COMMON_GRADE_LETTERS
  */
 export const EXTENDED_GRADE_LETTERS = [
   'A', 'B', 'C', 'Ç', 'D', 'E', 'Ə', 'F',
-  'G', 'Ğ', 'H', 'İ', 'J', 'K', 'L', 'M'
+  'G', 'Ğ', 'H', 'X', 'I', 'İ', 'J', 'K',
+  'Q', 'L', 'M', 'N', 'O', 'Ö', 'P', 'R',
+  'S', 'Ş', 'T', 'U', 'Ü', 'V', 'Y', 'Z'
 ] as const;
 
 /**
  * Valid class levels in Azerbaijan education system
  *
+ * 0: Məktəbəqədər hazırlıq (Preschool Preparation)
  * 1-4: İbtidai təhsil (Primary)
  * 5-9: Ümumi orta təhsil (General Secondary)
  * 10-12: Tam orta təhsil (Complete Secondary)
  */
 export const CLASS_LEVELS = [
+  0,               // Preschool Preparation
   1, 2, 3, 4,      // Primary
   5, 6, 7, 8, 9,   // General Secondary
   10, 11, 12       // Complete Secondary
@@ -54,7 +62,7 @@ export const CLASS_LEVELS = [
  */
 export const CLASS_LEVEL_OPTIONS = CLASS_LEVELS.map(level => ({
   value: level,
-  label: `${level}-ci sinif`,
+  label: level === 0 ? 'Məktəbəqədər hazırlıq qrupu' : `${level}-ci sinif`,
 }));
 
 /**
@@ -180,7 +188,14 @@ export const getCapacityRecommendation = (
   recommended: number;
   max: number;
 } => {
-  if (classLevel >= 1 && classLevel <= 4) {
+  // Preschool preparation: smaller groups for young children
+  if (classLevel === 0) {
+    return {
+      min: 8,
+      recommended: 15,
+      max: 20,
+    };
+  } else if (classLevel >= 1 && classLevel <= 4) {
     // Primary: smaller classes
     return {
       min: 15,
@@ -203,7 +218,7 @@ export const getCapacityRecommendation = (
     };
   }
 
-  // Default/preschool
+  // Default fallback
   return {
     min: 10,
     recommended: 20,

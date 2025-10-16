@@ -85,10 +85,33 @@ class GradeManagementService
             // Set default values
             $data['is_active'] = $data['is_active'] ?? true;
             $data['student_count'] = $data['student_count'] ?? 0;
+            $data['male_student_count'] = $data['male_student_count'] ?? 0;
+            $data['female_student_count'] = $data['female_student_count'] ?? 0;
+            $data['education_program'] = $data['education_program'] ?? 'umumi';
             $data['metadata'] = $data['metadata'] ?? [];
+
+            // Validate gender counts sum
+            if (isset($data['male_student_count']) && isset($data['female_student_count'])) {
+                $calculatedTotal = $data['male_student_count'] + $data['female_student_count'];
+                if (isset($data['student_count']) && $data['student_count'] !== $calculatedTotal) {
+                    throw ValidationException::withMessages([
+                        'student_count' => ['Ümumi şagird sayı qız və oğlan sayının cəminə bərabər olmalıdır']
+                    ]);
+                }
+                $data['student_count'] = $calculatedTotal;
+            }
+
+            // Extract tag_ids before creating grade
+            $tagIds = $data['tag_ids'] ?? [];
+            unset($data['tag_ids']);
 
             // Create the grade
             $grade = Grade::create($data);
+
+            // Attach tags if provided
+            if (!empty($tagIds)) {
+                $grade->tags()->attach($tagIds);
+            }
 
             // Log the creation
             // TODO: Install spatie/laravel-activitylog package for activity logging
@@ -102,7 +125,7 @@ class GradeManagementService
             // Clear relevant caches
             $this->clearGradeCaches($grade->institution_id);
 
-            return $grade->load(['institution', 'academicYear', 'room', 'homeroomTeacher']);
+            return $grade->load(['institution', 'academicYear', 'room', 'homeroomTeacher', 'tags']);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -130,8 +153,28 @@ class GradeManagementService
             // Store original data for comparison
             $originalData = $grade->only(['name', 'room_id', 'homeroom_teacher_id', 'is_active']);
 
+            // Validate gender counts sum if provided
+            if (isset($data['male_student_count']) && isset($data['female_student_count'])) {
+                $calculatedTotal = $data['male_student_count'] + $data['female_student_count'];
+                if (isset($data['student_count']) && $data['student_count'] !== $calculatedTotal) {
+                    throw ValidationException::withMessages([
+                        'student_count' => ['Ümumi şagird sayı qız və oğlan sayının cəminə bərabər olmalıdır']
+                    ]);
+                }
+                $data['student_count'] = $calculatedTotal;
+            }
+
+            // Extract tag_ids before updating grade
+            $tagIds = $data['tag_ids'] ?? null;
+            unset($data['tag_ids']);
+
             // Update the grade
             $grade->update($data);
+
+            // Sync tags if provided
+            if ($tagIds !== null) {
+                $grade->tags()->sync($tagIds);
+            }
 
             // Log significant changes
             $this->logGradeChanges($user, $grade, $originalData, $data);
@@ -141,7 +184,7 @@ class GradeManagementService
             // Clear relevant caches
             $this->clearGradeCaches($grade->institution_id);
 
-            return $grade->fresh(['institution', 'academicYear', 'room', 'homeroomTeacher']);
+            return $grade->fresh(['institution', 'academicYear', 'room', 'homeroomTeacher', 'tags']);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -617,6 +660,19 @@ class GradeManagementService
                 case 'specialty':
                     $query->where('specialty', $value);
                     break;
+                case 'grade_category':
+                    $query->where('grade_category', $value);
+                    break;
+                case 'education_program':
+                    $query->where('education_program', $value);
+                    break;
+                case 'tag_ids':
+                    if (is_array($value) && !empty($value)) {
+                        $query->whereHas('tags', function ($q) use ($value) {
+                            $q->whereIn('grade_tags.id', $value);
+                        });
+                    }
+                    break;
                 case 'is_active':
                     $query->where('is_active', $value);
                     break;
@@ -729,15 +785,18 @@ class GradeManagementService
 
     private function validateGradeCreation(array $data): void
     {
-        // Check for unique grade name within institution and academic year
+        // Check for unique grade name + class_level within institution and academic year
+        // This allows: 1-A and 2-A (different levels) ✅
+        // But prevents: duplicate 1-A (same level) ❌
         $existingGrade = Grade::where('institution_id', $data['institution_id'])
             ->where('academic_year_id', $data['academic_year_id'])
+            ->where('class_level', $data['class_level'])
             ->where('name', $data['name'])
             ->first();
 
         if ($existingGrade) {
             throw ValidationException::withMessages([
-                'name' => ['Bu təhsil ili və təşkilatda həmin adlı sinif mövcuddur']
+                'name' => ['Bu təhsil ili və təşkilatda həmin səviyyədə və adlı sinif mövcuddur']
             ]);
         }
 
@@ -755,16 +814,18 @@ class GradeManagementService
     private function validateGradeUpdate(Grade $grade, array $data): void
     {
         // Check name uniqueness if name is changing
+        // Must check with class_level to allow 1-A and 2-A in same institution
         if (isset($data['name']) && $data['name'] !== $grade->name) {
             $existingGrade = Grade::where('institution_id', $grade->institution_id)
                 ->where('academic_year_id', $grade->academic_year_id)
+                ->where('class_level', $grade->class_level)
                 ->where('name', $data['name'])
                 ->where('id', '!=', $grade->id)
                 ->first();
 
             if ($existingGrade) {
                 throw ValidationException::withMessages([
-                    'name' => ['Bu təhsil ili və təşkilatda həmin adlı sinif mövcuddur']
+                    'name' => ['Bu təhsil ili və təşkilatda həmin səviyyədə və adlı sinif mövcuddur']
                 ]);
             }
         }

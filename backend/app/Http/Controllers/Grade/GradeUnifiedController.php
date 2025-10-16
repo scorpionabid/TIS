@@ -55,6 +55,10 @@ class GradeUnifiedController extends Controller
                 'room_id' => 'sometimes|exists:rooms,id',
                 'homeroom_teacher_id' => 'sometimes|exists:users,id',
                 'specialty' => 'sometimes|string|max:100',
+                'grade_category' => 'sometimes|string|max:50',
+                'education_program' => 'sometimes|in:umumi,xususi,mektebde_ferdi,evde_ferdi',
+                'tag_ids' => 'sometimes|array',
+                'tag_ids.*' => 'exists:grade_tags,id',
                 'is_active' => 'sometimes|boolean',
                 'has_room' => 'sometimes|boolean',
                 'has_teacher' => 'sometimes|boolean',
@@ -78,7 +82,8 @@ class GradeUnifiedController extends Controller
             $user = Auth::user();
             $filters = $request->only([
                 'institution_id', 'class_level', 'academic_year_id',
-                'room_id', 'homeroom_teacher_id', 'specialty', 'is_active',
+                'room_id', 'homeroom_teacher_id', 'specialty', 'grade_category',
+                'education_program', 'tag_ids', 'is_active',
                 'has_room', 'has_teacher', 'capacity_status', 'search'
             ]);
 
@@ -133,7 +138,13 @@ class GradeUnifiedController extends Controller
                 'room_id' => 'nullable|exists:rooms,id',
                 'homeroom_teacher_id' => 'nullable|exists:users,id',
                 'specialty' => 'nullable|string|max:100',
+                'grade_category' => 'nullable|string|max:50',
+                'education_program' => 'nullable|in:umumi,xususi,mektebde_ferdi,evde_ferdi',
                 'student_count' => 'nullable|integer|min:0|max:500',
+                'male_student_count' => 'nullable|integer|min:0|max:500',
+                'female_student_count' => 'nullable|integer|min:0|max:500',
+                'tag_ids' => 'nullable|array',
+                'tag_ids.*' => 'exists:grade_tags,id',
                 'is_active' => 'sometimes|boolean',
                 'metadata' => 'nullable|array',
             ], [
@@ -1084,8 +1095,8 @@ class GradeUnifiedController extends Controller
                 ];
             }, $availableLetters);
 
-            // Get available class levels
-            $classLevels = $namingConstants::getAvailableClassLevels(false);
+            // Get available class levels (include preschool level 0)
+            $classLevels = $namingConstants::getAvailableClassLevels(true);
 
             // Get available specialties
             $specialties = $namingConstants::getAvailableSpecialties();

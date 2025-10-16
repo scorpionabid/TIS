@@ -87,8 +87,13 @@ export interface GradeCreateData {
   room_id?: number;
   homeroom_teacher_id?: number;
   specialty?: string;
+  grade_category?: string;
+  education_program?: string;
   description?: string;
   student_count?: number;
+  male_student_count?: number;
+  female_student_count?: number;
+  tag_ids?: number[];
   metadata?: Record<string, any>;
 }
 
@@ -97,8 +102,13 @@ export interface GradeUpdateData {
   room_id?: number | null;
   homeroom_teacher_id?: number | null;
   specialty?: string;
+  grade_category?: string;
+  education_program?: string;
   description?: string;
   student_count?: number;
+  male_student_count?: number;
+  female_student_count?: number;
+  tag_ids?: number[];
   is_active?: boolean;
   metadata?: Record<string, any>;
 }

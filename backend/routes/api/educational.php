@@ -9,6 +9,7 @@ use App\Http\Controllers\API\ScheduleGenerationController;
 use App\Http\Controllers\RoomControllerRefactored as RoomController;
 use App\Http\Controllers\ClassesControllerRefactored as ClassesController;
 use App\Http\Controllers\Grade\GradeUnifiedController;
+use App\Http\Controllers\Grade\GradeTagController;
 use App\Http\Controllers\StudentControllerRefactored as StudentController;
 use App\Http\Controllers\SchoolEventController;
 use App\Http\Controllers\TeacherPerformanceController;
@@ -205,6 +206,12 @@ Route::prefix('classes')->group(function () {
 
 // Unified Grades Management Routes (New Implementation)
 Route::prefix('grades')->group(function () {
+    // Grade tag system routes (MUST BE BEFORE {grade} routes to avoid conflict)
+    Route::get('/tags', [GradeTagController::class, 'index'])->middleware('permission:grades.read');
+    Route::get('/tags/list', [GradeTagController::class, 'list'])->middleware('permission:grades.read');
+    Route::get('/tags/categories', [GradeTagController::class, 'categories'])->middleware('permission:grades.read');
+    Route::get('/education-programs', [GradeTagController::class, 'educationPrograms'])->middleware('permission:grades.read');
+
     // Core CRUD operations
     Route::get('/', [GradeUnifiedController::class, 'index'])->middleware('permission:grades.read');
     Route::post('/', [GradeUnifiedController::class, 'store'])->middleware('permission:grades.create');
@@ -232,7 +239,7 @@ Route::prefix('grades')->group(function () {
     Route::get('/naming/options', [GradeUnifiedController::class, 'getNamingOptions'])->middleware('permission:grades.create');
     Route::get('/naming/suggestions', [GradeUnifiedController::class, 'getNamingSuggestions'])->middleware('permission:grades.create');
     Route::get('/naming/system-stats', [GradeUnifiedController::class, 'getNamingSystemStats'])->middleware('permission:grades.read');
-    
+
     // Statistics and reporting
     Route::get('/statistics/overview', [GradeUnifiedController::class, 'statistics'])->middleware('permission:grades.statistics');
     Route::get('/reports/capacity', [GradeUnifiedController::class, 'capacityReport'])->middleware('permission:grades.reports');

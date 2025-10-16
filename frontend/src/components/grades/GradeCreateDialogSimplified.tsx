@@ -40,6 +40,10 @@ import {
 import { User } from '@/contexts/AuthContext';
 import { USER_ROLES } from '@/constants/roles';
 import { formatGradeName, getCapacityRecommendation, getEducationStageColor } from '@/constants/gradeNaming';
+import { TagSelector } from './TagSelector';
+import { EducationProgramSelector } from './EducationProgramSelector';
+import { GenderCountInput } from './GenderCountInput';
+import type { EducationProgramType } from '@/types/gradeTag';
 
 interface GradeCreateDialogSimplifiedProps {
   open: boolean;
@@ -69,6 +73,10 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
     institution_id: 0,
     specialty: '',
     student_count: 0,
+    male_student_count: 0,
+    female_student_count: 0,
+    education_program: 'umumi',
+    tag_ids: [],
   });
 
   const [validationErrors, setValidationErrors] = React.useState<Record<string, string>>({});
@@ -87,6 +95,10 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
         institution_id: editingGrade.institution_id,
         specialty: editingGrade.specialty || '',
         student_count: editingGrade.student_count,
+        male_student_count: (editingGrade as any).male_student_count || 0,
+        female_student_count: (editingGrade as any).female_student_count || 0,
+        education_program: (editingGrade as any).education_program || 'umumi',
+        tag_ids: (editingGrade as any).tags?.map((t: any) => t.id) || [],
       });
     } else if (open && !editingGrade) {
       const activeYear = availableAcademicYears.find(year => year.is_active);
@@ -101,6 +113,10 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
         institution_id: defaultInstitutionId,
         specialty: '',
         student_count: 0,
+        male_student_count: 0,
+        female_student_count: 0,
+        education_program: 'umumi',
+        tag_ids: [],
       });
     }
     setValidationErrors({});
@@ -187,7 +203,7 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
     // Basic validation
     const errors: Record<string, string> = {};
     if (!formData.name.trim()) errors.name = 'Sinif hərfi mütləqdir';
-    if (!formData.class_level) errors.class_level = 'Sinif səviyyəsi mütləqdir';
+    if (formData.class_level === null || formData.class_level === undefined) errors.class_level = 'Sinif səviyyəsi mütləqdir';
     if (!formData.academic_year_id) errors.academic_year_id = 'Akademik il mütləqdir';
     if (!formData.institution_id) errors.institution_id = 'Məktəb mütləqdir';
 
@@ -203,6 +219,10 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
         name: formData.name,
         specialty: formData.specialty,
         student_count: formData.student_count,
+        male_student_count: formData.male_student_count,
+        female_student_count: formData.female_student_count,
+        education_program: formData.education_program,
+        tag_ids: formData.tag_ids,
       };
       updateMutation.mutate({ id: editingGrade.id, updates: updateData });
     } else {
@@ -279,11 +299,16 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
                       <SelectItem key={level.value} value={level.value.toString()}>
                         {level.label}
                       </SelectItem>
-                    )) || Array.from({ length: 12 }, (_, i) => (
-                      <SelectItem key={i + 1} value={(i + 1).toString()}>
-                        {i + 1}-ci sinif
-                      </SelectItem>
-                    ))}
+                    )) || [
+                      <SelectItem key={0} value="0">
+                        Məktəbəqədər hazırlıq qrupu
+                      </SelectItem>,
+                      ...Array.from({ length: 12 }, (_, i) => (
+                        <SelectItem key={i + 1} value={(i + 1).toString()}>
+                          {i + 1}-ci sinif
+                        </SelectItem>
+                      ))
+                    ]}
                   </SelectContent>
                 </Select>
                 {validationErrors.class_level && (
@@ -358,6 +383,7 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
                     </div>
                     <div className="text-sm text-blue-700 mt-1">
                       <Badge className={getEducationStageColor(formData.class_level)} variant="secondary">
+                        {formData.class_level === 0 && 'Məktəbəqədər hazırlıq'}
                         {formData.class_level >= 1 && formData.class_level <= 4 && 'İbtidai təhsil'}
                         {formData.class_level >= 5 && formData.class_level <= 9 && 'Ümumi orta təhsil'}
                         {formData.class_level >= 10 && formData.class_level <= 12 && 'Tam orta təhsil'}
@@ -370,30 +396,40 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
 
             {/* TAB 2: OPTIONAL INFO */}
             <TabsContent value="optional" className="space-y-4 mt-4">
-              {/* Student Count - OPTIONAL */}
+              {/* Education Program */}
+              <EducationProgramSelector
+                value={(formData.education_program as EducationProgramType) || 'umumi'}
+                onChange={(value) => handleFieldChange('education_program', value)}
+                disabled={isLoading}
+                error={validationErrors.education_program}
+              />
+
+              {/* Student Count with Gender Split - OPTIONAL */}
+              <GenderCountInput
+                maleCount={formData.male_student_count || 0}
+                femaleCount={formData.female_student_count || 0}
+                onMaleChange={(count) => handleFieldChange('male_student_count', count)}
+                onFemaleChange={(count) => handleFieldChange('female_student_count', count)}
+                onTotalChange={(total) => handleFieldChange('student_count', total)}
+                disabled={isLoading}
+                errors={{
+                  male: validationErrors.male_student_count,
+                  female: validationErrors.female_student_count,
+                  total: validationErrors.student_count,
+                }}
+              />
+
+              {/* Grade Tags */}
               <div className="space-y-2">
-                <Label htmlFor="student_count">
-                  Şagird Sayı (könüllü)
-                </Label>
-                <Input
-                  type="number"
-                  min="2"
-                  max="35"
-                  value={formData.student_count || ''}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value) || 0;
-                    if (val >= 2 && val <= 35) {
-                      handleFieldChange('student_count', val);
-                    } else if (val === 0 || e.target.value === '') {
-                      handleFieldChange('student_count', 0);
-                    }
-                  }}
-                  placeholder="Şagird sayı (2-35)"
+                <Label>Sinif növü tag-ları (könüllü)</Label>
+                <TagSelector
+                  selectedTagIds={formData.tag_ids || []}
+                  onChange={(tagIds) => handleFieldChange('tag_ids', tagIds)}
                   disabled={isLoading}
                 />
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Info className="h-3 w-3" />
-                  Minimum: 2 şagird, Maksimum: 35 şagird
+                  Sinfi xüsusiləşdirmək üçün tag-lar seçə bilərsiniz (məktəb növü, dil, ixtisaslaşma və s.)
                 </p>
               </div>
 
