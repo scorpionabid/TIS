@@ -126,7 +126,7 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-blue-600 font-medium">Cəmi Fənn</p>
-                <p className="text-2xl font-bold text-blue-900">{statistics.total_subjects}</p>
+                <p className="text-2xl font-bold text-blue-900">{statistics?.total_subjects || 0}</p>
               </div>
               <BookOpen className="h-8 w-8 text-blue-400" />
             </div>
@@ -136,7 +136,7 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-green-600 font-medium">Həftəlik Saat</p>
-                <p className="text-2xl font-bold text-green-900">{statistics.total_weekly_hours}</p>
+                <p className="text-2xl font-bold text-green-900">{statistics?.total_weekly_hours || 0}</p>
               </div>
               <Clock className="h-8 w-8 text-green-400" />
             </div>
@@ -146,7 +146,7 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-purple-600 font-medium">Hesablanmış Saat</p>
-                <p className="text-2xl font-bold text-purple-900">{statistics.total_calculated_hours}</p>
+                <p className="text-2xl font-bold text-purple-900">{statistics?.total_calculated_hours || 0}</p>
               </div>
               <Users className="h-8 w-8 text-purple-400" />
             </div>
@@ -156,7 +156,7 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-orange-600 font-medium">Qruplara Bölünən</p>
-                <p className="text-2xl font-bold text-orange-900">{statistics.split_groups_count}</p>
+                <p className="text-2xl font-bold text-orange-900">{statistics?.split_groups_count || 0}</p>
               </div>
               <Users className="h-8 w-8 text-orange-400" />
             </div>
@@ -169,7 +169,7 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
         <div>
           <h3 className="text-lg font-semibold text-gray-900">Fənnlər və Dərs Yükü</h3>
           <p className="text-sm text-gray-500 mt-1">
-            {meta ? `${meta.grade_name} sinfi üçün kurikulum` : ''}
+            {meta?.grade_name ? `${meta.grade_name} sinfi üçün kurikulum` : gradeName}
           </p>
         </div>
         <button
@@ -182,7 +182,7 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
       </div>
 
       {/* Subjects Table */}
-      {subjects.length === 0 ? (
+      {!subjects || subjects.length === 0 ? (
         <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
           <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">Fənn əlavə edilməyib</h3>
@@ -228,7 +228,7 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {subjects.map((subject) => (
+                {subjects?.map((subject) => (
                   <tr key={subject.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
