@@ -9,7 +9,7 @@
  * - Statistics display
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Trash2, Edit, BookOpen, Users, Clock } from 'lucide-react';
 import curriculumService from '../../services/curriculumService';
 import type { GradeSubject, CurriculumMeta, CurriculumStatistics } from '../../types/curriculum';
@@ -32,12 +32,7 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
   const [editingSubject, setEditingSubject] = useState<GradeSubject | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  useEffect(() => {
-    loadCurriculum();
-    loadStatistics();
-  }, [gradeId]);
-
-  const loadCurriculum = async () => {
+  const loadCurriculum = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -50,16 +45,20 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
     } finally {
       setLoading(false);
     }
-  };
+  }, [gradeId]);
 
-  const loadStatistics = async () => {
+  const loadStatistics = useCallback(async () => {
     try {
       const stats = await curriculumService.getCurriculumStatistics(gradeId);
       setStatistics(stats);
     } catch (err) {
       console.error('Error loading statistics:', err);
     }
-  };
+  }, [gradeId]);
+
+  useEffect(() => {
+    void Promise.all([loadCurriculum(), loadStatistics()]);
+  }, [loadCurriculum, loadStatistics]);
 
   const handleAddSuccess = () => {
     loadCurriculum();

@@ -29,9 +29,7 @@ export interface CreateAttendanceData {
   notes?: string;
 }
 
-export interface UpdateAttendanceData extends Partial<CreateAttendanceData> {
-  // Additional update-specific properties can be added here if needed
-}
+export type UpdateAttendanceData = Partial<CreateAttendanceData>;
 
 export interface AttendanceFilters {
   school_id?: number;

@@ -1,9 +1,7 @@
 import { apiClient } from './api';
 import { schoolAdminService, SchoolTeacher, ImportResult } from './schoolAdmin';
 
-export interface Teacher extends SchoolTeacher {
-  // Additional teacher-specific properties if needed
-}
+export type Teacher = SchoolTeacher;
 
 export interface TeacherFilters {
   subject_id?: number;

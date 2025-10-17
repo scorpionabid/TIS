@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { BaseModal } from '@/components/common/BaseModal';
-import { FormField, createField } from '@/components/forms/FormBuilder';
+import { FormField } from '@/components/forms/FormBuilder';
+import { createField } from '@/components/forms/FormBuilder.helpers';
 import { InstitutionType, institutionService } from '@/services/institutions';
 import { useToast } from '@/hooks/use-toast';
 import { institutionTypeFields } from '@/components/modals/configurations/modalFieldConfig';

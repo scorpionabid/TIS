@@ -81,6 +81,11 @@ interface PendingRequest<T> {
   timestamp: number;
 }
 
+type BatchQueueRequest<T = any> = {
+  resolve: (value: T) => void;
+  reject: (reason?: unknown) => void;
+};
+
 const TOKEN_STORAGE_KEY = 'atis_auth_token';
 
 class ApiClientOptimized {
@@ -96,7 +101,7 @@ class ApiClientOptimized {
   private readonly DEDUPLICATION_TTL = 30 * 1000; // 30 seconds
   
   // Batch request queue
-  private batchQueue = new Map<string, { requests: Array<{ resolve: Function, reject: Function }>, timeout: NodeJS.Timeout }>();
+  private batchQueue = new Map<string, { requests: Array<BatchQueueRequest>; timeout: NodeJS.Timeout }>();
 
   constructor(baseURL?: string) {
     const fallbackURL = 'http://localhost:8000/api';

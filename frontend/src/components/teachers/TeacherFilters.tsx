@@ -1,11 +1,13 @@
 import React from 'react';
-import { 
-  GenericFilter, 
+import {
+  GenericFilter,
   SelectFilterConfig,
+} from '@/components/common/GenericFilter';
+import {
   createStatusOptions,
   createDepartmentOptions,
-  useInstitutionFilter
-} from '@/components/common/GenericFilter';
+  useInstitutionFilter,
+} from '@/components/common/GenericFilter.helpers';
 import type { TeacherFilters } from './hooks/useSchoolTeacherManagerGeneric';
 
 interface TeacherFiltersProps {

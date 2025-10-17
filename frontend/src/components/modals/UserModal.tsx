@@ -8,7 +8,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FormBuilder, createField, commonValidations } from '@/components/forms/FormBuilder';
+import { FormBuilder } from '@/components/forms/FormBuilder';
+import { createField, commonValidations } from '@/components/forms/FormBuilder.helpers';
 import { userFields, teacherFields, studentFields, emergencyContactFields } from '@/components/modals/configurations/modalFieldConfig';
 import { z } from 'zod';
 import { Badge } from '@/components/ui/badge';

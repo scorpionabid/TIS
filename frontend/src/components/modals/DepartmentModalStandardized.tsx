@@ -6,7 +6,7 @@ import { Department, CreateDepartmentData, departmentService } from '@/services/
 import { institutionService } from '@/services/institutions';
 import { useToast } from '@/hooks/use-toast';
 import { departmentFields } from '@/components/modals/configurations/modalFieldConfig';
-import { createField, commonValidations } from '@/components/forms/FormBuilder';
+import { createField, commonValidations } from '@/components/forms/FormBuilder.helpers';
 import { Building, Users, MapPin } from 'lucide-react';
 
 interface DepartmentModalStandardizedProps {

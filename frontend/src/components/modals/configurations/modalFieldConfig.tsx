@@ -1,4 +1,5 @@
-import { FormField, createField, commonValidations } from '@/components/forms/FormBuilder';
+import { FormField } from '@/components/forms/FormBuilder';
+import { createField, commonValidations } from '@/components/forms/FormBuilder.helpers';
 import { BaseModalTab } from '@/components/common/BaseModal';
 import { 
   User, 

@@ -65,7 +65,7 @@ export interface FormContextValue<T extends FieldValues = FieldValues> {
 }
 
 // Specific form data types for ATİS application
-export interface UserFormReturn extends TypedUseFormReturn<{
+export type UserFormReturn = TypedUseFormReturn<{
   first_name: string;
   last_name: string;
   email: string;
@@ -76,9 +76,9 @@ export interface UserFormReturn extends TypedUseFormReturn<{
   department_id?: number;
   contact_phone?: string;
   is_active: boolean;
-}> {}
+}>;
 
-export interface InstitutionFormReturn extends TypedUseFormReturn<{
+export type InstitutionFormReturn = TypedUseFormReturn<{
   name: string;
   code: string;
   type_id: number;
@@ -88,9 +88,9 @@ export interface InstitutionFormReturn extends TypedUseFormReturn<{
   email?: string;
   director_name?: string;
   is_active: boolean;
-}> {}
+}>;
 
-export interface TaskFormReturn extends TypedUseFormReturn<{
+export type TaskFormReturn = TypedUseFormReturn<{
   title: string;
   description: string;
   assignee_role?: string;
@@ -99,18 +99,18 @@ export interface TaskFormReturn extends TypedUseFormReturn<{
   priority: 'low' | 'medium' | 'high' | 'urgent';
   category: string;
   requires_evidence: boolean;
-}> {}
+}>;
 
-export interface DepartmentFormReturn extends TypedUseFormReturn<{
+export type DepartmentFormReturn = TypedUseFormReturn<{
   name: string;
   code?: string;
   institution_id: number;
   head_teacher_id?: number;
   description?: string;
   is_active: boolean;
-}> {}
+}>;
 
-export interface DocumentFormReturn extends TypedUseFormReturn<{
+export type DocumentFormReturn = TypedUseFormReturn<{
   title: string;
   description?: string;
   category: string;
@@ -118,7 +118,7 @@ export interface DocumentFormReturn extends TypedUseFormReturn<{
   allowed_roles?: string[];
   expiry_date?: string;
   requires_approval: boolean;
-}> {}
+}>;
 
 // Type guards for form validation
 export function isValidFormData<T extends FieldValues>(

@@ -1,12 +1,14 @@
 import React from 'react';
-import { 
-  GenericFilter, 
+import {
+  GenericFilter,
   SelectFilterConfig,
+} from '@/components/common/GenericFilter';
+import {
   createGradeLevelOptions,
   createEnrollmentStatusOptions,
   createGenderOptions,
-  useInstitutionFilter
-} from '@/components/common/GenericFilter';
+  useInstitutionFilter,
+} from '@/components/common/GenericFilter.helpers';
 import type { StudentFilters } from './hooks/useSchoolStudentManagerGeneric';
 import { Grade } from '@/services/grades';
 

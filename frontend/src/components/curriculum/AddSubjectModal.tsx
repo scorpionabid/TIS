@@ -9,7 +9,7 @@
  * - Automatic hour calculation display
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, Save, AlertCircle } from 'lucide-react';
 import curriculumService from '../../services/curriculumService';
 import type { AvailableSubject, CreateGradeSubjectDTO, GradeSubjectFormData } from '../../types/curriculum';
@@ -34,11 +34,7 @@ const AddSubjectModal: React.FC<AddSubjectModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadAvailableSubjects();
-  }, [gradeId]);
-
-  const loadAvailableSubjects = async () => {
+  const loadAvailableSubjects = useCallback(async () => {
     try {
       setLoading(true);
       const subjects = await curriculumService.getAvailableSubjects(gradeId);
@@ -49,7 +45,11 @@ const AddSubjectModal: React.FC<AddSubjectModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [gradeId]);
+
+  useEffect(() => {
+    void loadAvailableSubjects();
+  }, [loadAvailableSubjects]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

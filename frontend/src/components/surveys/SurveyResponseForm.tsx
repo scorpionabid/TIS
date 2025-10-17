@@ -310,7 +310,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
           </RadioGroup>
         );
 
-      case 'multiple_choice':
+      case 'multiple_choice': {
         const checkboxValue = value || [];
         return (
           <div className="space-y-2">
@@ -332,8 +332,9 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
             ))}
           </div>
         );
+      }
 
-      case 'rating':
+      case 'rating': {
         const ratings = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         return (
           <div className="space-y-3">
@@ -358,6 +359,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
             </RadioGroup>
           </div>
         );
+      }
 
       case 'date':
         return (

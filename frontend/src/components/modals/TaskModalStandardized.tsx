@@ -1,7 +1,8 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { BaseModal, BaseModalProps } from '@/components/common/BaseModal';
-import { FormField, createField, commonValidations } from '@/components/forms/FormBuilder';
+import { FormField } from '@/components/forms/FormBuilder';
+import { createField, commonValidations } from '@/components/forms/FormBuilder.helpers';
 import { Task, CreateTaskData } from '@/services/tasks';
 import { userService } from '@/services/users';
 import { institutionService } from '@/services/institutions';

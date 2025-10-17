@@ -51,9 +51,7 @@ export interface CreateAssessmentTypeData {
   institution_id?: number;
 }
 
-export interface UpdateAssessmentTypeData extends Partial<CreateAssessmentTypeData> {
-  // Additional update-specific properties can be added here if needed
-}
+export type UpdateAssessmentTypeData = Partial<CreateAssessmentTypeData>;
 
 export interface PaginatedAssessmentTypes {
   data: AssessmentType[];

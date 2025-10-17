@@ -57,6 +57,17 @@ export const useRealTimeNotifications = (
   const canUseGeneralNotifications = !!currentUser;
 
   // Fetch initial notifications
+  const extractNotifications = (response: any): any[] => {
+    if (!response) return [];
+    if (Array.isArray(response)) {
+      return response;
+    }
+    if (Array.isArray(response?.data)) {
+      return response.data;
+    }
+    return [];
+  };
+
   const {
     data: initialNotifications,
     isLoading,
@@ -76,18 +87,7 @@ export const useRealTimeNotifications = (
       );
 
       logger.debug('Unified notifications fetched:', response);
-
-      // Handle response format
-      let rawNotifications = [];
-      if (Array.isArray(response)) {
-        rawNotifications = response;
-      } else if (response.data) {
-        rawNotifications = response.data;
-      } else if (response.success && response.data) {
-        rawNotifications = response.data;
-      }
-
-      return rawNotifications.map(normalizeNotification);
+      return extractNotifications(response).map(normalizeNotification);
     },
     enabled: !!currentUser && supportsNotifications,
     staleTime: 1000 * 60 * 2, // 2 minutes
@@ -164,17 +164,7 @@ export const useRealTimeNotifications = (
             }
           );
 
-          // Handle response format
-          let rawNotifications = [];
-          if (Array.isArray(response)) {
-            rawNotifications = response;
-          } else if (response.data) {
-            rawNotifications = response.data;
-          } else if (response.success && response.data) {
-            rawNotifications = response.data;
-          }
-
-          const latestNotifications = rawNotifications.map(normalizeNotification);
+          const latestNotifications = extractNotifications(response).map(normalizeNotification);
 
           // Check for new notifications
           const existingIds = new Set(notifications.map(n => n.id));

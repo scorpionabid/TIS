@@ -140,16 +140,18 @@ export default function Tasks() {
           aValue = categoryLabels[a.category].toLowerCase();
           bValue = categoryLabels[b.category].toLowerCase();
           break;
-        case 'priority':
+        case 'priority': {
           const priorityOrder = { low: 1, medium: 2, high: 3, urgent: 4 };
           aValue = priorityOrder[a.priority];
           bValue = priorityOrder[b.priority];
           break;
-        case 'status':
+        }
+        case 'status': {
           const statusOrder = { pending: 1, in_progress: 2, review: 3, completed: 4, cancelled: 5 };
           aValue = statusOrder[a.status];
           bValue = statusOrder[b.status];
           break;
+        }
         case 'deadline':
           aValue = a.deadline ? new Date(a.deadline).getTime() : 0;
           bValue = b.deadline ? new Date(b.deadline).getTime() : 0;

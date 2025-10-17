@@ -18,7 +18,7 @@ import { errorTracker, trackComponentError } from '@/utils/errorTracker';
 import { performanceMonitor } from '@/utils/performanceMonitor';
 import { cacheService } from '@/services/CacheService';
 
-interface Props {
+export interface Props {
   children: ReactNode;
   fallback?: ReactNode;
   onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
@@ -308,44 +308,5 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
-
-// Convenience components for different levels
-export const PageErrorBoundary: React.FC<Omit<Props, 'level'> & { name: string }> = (props) => (
-  <EnhancedErrorBoundary {...props} level="page" enableRecovery={true} />
-);
-
-export const SectionErrorBoundary: React.FC<Omit<Props, 'level'> & { name: string }> = (props) => (
-  <EnhancedErrorBoundary {...props} level="section" enableRecovery={true} />
-);
-
-export const ComponentErrorBoundary: React.FC<Omit<Props, 'level'> & { name: string }> = (props) => (
-  <EnhancedErrorBoundary {...props} level="component" enableRecovery={true} />
-);
-
-// Higher-order component with enhanced error boundary
-export const withEnhancedErrorBoundary = <P extends object>(
-  Component: React.ComponentType<P>,
-  options: {
-    name?: string;
-    level?: 'page' | 'section' | 'component';
-    showDetails?: boolean;
-    onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
-  } = {}
-) => {
-  const WrappedComponent = (props: P) => (
-    <EnhancedErrorBoundary 
-      name={options.name || Component.displayName || Component.name}
-      level={options.level || 'component'}
-      showDetails={options.showDetails}
-      onError={options.onError}
-    >
-      <Component {...props} />
-    </EnhancedErrorBoundary>
-  );
-
-  WrappedComponent.displayName = `withEnhancedErrorBoundary(${Component.displayName || Component.name})`;
-  
-  return WrappedComponent;
-};
 
 export default EnhancedErrorBoundary;

@@ -388,10 +388,11 @@ export const gradeCustomLogic = {
 
     try {
       switch (key) {
-        case 'name':
+        case 'name': {
           const name = grade?.name;
           console.log('🔍 Processing name:', { name, type: typeof name, isNull: name === null, isUndefined: name === undefined });
           return name && typeof name === 'string' ? name.toLowerCase() : '';
+        }
         case 'class_level':
           return grade?.class_level || 0;
         case 'student_count':

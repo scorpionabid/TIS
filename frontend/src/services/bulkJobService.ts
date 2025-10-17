@@ -148,18 +148,20 @@ class BulkJobService extends BaseService {
               }
               break;
               
-            case 'failed':
+            case 'failed': {
               const error = new Error(status.message || 'Job failed');
               onError?.(error);
               reject(error);
               break;
-              
-            case 'cancelled':
+            }
+
+            case 'cancelled': {
               const cancelError = new Error('Job was cancelled');
               onError?.(cancelError);
               reject(cancelError);
               break;
-              
+            }
+
             case 'queued':
             case 'in_progress':
               // Continue polling

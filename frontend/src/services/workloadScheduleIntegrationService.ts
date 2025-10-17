@@ -247,7 +247,7 @@ class WorkloadScheduleIntegrationService extends BaseService {
     description: string;
     settings: GenerationSettings;
     usage_count: number;
-  }[]} {
+  }[]> {
     const response = await this.get('/templates');
     return response.data;
   }

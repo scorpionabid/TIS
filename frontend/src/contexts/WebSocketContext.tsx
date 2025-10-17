@@ -158,13 +158,14 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
           }
           break;
           
-        case 'notification':
+        case 'notification': {
           // Handle general notifications
           const notificationSubscribers = subscriptions.current.filter(
             sub => sub.channel === 'notifications'
           );
           notificationSubscribers.forEach(sub => sub.callback(message.data));
           break;
+        }
           
         case 'pong':
           // Handle ping/pong for connection health

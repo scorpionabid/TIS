@@ -1,6 +1,7 @@
 import React from 'react';
 import { Users, CheckCircle, Settings, UserMinus, GraduationCap, UserPlus } from 'lucide-react';
-import { GenericStatsCard, createStatItem } from '@/components/common/GenericStatsCard';
+import { GenericStatsCard } from '@/components/common/GenericStatsCard';
+import { createStatItem } from '@/components/common/GenericStatsCard.helpers';
 import type { StudentStats } from './hooks/useSchoolStudentManagerGeneric';
 
 interface StudentStatsCardsProps {

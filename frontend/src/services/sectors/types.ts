@@ -359,13 +359,9 @@ export interface PaginatedResponse<T> {
   };
 }
 
-export interface SectorTasksResponse extends PaginatedResponse<SectorTask> {
-  // Additional task-specific response properties can be added here
-}
+export type SectorTasksResponse = PaginatedResponse<SectorTask>;
 
-export interface SectorDocumentsResponse extends PaginatedResponse<SectorDocument> {
-  // Additional document-specific response properties can be added here
-}
+export type SectorDocumentsResponse = PaginatedResponse<SectorDocument>;
 
 export interface SectorTaskResponse {
   success: boolean;
