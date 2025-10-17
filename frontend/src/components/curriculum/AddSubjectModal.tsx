@@ -129,7 +129,7 @@ const AddSubjectModal: React.FC<AddSubjectModalProps> = ({
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               <span className="ml-3 text-gray-600">Yüklənir...</span>
             </div>
-          ) : availableSubjects.length === 0 ? (
+          ) : !availableSubjects || availableSubjects.length === 0 ? (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <p className="text-sm text-yellow-700">
                 Bu sinif üçün əlavə ediləcək fənn qalmayıb. Bütün mövcud fənnlər artıq kurikulumda var.
@@ -151,7 +151,7 @@ const AddSubjectModal: React.FC<AddSubjectModalProps> = ({
                   required
                 >
                   <option value="">Fənn seçin</option>
-                  {availableSubjects.map((subject) => (
+                  {availableSubjects?.map((subject) => (
                     <option key={subject.id} value={subject.id}>
                       {subject.name} ({subject.code})
                     </option>
@@ -309,7 +309,7 @@ const AddSubjectModal: React.FC<AddSubjectModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={submitting || loading || availableSubjects.length === 0}
+              disabled={submitting || loading || !availableSubjects || availableSubjects.length === 0}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="h-4 w-4" />
