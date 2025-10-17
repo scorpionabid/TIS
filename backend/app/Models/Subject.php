@@ -83,6 +83,14 @@ class Subject extends Model
     }
 
     /**
+     * Get curriculum assignments for this subject.
+     */
+    public function gradeSubjects(): HasMany
+    {
+        return $this->hasMany(GradeSubject::class);
+    }
+
+    /**
      * Check if subject is available for a specific class level.
      */
     public function isAvailableForLevel(int $classLevel): bool

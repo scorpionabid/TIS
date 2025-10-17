@@ -4,6 +4,7 @@ import { Grade, GradeFilters } from '@/services/grades';
 import { gradeEntityConfig, gradeCustomLogic, GradeFiltersComponent } from './configurations/gradeConfig';
 import { GradeCreateDialogSimplified as GradeCreateDialog } from './GradeCreateDialogSimplified';
 import { GradeDetailsDialog } from './GradeDetailsDialog';
+import { GradeDetailsDialogWithTabs } from './GradeDetailsDialogWithTabs';
 import { GradeStudentsDialog } from './GradeStudentsDialog';
 import { GradeAnalyticsModal } from './GradeAnalyticsModal';
 import { useAuth } from '@/contexts/AuthContext';
@@ -256,7 +257,7 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
 
       {/* Grade Details Modal */}
       {selectedGrade && (
-        <GradeDetailsDialog
+        <GradeDetailsDialogWithTabs
           grade={selectedGrade}
           onClose={handleCloseModals}
           onEdit={(grade) => {
@@ -267,6 +268,9 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
             setSelectedGrade(null);
             setStudentsGrade(grade);
             setStudentsModalOpen(true);
+          }}
+          onUpdate={() => {
+            queryClient.invalidateQueries({ queryKey: ['grades'] });
           }}
         />
       )}

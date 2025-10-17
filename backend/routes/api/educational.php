@@ -10,6 +10,7 @@ use App\Http\Controllers\RoomControllerRefactored as RoomController;
 use App\Http\Controllers\ClassesControllerRefactored as ClassesController;
 use App\Http\Controllers\Grade\GradeUnifiedController;
 use App\Http\Controllers\Grade\GradeTagController;
+use App\Http\Controllers\GradeSubjectController;
 use App\Http\Controllers\StudentControllerRefactored as StudentController;
 use App\Http\Controllers\SchoolEventController;
 use App\Http\Controllers\TeacherPerformanceController;
@@ -243,6 +244,14 @@ Route::prefix('grades')->group(function () {
     // Statistics and reporting
     Route::get('/statistics/overview', [GradeUnifiedController::class, 'statistics'])->middleware('permission:grades.statistics');
     Route::get('/reports/capacity', [GradeUnifiedController::class, 'capacityReport'])->middleware('permission:grades.reports');
+
+    // Curriculum management (grade subjects)
+    Route::get('/{grade}/subjects', [GradeSubjectController::class, 'index'])->middleware('permission:grades.read');
+    Route::get('/{grade}/subjects/available', [GradeSubjectController::class, 'availableSubjects'])->middleware('permission:grades.read');
+    Route::post('/{grade}/subjects', [GradeSubjectController::class, 'store'])->middleware('permission:grades.edit');
+    Route::put('/{grade}/subjects/{gradeSubject}', [GradeSubjectController::class, 'update'])->middleware('permission:grades.edit');
+    Route::delete('/{grade}/subjects/{gradeSubject}', [GradeSubjectController::class, 'destroy'])->middleware('permission:grades.edit');
+    Route::get('/{grade}/subjects/statistics', [GradeSubjectController::class, 'statistics'])->middleware('permission:grades.read');
 });
 
 // Room Management Routes

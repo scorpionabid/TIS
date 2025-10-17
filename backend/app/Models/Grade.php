@@ -221,6 +221,30 @@ class Grade extends Model
     }
 
     /**
+     * Get curriculum subjects for this grade.
+     */
+    public function gradeSubjects(): HasMany
+    {
+        return $this->hasMany(GradeSubject::class);
+    }
+
+    /**
+     * Get total weekly hours from curriculum.
+     */
+    public function getTotalWeeklyHoursAttribute(): int
+    {
+        return $this->gradeSubjects()->sum('weekly_hours');
+    }
+
+    /**
+     * Get total calculated hours (includes group multipliers).
+     */
+    public function getTotalCalculatedHoursAttribute(): int
+    {
+        return $this->gradeSubjects()->sum('calculated_hours');
+    }
+
+    /**
      * Get schedules for this grade.
      */
     public function schedules(): HasMany
