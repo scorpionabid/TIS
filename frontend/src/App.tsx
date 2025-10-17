@@ -2,7 +2,7 @@ import React, { lazy, Suspense, useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, Outlet } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import WebSocketProvider from "@/contexts/WebSocketContext";
 import { LoginForm } from "@/components/auth/LoginForm";
@@ -98,6 +98,13 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+const REGION_ADMIN_ALLOWED_ROLES = [
+  USER_ROLES.SUPERADMIN,
+  USER_ROLES.REGIONADMIN,
+  USER_ROLES.REGIONOPERATOR,
+  USER_ROLES.SEKTORADMIN,
+] as const;
 
 // Protected Route Component  
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -389,23 +396,41 @@ const App = () => {
               
               
               {/* RegionAdmin Routes */}
-              <Route path="regionadmin" element={<LazyWrapper><RegionAdminIndex /></LazyWrapper>} />
-              <Route path="regionadmin/users/operators" element={<LazyWrapper><RegionAdminUsers /></LazyWrapper>} />
-              <Route path="regionadmin/users/sektoradmins" element={<LazyWrapper><RegionAdminUsers /></LazyWrapper>} />
-              <Route path="regionadmin/users/schooladmins" element={<LazyWrapper><RegionAdminUsers /></LazyWrapper>} />
-              <Route path="regionadmin/users/teachers" element={<LazyWrapper><RegionAdminUsers /></LazyWrapper>} />
-              <Route path="regionadmin/sectors" element={<LazyWrapper><RegionAdminSectors /></LazyWrapper>} />
-              <Route path="regionadmin/schools" element={<div className="p-6"><h1>Regional Schools</h1><p>Hazırlanmaqdadır...</p></div>} />
-              <Route path="regionadmin/hierarchy" element={<div className="p-6"><h1>Regional Hierarchy</h1><p>Hazırlanmaqdadır...</p></div>} />
-              <Route path="regionadmin/tasks/*" element={<div className="p-6"><h1>Regional Tasks</h1><p>Hazırlanmaqdadır...</p></div>} />
-              <Route path="regionadmin/surveys/*" element={<div className="p-6"><h1>Regional Surveys</h1><p>Hazırlanmaqdadır...</p></div>} />
-              <Route path="regionadmin/documents/*" element={<div className="p-6"><h1>Regional Documents</h1><p>Hazırlanmaqdadır...</p></div>} />
-              <Route path="regionadmin/reports/*" element={<div className="p-6"><h1>Regional Reports</h1><p>Hazırlanmaqdadır...</p></div>} />
-              <Route path="regionadmin/settings/*" element={<div className="p-6"><h1>Regional Settings</h1><p>Hazırlanmaqdadır...</p></div>} />
-              <Route path="regionadmin/schedules" element={<LazyWrapper><RegionSchedules /></LazyWrapper>} />
+              <Route
+                element={
+                  <RoleProtectedRoute allowedRoles={[...REGION_ADMIN_ALLOWED_ROLES]}>
+                    <Outlet />
+                  </RoleProtectedRoute>
+                }
+              >
+                <Route path="regionadmin" element={<LazyWrapper><RegionAdminIndex /></LazyWrapper>} />
+                <Route path="regionadmin/users/operators" element={<LazyWrapper><RegionAdminUsers /></LazyWrapper>} />
+                <Route path="regionadmin/users/sektoradmins" element={<LazyWrapper><RegionAdminUsers /></LazyWrapper>} />
+                <Route path="regionadmin/users/schooladmins" element={<LazyWrapper><RegionAdminUsers /></LazyWrapper>} />
+                <Route path="regionadmin/users/teachers" element={<LazyWrapper><RegionAdminUsers /></LazyWrapper>} />
+                <Route path="regionadmin/sectors" element={<LazyWrapper><RegionAdminSectors /></LazyWrapper>} />
+                <Route path="regionadmin/schools" element={<div className="p-6"><h1>Regional Schools</h1><p>Hazırlanmaqdadır...</p></div>} />
+                <Route path="regionadmin/hierarchy" element={<div className="p-6"><h1>Regional Hierarchy</h1><p>Hazırlanmaqdadır...</p></div>} />
+                <Route path="regionadmin/tasks/*" element={<div className="p-6"><h1>Regional Tasks</h1><p>Hazırlanmaqdadır...</p></div>} />
+                <Route path="regionadmin/surveys/*" element={<div className="p-6"><h1>Regional Surveys</h1><p>Hazırlanmaqdadır...</p></div>} />
+                <Route path="regionadmin/documents/*" element={<div className="p-6"><h1>Regional Documents</h1><p>Hazırlanmaqdadır...</p></div>} />
+                <Route path="regionadmin/reports/*" element={<div className="p-6"><h1>Regional Reports</h1><p>Hazırlanmaqdadır...</p></div>} />
+                <Route path="regionadmin/settings/*" element={<div className="p-6"><h1>Regional Settings</h1><p>Hazırlanmaqdadır...</p></div>} />
+                <Route path="regionadmin/schedules" element={<LazyWrapper><RegionSchedules /></LazyWrapper>} />
+                <Route path="regionadmin/folders" element={<Navigate to="/resources?tab=folders" replace />} />
+                <Route path="regionadmin/schedule-dashboard" element={
+                  <LazyWrapper>
+                    <RegionalSchedulesDashboard />
+                  </LazyWrapper>
+                } />
+                <Route path="regionadmin/schedule-comparison" element={
+                  <LazyWrapper>
+                    <ScheduleComparisonTool />
+                  </LazyWrapper>
+                } />
+              </Route>
 
               {/* REDIRECTS for old routes - backward compatibility */}
-              <Route path="regionadmin/folders" element={<Navigate to="/resources?tab=folders" replace />} />
               <Route path="my-documents" element={<Navigate to="/my-resources?tab=folders" replace />} />
               
               {/* SchoolAdmin Routes */}
@@ -494,21 +519,6 @@ const App = () => {
                   </RoleProtectedRoute>
                 </LazyWrapper>
               } />
-              <Route path="regionadmin/schedule-dashboard" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}>
-                    <RegionalSchedulesDashboard />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="regionadmin/schedule-comparison" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}>
-                    <ScheduleComparisonTool />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              
               {/* Teacher Routes */}
               <Route path="teacher/schedule" element={
                 <LazyWrapper>

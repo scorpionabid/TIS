@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { LayoutProvider, useLayout } from "@/contexts/LayoutContext";
 import { NavigationProvider } from "@/contexts/NavigationContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { USER_ROLES } from "@/constants/roles";
 
 const MainLayout = () => {
   const { currentUser, logout } = useAuth();
@@ -37,11 +38,15 @@ const MainLayout = () => {
 
   const getDashboardTitle = () => {
     if (!currentUser) return "Dashboard";
+
+    const normalizedRole = typeof currentUser.role === "string" 
+      ? currentUser.role.toLowerCase() 
+      : currentUser.role;
     
-    switch (currentUser.role) {
-      case "superadmin":
+    switch (normalizedRole) {
+      case USER_ROLES.SUPERADMIN:
         return "Sistem İdarəetməsi";
-      case "RegionAdmin":
+      case USER_ROLES.REGIONADMIN:
         return `${currentUser.region} Regional İdarəetmə`;
       default:
         return "İdarəetmə Paneli";
@@ -50,11 +55,15 @@ const MainLayout = () => {
 
   const getDashboardSubtitle = () => {
     if (!currentUser) return "";
+
+    const normalizedRole = typeof currentUser.role === "string" 
+      ? currentUser.role.toLowerCase() 
+      : currentUser.role;
     
-    switch (currentUser.role) {
-      case "superadmin":
+    switch (normalizedRole) {
+      case USER_ROLES.SUPERADMIN:
         return "Azərbaycan Təhsil İdarəetmə Sistemi - Ana Panel";
-      case "RegionAdmin":
+      case USER_ROLES.REGIONADMIN:
         return `${currentUser.region} regional təhsil idarəsi məlumat sistemi`;
       default:
         return "Azərbaycan Təhsil İdarəetmə Sistemi";
@@ -112,7 +121,7 @@ const Layout = () => {
   const navigate = useNavigate();
 
   const handleLogin = async (email: string, password: string) => {
-    const success = await login(email, password);
+    const success = await login({ email, password });
     
     if (success) {
       navigate("/");

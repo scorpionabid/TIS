@@ -16,6 +16,9 @@ export type {
 };
 
 const DEVICE_ID_STORAGE_KEY = 'atis_device_id';
+const DEVICE_MAP_STORAGE_KEY = 'atis_device_map';
+const AUTH_STORAGE_KEY = 'atis_auth_token';
+const USER_STORAGE_KEY = 'atis_current_user';
 
 const createFallbackDeviceId = (): string =>
   `device-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
@@ -28,12 +31,66 @@ const generateDeviceId = (): string => {
   return createFallbackDeviceId();
 };
 
-const getStableDeviceId = (debug = false): string => {
+const normalizeIdentifier = (identifier?: string | null): string | null => {
+  if (!identifier) return null;
+  const trimmed = identifier.trim().toLowerCase();
+  return trimmed.length ? trimmed : null;
+};
+
+const getDeviceMap = (): Record<string, string> => {
+  return storageHelpers.get<Record<string, string>>(DEVICE_MAP_STORAGE_KEY, {}) || {};
+};
+
+const persistDeviceMap = (map: Record<string, string>, debug = false): void => {
+  const stored = storageHelpers.set(DEVICE_MAP_STORAGE_KEY, map);
+  if (!stored && debug) {
+    console.warn('⚠️ Auth Service: Failed to persist device map');
+  }
+};
+
+const clearStoredDeviceId = (identifier?: string | null, debug = false): void => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const normalizedIdentifier = normalizeIdentifier(identifier);
+  if (normalizedIdentifier) {
+    const map = getDeviceMap();
+    if (map[normalizedIdentifier]) {
+      delete map[normalizedIdentifier];
+      persistDeviceMap(map, debug);
+      if (debug) {
+        console.log('🧹 Auth Service: Cleared stored device ID for identifier', normalizedIdentifier);
+      }
+    }
+    return;
+  }
+
+  storageHelpers.remove(DEVICE_ID_STORAGE_KEY);
+};
+
+const getStableDeviceId = (identifier?: string | null, debug = false): string => {
   if (typeof window === 'undefined') {
     return createFallbackDeviceId();
   }
 
   try {
+    const normalizedIdentifier = normalizeIdentifier(identifier);
+
+    if (normalizedIdentifier) {
+      const map = getDeviceMap();
+      const storedIdForIdentifier = map[normalizedIdentifier];
+      if (storedIdForIdentifier) {
+        return storedIdForIdentifier;
+      }
+
+      const newIdentifierDeviceId = generateDeviceId();
+      map[normalizedIdentifier] = newIdentifierDeviceId;
+      persistDeviceMap(map, debug);
+
+      return newIdentifierDeviceId;
+    }
+
     const storedId = storageHelpers.get<string>(DEVICE_ID_STORAGE_KEY);
     if (storedId) {
       return storedId;
@@ -41,7 +98,7 @@ const getStableDeviceId = (debug = false): string => {
 
     const newId = generateDeviceId();
     const stored = storageHelpers.set(DEVICE_ID_STORAGE_KEY, newId);
-
+    
     if (!stored && debug) {
       console.warn('⚠️ Auth Service: Failed to persist device ID, using in-memory only');
     }
@@ -53,6 +110,15 @@ const getStableDeviceId = (debug = false): string => {
     }
     return generateDeviceId();
   }
+};
+
+const sanitizeDeviceString = (value: string, fallback: string): string => {
+  if (!value) {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 191 ? trimmed.slice(0, 191) : trimmed;
 };
 
 const getDeviceName = (): string => {
@@ -67,10 +133,13 @@ const getDeviceName = (): string => {
     };
   };
 
-  const platform = nav.userAgentData?.platform || nav.platform || 'web';
-  const browser = nav.userAgentData?.brands?.[0]?.brand || nav.userAgent || 'browser';
+  const platformRaw = nav.userAgentData?.platform || nav.platform || 'web';
+  const browserRaw = nav.userAgentData?.brands?.[0]?.brand || nav.userAgent || 'browser';
 
-  return `web-${platform}-${browser}`.toLowerCase();
+  const platform = sanitizeDeviceString(platformRaw, 'web');
+  const browser = sanitizeDeviceString(browserRaw, 'browser');
+
+  return sanitizeDeviceString(`web-${platform}-${browser}`.toLowerCase(), 'web-browser');
 };
 
 // Helper function to extract role from API response
@@ -188,44 +257,89 @@ class AuthService {
     }
     
     // Backend expects 'login' field instead of 'email'
-    const deviceId = getStableDeviceId(this.DEBUG_MODE);
+    const loginIdentifier = credentials.email?.trim() || '';
+    const normalizedIdentifier = normalizeIdentifier(loginIdentifier);
     const deviceName = getDeviceName();
+    let deviceId = getStableDeviceId(normalizedIdentifier, this.DEBUG_MODE);
 
-    const loginData = {
-      login: credentials.email,
-      password: credentials.password,
-      device_name: deviceName,
-      device_id: deviceId,
-    };
-    
-    this.log('🔍 Auth Service: Sending login request');
-    
-    try {
+    const attemptLogin = async () => {
+      const loginData = {
+        login: loginIdentifier,
+        password: credentials.password?.trim(),
+        device_name: deviceName,
+        device_id: deviceId,
+      };
+
+      this.log('🔍 Auth Service: Sending login request');
+      if (this.DEBUG_MODE) {
+        console.log('🔐 Auth Service: Login payload preview', {
+          login: loginData.login,
+          passwordLength: loginData.password?.length,
+          deviceName: loginData.device_name,
+          deviceId: loginData.device_id,
+        });
+      }
+
       const response = await apiClient.post<{
         token: string;
         user: any;
         expires_at?: string;
       }>('/login', loginData);
-      
+
       if (!response.data || !response.data.token || !response.data.user) {
         throw new Error('Invalid login response structure');
       }
 
       const user = transformUserData(response.data.user);
-      
+
       const loginResponse: LoginResponse = {
         token: response.data.token,
-        user: user,
+        user,
         expires_at: response.data.expires_at || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       };
-      
+
       apiClient.setToken(loginResponse.token);
       this.log('✅ Auth Service: Login successful');
-      
+
+      const storedUser = storageHelpers.set(USER_STORAGE_KEY, {
+        ...loginResponse.user,
+        cacheTimestamp: Date.now()
+      });
+
+      if (!storedUser && this.DEBUG_MODE) {
+        console.warn('⚠️ Auth Service: Failed to cache user data');
+      }
+
+      storageHelpers.set(AUTH_STORAGE_KEY, loginResponse.token);
+
       return loginResponse;
-    } catch (error) {
+    };
+
+    try {
+      return await attemptLogin();
+    } catch (error: any) {
+      const serverErrors = (error as any)?.errors as Record<string, string[]> | undefined;
+      const loginErrors = serverErrors?.login || [];
+      const message = error?.message || '';
+      const genericDeviceFailure = message.includes('Giriş zamanı xəta baş verdi');
+      const deviceLimitFailure = loginErrors.some(err => err.toLowerCase().includes('cihaz'));
+
+      if ((genericDeviceFailure || deviceLimitFailure) && normalizedIdentifier) {
+        this.log('warn', 'Auth Service: Login failed with potential device conflict, regenerating device ID and retrying');
+        clearStoredDeviceId(normalizedIdentifier, this.DEBUG_MODE);
+        deviceId = getStableDeviceId(normalizedIdentifier, this.DEBUG_MODE);
+
+        try {
+          return await attemptLogin();
+        } catch (retryError: any) {
+          const retryMessage = retryError?.message || message || 'Login failed. Please check your credentials.';
+          this.log('❌ Auth Service: Login retry failed:', retryMessage);
+          throw new Error(retryMessage);
+        }
+      }
+
       this.log('❌ Auth Service: Login failed:', error);
-      throw new Error('Login failed. Please check your credentials.');
+      throw new Error(message || 'Login failed. Please check your credentials.');
     }
   }
 

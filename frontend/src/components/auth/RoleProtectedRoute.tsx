@@ -14,8 +14,14 @@ export const RoleProtectedRoute: React.FC<RoleProtectedRouteProps> = ({
   redirectTo = '/'
 }) => {
   const { currentUser, hasRole, loading, isAuthenticated } = useAuth();
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  const debugLog = (...args: any[]) => {
+    if (isDevelopment) {
+      console.log(...args);
+    }
+  };
 
-  console.log('🛡️ RoleProtectedRoute: Security check for roles:', allowedRoles, {
+  debugLog('🛡️ RoleProtectedRoute: Security check for roles:', allowedRoles, {
     loading,
     isAuthenticated,
     hasCurrentUser: !!currentUser,
@@ -25,7 +31,7 @@ export const RoleProtectedRoute: React.FC<RoleProtectedRouteProps> = ({
   });
 
   if (loading) {
-    console.log('🛡️ RoleProtectedRoute: Still loading auth, showing spinner');
+    debugLog('🛡️ RoleProtectedRoute: Still loading auth, showing spinner');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
@@ -34,15 +40,15 @@ export const RoleProtectedRoute: React.FC<RoleProtectedRouteProps> = ({
   }
 
   if (!currentUser) {
-    console.log('🛡️ RoleProtectedRoute: No currentUser, redirecting to login');
+    debugLog('🛡️ RoleProtectedRoute: No currentUser, redirecting to login');
     return <Navigate to="/login" replace />;
   }
 
   if (!hasRole(allowedRoles)) {
-    console.log('🛡️ RoleProtectedRoute: Insufficient permissions, redirecting to:', redirectTo);
+    debugLog('🛡️ RoleProtectedRoute: Insufficient permissions, redirecting to:', redirectTo);
     return <Navigate to={redirectTo} replace />;
   }
 
-  console.log('🛡️ RoleProtectedRoute: Access granted, rendering children');
+  debugLog('🛡️ RoleProtectedRoute: Access granted, rendering children');
   return <>{children}</>;
 };

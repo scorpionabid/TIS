@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useMemo, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { SCHOOL_ROLES } from "@/types/schoolRoles";
+import { USER_ROLES } from "@/constants/roles";
 import { Loader2 } from "lucide-react";
 import { DashboardSkeleton } from "@/components/dashboard/skeletons";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -28,12 +28,6 @@ const SektorAdminDashboard = lazy(() =>
 const RoleBasedDashboard = lazy(() => 
   import("@/components/dashboard/RoleBasedDashboard").then(module => ({
     default: module.RoleBasedDashboard
-  }))
-);
-
-const TeacherDashboard = lazy(() => 
-  import("@/components/teacher/TeacherDashboard").then(module => ({
-    default: module.TeacherDashboard
   }))
 );
 
@@ -79,32 +73,25 @@ const IndexOptimized = () => {
   const DashboardComponent = useMemo(() => {
     if (!currentUser?.role) return null;
 
-    const userRole = currentUser.role;
+    const userRole = typeof currentUser.role === 'string'
+      ? currentUser.role.toLowerCase()
+      : currentUser.role;
 
     switch (userRole) {
-      case 'superadmin':
+      case USER_ROLES.SUPERADMIN:
         return SuperAdminDashboardOptimized;
 
-      case 'regionadmin':
-      case 'regionoperator':
+      case USER_ROLES.REGIONADMIN:
+      case USER_ROLES.REGIONOPERATOR:
         return RegionAdminDashboard;
 
-      case 'sektoradmin':
+      case USER_ROLES.SEKTORADMIN:
         return SektorAdminDashboard;
 
       // School-related roles
-      case SCHOOL_ROLES.SCHOOL_ADMIN:
-      case 'schooladmin':
-      case SCHOOL_ROLES.MUAVIN:
-      case SCHOOL_ROLES.UBR:
-      case SCHOOL_ROLES.TESARRUFAT:
-      case SCHOOL_ROLES.PSIXOLOQ:
-      case 'müəllim':
+      case USER_ROLES.SCHOOLADMIN:
+      case USER_ROLES.MUELLIM:
         return RoleBasedDashboard;
-
-      // Teacher dashboard for specific teacher role
-      case 'teacher':
-        return TeacherDashboard;
 
       default:
         return RoleBasedDashboard;

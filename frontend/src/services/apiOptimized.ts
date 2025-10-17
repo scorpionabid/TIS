@@ -266,6 +266,27 @@ class ApiClientOptimized {
     log('info', 'Token removed from storage');
   }
 
+  private getCsrfToken(): string | null {
+    if (typeof document === 'undefined') {
+      return null;
+    }
+
+    const csrfCookie = document.cookie
+      ?.split('; ')
+      .find(cookie => cookie.startsWith('XSRF-TOKEN='));
+
+    if (!csrfCookie) {
+      return null;
+    }
+
+    try {
+      return decodeURIComponent(csrfCookie.split('=')[1]);
+    } catch (error) {
+      log('warn', 'Failed to decode CSRF token', error);
+      return null;
+    }
+  }
+
   private getHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -275,6 +296,14 @@ class ApiClientOptimized {
 
     if (this.token) {
       headers.Authorization = `Bearer ${this.token}`;
+    }
+
+    const csrfToken = this.getCsrfToken();
+    if (csrfToken) {
+      headers['X-XSRF-TOKEN'] = csrfToken;
+      log('info', 'CSRF token attached to headers');
+    } else {
+      log('warn', 'CSRF token missing when preparing request headers');
     }
 
     return headers;
@@ -493,6 +522,15 @@ class ApiClientOptimized {
       headers: this.getHeaders(),
       credentials: 'include',
     };
+
+    if (isDevelopment) {
+      log('info', 'Preparing request', {
+        method,
+        requestUrl,
+        hasBody: !!data,
+        headers: requestInit.headers,
+      });
+    }
 
     if (data && (method === 'POST' || method === 'PUT' || method === 'DELETE')) {
       // Don't stringify FormData - send it directly

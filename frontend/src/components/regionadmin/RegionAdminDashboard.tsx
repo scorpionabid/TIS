@@ -66,9 +66,15 @@ interface RecentActivity {
 
 export const RegionAdminDashboard = () => {
   const { currentUser } = useAuth();
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  const debugLog = (...args: any[]) => {
+    if (isDevelopment) {
+      console.log(...args);
+    }
+  };
 
   // Debug current user
-  console.log('🏛️ RegionAdminDashboard: Current user:', {
+  debugLog('🏛️ RegionAdminDashboard: Current user:', {
     id: currentUser?.id,
     name: currentUser?.name,
     role: currentUser?.role,
@@ -80,9 +86,9 @@ export const RegionAdminDashboard = () => {
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
     queryKey: ['regionadmin-stats', currentUser?.institution?.id || 'no-institution'],
     queryFn: async () => {
-      console.log('📊 RegionAdminDashboard: Fetching stats for user:', currentUser?.name);
+      debugLog('📊 RegionAdminDashboard: Fetching stats for user:', currentUser?.name);
       const response = await apiClient.get<RegionStats>('/regionadmin/dashboard/stats');
-      console.log('✅ RegionAdminDashboard: Stats response:', response);
+      debugLog('✅ RegionAdminDashboard: Stats response:', response);
       return response.data || response;
     },
     enabled: !!currentUser,
@@ -93,9 +99,9 @@ export const RegionAdminDashboard = () => {
   const { data: activities, isLoading: activitiesLoading, error: activitiesError } = useQuery({
     queryKey: ['regionadmin-activities', currentUser?.institution?.id || 'no-institution'],
     queryFn: async () => {
-      console.log('📋 RegionAdminDashboard: Fetching activities for user:', currentUser?.name);
+      debugLog('📋 RegionAdminDashboard: Fetching activities for user:', currentUser?.name);
       const response = await apiClient.get<RecentActivity[]>('/regionadmin/dashboard/activities');
-      console.log('✅ RegionAdminDashboard: Activities response:', response);
+      debugLog('✅ RegionAdminDashboard: Activities response:', response);
       return response.data || response || [];
     },
     enabled: !!currentUser,
@@ -133,9 +139,9 @@ export const RegionAdminDashboard = () => {
   };
 
   // Debug logs
-  console.log('🏛️ RegionAdminDashboard: Stats data:', stats);
-  console.log('🏛️ RegionAdminDashboard: Activities data:', activities);
-  console.log('🏛️ RegionAdminDashboard: Errors:', { statsError, activitiesError });
+  debugLog('🏛️ RegionAdminDashboard: Stats data:', stats);
+  debugLog('🏛️ RegionAdminDashboard: Activities data:', activities);
+  debugLog('🏛️ RegionAdminDashboard: Errors:', { statsError, activitiesError });
 
   if (statsLoading) {
     return (

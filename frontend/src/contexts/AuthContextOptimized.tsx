@@ -17,21 +17,36 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 
 // Backend to Frontend role mapping (optimized)
 const ROLE_MAPPING: Record<string, UserRole> = {
-  'superadmin': USER_ROLES.SUPERADMIN,
-  'regionadmin': USER_ROLES.REGIONADMIN, 
-  'regionoperator': USER_ROLES.REGIONOPERATOR,
-  'sektoradmin': USER_ROLES.SEKTORADMIN,
-  'schooladmin': USER_ROLES.SCHOOLADMIN,
-  'muavin': USER_ROLES.MUELLIM,
-  'ubr': USER_ROLES.MUELLIM, 
-  'tesarrufat': USER_ROLES.MUELLIM,
-  'psixoloq': USER_ROLES.MUELLIM,
-  'müəllim': USER_ROLES.MUELLIM
+  superadmin: USER_ROLES.SUPERADMIN,
+  regionadmin: USER_ROLES.REGIONADMIN,
+  regionoperator: USER_ROLES.REGIONOPERATOR,
+  sektoradmin: USER_ROLES.SEKTORADMIN,
+  schooladmin: USER_ROLES.SCHOOLADMIN,
+  muavin: USER_ROLES.MUELLIM,
+  ubr: USER_ROLES.MUELLIM,
+  tesarrufat: USER_ROLES.MUELLIM,
+  təsərrüfat: USER_ROLES.MUELLIM,
+  psixoloq: USER_ROLES.MUELLIM,
+  müəllim: USER_ROLES.MUELLIM,
+  muellim: USER_ROLES.MUELLIM,
+  teacher: USER_ROLES.MUELLIM,
 };
 
 const mapBackendRoleToFrontend = (backendRole: string): UserRole => {
-  const mappedRole = ROLE_MAPPING[backendRole];
-  return mappedRole && isValidRole(mappedRole) ? mappedRole : USER_ROLES.MUELLIM;
+  if (!backendRole) {
+    log('warn', 'Received empty backend role from API, defaulting to Müəllim');
+    return USER_ROLES.MUELLIM;
+  }
+
+  const normalizedRole = backendRole.toString().trim().toLowerCase();
+  const mappedRole = ROLE_MAPPING[normalizedRole];
+
+  if (mappedRole && isValidRole(mappedRole)) {
+    return mappedRole;
+  }
+
+  log('warn', 'Unknown backend role mapping encountered, defaulting to Müəllim', { backendRole });
+  return USER_ROLES.MUELLIM;
 };
 
 // Optimized debounce utility with faster response
