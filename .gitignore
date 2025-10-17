@@ -58,6 +58,8 @@ docker-compose.override.yml
 # Database
 *.sqlite
 *.sqlite-journal
+database-backups/*.sqlite
+database-backups/*.dump
 
 # Cache
 .cache/

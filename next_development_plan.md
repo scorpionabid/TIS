@@ -37,11 +37,11 @@
 ## Migration Governance
 
 - **Synchronize environments**: Capture `php artisan migrate:status` from staging/production and compare locally before authoring new migrations so teams share the same head and drift is documented early.
-- **Adopt schema dumps**: Integrate `php artisan schema:dump --prune` into local/staging workflows and define how production will consume schema dumps (separate artifact + restore procedure) to shorten setup time without impacting live data.
-- **Plan online alterations**: For heavyweight tables like `users`, `surveys`, `documents`, `grades`, split changes into phased migrations—add nullable/defaulted columns, backfill via scripts/jobs, then enforce `NOT NULL` or constraints to minimize blocking locks.
-- **Pre-flight validation**: Require `php artisan migrate --pretend` and `php artisan migrate:fresh --seed` runs in CI/staging for migration PRs, reviewing generated SQL for `dropColumn`/`change()` calls that might fail or lock heavily on the production engine.
-- **Rollback & backup readiness**: Extend `database-backups/` scripts to snapshot critical tables before destructive migrations and document manual rollback steps for cases where `down()` would drop production data.
-- **Config alignment checks**: As part of release readiness, verify package configs (`config/permission.php`, `config/sanctum.php`, etc.) mirror production values since several migrations rely on those keys and will break if configs diverge.
+- **Adopt schema dumps**: Integrate `php artisan schema:dump --prune` into local/staging workflows (`documentation/04_database_design/migration-operations-playbook.md`) və `documentation/ops/schema-restore.md` üzrə production bərpa proseduru hazırlayın.
+- **Plan online alterations**: `documentation/04_database_design/phased-migration-guidelines.md` üzrə heavyweight cədvəllər üçün phased migrations (nullable sütun → backfill → constraint).
+- **Pre-flight validation**: CI-də `php artisan migrate --pretend` və `php artisan migrate:fresh --seed` mərhələlərini tələb edin, `backend/scripts/check-migration-risk.sh` ilə `dropColumn`/`change()` aşkar edin.
+- **Rollback & backup readiness**: `backend/backup-database.sh` skriptini genişləndirib snapshotları `database-backups/README.md` və `documentation/ops/backup-register.md` ilə sənədləşdirin.
+- **Config alignment checks**: `./scripts/check-config-drift.sh` nəticələrini release checklist-də (`documentation/ops/release-checklist.md`) yoxlayın; `config/permission.php`, `config/sanctum.php` kimi konfiqlər production ilə eyni olmalıdır.
 
 ## API Integration Hardening
 

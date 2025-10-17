@@ -74,6 +74,47 @@ jobs:
         cd backend
         composer install --no-dev --optimize-autoloader
     
+    - name: Generate application key
+      run: |
+        cd backend
+        php artisan key:generate --ansi
+      env:
+        DB_CONNECTION: pgsql
+        DB_HOST: localhost
+        DB_PORT: 5432
+        DB_DATABASE: atis_test
+        DB_USERNAME: postgres
+        DB_PASSWORD: postgres
+
+    - name: Check migration risk patterns
+      run: |
+        cd backend
+        ./scripts/check-migration-risk.sh
+
+    - name: Migration pre-flight (pretend)
+      run: |
+        cd backend
+        php artisan migrate --pretend --database=pgsql
+      env:
+        DB_CONNECTION: pgsql
+        DB_HOST: localhost
+        DB_PORT: 5432
+        DB_DATABASE: atis_test
+        DB_USERNAME: postgres
+        DB_PASSWORD: postgres
+
+    - name: Migration pre-flight (fresh seed)
+      run: |
+        cd backend
+        php artisan migrate:fresh --seed --database=pgsql
+      env:
+        DB_CONNECTION: pgsql
+        DB_HOST: localhost
+        DB_PORT: 5432
+        DB_DATABASE: atis_test
+        DB_USERNAME: postgres
+        DB_PASSWORD: postgres
+
     - name: Run backend tests
       run: |
         cd backend
