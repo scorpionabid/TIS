@@ -1,4 +1,5 @@
 import { SidebarPreferences, DEFAULT_SIDEBAR_PREFERENCES } from '@/types/sidebar';
+import { storageHelpers } from '@/utils/helpers';
 
 const SIDEBAR_PREFERENCES_KEY = 'atis_sidebar_preferences';
 const SIDEBAR_STATE_KEY = 'atis_sidebar_state';
@@ -6,7 +7,10 @@ const SIDEBAR_STATE_KEY = 'atis_sidebar_state';
 export class SidebarStorage {
   static savePreferences(preferences: SidebarPreferences): void {
     try {
-      localStorage.setItem(SIDEBAR_PREFERENCES_KEY, JSON.stringify(preferences));
+      const stored = storageHelpers.set(SIDEBAR_PREFERENCES_KEY, preferences);
+      if (!stored) {
+        console.warn('Failed to persist sidebar preferences');
+      }
     } catch (error) {
       console.warn('Failed to save sidebar preferences:', error);
     }
@@ -14,13 +18,12 @@ export class SidebarStorage {
 
   static loadPreferences(): SidebarPreferences {
     try {
-      const stored = localStorage.getItem(SIDEBAR_PREFERENCES_KEY);
+      const stored = storageHelpers.get<SidebarPreferences>(SIDEBAR_PREFERENCES_KEY);
       if (stored) {
-        const parsed = JSON.parse(stored) as SidebarPreferences;
         // Merge with defaults to handle missing properties from updates
         return {
           ...DEFAULT_SIDEBAR_PREFERENCES,
-          ...parsed,
+          ...stored,
         };
       }
     } catch (error) {
@@ -31,7 +34,7 @@ export class SidebarStorage {
 
   static saveSidebarState(isExpanded: boolean): void {
     try {
-      localStorage.setItem(SIDEBAR_STATE_KEY, JSON.stringify({ isExpanded }));
+      storageHelpers.set(SIDEBAR_STATE_KEY, { isExpanded });
     } catch (error) {
       console.warn('Failed to save sidebar state:', error);
     }
@@ -39,10 +42,7 @@ export class SidebarStorage {
 
   static loadSidebarState(): { isExpanded: boolean } | null {
     try {
-      const stored = localStorage.getItem(SIDEBAR_STATE_KEY);
-      if (stored) {
-        return JSON.parse(stored);
-      }
+      return storageHelpers.get<{ isExpanded: boolean }>(SIDEBAR_STATE_KEY) || null;
     } catch (error) {
       console.warn('Failed to load sidebar state:', error);
     }
@@ -51,8 +51,8 @@ export class SidebarStorage {
 
   static clearPreferences(): void {
     try {
-      localStorage.removeItem(SIDEBAR_PREFERENCES_KEY);
-      localStorage.removeItem(SIDEBAR_STATE_KEY);
+      storageHelpers.remove(SIDEBAR_PREFERENCES_KEY);
+      storageHelpers.remove(SIDEBAR_STATE_KEY);
     } catch (error) {
       console.warn('Failed to clear sidebar preferences:', error);
     }

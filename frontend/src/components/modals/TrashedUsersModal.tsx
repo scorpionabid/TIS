@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/services/api';
 
 interface TrashedUser {
   id: number;
@@ -76,9 +77,11 @@ export const TrashedUsersModal: React.FC<TrashedUsersModalProps> = ({
         ...(searchQuery && { search: searchQuery })
       });
 
+      const token = apiClient.getToken();
+
       const response = await fetch(`/api/users/trashed?${params}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': token ? `Bearer ${token}` : '',
           'Content-Type': 'application/json',
         },
       });
@@ -109,10 +112,11 @@ export const TrashedUsersModal: React.FC<TrashedUsersModalProps> = ({
   // Restore single user
   const restoreUser = async (userId: number) => {
     try {
+      const token = apiClient.getToken();
       const response = await fetch(`/api/users/${userId}/restore`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': token ? `Bearer ${token}` : '',
           'Content-Type': 'application/json',
         },
       });
@@ -149,10 +153,11 @@ export const TrashedUsersModal: React.FC<TrashedUsersModalProps> = ({
 
     setRestoring(true);
     try {
+      const token = apiClient.getToken();
       const response = await fetch('/api/users/bulk/restore', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': token ? `Bearer ${token}` : '',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -193,10 +198,11 @@ export const TrashedUsersModal: React.FC<TrashedUsersModalProps> = ({
     }
 
     try {
+      const token = apiClient.getToken();
       const response = await fetch(`/api/users/${userId}/force`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': token ? `Bearer ${token}` : '',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ confirm: true }),

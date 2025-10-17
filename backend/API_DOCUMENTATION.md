@@ -111,24 +111,36 @@ Get current authenticated user information
 
 ### Session Management
 
-#### **GET** `/api/auth/sessions`
+#### **GET** `/api/sessions`
 List active sessions for current user
 
-#### **DELETE** `/api/auth/sessions/{session}`
+#### **DELETE** `/api/sessions/{session}`
 Revoke specific session
 
-#### **POST** `/api/auth/refresh`
+#### **DELETE** `/api/sessions/current`
+Revoke current session
+
+#### **DELETE** `/api/sessions/others`
+Revoke all other active sessions except current
+
+#### **DELETE** `/api/sessions/all`
+Revoke every active session
+
+#### **POST** `/api/refresh-token`
 Refresh authentication token
 
 ### Device Management
 
-#### **GET** `/api/auth/devices`
+#### **GET** `/api/devices`
 List user's registered devices
 
-#### **POST** `/api/auth/devices/register`
+#### **POST** `/api/devices/register`
 Register new device
 
-#### **DELETE** `/api/auth/devices/{device}`
+#### **PUT** `/api/devices/{device}`
+Update device information
+
+#### **DELETE** `/api/devices/{device}`
 Unregister device
 
 ### Password Management

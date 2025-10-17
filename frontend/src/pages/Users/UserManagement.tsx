@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { User, CreateUserData, UpdateUserData, userService } from "@/services/users";
 import { sektorAdminService } from "@/services/sektoradmin";
 import { apiClient } from "@/services/api";
+import { storageHelpers } from "@/utils/helpers";
 import { useToast } from "@/hooks/use-toast";
 import { usePagination } from "@/hooks/usePagination";
 import { useAuth } from "@/contexts/AuthContext";
@@ -249,8 +250,8 @@ export const UserManagement = memo(() => {
     if (errorMessage.includes('Unauthenticated') || errorMessage.includes('401')) {
       // Clear auth and redirect to login
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('atis_auth_token');
-        localStorage.removeItem('atis_current_user');
+        apiClient.clearToken();
+        storageHelpers.remove('atis_current_user');
         window.location.href = '/login';
       }
     }

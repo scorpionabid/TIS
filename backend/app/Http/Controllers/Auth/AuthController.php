@@ -52,8 +52,8 @@ class AuthController extends Controller
 
         } catch (ValidationException $e) {
             // Increment rate limiting on failed attempt
-            RateLimiter::hit('login_ip:' . $request->ip());
-            RateLimiter::hit('login_user:' . $request->login);
+            RateLimiter::hit('login_ip:' . $request->ip(), 900);
+            RateLimiter::hit('login_user:' . $request->login, 900);
             
             throw $e;
         }

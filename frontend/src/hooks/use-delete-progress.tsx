@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { institutionService } from '@/services/institutions';
+import { apiClient } from '@/services/api';
 
 interface DeleteProgress {
   operation_id: string;
@@ -38,9 +39,11 @@ export const useDeleteProgress = (): UseDeleteProgressResult => {
 
   const pollProgress = async (operationId: string) => {
     try {
+      const token = apiClient.getToken();
+
       const response = await fetch(`/api/institutions/delete-progress/${operationId}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'Authorization': token ? `Bearer ${token}` : '',
           'Accept': 'application/json',
         },
       });

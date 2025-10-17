@@ -582,7 +582,7 @@ class SurveyApprovalService {
       }
 
       // Add Bearer token for authentication (same as apiClient)
-      const authToken = localStorage.getItem('atis_auth_token');
+      const authToken = apiClient.getToken();
       if (authToken) {
         headers['Authorization'] = `Bearer ${authToken}`;
       }

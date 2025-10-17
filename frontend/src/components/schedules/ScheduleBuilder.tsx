@@ -24,6 +24,7 @@ import { ScheduleSettings } from './components/ScheduleSettings';
 import { GenerationProgress } from './components/GenerationProgress';
 import { SchedulePreview } from './components/SchedulePreview';
 import { ConflictsList } from './components/ConflictsList';
+import { apiClient } from '@/services/api';
 
 export interface Schedule {
   id: number;
@@ -153,9 +154,11 @@ export const ScheduleBuilder: React.FC<ScheduleBuilderProps> = ({
     setError(null);
     
     try {
+      const token = apiClient.getToken();
+
       const response = await fetch('/api/schedule-generation/workload-ready-data', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': token ? `Bearer ${token}` : '',
           'Content-Type': 'application/json',
         },
       });
@@ -217,10 +220,12 @@ export const ScheduleBuilder: React.FC<ScheduleBuilderProps> = ({
     setError(null);
 
     try {
+      const token = apiClient.getToken();
+
       const response = await fetch('/api/schedule-generation/generate-from-workload', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': token ? `Bearer ${token}` : '',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({

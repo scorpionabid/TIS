@@ -4,7 +4,6 @@ namespace App\Http\Requests\Auth;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class LoginRequest extends FormRequest
@@ -24,12 +23,6 @@ class LoginRequest extends FormRequest
      */
     public function rules(): array
     {
-        \Log::info('LoginRequest validation', [
-            'input_data' => $this->all(),
-            'login_field' => $this->input('login'),
-            'password_length' => strlen($this->input('password') ?? ''),
-        ]);
-        
         return [
             'login' => 'required|string',
             'password' => 'required|string|min:8',

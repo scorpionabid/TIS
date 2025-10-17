@@ -35,6 +35,7 @@ Route::get('stats', [HealthController::class, 'stats']);
 // Auth routes
 Route::post('logout', [AuthController::class, 'logout']);
 Route::get('me', [AuthController::class, 'me']);
+Route::post('refresh-token', [AuthController::class, 'refresh']);
 
 // User Preferences Management
 Route::prefix('user')->group(function () {
@@ -52,16 +53,18 @@ Route::put('password/change', [PasswordController::class, 'changePassword']);
 // Session management
 Route::prefix('sessions')->group(function () {
     Route::get('/', [SessionController::class, 'index']);
-    Route::delete('/{sessionId}', [SessionController::class, 'destroy']);
-    Route::delete('/current', [SessionController::class, 'destroyCurrent']);
+    Route::delete('/{sessionId}', [SessionController::class, 'revoke']);
+    Route::delete('/current', [SessionController::class, 'revokeCurrent']);
+    Route::delete('/others', [SessionController::class, 'revokeOthers']);
+    Route::delete('/all', [SessionController::class, 'revokeAll']);
 });
 
 // Device management
 Route::prefix('devices')->group(function () {
     Route::get('/', [DeviceController::class, 'index']);
     Route::post('/register', [DeviceController::class, 'register']);
-    Route::delete('/{deviceId}', [DeviceController::class, 'revoke']);
-    Route::put('/{deviceId}/name', [DeviceController::class, 'updateName']);
+    Route::put('/{deviceId}', [DeviceController::class, 'update']);
+    Route::delete('/{deviceId}', [DeviceController::class, 'destroy']);
 });
 
 // Navigation routes

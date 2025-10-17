@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { QuickAuth } from '@/components/auth/QuickAuth';
+import { apiClient } from '@/services/api';
 
 interface RegionalUser {
   id: number;
@@ -59,7 +60,7 @@ export default function RegionAdminUsers() {
       });
 
       // Get authentication token properly
-      const token = localStorage.getItem('auth_token') || '';
+      const token = apiClient.getToken() || '';
       console.log('🔐 Authentication token found:', !!token);
       console.log('🔐 Token length:', token.length);
       console.log('🔐 Token starts with:', token.substring(0, 20) + '...');

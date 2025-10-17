@@ -32,16 +32,25 @@ describe('UserService', () => {
 
   describe('getUsers', () => {
     it('fetches users successfully', async () => {
-      const mockResponse = {
-        data: [mockUser]
-      };
-
-      (apiClient.get as any).mockResolvedValue(mockResponse);
+      (apiClient.get as any).mockResolvedValue({
+        data: [mockUser],
+        meta: {
+          current_page: 1,
+          last_page: 1,
+          per_page: 15,
+          total: 1
+        }
+      });
 
       const result = await userService.getUsers();
 
       expect(apiClient.get).toHaveBeenCalledWith('/users', undefined);
-      expect(result.data).toEqual([mockUser]);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]).toMatchObject({
+        id: mockUser.id,
+        username: mockUser.username,
+        name: expect.any(String)
+      });
     });
 
     it('handles filters correctly', async () => {
@@ -57,7 +66,7 @@ describe('UserService', () => {
 
   describe('getUser', () => {
     it('fetches single user by id', async () => {
-      (apiClient.get as any).mockResolvedValue(mockUser);
+      (apiClient.get as any).mockResolvedValue({ data: mockUser });
 
       const result = await userService.getUser(1);
 
@@ -76,7 +85,7 @@ describe('UserService', () => {
         institution_id: 1,
       };
 
-      (apiClient.post as any).mockResolvedValue({ ...mockUser, ...userData });
+      (apiClient.post as any).mockResolvedValue({ data: { ...mockUser, ...userData } });
 
       const result = await userService.createUser(userData);
 
@@ -90,7 +99,7 @@ describe('UserService', () => {
       const updateData = { first_name: 'Updated', last_name: 'Name' };
       const updatedUser = { ...mockUser, ...updateData };
 
-      (apiClient.put as any).mockResolvedValue(updatedUser);
+      (apiClient.put as any).mockResolvedValue({ data: updatedUser });
 
       const result = await userService.updateUser(1, updateData);
 
@@ -105,18 +114,18 @@ describe('UserService', () => {
 
       await userService.deleteUser(1);
 
-      expect(apiClient.delete).toHaveBeenCalledWith('/users/1', undefined);
+      expect(apiClient.delete).toHaveBeenCalledWith('/users/1?type=soft');
     });
   });
 
   describe('toggleUserStatus', () => {
     it('toggles user status successfully', async () => {
       const updatedUser = { ...mockUser, is_active: false };
-      (apiClient.put as any).mockResolvedValue(updatedUser);
+      (apiClient.post as any).mockResolvedValue({ data: updatedUser });
 
       const result = await userService.toggleUserStatus(1);
 
-      expect(apiClient.put).toHaveBeenCalledWith('/users/1/toggle-status');
+      expect(apiClient.post).toHaveBeenCalledWith('/users/1/toggle-status');
       expect(result).toEqual(updatedUser);
     });
   });
@@ -132,7 +141,7 @@ describe('UserService', () => {
 
       await userService.bulkAction(bulkAction);
 
-      expect(apiClient.post).toHaveBeenCalledWith('/users/bulk', bulkAction);
+      expect(apiClient.post).toHaveBeenCalledWith('/users/bulk/delete', bulkAction);
     });
   });
 
@@ -145,11 +154,11 @@ describe('UserService', () => {
         by_role: {},
       };
 
-      (apiClient.get as any).mockResolvedValue(mockStats);
+      (apiClient.get as any).mockResolvedValue({ data: mockStats });
 
       const result = await userService.getStatistics();
 
-      expect(apiClient.get).toHaveBeenCalledWith('/users/statistics');
+      expect(apiClient.get).toHaveBeenCalledWith('/users/bulk/statistics');
       expect(result).toEqual(mockStats);
     });
   });

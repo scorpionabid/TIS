@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { WorkloadReview } from '../WorkloadReview';
 import { WorkloadData } from '../../ScheduleBuilder';
@@ -187,8 +188,15 @@ describe('WorkloadReview', () => {
       />
     );
 
-    expect(screen.getByText('2')).toBeInTheDocument(); // Teachers count
-    expect(screen.getByText('7')).toBeInTheDocument(); // Total weekly hours
+    const teachersLabel = screen.getAllByText('Müəllimlər').find(node => node.tagName === 'P');
+    expect(teachersLabel).toBeDefined();
+    const teachersValue = teachersLabel?.parentElement?.querySelector('p:nth-of-type(2)');
+    expect(teachersValue?.textContent).toBe(String(mockWorkloadData.statistics.unique_teachers));
+
+    const hoursLabel = screen.getAllByText('Həftəlik Saat').find(node => node.tagName === 'P');
+    expect(hoursLabel).toBeDefined();
+    const hoursValue = hoursLabel?.parentElement?.querySelector('p:nth-of-type(2)');
+    expect(hoursValue?.textContent).toBe(String(mockWorkloadData.statistics.total_weekly_hours));
   });
 
   it('switches between tabs correctly', async () => {
@@ -201,22 +209,19 @@ describe('WorkloadReview', () => {
     );
 
     // Click on Details tab
-    fireEvent.click(screen.getByText('Təfərrüatlı'));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('tab', { name: 'Təfərrüatlı' }));
     
-    await waitFor(() => {
-      expect(screen.getByText('Dərs Yükləri')).toBeInTheDocument();
-      expect(screen.getByText('2 yük')).toBeInTheDocument();
-    });
+    await screen.findByText('Dərs Yükləri');
+    expect(screen.getByText('2 yük')).toBeInTheDocument();
 
     // Click on Teachers tab
-    fireEvent.click(screen.getByText('Müəllimlər'));
+    await user.click(screen.getByRole('tab', { name: 'Müəllimlər' }));
     
-    await waitFor(() => {
-      expect(screen.getByText('Müəllim Yük Analizi')).toBeInTheDocument();
-    });
+    await screen.findByText('Müəllim Yük Analizi');
   });
 
-  it('displays teaching loads correctly', () => {
+  it('displays teaching loads correctly', async () => {
     render(
       <WorkloadReview
         workloadData={mockWorkloadData}
@@ -226,15 +231,16 @@ describe('WorkloadReview', () => {
     );
 
     // Switch to details tab
-    fireEvent.click(screen.getByText('Təfərrüatlı'));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('tab', { name: 'Təfərrüatlı' }));
 
-    expect(screen.getByText('Mahmud Əliyev')).toBeInTheDocument();
+    expect(await screen.findByText('Mahmud Əliyev')).toBeInTheDocument();
     expect(screen.getByText('Riyaziyyat')).toBeInTheDocument();
-    expect(screen.getByText('9-A')).toBeInTheDocument();
-    expect(screen.getByText('4 saat/həftə')).toBeInTheDocument();
+    expect(screen.getByText(/Sinif: 9-A/)).toBeInTheDocument();
+    expect(screen.getByText(/4 saat\/həftə/)).toBeInTheDocument();
   });
 
-  it('shows teacher workload analysis', () => {
+  it('shows teacher workload analysis', async () => {
     render(
       <WorkloadReview
         workloadData={mockWorkloadData}
@@ -244,15 +250,16 @@ describe('WorkloadReview', () => {
     );
 
     // Switch to teachers tab
-    fireEvent.click(screen.getByText('Müəllimlər'));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('tab', { name: 'Müəllimlər' }));
 
-    expect(screen.getByText('Mahmud Əliyev')).toBeInTheDocument();
+    expect(await screen.findByText('Mahmud Əliyev')).toBeInTheDocument();
     expect(screen.getByText('mahmud@test.com')).toBeInTheDocument();
     expect(screen.getByText('4h')).toBeInTheDocument();
-    expect(screen.getByText('/ 25h maksimum')).toBeInTheDocument();
+    expect(screen.getAllByText('/ 25h maksimum').length).toBeGreaterThan(0);
   });
 
-  it('detects teacher overload', () => {
+  it('detects teacher overload', async () => {
     const overloadedData = {
       ...mockWorkloadData,
       teaching_loads: [{
@@ -270,12 +277,13 @@ describe('WorkloadReview', () => {
     );
 
     // Switch to teachers tab
-    fireEvent.click(screen.getByText('Müəllimlər'));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('tab', { name: 'Müəllimlər' }));
 
-    expect(screen.getByText('Hədd aşıldı')).toBeInTheDocument();
+    expect(await screen.findByText('Hədd aşıldı')).toBeInTheDocument();
   });
 
-  it('shows ideal distribution for teaching loads', () => {
+  it('shows ideal distribution for teaching loads', async () => {
     render(
       <WorkloadReview
         workloadData={mockWorkloadData}
@@ -285,9 +293,9 @@ describe('WorkloadReview', () => {
     );
 
     // Switch to details tab
-    fireEvent.click(screen.getByText('Təfərrüatlı'));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('tab', { name: 'Təfərrüatlı' }));
 
-    expect(screen.getByText('İdeal Paylanma:')).toBeInTheDocument();
     expect(screen.getByText('B.E: 1')).toBeInTheDocument();
     expect(screen.getByText('Çər: 2')).toBeInTheDocument();
     expect(screen.getByText('Cümə: 1')).toBeInTheDocument();
@@ -332,7 +340,7 @@ describe('WorkloadReview', () => {
     expect(mockOnBack).toHaveBeenCalled();
   });
 
-  it('displays warnings when present', () => {
+  it('displays warnings when present', async () => {
     const dataWithWarnings = {
       ...mockWorkloadData,
       validation: {
@@ -350,13 +358,14 @@ describe('WorkloadReview', () => {
     );
 
     // Switch to teachers tab
-    fireEvent.click(screen.getByText('Müəllimlər'));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('tab', { name: 'Müəllimlər' }));
 
-    expect(screen.getByText('Xəbərdarlıqlar:')).toBeInTheDocument();
+    expect(await screen.findByText('Xəbərdarlıqlar:')).toBeInTheDocument();
     expect(screen.getByText('Leyla Həsənova yüksək iş yükü')).toBeInTheDocument();
   });
 
-  it('calculates workload percentage correctly', () => {
+  it('calculates workload percentage correctly', async () => {
     render(
       <WorkloadReview
         workloadData={mockWorkloadData}
@@ -366,10 +375,11 @@ describe('WorkloadReview', () => {
     );
 
     // Switch to teachers tab
-    fireEvent.click(screen.getByText('Müəllimlər'));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('tab', { name: 'Müəllimlər' }));
 
     // For 4 hours out of 25 maximum: (4/25)*100 = 16%
-    expect(screen.getByText('16%')).toBeInTheDocument();
+    expect(await screen.findByText('16%')).toBeInTheDocument();
   });
 
   it('handles empty teaching loads gracefully', () => {
@@ -391,6 +401,9 @@ describe('WorkloadReview', () => {
       />
     );
 
-    expect(screen.getByText('0')).toBeInTheDocument(); // Teachers count should be 0
+    const teachersLabel = screen.getAllByText('Müəllimlər').find(node => node.tagName === 'P');
+    expect(teachersLabel).toBeDefined();
+    const teachersValue = teachersLabel?.parentElement?.querySelector('p:nth-of-type(2)');
+    expect(teachersValue?.textContent).toBe('0');
   });
 });

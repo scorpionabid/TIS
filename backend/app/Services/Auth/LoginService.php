@@ -3,10 +3,7 @@
 namespace App\Services\Auth;
 
 use App\Models\User;
-use App\Models\UserDevice;
 use App\Models\SecurityEvent;
-use App\Models\ActivityLog;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -24,36 +21,38 @@ class LoginService
      */
     public function attemptLogin(array $credentials, ?string $deviceName = null, ?string $deviceId = null): array
     {
-        logger()->info('attemptLogin called', [
-            'credentials' => array_keys($credentials),
-            'deviceName' => $deviceName,
-            'deviceId' => $deviceId
-        ]);
+        $identifierHash = null;
+        $identifierType = null;
 
         try {
             $login = $credentials['login'];
             $password = $credentials['password'];
+            $identifierType = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
+            $identifierHash = hash('sha256', mb_strtolower($login));
+            $hasDeviceContext = !empty($deviceId) || !empty($deviceName);
 
-            logger()->info('Login attempt', ['login' => $login]);
+            logger()->info('Login attempt', [
+                'identifier_type' => $identifierType,
+                'identifier_hash' => $identifierHash,
+                'device_context' => $hasDeviceContext
+            ]);
 
             // Find user by username or email
             $user = User::where('username', $login)
                 ->orWhere('email', $login)
                 ->first();
 
-            logger()->info('User lookup result', [
-                'login' => $login,
-                'user_found' => $user ? true : false,
-                'user_id' => $user ? $user->id : null,
-                'user_active' => $user ? $user->is_active : null
+            logger()->debug('Login user lookup', [
+                'identifier_hash' => $identifierHash,
+                'user_found' => (bool) $user,
+                'user_active' => $user?->is_active
             ]);
 
             // Check if user exists and password is correct
             if (!$user || !Hash::check($password, $user->password)) {
                 logger()->warning('Authentication failed - invalid credentials', [
-                    'login' => $login,
-                    'user_exists' => $user ? true : false,
-                    'password_match' => $user ? Hash::check($password, $user->password) : false
+                    'identifier_hash' => $identifierHash,
+                    'user_found' => (bool) $user
                 ]);
                 
                 $this->logFailedAttempt($login, $user);
@@ -65,57 +64,54 @@ class LoginService
             logger()->info('Password check passed', ['user_id' => $user->id]);
 
             // Check if user is active
-        if (!$user->is_active) {
-            throw ValidationException::withMessages([
-                'login' => 'Hesabınız deaktiv edilib. Zəhmət olmasa inzibatçı ilə əlaqə saxlayın.',
+            if (!$user->is_active) {
+                throw ValidationException::withMessages([
+                    'login' => 'Hesabınız deaktiv edilib. Zəhmət olmasa inzibatçı ilə əlaqə saxlayın.',
+                ]);
+            }
+
+            // Check if user needs to change password
+            if ($user->password_change_required) {
+                return [
+                    'requires_password_change' => true,
+                    'user' => $user,
+                    'token' => $this->createPasswordResetToken($user)
+                ];
+            }
+
+            // Authenticate the user
+            $token = $this->createAuthToken($user, $deviceName);
+            $this->updateUserDevice($user, $deviceId, $deviceName);
+            $this->logSuccessfulLogin($user);
+
+            // Load user with all relations
+            $user->load(['profile', 'roles', 'institution']);
+            
+            // Get roles and permissions CORRECTLY
+            $roles = $user->getRoleNames()->toArray();
+            $permissions = $user->getAllPermissions()->pluck('name')->toArray();
+            
+            logger()->debug('Login service - access context prepared', [
+                'user_id' => $user->id,
+                'role_count' => count($roles),
+                'permission_count' => count($permissions)
             ]);
-        }
+            
+            // User data with proper role/permission arrays
+            $userData = $user->toArray();
+            $userData['roles'] = $roles;
+            $userData['permissions'] = $permissions;
 
-        // Check if user needs to change password
-        if ($user->password_change_required) {
             return [
-                'requires_password_change' => true,
-                'user' => $user,
-                'token' => $this->createPasswordResetToken($user)
+                'token' => $token,
+                'user' => $userData,
+                'requires_password_change' => false
             ];
-        }
-
-        // Authenticate the user
-        $token = $this->createAuthToken($user, $deviceName);
-        $this->updateUserDevice($user, $deviceId, $deviceName);
-        $this->logSuccessfulLogin($user);
-
-        // Load user with all relations
-        $user->load(['profile', 'roles', 'institution']);
-        
-        // Get roles and permissions CORRECTLY
-        $roles = $user->getRoleNames()->toArray();
-        $permissions = $user->getAllPermissions()->pluck('name')->toArray();
-        
-        \Log::debug('Login service - roles and permissions', [
-            'user_id' => $user->id,
-            'roles' => $roles,
-            'permissions' => $permissions,
-            'spatie_roles' => $user->roles->pluck('name')->toArray(),
-            'has_spatie_trait' => method_exists($user, 'getRoleNames')
-        ]);
-        
-        // User data with proper role/permission arrays
-        $userData = $user->toArray();
-        $userData['roles'] = $roles;
-        $userData['permissions'] = $permissions;
-
-        return [
-            'token' => $token,
-            'user' => $userData,
-            'requires_password_change' => false
-        ];
         
         } catch (\Exception $e) {
             logger()->error('Login attempt failed with exception', [
-                'login' => $credentials['login'] ?? 'unknown',
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'identifier_hash' => $identifierHash,
+                'error' => $e->getMessage()
             ]);
 
             throw ValidationException::withMessages([
@@ -130,7 +126,10 @@ class LoginService
     protected function createAuthToken(User $user, ?string $deviceName = null): string
     {
         $tokenName = $deviceName ?? 'auth_token';
-        return $user->createToken($tokenName)->plainTextToken;
+        $expirationMinutes = config('sanctum.expiration');
+        $expiresAt = is_numeric($expirationMinutes) ? now()->addMinutes((int) $expirationMinutes) : null;
+
+        return $user->createToken($tokenName, ['*'], $expiresAt)->plainTextToken;
     }
 
     /**
@@ -142,16 +141,55 @@ class LoginService
             return;
         }
 
-        $user->devices()->updateOrCreate(
-            ['device_id' => $deviceId],
-            [
-                'last_login_at' => now(),
-                'device_name' => $deviceName,
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
-                'is_trusted' => true,
-            ]
-        );
+        $ipAddress = request()->ip() ?? '127.0.0.1';
+        $userAgent = request()->userAgent() ?? '';
+        $now = now();
+        $normalizedName = mb_substr($deviceName ?? 'web-browser', 0, 255);
+
+        $device = $user->devices()->where('device_id', $deviceId)->first();
+
+        if ($device) {
+            $device->update([
+                'device_name' => $normalizedName,
+                'user_agent' => $userAgent,
+                'last_ip_address' => $ipAddress,
+                'last_seen_at' => $now,
+                'last_login_at' => $now,
+            ]);
+
+            return;
+        }
+
+        $user->devices()->create([
+            'device_id' => $deviceId,
+            'device_name' => $normalizedName,
+            'device_type' => 'desktop',
+            'browser_name' => null,
+            'browser_version' => null,
+            'operating_system' => null,
+            'platform' => null,
+            'user_agent' => $userAgent,
+            'screen_resolution' => null,
+            'timezone' => request()->header('Time-Zone') ?? null,
+            'language' => request()->header('Accept-Language') ?? null,
+            'device_fingerprint' => [
+                'language' => request()->getPreferredLanguage(),
+                'user_agent_hash' => $userAgent ? hash('sha256', $userAgent) : null,
+            ],
+            'last_ip_address' => $ipAddress,
+            'registration_ip' => $ipAddress,
+            'last_location_country' => null,
+            'last_location_city' => null,
+            'is_trusted' => false,
+            'is_active' => true,
+            'trusted_at' => null,
+            'last_seen_at' => $now,
+            'last_login_at' => $now,
+            'registered_at' => $now,
+            'requires_verification' => false,
+            'failed_verification_attempts' => 0,
+            'verification_blocked_until' => null,
+        ]);
     }
 
     /**

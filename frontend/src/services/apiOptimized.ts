@@ -1,4 +1,5 @@
 import { logger } from '@/utils/logger';
+import { storageHelpers } from '@/utils/helpers';
 
 // Environment check for production optimizations
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -79,6 +80,8 @@ interface PendingRequest<T> {
   promise: Promise<T>;
   timestamp: number;
 }
+
+const TOKEN_STORAGE_KEY = 'atis_auth_token';
 
 class ApiClientOptimized {
   private baseURL: string;
@@ -234,23 +237,31 @@ class ApiClientOptimized {
 
   // Token management (optimized with single storage location)
   private loadToken(): void {
-    const storedToken = localStorage.getItem('atis_auth_token');
-    
-    if (storedToken) {
-      this.token = storedToken;
-      log('info', 'Token loaded from storage');
+    try {
+      const storedToken = storageHelpers.get<string>(TOKEN_STORAGE_KEY);
+      
+      if (storedToken) {
+        this.token = storedToken;
+        log('info', 'Token loaded from storage');
+      }
+    } catch (error) {
+      log('warn', 'Failed to load token from storage', error);
     }
   }
 
   private saveToken(token: string): void {
     this.token = token;
-    localStorage.setItem('atis_auth_token', token);
-    log('info', 'Token saved to storage');
+    const stored = storageHelpers.set(TOKEN_STORAGE_KEY, token);
+    if (stored) {
+      log('info', 'Token saved to storage');
+    } else {
+      log('warn', 'Token storage failed, keeping token in memory only');
+    }
   }
 
   private removeToken(): void {
     this.token = null;
-    localStorage.removeItem('atis_auth_token');
+    storageHelpers.remove(TOKEN_STORAGE_KEY);
     this.clearCache(); // Clear cache when token is removed
     log('info', 'Token removed from storage');
   }
@@ -614,9 +625,13 @@ export const apiClientOptimized = (() => {
   const client = new ApiClientOptimized(API_BASE_URL);
   
   // Restore token from localStorage
-  const localStorageToken = localStorage.getItem('atis_auth_token');
-  if (localStorageToken) {
-    client.setToken(localStorageToken);
+  try {
+    const storedToken = storageHelpers.get<string>(TOKEN_STORAGE_KEY);
+    if (storedToken) {
+      client.setToken(storedToken);
+    }
+  } catch (error) {
+    log('warn', 'Failed to hydrate token from storage', error);
   }
   
   if (typeof window !== 'undefined') {

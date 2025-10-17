@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import surveyApprovalService, { PublishedSurvey } from '../../../services/surveyApproval';
 import SurveyResponsesDataTable from './SurveyResponsesDataTable';
+import { storageHelpers } from '@/utils/helpers';
 
 const STORAGE_KEY = 'surveyViewDashboard_selectedSurveyId';
 
@@ -22,9 +23,9 @@ const SurveyViewDashboard: React.FC = () => {
   // Helper functions for localStorage
   const getStoredSurveyId = (): string | null => {
     try {
-      return localStorage.getItem(STORAGE_KEY);
+      return storageHelpers.get<string>(STORAGE_KEY);
     } catch (error) {
-      console.warn('Failed to read from localStorage:', error);
+      console.warn('Failed to read from local storage:', error);
       return null;
     }
   };
@@ -32,12 +33,12 @@ const SurveyViewDashboard: React.FC = () => {
   const storeSurveyId = (surveyId: string | null) => {
     try {
       if (surveyId) {
-        localStorage.setItem(STORAGE_KEY, surveyId);
+        storageHelpers.set(STORAGE_KEY, surveyId);
       } else {
-        localStorage.removeItem(STORAGE_KEY);
+        storageHelpers.remove(STORAGE_KEY);
       }
     } catch (error) {
-      console.warn('Failed to write to localStorage:', error);
+      console.warn('Failed to write to local storage:', error);
     }
   };
 

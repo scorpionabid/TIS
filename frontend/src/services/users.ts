@@ -1,4 +1,5 @@
 import { apiClient, ApiResponse, PaginatedResponse } from './api';
+import { storageHelpers } from '@/utils/helpers';
 
 // Import centralized User types
 import { 
@@ -18,6 +19,18 @@ export type {
   UserFilters, 
   BulkUserAction, 
   UserStatistics 
+};
+
+const AUTH_USER_STORAGE_KEY = 'atis_current_user';
+const LEGACY_USER_STORAGE_KEY = 'currentUser';
+
+const getStoredUser = (): any => {
+  const authUser = storageHelpers.get<any>(AUTH_USER_STORAGE_KEY);
+  if (authUser) {
+    return authUser;
+  }
+
+  return storageHelpers.get<any>(LEGACY_USER_STORAGE_KEY);
 };
 
 class UserService {
@@ -102,7 +115,7 @@ class UserService {
     // Use passed role or fallback to localStorage
     let role = currentUserRole;
     if (!role) {
-      const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+      const currentUser = getStoredUser();
       role = currentUser?.role;
     }
     
@@ -137,7 +150,7 @@ class UserService {
     // Use passed role or fallback to localStorage
     let role = currentUserRole;
     if (!role) {
-      const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+      const currentUser = getStoredUser();
       role = currentUser?.role;
     }
 
@@ -169,7 +182,7 @@ class UserService {
     // Use passed role or fallback to localStorage
     let role = currentUserRole;
     if (!role) {
-      const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+      const currentUser = getStoredUser();
       role = currentUser?.role;
     }
     

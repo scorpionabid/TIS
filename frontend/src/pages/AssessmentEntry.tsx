@@ -36,6 +36,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BulkEntryInterface } from '@/components/assessment/BulkEntryInterface';
 import { ExcelImportExport } from '@/components/assessment/ExcelImportExport';
 import { useAuth } from '@/contexts/AuthContext';
+import { apiClient } from '@/services/api';
 
 
 interface AssessmentEntry {
@@ -85,7 +86,8 @@ export default function AssessmentEntry() {
     queryKey: ['student-institutions-dropdown'],
     queryFn: () => {
       console.log('🏢 AssessmentEntry: Fetching student institutions (schools & preschools)...');
-      console.log('🔑 AssessmentEntry: Current token exists:', !!localStorage.getItem('auth_token'));
+      const token = apiClient.getToken();
+      console.log('🔑 AssessmentEntry: Current token exists:', !!token);
       console.log('👤 AssessmentEntry: Current user:', JSON.stringify({ 
         name: currentUser?.name, 
         role: currentUser?.role,
@@ -124,7 +126,8 @@ export default function AssessmentEntry() {
     queryKey: ['assessment-types-dropdown'],
     queryFn: () => {
       console.log('📋 AssessmentEntry: Fetching assessment types...');
-      console.log('🔑 AssessmentEntry: Token check before assessment types call:', !!localStorage.getItem('auth_token'));
+      const token = apiClient.getToken();
+      console.log('🔑 AssessmentEntry: Token check before assessment types call:', !!token);
       console.log('👤 AssessmentEntry: User permissions for assessment-types:', 
         currentUser?.permissions?.filter(p => p.includes('assessment')) || []
       );

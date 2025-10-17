@@ -47,13 +47,37 @@ class SessionController extends Controller
     }
 
     /**
+     * Revoke the current session.
+     */
+    public function revokeCurrent(Request $request): JsonResponse
+    {
+        $revoked = $this->sessionService->revokeCurrentSession($request->user());
+
+        if (!$revoked) {
+            return response()->json([
+                'message' => 'Cari sessiya tapılmadı'
+            ], 404);
+        }
+
+        return response()->json([
+            'message' => 'Cari sessiya uğurla ləğv edildi'
+        ]);
+    }
+
+    /**
      * Revoke all other sessions.
      */
     public function revokeOthers(Request $request): JsonResponse
     {
-        $count = $request->user()->tokens()
-            ->where('id', '!=', $request->user()->currentAccessToken()->id)
-            ->delete();
+        $currentToken = $request->user()->currentAccessToken();
+
+        if (!$currentToken) {
+            return response()->json([
+                'message' => 'Cari sessiya tapılmadı'
+            ], 404);
+        }
+
+        $count = $this->sessionService->revokeOtherSessions($request->user(), $currentToken->id);
 
         return response()->json([
             'message' => 'Other sessions revoked successfully',

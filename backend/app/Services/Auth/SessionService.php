@@ -114,6 +114,26 @@ class SessionService
     }
 
     /**
+     * Revoke the current session.
+     */
+    public function revokeCurrentSession(User $user): bool
+    {
+        $token = $user->currentAccessToken();
+
+        if (!$token) {
+            return false;
+        }
+
+        $sessionName = $token->name ?? 'current_session';
+
+        $token->delete();
+
+        $this->logSessionRevoked($user, $sessionName, false);
+
+        return true;
+    }
+
+    /**
      * Revoke all other sessions.
      */
     public function revokeOtherSessions(User $user, string $currentTokenId): int

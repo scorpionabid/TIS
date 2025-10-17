@@ -1,3 +1,5 @@
+import { storageHelpers } from '@/utils/helpers';
+
 /**
  * Frontend Cache Service
  * 
@@ -53,7 +55,10 @@ class CacheService {
     // Persistent cache for important data
     if (tags.includes('persistent')) {
       try {
-        localStorage.setItem(`cache_${key}`, JSON.stringify(entry));
+        const stored = storageHelpers.set(`cache_${key}`, entry);
+        if (!stored) {
+          console.warn('Failed to store cache entry persistently');
+        }
       } catch (error) {
         console.warn('Failed to store in localStorage:', error);
       }
@@ -77,20 +82,16 @@ class CacheService {
 
     // Check localStorage for persistent cache
     try {
-      const persistentData = localStorage.getItem(`cache_${key}`);
-      if (persistentData) {
-        const entry: CacheEntry<T> = JSON.parse(persistentData);
-        
+      const entry = storageHelpers.get<CacheEntry<T>>(`cache_${key}`);
+      if (entry) {
         if (this.isValidEntry(entry)) {
-          // Restore to memory cache
           this.memoryCache.set(key, entry);
           this.hitCount++;
           console.log(`🎯 Cache hit (persistent): ${key}`);
           return entry.data;
-        } else {
-          // Clean up expired persistent cache
-          localStorage.removeItem(`cache_${key}`);
         }
+
+        storageHelpers.remove(`cache_${key}`);
       }
     } catch (error) {
       console.warn('Failed to read from localStorage:', error);
@@ -115,7 +116,7 @@ class CacheService {
     const deleted = this.memoryCache.delete(key);
     
     try {
-      localStorage.removeItem(`cache_${key}`);
+      storageHelpers.remove(`cache_${key}`);
     } catch (error) {
       console.warn('Failed to remove from localStorage:', error);
     }
@@ -143,14 +144,13 @@ class CacheService {
 
     // Clear localStorage cache
     try {
-      const keys = Object.keys(localStorage);
-      for (const storageKey of keys) {
-        if (storageKey.startsWith('cache_')) {
-          const data = localStorage.getItem(storageKey);
-          if (data) {
-            const entry: CacheEntry = JSON.parse(data);
-            if (tags.some(tag => entry.tags.includes(tag))) {
-              localStorage.removeItem(storageKey);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const keys = Object.keys(window.localStorage);
+        for (const storageKey of keys) {
+          if (storageKey.startsWith('cache_')) {
+            const entry = storageHelpers.get<CacheEntry>(storageKey);
+            if (entry && tags.some(tag => entry.tags.includes(tag))) {
+              storageHelpers.remove(storageKey);
               clearedCount++;
             }
           }
@@ -174,10 +174,12 @@ class CacheService {
 
     // Clear localStorage cache
     try {
-      const keys = Object.keys(localStorage);
-      for (const key of keys) {
-        if (key.startsWith('cache_')) {
-          localStorage.removeItem(key);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const keys = Object.keys(window.localStorage);
+        for (const key of keys) {
+          if (key.startsWith('cache_')) {
+            storageHelpers.remove(key);
+          }
         }
       }
     } catch (error) {
@@ -229,22 +231,24 @@ class CacheService {
 
     // Clean localStorage cache
     try {
-      const keys = Object.keys(localStorage);
-      for (const storageKey of keys) {
-        if (storageKey.startsWith('cache_')) {
-          const data = localStorage.getItem(storageKey);
-          if (data) {
-            try {
-              const entry: CacheEntry = JSON.parse(data);
-              if (!this.isValidEntry(entry, now)) {
-                localStorage.removeItem(storageKey);
-                cleanedCount++;
-              }
-            } catch (error) {
-              // Invalid JSON, remove it
-              localStorage.removeItem(storageKey);
-              cleanedCount++;
-            }
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const keys = Object.keys(window.localStorage);
+        for (const storageKey of keys) {
+          if (!storageKey.startsWith('cache_')) {
+            continue;
+          }
+
+          const entry = storageHelpers.get<CacheEntry>(storageKey);
+
+          if (!entry) {
+            storageHelpers.remove(storageKey);
+            cleanedCount++;
+            continue;
+          }
+
+          if (!this.isValidEntry(entry, now)) {
+            storageHelpers.remove(storageKey);
+            cleanedCount++;
           }
         }
       }

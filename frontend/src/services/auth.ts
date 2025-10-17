@@ -1,4 +1,5 @@
 import { apiClient, ApiResponse } from './api';
+import { storageHelpers } from '@/utils/helpers';
 import { 
   User, 
   LoginCredentials, 
@@ -12,6 +13,64 @@ export type {
   LoginCredentials, 
   LoginResponse, 
   ChangePasswordData 
+};
+
+const DEVICE_ID_STORAGE_KEY = 'atis_device_id';
+
+const createFallbackDeviceId = (): string =>
+  `device-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
+const generateDeviceId = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return createFallbackDeviceId();
+};
+
+const getStableDeviceId = (debug = false): string => {
+  if (typeof window === 'undefined') {
+    return createFallbackDeviceId();
+  }
+
+  try {
+    const storedId = storageHelpers.get<string>(DEVICE_ID_STORAGE_KEY);
+    if (storedId) {
+      return storedId;
+    }
+
+    const newId = generateDeviceId();
+    const stored = storageHelpers.set(DEVICE_ID_STORAGE_KEY, newId);
+
+    if (!stored && debug) {
+      console.warn('⚠️ Auth Service: Failed to persist device ID, using in-memory only');
+    }
+
+    return newId;
+  } catch (storageError) {
+    if (debug) {
+      console.warn('⚠️ Auth Service: Device ID storage failed, using ephemeral ID', storageError);
+    }
+    return generateDeviceId();
+  }
+};
+
+const getDeviceName = (): string => {
+  if (typeof navigator === 'undefined') {
+    return 'web-browser';
+  }
+
+  const nav = navigator as Navigator & {
+    userAgentData?: {
+      platform?: string;
+      brands?: Array<{ brand?: string }>;
+    };
+  };
+
+  const platform = nav.userAgentData?.platform || nav.platform || 'web';
+  const browser = nav.userAgentData?.brands?.[0]?.brand || nav.userAgent || 'browser';
+
+  return `web-${platform}-${browser}`.toLowerCase();
 };
 
 // Helper function to extract role from API response
@@ -129,10 +188,14 @@ class AuthService {
     }
     
     // Backend expects 'login' field instead of 'email'
+    const deviceId = getStableDeviceId(this.DEBUG_MODE);
+    const deviceName = getDeviceName();
+
     const loginData = {
       login: credentials.email,
       password: credentials.password,
-      device_name: 'web-browser',
+      device_name: deviceName,
+      device_id: deviceId,
     };
     
     this.log('🔍 Auth Service: Sending login request');

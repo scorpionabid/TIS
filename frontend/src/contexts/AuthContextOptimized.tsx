@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { useQueryClient } from '@tanstack/react-query';
 import { authService, LoginCredentials } from '@/services/auth';
 import { apiClient } from '@/services/apiOptimized';
+import { storageHelpers } from '@/utils/helpers';
 import { User } from '@/types/user';
 import { useToast } from '@/hooks/use-toast';
 import { USER_ROLES, UserRole, isValidRole } from '@/constants/roles';
@@ -116,7 +117,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const clearAuth = useCallback(() => {
     apiClient.clearToken();
-    localStorage.removeItem(USER_STORAGE_KEY);
+    storageHelpers.remove(USER_STORAGE_KEY);
 
     // CRITICAL: Clear React Query cache on logout to prevent cross-user data leakage
     // This ensures new user doesn't see previous user's cached data
@@ -162,31 +163,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (isMountedRef.current) {
             setIsAuthenticated(false);
             setCurrentUser(null);
-            localStorage.removeItem(USER_STORAGE_KEY);
+            storageHelpers.remove(USER_STORAGE_KEY);
           }
           return;
         }
 
         // Try to restore user from localStorage first (for faster UX)
-        const savedUser = localStorage.getItem(USER_STORAGE_KEY);
-        if (savedUser && isMountedRef.current) {
-          try {
-            const parsedUser = JSON.parse(savedUser);
-            setCurrentUser(parsedUser);
-            setIsAuthenticated(true);
-            log('info', 'User temporarily restored from cache');
-            
-            // Return early if cache is fresh (less than 5 minutes)
-            const cacheTime = parsedUser.cacheTimestamp || 0;
-            const now = Date.now();
-            if (now - cacheTime < 5 * 60 * 1000) {
-              log('info', 'Using fresh cached user data, skipping API call');
-              return;
-            }
-          } catch (e) {
-            log('warn', 'Failed to parse cached user data');
-            localStorage.removeItem(USER_STORAGE_KEY);
+        const cachedUser = storageHelpers.get<User & { cacheTimestamp?: number }>(USER_STORAGE_KEY);
+        if (cachedUser && isMountedRef.current) {
+          setCurrentUser(cachedUser);
+          setIsAuthenticated(true);
+          log('info', 'User temporarily restored from cache');
+          
+          // Return early if cache is fresh (less than 5 minutes)
+          const cacheTime = cachedUser.cacheTimestamp || 0;
+          const now = Date.now();
+          if (now - cacheTime < 5 * 60 * 1000) {
+            log('info', 'Using fresh cached user data, skipping API call');
+            return;
           }
+        } else if (!cachedUser) {
+          storageHelpers.remove(USER_STORAGE_KEY);
         }
 
         // Get fresh user data from API with timeout
@@ -209,7 +206,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setIsAuthenticated(true);
         
         // Update localStorage cache with timestamp
-        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(mappedUser));
+        storageHelpers.set(USER_STORAGE_KEY, mappedUser);
         
         const duration = performance.now() - startTime;
         log('info', 'Authentication successful', { 
@@ -305,7 +302,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsAuthenticated(true);
 
       // Cache user data
-      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(mappedUser));
+      storageHelpers.set(USER_STORAGE_KEY, mappedUser);
 
       toast({
         title: 'Uğurlu giriş',
@@ -358,7 +355,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       };
       
       setCurrentUser(mappedUser);
-      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(mappedUser));
+      storageHelpers.set(USER_STORAGE_KEY, mappedUser);
       log('info', 'User data refreshed');
     } catch (error) {
       log('error', 'User refresh failed', error);
