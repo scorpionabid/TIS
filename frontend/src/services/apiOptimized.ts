@@ -1,5 +1,6 @@
 import { logger } from '@/utils/logger';
 import { storageHelpers } from '@/utils/helpers';
+import { toast } from '@/components/ui/use-toast';
 
 // Environment check for production optimizations
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -102,6 +103,9 @@ class ApiClientOptimized {
   
   // Batch request queue
   private batchQueue = new Map<string, { requests: Array<BatchQueueRequest>; timeout: NodeJS.Timeout }>();
+  private lastUnauthorizedToastAt = 0;
+  private lastForbiddenToastAt = 0;
+  private readonly AUTH_TOAST_THROTTLE = 5000;
 
   constructor(baseURL?: string) {
     const fallbackURL = 'http://localhost:8000/api';
@@ -314,6 +318,53 @@ class ApiClientOptimized {
     return headers;
   }
 
+  private notifyPermissionIssue(
+    type: 'unauthorized' | 'forbidden',
+    backendMessage?: string
+  ): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const now = Date.now();
+    const defaultMessages = {
+      unauthorized: {
+        title: 'Sessiya müddəti bitdi',
+        description: 'Zəhmət olmasa yenidən daxil olun.',
+        variant: 'destructive' as const,
+      },
+      forbidden: {
+        title: 'İcazə məhdudiyyəti',
+        description: 'Bu əməliyyat üçün icazəniz yoxdur.',
+        variant: 'warning' as const,
+      },
+    };
+
+    if (type === 'unauthorized') {
+      if (now - this.lastUnauthorizedToastAt < this.AUTH_TOAST_THROTTLE) {
+        return;
+      }
+      this.lastUnauthorizedToastAt = now;
+    } else {
+      if (now - this.lastForbiddenToastAt < this.AUTH_TOAST_THROTTLE) {
+        return;
+      }
+      this.lastForbiddenToastAt = now;
+    }
+
+    const defaultMessage = defaultMessages[type];
+    const message =
+      backendMessage && backendMessage !== 'Unauthorized' && backendMessage !== 'Forbidden'
+        ? backendMessage
+        : defaultMessage.description;
+
+    toast({
+      title: defaultMessage.title,
+      description: message,
+      variant: defaultMessage.variant,
+    });
+  }
+
   private async handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
     const contentType = response.headers.get('content-type');
     
@@ -356,12 +407,15 @@ class ApiClientOptimized {
           const isLoginPath = window.location.pathname.includes('/login');
           
           if (!isInitialAuthCheck && !isLoginPath) {
+            this.notifyPermissionIssue('unauthorized', data?.message);
             log('warn', 'Auto-logout: Removing token and redirecting');
             this.removeToken();
             if (typeof window !== 'undefined') {
               window.location.href = '/login';
             }
           }
+        } else if (response.status === 403) {
+          this.notifyPermissionIssue('forbidden', data?.message);
         }
         
         const enhancedError = new Error(data.message || `HTTP error! status: ${response.status}`);
@@ -387,6 +441,21 @@ class ApiClientOptimized {
       return data;
     } else {
       if (!response.ok) {
+        if (response.status === 401) {
+          const isInitialAuthCheck = response.url.includes('/me');
+          const isLoginPath = typeof window !== 'undefined' && window.location.pathname.includes('/login');
+          
+          if (!isInitialAuthCheck && !isLoginPath) {
+            this.notifyPermissionIssue('unauthorized');
+            log('warn', 'Auto-logout: Removing token and redirecting');
+            this.removeToken();
+            if (typeof window !== 'undefined') {
+              window.location.href = '/login';
+            }
+          }
+        } else if (response.status === 403) {
+          this.notifyPermissionIssue('forbidden');
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       return { data: null } as ApiResponse<T>;

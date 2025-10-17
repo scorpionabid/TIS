@@ -56,6 +56,7 @@ export abstract class BaseService<T extends BaseEntity> {
         return result;
       } catch (error) {
         logger.error(`Failed to fetch all ${this.baseEndpoint}`, error);
+        this.enhancePermissionError(error);
         throw error;
       }
     } else {
@@ -112,10 +113,11 @@ export abstract class BaseService<T extends BaseEntity> {
           [...this.cacheTags, 'detail']
         );
         return result;
-      } catch (error) {
-        logger.error(`Failed to fetch ${this.baseEndpoint}/${id}`, error);
-        throw error;
-      }
+    } catch (error) {
+      logger.error(`Failed to fetch ${this.baseEndpoint}/${id}`, error);
+      this.enhancePermissionError(error);
+      throw error;
+    }
     } else {
       return this.fetchById(id);
     }
@@ -160,6 +162,7 @@ export abstract class BaseService<T extends BaseEntity> {
         action: 'create',
         data: { endpoint: this.baseEndpoint, payload: data }
       });
+      this.enhancePermissionError(error);
       throw error;
     }
   }
@@ -188,6 +191,7 @@ export abstract class BaseService<T extends BaseEntity> {
       
     } catch (error) {
       logger.error(`Failed to update ${this.baseEndpoint}/${id}`, error);
+      this.enhancePermissionError(error);
       throw error;
     }
   }
@@ -213,6 +217,7 @@ export abstract class BaseService<T extends BaseEntity> {
       
     } catch (error) {
       logger.error(`Failed to delete ${this.baseEndpoint}/${id}`, error);
+      this.enhancePermissionError(error);
       throw error;
     }
   }
@@ -237,6 +242,7 @@ export abstract class BaseService<T extends BaseEntity> {
       return response;
     } catch (error) {
       logger.error(`Failed to GET ${endpoint}`, error);
+      this.enhancePermissionError(error);
       throw error;
     }
   }
@@ -256,6 +262,7 @@ export abstract class BaseService<T extends BaseEntity> {
       return response;
     } catch (error) {
       logger.error(`Failed to POST ${endpoint}`, error);
+      this.enhancePermissionError(error);
       throw error;
     }
   }
@@ -275,6 +282,7 @@ export abstract class BaseService<T extends BaseEntity> {
       return response;
     } catch (error) {
       logger.error(`Failed to PUT ${endpoint}`, error);
+      this.enhancePermissionError(error);
       throw error;
     }
   }
@@ -293,6 +301,21 @@ export abstract class BaseService<T extends BaseEntity> {
   protected invalidateSpecificCache(method: string, suffix: string = '', params?: Record<string, unknown>): void {
     const cacheKey = this.getCacheKey(method, suffix, params);
     cacheService.delete(cacheKey);
+  }
+
+  /**
+   * Normalize authorization and permission errors to user-friendly messages
+   */
+  protected enhancePermissionError(error: unknown): void {
+    if (!(error instanceof Error)) {
+      return;
+    }
+
+    if (error.message === 'HTTP error! status: 401') {
+      error.message = 'Sessiya müddəti bitdi. Zəhmət olmasa yenidən daxil olun.';
+    } else if (error.message === 'HTTP error! status: 403') {
+      error.message = 'Bu əməliyyat üçün icazəniz yoxdur.';
+    }
   }
 
   /**

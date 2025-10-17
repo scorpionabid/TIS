@@ -1,4 +1,5 @@
 import { apiClient, ApiResponse, PaginatedResponse } from './api';
+import { PaginationParams } from './BaseService';
 import { storageHelpers } from '@/utils/helpers';
 
 // Import centralized User types
@@ -20,6 +21,46 @@ export type {
   BulkUserAction, 
   UserStatistics 
 };
+
+export interface TrashedUser extends User {
+  deleted_at?: string;
+  roles?: Array<{
+    id: number;
+    name: string;
+    display_name?: string;
+  }>;
+}
+
+interface TrashedUsersPayload {
+  data?: {
+    data?: TrashedUser[];
+    current_page?: number;
+    total?: number;
+    per_page?: number;
+    last_page?: number;
+  } | TrashedUser[];
+  users?: TrashedUser[];
+  meta?: {
+    current_page?: number;
+    total?: number;
+    per_page?: number;
+    last_page?: number;
+  };
+}
+
+export interface TrashedUsersResult {
+  users: TrashedUser[];
+  pagination: {
+    current_page: number;
+    total: number;
+    per_page: number;
+    last_page: number;
+  };
+}
+
+export interface TrashedUsersParams extends Partial<PaginationParams> {
+  search?: string;
+}
 
 const AUTH_USER_STORAGE_KEY = 'atis_current_user';
 const LEGACY_USER_STORAGE_KEY = 'currentUser';
@@ -204,6 +245,63 @@ class UserService {
     // Add delete type as query parameter
     const queryParam = deleteType === 'hard' ? '?type=hard' : '?type=soft';
     await apiClient.delete(endpoint + queryParam);
+  }
+
+  async getTrashedUsers(params: TrashedUsersParams = {}): Promise<TrashedUsersResult> {
+    const requestParams: Record<string, any> = {
+      ...params,
+    };
+
+    const response = await apiClient.get<TrashedUsersPayload>('/users/trashed', requestParams);
+    const payload: TrashedUsersPayload | undefined = response.data;
+
+    if (!payload) {
+      throw new Error('Failed to fetch trashed users');
+    }
+
+    const inner = Array.isArray(payload.data) ? null : payload.data;
+
+    const users: TrashedUser[] = Array.isArray(payload.users)
+      ? payload.users
+      : Array.isArray(payload.data)
+        ? (payload.data as TrashedUser[])
+        : Array.isArray(inner?.data)
+          ? (inner?.data as TrashedUser[])
+          : [];
+
+    const paginationSource = payload.meta || inner || {};
+    const requestedPerPage =
+      typeof params.per_page === 'number'
+        ? params.per_page
+        : users.length;
+    const fallbackPerPage = requestedPerPage || 10;
+
+    return {
+      users,
+      pagination: {
+        current_page: Number(paginationSource?.current_page) || 1,
+        total: Number(paginationSource?.total) || users.length,
+        per_page: Number(paginationSource?.per_page) || fallbackPerPage,
+        last_page: Number(paginationSource?.last_page) || 1,
+      },
+    };
+  }
+
+  async restoreTrashedUser(userId: number): Promise<void> {
+    await apiClient.post(`/users/${userId}/restore`);
+  }
+
+  async bulkRestoreTrashedUsers(userIds: number[]): Promise<{ restored_count: number }> {
+    const response = await apiClient.post<{ restored_count: number }>('/users/bulk/restore', {
+      user_ids: userIds,
+      confirm: true,
+    });
+
+    return response.data || { restored_count: 0 };
+  }
+
+  async forceDeleteUser(userId: number): Promise<void> {
+    await apiClient.delete(`/users/${userId}/force`, { confirm: true });
   }
 
   async toggleUserStatus(id: number): Promise<User> {

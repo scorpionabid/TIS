@@ -122,9 +122,23 @@ class InstitutionService extends BaseService<Institution> {
     return { data: response.data || [] };
   }
 
-  async getHierarchy() {
-    const response = await apiClient.get<Institution[]>(`${this.baseEndpoint}/hierarchy`);
-    return response.data || [];
+  async getHierarchy(institutionId?: number) {
+    const endpoint = typeof institutionId === 'number'
+      ? `${this.baseEndpoint}/${institutionId}/hierarchy`
+      : '/hierarchy';
+
+    const response = await apiClient.get<Institution[] | { data?: Institution[] }>(endpoint);
+    const payload = response.data;
+
+    if (Array.isArray(payload)) {
+      return payload;
+    }
+
+    if (payload && Array.isArray((payload as { data?: Institution[] }).data)) {
+      return ((payload as { data?: Institution[] }).data) as Institution[];
+    }
+
+    return [];
   }
 
   async getRegions() {

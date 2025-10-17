@@ -24,7 +24,7 @@ import { ScheduleSettings } from './components/ScheduleSettings';
 import { GenerationProgress } from './components/GenerationProgress';
 import { SchedulePreview } from './components/SchedulePreview';
 import { ConflictsList } from './components/ConflictsList';
-import { apiClient } from '@/services/api';
+import { workloadScheduleIntegrationService } from '@/services/workloadScheduleIntegrationService';
 
 export interface Schedule {
   id: number;
@@ -154,27 +154,14 @@ export const ScheduleBuilder: React.FC<ScheduleBuilderProps> = ({
     setError(null);
     
     try {
-      const token = apiClient.getToken();
+      const data = await workloadScheduleIntegrationService.getWorkloadReadyData();
 
-      const response = await fetch('/api/schedule-generation/workload-ready-data', {
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
+      if (!data) {
         throw new Error('Dərs yükü məlumatları yüklənə bilmədi');
       }
 
-      const result = await response.json();
-      
-      if (result.success) {
-        setWorkloadData(result.data);
-        setGenerationSettings(result.data.settings);
-      } else {
-        throw new Error(result.message || 'Məlumatlar yüklənə bilmədi');
-      }
+      setWorkloadData(data);
+      setGenerationSettings(data.settings);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Xəta baş verdi';
       setError(errorMessage);
@@ -220,35 +207,24 @@ export const ScheduleBuilder: React.FC<ScheduleBuilderProps> = ({
     setError(null);
 
     try {
-      const token = apiClient.getToken();
-
-      const response = await fetch('/api/schedule-generation/generate-from-workload', {
-        method: 'POST',
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          workload_data: workloadData,
-          generation_preferences: generationSettings.generation_preferences || {}
-        }),
+      const result = await workloadScheduleIntegrationService.generateScheduleFromWorkload({
+        workload_data: workloadData,
+        generation_preferences: generationSettings.generation_preferences || {}
       });
 
-      const result = await response.json();
-
-      if (result.success) {
-        setGeneratedSchedule(result.data.schedule);
-        setConflicts(result.data.conflicts || []);
-        setGenerationProgress(100);
-        setCurrentStep('review');
-        
-        toast({
-          title: "Uğurlu",
-          description: `Cədvəl yaradıldı! ${result.data.sessions_created} dərs seansı planlaşdırıldı.`,
-        });
-      } else {
-        throw new Error(result.message || 'Cədvəl yaradılması uğursuz oldu');
+      if (!result || !result.schedule) {
+        throw new Error('Cədvəl yaradılması uğursuz oldu');
       }
+
+      setGeneratedSchedule(result.schedule);
+      setConflicts(result.conflicts || []);
+      setGenerationProgress(100);
+      setCurrentStep('review');
+      
+      toast({
+        title: "Uğurlu",
+        description: `Cədvəl yaradıldı! ${result.sessions_created} dərs seansı planlaşdırıldı.`,
+      });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Cədvəl yaradıla bilmədi';
       setError(errorMessage);

@@ -130,7 +130,7 @@ class HierarchyService {
    * Get the complete institution hierarchy tree
    */
   async getHierarchy(filters?: HierarchyFilters): Promise<HierarchyResponse> {
-    const response = await apiClient.get<HierarchyResponse>('/institutions-hierarchy', filters);
+    const response = await apiClient.get<HierarchyResponse>('/hierarchy', filters);
     
     if (response.success && response.data) {
       return response;
@@ -144,7 +144,7 @@ class HierarchyService {
    */
   async getSubTree(institutionId: number, filters?: SubTreeFilters): Promise<SubTreeResponse> {
     const response = await apiClient.get<SubTreeResponse>(
-      `/institutions/${institutionId}/subtree`, 
+      `/hierarchy/children/${institutionId}`, 
       filters
     );
     
@@ -159,7 +159,7 @@ class HierarchyService {
    * Get the path (breadcrumb) for an institution
    */
   async getInstitutionPath(institutionId: number): Promise<PathResponse> {
-    const response = await apiClient.get<PathResponse>(`/institutions/${institutionId}/path`);
+    const response = await apiClient.get<PathResponse>(`/hierarchy/path/${institutionId}`);
     
     if (response.success && response.data) {
       return response;

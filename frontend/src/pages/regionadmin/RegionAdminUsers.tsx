@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { QuickAuth } from '@/components/auth/QuickAuth';
-import { apiClient } from '@/services/api';
+import { regionAdminService } from '@/services/regionAdmin';
 
 interface RegionalUser {
   id: number;
@@ -54,74 +54,48 @@ export default function RegionAdminUsers() {
         throw new Error(`Invalid role: ${role}`);
       }
 
-      const params = new URLSearchParams({
+      const result = await regionAdminService.getUsers({
         role: apiRoleName,
-        per_page: '50'
+        per_page: 50,
       });
 
-      // Get authentication token properly
-      const token = apiClient.getToken() || '';
-      console.log('🔐 Authentication token found:', !!token);
-      console.log('🔐 Token length:', token.length);
-      console.log('🔐 Token starts with:', token.substring(0, 20) + '...');
-      console.log('🔗 API URL:', `/api/regionadmin/users?${params.toString()}`);
+      console.log('🔍 RegionAdmin Users API Response:', result.raw);
+      console.log('🔍 Users array:', result.users);
+      console.log('🔍 Users meta:', result.meta);
+      console.log('🔍 First user sample:', result.users[0]);
 
-      const response = await fetch(`/api/regionadmin/users?${params.toString()}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
-        },
-        credentials: 'include' // Include cookies for session-based auth
-      });
-
-          if (!response.ok) {
-            throw new Error(`API Error: ${response.status}`);
-          }
-
-          const data = await response.json();
-          console.log('🔍 RegionAdmin Users API Response:', data);
-          console.log('🔍 Response status:', response.status);
-          console.log('🔍 Response headers:', Object.fromEntries(response.headers.entries()));
-
-          // Transform backend data to frontend format - handle both direct users array and paginated response
-          const usersArray = Array.isArray(data.users) ? data.users : (data.data || []);
-          console.log('🔍 Users array:', usersArray);
-          console.log('🔍 First user sample:', usersArray[0]);
-          
-          const users: RegionalUser[] = usersArray.map((user: any) => {
-            // Handle roles array - get the first role or fallback
-            let roleName = 'Təyin edilməyib';
-            if (user.roles && Array.isArray(user.roles) && user.roles.length > 0) {
-              roleName = user.roles[0].display_name || user.roles[0].name || 'Təyin edilməyib';
-            } else if (user.role_name) {
-              roleName = user.role_name;
-            } else if (user.role) {
-              // If role is a string, use it directly
-              if (typeof user.role === 'string') {
-                roleName = user.role;
-              } else if (typeof user.role === 'object') {
-                // Handle null role object - common backend issue  
-                if (user.role.name === null && user.role.display_name === null && user.role.id === null) {
-                  roleName = 'Təyin edilməyib';
-                } else {
-                  roleName = user.role.display_name || user.role.name || 'Təyin edilməyib';
-                }
-              }
+      const users: RegionalUser[] = result.users.map((user: any) => {
+        // Handle roles array - get the first role or fallback
+        let roleName = 'Təyin edilməyib';
+        if (user.roles && Array.isArray(user.roles) && user.roles.length > 0) {
+          roleName = user.roles[0].display_name || user.roles[0].name || 'Təyin edilməyib';
+        } else if (user.role_name) {
+          roleName = user.role_name;
+        } else if (user.role) {
+          // If role is a string, use it directly
+          if (typeof user.role === 'string') {
+            roleName = user.role;
+          } else if (typeof user.role === 'object') {
+            // Handle null role object - common backend issue  
+            if (user.role.name === null && user.role.display_name === null && user.role.id === null) {
+              roleName = 'Təyin edilməyib';
+            } else {
+              roleName = user.role.display_name || user.role.name || 'Təyin edilməyib';
             }
+          }
+        }
 
-            return {
-              id: user.id,
-              name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username || 'Ad təyin edilməyib',
-              email: user.email || 'Email təyin edilməyib',
-              role: roleName,
-              institution: user.institution?.name || 'Təyin edilməyib',
-              status: user.is_active || user.status === 'active' ? 'active' : 'inactive',
-              last_login: user.last_login_at,
-              created_at: user.created_at
-            };
-          });
+        return {
+          id: user.id,
+          name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username || 'Ad təyin edilməyib',
+          email: user.email || 'Email təyin edilməyib',
+          role: roleName,
+          institution: user.institution?.name || 'Təyin edilməyib',
+          status: user.is_active || user.status === 'active' ? 'active' : 'inactive',
+          last_login: user.last_login_at,
+          created_at: user.created_at
+        };
+      });
 
       return users;
     } catch (error) {

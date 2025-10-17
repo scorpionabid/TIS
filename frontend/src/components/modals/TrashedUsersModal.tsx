@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -22,25 +22,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/services/api';
-
-interface TrashedUser {
-  id: number;
-  username: string;
-  email: string;
-  first_name?: string;
-  last_name?: string;
-  institution?: {
-    id: number;
-    name: string;
-  };
-  roles: Array<{
-    id: number;
-    name: string;
-    display_name: string;
-  }>;
-  deleted_at: string;
-}
+import { userService, TrashedUser } from '@/services/users';
 
 interface TrashedUsersModalProps {
   open: boolean;
@@ -68,35 +50,21 @@ export const TrashedUsersModal: React.FC<TrashedUsersModalProps> = ({
   const queryClient = useQueryClient();
 
   // Fetch trashed users
-  const fetchTrashedUsers = async (page = 1, searchQuery = '') => {
+  const fetchTrashedUsers = useCallback(async (page = 1, searchQuery = '') => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        per_page: '10',
-        ...(searchQuery && { search: searchQuery })
+      const { users: trashedUsers, pagination: paginationMeta } = await userService.getTrashedUsers({
+        page,
+        per_page: 10,
+        search: searchQuery || undefined,
       });
 
-      const token = apiClient.getToken();
-
-      const response = await fetch(`/api/users/trashed?${params}`, {
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Silinmiş istifadəçilər yüklənə bilmədi');
-      }
-
-      const data = await response.json();
-      setUsers(data.data.data || []);
+      setUsers(trashedUsers);
       setPagination({
-        current_page: data.data.current_page,
-        total: data.data.total,
-        per_page: data.data.per_page,
-        last_page: data.data.last_page
+        current_page: paginationMeta.current_page,
+        total: paginationMeta.total,
+        per_page: paginationMeta.per_page,
+        last_page: paginationMeta.last_page,
       });
     } catch (error) {
       toast({
@@ -107,23 +75,12 @@ export const TrashedUsersModal: React.FC<TrashedUsersModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   // Restore single user
   const restoreUser = async (userId: number) => {
     try {
-      const token = apiClient.getToken();
-      const response = await fetch(`/api/users/${userId}/restore`, {
-        method: 'POST',
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('İstifadəçi bərpa edilə bilmədi');
-      }
+      await userService.restoreTrashedUser(userId);
 
       toast({
         title: 'Uğur',
@@ -131,7 +88,7 @@ export const TrashedUsersModal: React.FC<TrashedUsersModalProps> = ({
       });
 
       // Refresh the list and main users list
-      fetchTrashedUsers(pagination.current_page, search);
+      await fetchTrashedUsers(pagination.current_page, search);
       await queryClient.invalidateQueries({ queryKey: ['users'] });
       setSelectedUsers(prev => {
         const newSet = new Set(prev);
@@ -153,31 +110,14 @@ export const TrashedUsersModal: React.FC<TrashedUsersModalProps> = ({
 
     setRestoring(true);
     try {
-      const token = apiClient.getToken();
-      const response = await fetch('/api/users/bulk/restore', {
-        method: 'POST',
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          user_ids: Array.from(selectedUsers),
-          confirm: true
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('İstifadəçilər bərpa edilə bilmədi');
-      }
-
-      const result = await response.json();
+      const result = await userService.bulkRestoreTrashedUsers(Array.from(selectedUsers));
       toast({
         title: 'Uğur',
-        description: `${result.data.restored_count} istifadəçi uğurla bərpa edildi`,
+        description: `${result?.restored_count ?? 0} istifadəçi uğurla bərpa edildi`,
       });
 
       // Refresh the list and clear selection, also refresh main users list
-      fetchTrashedUsers(pagination.current_page, search);
+      await fetchTrashedUsers(pagination.current_page, search);
       await queryClient.invalidateQueries({ queryKey: ['users'] });
       setSelectedUsers(new Set());
     } catch (error) {
@@ -198,19 +138,8 @@ export const TrashedUsersModal: React.FC<TrashedUsersModalProps> = ({
     }
 
     try {
-      const token = apiClient.getToken();
-      const response = await fetch(`/api/users/${userId}/force`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ confirm: true }),
-      });
-
-      if (!response.ok) {
-        throw new Error('İstifadəçi həmişəlik silinə bilmədi');
-      }
+      setForceDeleting(true);
+      await userService.forceDeleteUser(userId);
 
       toast({
         title: 'Uğur',
@@ -218,7 +147,7 @@ export const TrashedUsersModal: React.FC<TrashedUsersModalProps> = ({
       });
 
       // Refresh the list and main users list  
-      fetchTrashedUsers(pagination.current_page, search);
+      await fetchTrashedUsers(pagination.current_page, search);
       await queryClient.invalidateQueries({ queryKey: ['users'] });
       setSelectedUsers(prev => {
         const newSet = new Set(prev);
@@ -231,6 +160,8 @@ export const TrashedUsersModal: React.FC<TrashedUsersModalProps> = ({
         description: error instanceof Error ? error.message : 'Gözlənilməz xəta baş verdi',
         variant: 'destructive',
       });
+    } finally {
+      setForceDeleting(false);
     }
   };
 
@@ -269,7 +200,7 @@ export const TrashedUsersModal: React.FC<TrashedUsersModalProps> = ({
       setSelectedUsers(new Set());
       setSearch('');
     }
-  }, [open]);
+  }, [open, fetchTrashedUsers]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('az-AZ', {
@@ -419,6 +350,7 @@ export const TrashedUsersModal: React.FC<TrashedUsersModalProps> = ({
                       size="sm"
                       variant="destructive"
                       className="flex items-center gap-1"
+                      disabled={forceDeleting}
                     >
                       <AlertTriangle className="h-3 w-3" />
                       Həmişəlik sil

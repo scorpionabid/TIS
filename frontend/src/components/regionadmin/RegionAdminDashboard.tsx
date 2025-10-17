@@ -18,7 +18,7 @@ import {
   Activity
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { apiClient } from '@/services/api';
+import { regionAdminService } from '@/services/regionAdmin';
 
 interface RegionStats {
   region_overview: {
@@ -87,9 +87,9 @@ export const RegionAdminDashboard = () => {
     queryKey: ['regionadmin-stats', currentUser?.institution?.id || 'no-institution'],
     queryFn: async () => {
       debugLog('📊 RegionAdminDashboard: Fetching stats for user:', currentUser?.name);
-      const response = await apiClient.get<RegionStats>('/regionadmin/dashboard/stats');
-      debugLog('✅ RegionAdminDashboard: Stats response:', response);
-      return response.data || response;
+      const data = await regionAdminService.getDashboardStats<RegionStats>();
+      debugLog('✅ RegionAdminDashboard: Stats response:', data);
+      return data;
     },
     enabled: !!currentUser,
     staleTime: 1000 * 60 * 5, // 5 minutes
@@ -100,9 +100,9 @@ export const RegionAdminDashboard = () => {
     queryKey: ['regionadmin-activities', currentUser?.institution?.id || 'no-institution'],
     queryFn: async () => {
       debugLog('📋 RegionAdminDashboard: Fetching activities for user:', currentUser?.name);
-      const response = await apiClient.get<RecentActivity[]>('/regionadmin/dashboard/activities');
-      debugLog('✅ RegionAdminDashboard: Activities response:', response);
-      return response.data || response || [];
+      const data = await regionAdminService.getDashboardActivities<RecentActivity[]>();
+      debugLog('✅ RegionAdminDashboard: Activities response:', data);
+      return data || [];
     },
     enabled: !!currentUser,
     staleTime: 1000 * 60 * 2, // 2 minutes
