@@ -28,6 +28,7 @@ class Grade extends Model
         'female_student_count',
         'specialty',
         'grade_category',
+        'grade_type',
         'education_program',
         'description',
         'metadata',

@@ -88,6 +88,7 @@ export interface GradeCreateData {
   homeroom_teacher_id?: number;
   specialty?: string;
   grade_category?: string;
+  grade_type?: string;
   education_program?: string;
   description?: string;
   student_count?: number;
@@ -103,6 +104,7 @@ export interface GradeUpdateData {
   homeroom_teacher_id?: number | null;
   specialty?: string;
   grade_category?: string;
+  grade_type?: string;
   education_program?: string;
   description?: string;
   student_count?: number;

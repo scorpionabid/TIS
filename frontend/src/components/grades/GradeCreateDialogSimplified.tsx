@@ -76,6 +76,7 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
     male_student_count: 0,
     female_student_count: 0,
     education_program: 'umumi',
+    grade_type: '',
     tag_ids: [],
   });
 
@@ -98,6 +99,7 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
         male_student_count: (editingGrade as any).male_student_count || 0,
         female_student_count: (editingGrade as any).female_student_count || 0,
         education_program: (editingGrade as any).education_program || 'umumi',
+        grade_type: (editingGrade as any).grade_type || '',
         tag_ids: (editingGrade as any).tags?.map((t: any) => t.id) || [],
       });
     } else if (open && !editingGrade) {
@@ -116,6 +118,7 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
         male_student_count: 0,
         female_student_count: 0,
         education_program: 'umumi',
+        grade_type: '',
         tag_ids: [],
       });
     }
@@ -222,6 +225,7 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
         male_student_count: formData.male_student_count,
         female_student_count: formData.female_student_count,
         education_program: formData.education_program,
+        grade_type: formData.grade_type,
         tag_ids: formData.tag_ids,
       };
       updateMutation.mutate({ id: editingGrade.id, updates: updateData });
@@ -419,17 +423,85 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
                 }}
               />
 
-              {/* Grade Tags */}
+              {/* Grade Type */}
               <div className="space-y-2">
-                <Label>Sinif növü tag-ları (könüllü)</Label>
-                <TagSelector
-                  selectedTagIds={formData.tag_ids || []}
-                  onChange={(tagIds) => handleFieldChange('tag_ids', tagIds)}
+                <Label htmlFor="grade_type">Sinif növü (könüllü)</Label>
+                <Select
+                  value={formData.grade_type || 'none'}
+                  onValueChange={(value) => handleFieldChange('grade_type', value === 'none' ? '' : value)}
                   disabled={isLoading}
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sinif növünü seçin" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    <SelectItem value="none">Seçilməyib</SelectItem>
+                    <SelectItem value="Məktəb Avar">Məktəb Avar</SelectItem>
+                    <SelectItem value="Orta məktəb sinfi">Orta məktəb sinfi</SelectItem>
+                    <SelectItem value="Məktəbəhazırlıq">Məktəbəhazırlıq</SelectItem>
+                    <SelectItem value="Orta məktəb Rus dili">Orta məktəb Rus dili</SelectItem>
+                    <SelectItem value="Xidmət profili">Xidmət profili</SelectItem>
+                    <SelectItem value="Məktəb Gürcü">Məktəb Gürcü</SelectItem>
+                    <SelectItem value="Orta məktəb Şahmat">Orta məktəb Şahmat</SelectItem>
+                    <SelectItem value="Əqli evdə">Əqli evdə</SelectItem>
+                    <SelectItem value="Orta məktəb şahmat, Rəqəmsal bacarıq">Orta məktəb şahmat, Rəqəmsal bacarıq</SelectItem>
+                    <SelectItem value="Orta məktəb rəqəmsal bacarıqlar">Orta məktəb rəqəmsal bacarıqlar</SelectItem>
+                    <SelectItem value="Orta məktəb humanitar">Orta məktəb humanitar</SelectItem>
+                    <SelectItem value="Orta məktəb texniki">Orta məktəb texniki</SelectItem>
+                    <SelectItem value="Fərdi təhsil">Fərdi təhsil</SelectItem>
+                    <SelectItem value="Rəqəmsal bacarıq, Steam">Rəqəmsal bacarıq, Steam</SelectItem>
+                    <SelectItem value="Orta məktəb Texniki və Təbiət">Orta məktəb Texniki və Təbiət</SelectItem>
+                    <SelectItem value="Orta məktəb Humanitar və Riyaziyyat, İqtisadiyyat">Orta məktəb Humanitar və Riyaziyyat, İqtisadiyyat</SelectItem>
+                    <SelectItem value="Məktəb Saxur">Məktəb Saxur</SelectItem>
+                    <SelectItem value="Orta məktəb Texniki və Riyaziyyat, İqtisadiyyat">Orta məktəb Texniki və Riyaziyyat, İqtisadiyyat</SelectItem>
+                    <SelectItem value="Məktəbəhazırlıq azsaylı xalqlar">Məktəbəhazırlıq azsaylı xalqlar</SelectItem>
+                    <SelectItem value="Orta məktəb Ləzgi">Orta məktəb Ləzgi</SelectItem>
+                    <SelectItem value="Lisey istedadlı">Lisey istedadlı</SelectItem>
+                    <SelectItem value="Tikinti təmir profili">Tikinti təmir profili</SelectItem>
+                    <SelectItem value="Gimnaziya sinfi">Gimnaziya sinfi</SelectItem>
+                    <SelectItem value="Gimnaziya rəqəmsal bacarıqlar">Gimnaziya rəqəmsal bacarıqlar</SelectItem>
+                    <SelectItem value="Gimnaziya Humanitar">Gimnaziya Humanitar</SelectItem>
+                    <SelectItem value="Lisey Texniki, Rəqəmsal bacarıq">Lisey Texniki, Rəqəmsal bacarıq</SelectItem>
+                    <SelectItem value="Lisey Humanitar, Rəqəmsal bacarıq">Lisey Humanitar, Rəqəmsal bacarıq</SelectItem>
+                    <SelectItem value="Lisey Humanitar">Lisey Humanitar</SelectItem>
+                    <SelectItem value="Lisey Texniki">Lisey Texniki</SelectItem>
+                    <SelectItem value="Lisey Texniki və Təbiət">Lisey Texniki və Təbiət</SelectItem>
+                    <SelectItem value="Lisey Humanitar və Riyaziyyat, İqtisadiyyat">Lisey Humanitar və Riyaziyyat, İqtisadiyyat</SelectItem>
+                    <SelectItem value="Steam">Steam</SelectItem>
+                    <SelectItem value="Lisey Texniki, Rəqəmsal bacarıq, Steam">Lisey Texniki, Rəqəmsal bacarıq, Steam</SelectItem>
+                    <SelectItem value="Lisey Humanitar, Rəqəmsal bacarıq, Steam">Lisey Humanitar, Rəqəmsal bacarıq, Steam</SelectItem>
+                    <SelectItem value="Rus intensiv, Steam">Rus intensiv, Steam</SelectItem>
+                    <SelectItem value="Məktəb Udi">Məktəb Udi</SelectItem>
+                    <SelectItem value="Xüsusi sinif (əqli)">Xüsusi sinif (əqli)</SelectItem>
+                    <SelectItem value="Kənd təsərrüfatı profili">Kənd təsərrüfatı profili</SelectItem>
+                    <SelectItem value="Ləzgi dili,Rəqəmsal bacarıq">Ləzgi dili,Rəqəmsal bacarıq</SelectItem>
+                    <SelectItem value="Lisey Texniki,Steam">Lisey Texniki,Steam</SelectItem>
+                    <SelectItem value="Xüsusi sinif (əqli) (1-5 nəfər)">Xüsusi sinif (əqli) (1-5 nəfər)</SelectItem>
+                    <SelectItem value="Lisey Təbiət">Lisey Təbiət</SelectItem>
+                    <SelectItem value="Lisey Humanitar,Steam">Lisey Humanitar,Steam</SelectItem>
+                    <SelectItem value="Lisey Riyaziyyat, İqtisadiyyat">Lisey Riyaziyyat, İqtisadiyyat</SelectItem>
+                    <SelectItem value="Tikişçi (əqli)">Tikişçi (əqli)</SelectItem>
+                    <SelectItem value="Orta məktəb Riyaziyyat, İqtisadiyyat">Orta məktəb Riyaziyyat, İqtisadiyyat</SelectItem>
+                    <SelectItem value="Rəqəmsal bacarıqlar,Steam,Şahmat">Rəqəmsal bacarıqlar,Steam,Şahmat</SelectItem>
+                    <SelectItem value="Gimnaziya Humanitar, Rəqəmsal bacarıq">Gimnaziya Humanitar, Rəqəmsal bacarıq</SelectItem>
+                    <SelectItem value="Lisey rəqəmsal bacarıqlar">Lisey rəqəmsal bacarıqlar</SelectItem>
+                    <SelectItem value="Steam,Şahmat">Steam,Şahmat</SelectItem>
+                    <SelectItem value="İnnovativ,Rəqəmsal bacarıqlar,Steam">İnnovativ,Rəqəmsal bacarıqlar,Steam</SelectItem>
+                    <SelectItem value="Orta məktəb İnformatika">Orta məktəb İnformatika</SelectItem>
+                    <SelectItem value="Texniki təmayül pilot">Texniki təmayül pilot</SelectItem>
+                    <SelectItem value="Riyaziyyat,İqtisadiyyat təmayül pilot">Riyaziyyat,İqtisadiyyat təmayül pilot</SelectItem>
+                    <SelectItem value="Humanitar təmayül pilot">Humanitar təmayül pilot</SelectItem>
+                    <SelectItem value="Təbiət təmayül pilot">Təbiət təmayül pilot</SelectItem>
+                    <SelectItem value="Lisey informatika">Lisey informatika</SelectItem>
+                    <SelectItem value="Lisey istedadlı, Rəqəmsal bacarıq">Lisey istedadlı, Rəqəmsal bacarıq</SelectItem>
+                    <SelectItem value="Lisey təbiət, Rəqəmsal bacarıq">Lisey təbiət, Rəqəmsal bacarıq</SelectItem>
+                    <SelectItem value="Lisey Texniki və Riyaziyyat, İqtisadiyyat">Lisey Texniki və Riyaziyyat, İqtisadiyyat</SelectItem>
+                    <SelectItem value="Lisey, Rəqəmsal bacarıq, Steam">Lisey, Rəqəmsal bacarıq, Steam</SelectItem>
+                  </SelectContent>
+                </Select>
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Info className="h-3 w-3" />
-                  Sinfi xüsusiləşdirmək üçün tag-lar seçə bilərsiniz (məktəb növü, dil, ixtisaslaşma və s.)
+                  Sinifin növünü təyin edin (məsələn: Lisey Texniki, Gimnaziya Humanitar və s.)
                 </p>
               </div>
 

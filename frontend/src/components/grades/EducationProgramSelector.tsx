@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { GraduationCap } from 'lucide-react';
-import { gradeTagService } from '@/services/gradeTagService';
 import type { EducationProgram, EducationProgramType } from '@/types/gradeTag';
 import {
   Select,
@@ -10,6 +9,30 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+
+// Static education programs - these rarely change
+const EDUCATION_PROGRAMS: EducationProgram[] = [
+  {
+    value: 'umumi',
+    label: 'Ümumi təhsil',
+    description: 'Standart ümumi təhsil proqramı',
+  },
+  {
+    value: 'xususi',
+    label: 'Xüsusi təhsil',
+    description: 'Xüsusi ehtiyacları olan şagirdlər üçün təhsil',
+  },
+  {
+    value: 'mektebde_ferdi',
+    label: 'Məktəbdə fərdi təhsil',
+    description: 'Məktəbdə fərdi təhsil proqramı',
+  },
+  {
+    value: 'evde_ferdi',
+    label: 'Evdə fərdi təhsil',
+    description: 'Evdə fərdi təhsil proqramı',
+  },
+];
 
 interface EducationProgramSelectorProps {
   value: EducationProgramType;
@@ -24,26 +47,9 @@ export const EducationProgramSelector: React.FC<EducationProgramSelectorProps> =
   disabled = false,
   error,
 }) => {
-  const [programs, setPrograms] = useState<EducationProgram[]>([]);
-  const [loading, setLoading] = useState(true);
+  const programs = EDUCATION_PROGRAMS;
 
-  useEffect(() => {
-    loadPrograms();
-  }, []);
-
-  const loadPrograms = async () => {
-    try {
-      setLoading(true);
-      const data = await gradeTagService.getEducationPrograms();
-      setPrograms(data);
-    } catch (error) {
-      console.error('Təhsil proqramları yükləmə xətası:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const selectedProgram = programs && programs.length > 0 ? programs.find(p => p.value === value) : null;
+  const selectedProgram = programs.find(p => p.value === value) || null;
 
   return (
     <div className="space-y-2">
@@ -54,29 +60,20 @@ export const EducationProgramSelector: React.FC<EducationProgramSelectorProps> =
       <Select
         value={value}
         onValueChange={(val) => onChange(val as EducationProgramType)}
-        disabled={disabled || loading}
+        disabled={disabled}
       >
         <SelectTrigger
           id="education-program"
           className={error ? 'border-red-500' : ''}
         >
-          <SelectValue placeholder={loading ? "Yüklənir..." : "Təhsil proqramı seçin"} />
+          <SelectValue placeholder="Təhsil proqramı seçin" />
         </SelectTrigger>
         <SelectContent>
-          {programs && programs.length > 0 ? programs.map((program) => (
+          {programs.map((program) => (
             <SelectItem key={program.value} value={program.value}>
-              <div className="flex flex-col items-start">
-                <span className="font-medium">{program.label}</span>
-                <span className="text-xs text-muted-foreground">
-                  {program.description}
-                </span>
-              </div>
+              {program.label}
             </SelectItem>
-          )) : (
-            <div className="p-2 text-xs text-muted-foreground text-center">
-              Proqramlar yüklənmədi
-            </div>
-          )}
+          ))}
         </SelectContent>
       </Select>
 

@@ -211,7 +211,8 @@ Route::prefix('grades')->group(function () {
     Route::get('/tags', [GradeTagController::class, 'index'])->middleware('permission:grades.read');
     Route::get('/tags/list', [GradeTagController::class, 'list'])->middleware('permission:grades.read');
     Route::get('/tags/categories', [GradeTagController::class, 'categories'])->middleware('permission:grades.read');
-    Route::get('/education-programs', [GradeTagController::class, 'educationPrograms'])->middleware('permission:grades.read');
+    // Education programs are static data - no permission required for authenticated users
+    Route::get('/education-programs', [GradeTagController::class, 'educationPrograms']);
 
     // Core CRUD operations
     Route::get('/', [GradeUnifiedController::class, 'index'])->middleware('permission:grades.read');
