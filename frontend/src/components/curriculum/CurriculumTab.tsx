@@ -9,8 +9,8 @@
  * - Statistics display
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Edit, BookOpen, Users, Clock } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Plus, Trash2, Edit, BookOpen, Users, Clock, ArrowUpDown, ArrowUp, ArrowDown, Filter } from 'lucide-react';
 import curriculumService from '../../services/curriculumService';
 import type { GradeSubject, CurriculumMeta, CurriculumStatistics } from '../../types/curriculum';
 import AddSubjectModal from './AddSubjectModal';
@@ -22,6 +22,9 @@ interface CurriculumTabProps {
   onUpdate?: () => void;
 }
 
+type SortField = 'name' | 'weekly_hours' | 'calculated_hours' | null;
+type SortDirection = 'asc' | 'desc';
+
 const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpdate }) => {
   const [subjects, setSubjects] = useState<GradeSubject[]>([]);
   const [meta, setMeta] = useState<CurriculumMeta | null>(null);
@@ -32,16 +35,23 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
   const [editingSubject, setEditingSubject] = useState<GradeSubject | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
+  // Sort & Filter states
+  const [sortField, setSortField] = useState<SortField>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [filterActivityType, setFilterActivityType] = useState<'all' | 'teaching' | 'extracurricular' | 'club'>('all');
+  const [filterGroupSplit, setFilterGroupSplit] = useState<'all' | 'split' | 'nosplit'>('all');
+
   const loadCurriculum = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await curriculumService.getCurriculumSubjects(gradeId);
-      setSubjects(data.subjects);
+      setSubjects(data.subjects || []);
       setMeta(data.meta);
     } catch (err: any) {
       console.error('Error loading curriculum:', err);
       setError(err.response?.data?.message || 'Kurikulum yüklənərkən xəta baş verdi');
+      setSubjects([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
@@ -93,6 +103,80 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
     }
   };
 
+  // Sort handler
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sorted and filtered subjects
+  const filteredAndSortedSubjects = useMemo(() => {
+    // Guard clause: ensure subjects is a valid array
+    if (!subjects || !Array.isArray(subjects)) {
+      return [];
+    }
+
+    let filtered = [...subjects];
+
+    // Apply activity type filter
+    if (filterActivityType !== 'all') {
+      filtered = filtered.filter(subject => {
+        switch (filterActivityType) {
+          case 'teaching':
+            return subject.is_teaching_activity;
+          case 'extracurricular':
+            return subject.is_extracurricular;
+          case 'club':
+            return subject.is_club;
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Apply group split filter
+    if (filterGroupSplit !== 'all') {
+      filtered = filtered.filter(subject => {
+        return filterGroupSplit === 'split' ? subject.is_split_groups : !subject.is_split_groups;
+      });
+    }
+
+    // Apply sorting
+    if (sortField) {
+      filtered.sort((a, b) => {
+        let aValue: any;
+        let bValue: any;
+
+        switch (sortField) {
+          case 'name':
+            aValue = a.subject_name.toLowerCase();
+            bValue = b.subject_name.toLowerCase();
+            break;
+          case 'weekly_hours':
+            aValue = a.weekly_hours;
+            bValue = b.weekly_hours;
+            break;
+          case 'calculated_hours':
+            aValue = a.weekly_hours * a.group_count;
+            bValue = b.weekly_hours * b.group_count;
+            break;
+          default:
+            return 0;
+        }
+
+        if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return filtered;
+  }, [subjects, sortField, sortDirection, filterActivityType, filterGroupSplit]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -131,13 +215,43 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
             </div>
           </div>
 
-          <div className="bg-green-50 rounded-lg p-4">
+          <div className={`rounded-lg p-4 ${
+            (statistics?.total_weekly_hours || 0) > 35
+              ? 'bg-red-50 border-2 border-red-200'
+              : (statistics?.total_weekly_hours || 0) > 30
+              ? 'bg-yellow-50 border-2 border-yellow-200'
+              : 'bg-green-50'
+          }`}>
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-green-600 font-medium">Həftəlik Saat</p>
-                <p className="text-2xl font-bold text-green-900">{statistics?.total_weekly_hours || 0}</p>
+              <div className="flex-1">
+                <p className={`text-sm font-medium ${
+                  (statistics?.total_weekly_hours || 0) > 35
+                    ? 'text-red-600'
+                    : (statistics?.total_weekly_hours || 0) > 30
+                    ? 'text-yellow-600'
+                    : 'text-green-600'
+                }`}>Həftəlik Saat</p>
+                <p className={`text-2xl font-bold ${
+                  (statistics?.total_weekly_hours || 0) > 35
+                    ? 'text-red-900'
+                    : (statistics?.total_weekly_hours || 0) > 30
+                    ? 'text-yellow-900'
+                    : 'text-green-900'
+                }`}>{statistics?.total_weekly_hours || 0}</p>
+                {(statistics?.total_weekly_hours || 0) > 35 && (
+                  <p className="text-xs text-red-600 mt-1">⚠️ Maksimum limitdən çox</p>
+                )}
+                {(statistics?.total_weekly_hours || 0) > 30 && (statistics?.total_weekly_hours || 0) <= 35 && (
+                  <p className="text-xs text-yellow-600 mt-1">⚠️ Limite yaxındır</p>
+                )}
               </div>
-              <Clock className="h-8 w-8 text-green-400" />
+              <Clock className={`h-8 w-8 ${
+                (statistics?.total_weekly_hours || 0) > 35
+                  ? 'text-red-400'
+                  : (statistics?.total_weekly_hours || 0) > 30
+                  ? 'text-yellow-400'
+                  : 'text-green-400'
+              }`} />
             </div>
           </div>
 
@@ -169,6 +283,11 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
           <h3 className="text-lg font-semibold text-gray-900">Fənnlər və Dərs Yükü</h3>
           <p className="text-sm text-gray-500 mt-1">
             {meta?.grade_name ? `${meta.grade_name} sinfi üçün kurikulum` : gradeName}
+            {subjects && filteredAndSortedSubjects.length !== subjects.length && (
+              <span className="ml-2 text-blue-600">
+                ({filteredAndSortedSubjects.length} / {subjects.length} fənn göstərilir)
+              </span>
+            )}
           </p>
         </div>
         <button
@@ -180,19 +299,60 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
         </button>
       </div>
 
+      {/* Filter Bar */}
+      {subjects && subjects.length > 0 && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Filter className="h-4 w-4 text-gray-600" />
+            <span className="text-sm font-medium text-gray-700">Filtrlər</span>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {/* Activity Type Filter */}
+            <select
+              value={filterActivityType}
+              onChange={(e) => setFilterActivityType(e.target.value as any)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">Bütün fəaliyyət növləri</option>
+              <option value="teaching">📘 Tədris fəaliyyəti</option>
+              <option value="extracurricular">🌟 Dərsdənkənar</option>
+              <option value="club">🎭 Dərnək</option>
+            </select>
+
+            {/* Group Split Filter */}
+            <select
+              value={filterGroupSplit}
+              onChange={(e) => setFilterGroupSplit(e.target.value as any)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">Hamısı</option>
+              <option value="split">Qruplara bölünən</option>
+              <option value="nosplit">Qruplara bölünməyən</option>
+            </select>
+
+            {/* Clear Filters */}
+            {(filterActivityType !== 'all' || filterGroupSplit !== 'all' || sortField) && (
+              <button
+                onClick={() => {
+                  setFilterActivityType('all');
+                  setFilterGroupSplit('all');
+                  setSortField(null);
+                }}
+                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Filttrləri təmizlə
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Subjects Table */}
       {!subjects || subjects.length === 0 ? (
         <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
           <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">Fənn əlavə edilməyib</h3>
-          <p className="text-gray-500 mb-4">Bu sinfə hələ fənn əlavə edilməyib.</p>
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4" />
-            İlk Fənni Əlavə Et
-          </button>
+          <p className="text-gray-500">Bu sinfə hələ fənn əlavə edilməyib. Yuxarıdakı "Fənn Əlavə Et" düyməsindən istifadə edin.</p>
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -200,11 +360,29 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Fənn
+                  <th
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort('name')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Fənn
+                      {sortField === 'name' && (
+                        sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                      )}
+                      {sortField !== 'name' && <ArrowUpDown className="h-4 w-4 text-gray-400" />}
+                    </div>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Həftəlik Saat
+                  <th
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort('weekly_hours')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Həftəlik Saat
+                      {sortField === 'weekly_hours' && (
+                        sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                      )}
+                      {sortField !== 'weekly_hours' && <ArrowUpDown className="h-4 w-4 text-gray-400" />}
+                    </div>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Tədris Fəaliyyəti
@@ -227,7 +405,7 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {subjects?.map((subject) => (
+                {filteredAndSortedSubjects?.map((subject) => (
                   <tr key={subject.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -243,37 +421,31 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
                       <div className="text-sm text-gray-900">{subject.formatted_hours}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          subject.is_teaching_activity
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {subject.is_teaching_activity ? '✓' : '−'}
-                      </span>
+                      {subject.is_teaching_activity ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                          <span className="mr-1">📘</span> Tədris
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs text-gray-400">−</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          subject.is_extracurricular
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {subject.is_extracurricular ? '✓' : '−'}
-                      </span>
+                      {subject.is_extracurricular ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                          <span className="mr-1">🌟</span> Dərsdənkənar
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs text-gray-400">−</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          subject.is_club
-                            ? 'bg-purple-100 text-purple-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {subject.is_club ? '✓' : '−'}
-                      </span>
+                      {subject.is_club ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                          <span className="mr-1">🎭</span> Dərnək
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs text-gray-400">−</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {subject.is_split_groups ? (

@@ -4,19 +4,20 @@ import { Grade, GradeFilters, gradeService } from '@/services/grades';
 import { EntityConfig } from '@/components/generic/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { 
-  Users, 
-  MapPin, 
-  UserCheck, 
+import {
+  Users,
+  MapPin,
+  UserCheck,
   Calendar,
   School,
   Settings,
-  Eye,
+  BookOpen,
   Edit,
   UserPlus,
   BarChart3,
   Trash2,
-  Archive
+  Archive,
+  Copy
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -202,8 +203,8 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
   actions: [
     {
       key: 'view',
-      label: 'Ətraflı',
-      icon: Eye,
+      label: 'Kurikulum',
+      icon: BookOpen,
       variant: 'ghost' as const,
       onClick: (grade: Grade) => {
         // Handle view action - will be overridden in component
@@ -218,6 +219,16 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       onClick: (grade: Grade) => {
         // Handle edit action - will be overridden in component
         console.log('Edit grade:', grade.id);
+      }
+    },
+    {
+      key: 'duplicate',
+      label: 'Kopyala',
+      icon: Copy,
+      variant: 'ghost' as const,
+      onClick: (grade: Grade) => {
+        // Handle duplicate action - will be overridden in component
+        console.log('Duplicate grade:', grade.id);
       }
     },
     {

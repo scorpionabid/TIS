@@ -425,7 +425,7 @@ class ApiClientOptimized {
         throw enhancedError;
       }
       
-      // Log response structure for debugging
+      // Log response structure for debugging (development only)
       if (isDevelopment && response.url.includes('/grades')) {
         console.log('📦 GRADES API RESPONSE STRUCTURE:', {
           hasData: 'data' in data,

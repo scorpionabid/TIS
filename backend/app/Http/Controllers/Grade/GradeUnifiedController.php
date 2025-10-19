@@ -1301,4 +1301,123 @@ class GradeUnifiedController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Duplicate/Copy a grade with its curriculum
+     * POST /api/grades/{grade}/duplicate
+     */
+    public function duplicate(Request $request, Grade $grade): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+
+            // Authorization check
+            if (!$user->hasPermissionTo('grade.create')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu əməliyyat üçün icazəniz yoxdur'
+                ], 403);
+            }
+
+            // Validate input
+            $validator = Validator::make($request->all(), [
+                'name' => 'required|string|max:10',
+                'copy_subjects' => 'sometimes|boolean',
+                'academic_year_id' => 'sometimes|exists:academic_years,id',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validasiya xətası',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            // Create new grade with copied data
+            $newGradeData = $grade->toArray();
+            unset($newGradeData['id']);
+            unset($newGradeData['created_at']);
+            unset($newGradeData['updated_at']);
+            unset($newGradeData['student_count']);
+            unset($newGradeData['capacity_status']);
+            unset($newGradeData['utilization_rate']);
+
+            // Update with new name
+            $newGradeData['name'] = $request->name;
+
+            // Update academic year if provided
+            if ($request->has('academic_year_id')) {
+                $newGradeData['academic_year_id'] = $request->academic_year_id;
+            }
+
+            // Reset teacher and room assignments
+            $newGradeData['homeroom_teacher_id'] = null;
+            $newGradeData['room_id'] = null;
+
+            // Create the new grade
+            $newGrade = Grade::create($newGradeData);
+
+            // Copy subjects if requested (default: true)
+            if ($request->get('copy_subjects', true)) {
+                $gradeSubjects = \DB::table('grade_subjects')
+                    ->where('grade_id', $grade->id)
+                    ->get();
+
+                foreach ($gradeSubjects as $gradeSubject) {
+                    \DB::table('grade_subjects')->insert([
+                        'grade_id' => $newGrade->id,
+                        'subject_id' => $gradeSubject->subject_id,
+                        'weekly_hours' => $gradeSubject->weekly_hours,
+                        'is_teaching_activity' => $gradeSubject->is_teaching_activity,
+                        'is_extracurricular' => $gradeSubject->is_extracurricular,
+                        'is_club' => $gradeSubject->is_club,
+                        'is_split_groups' => $gradeSubject->is_split_groups,
+                        'group_count' => $gradeSubject->group_count,
+                        'teacher_id' => null, // Reset teacher assignment
+                        'notes' => $gradeSubject->notes,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+
+            // Load relationships
+            $newGrade->load([
+                'institution',
+                'academicYear',
+                'homeroomTeacher',
+                'room',
+            ]);
+
+            // Generate display names
+            $newGrade->display_name = $this->namingEngine->generateDisplayName($newGrade);
+            $newGrade->full_name = $this->namingEngine->generateFullName($newGrade);
+
+            Log::info('Grade duplicated successfully', [
+                'original_grade_id' => $grade->id,
+                'new_grade_id' => $newGrade->id,
+                'user_id' => $user->id,
+                'copied_subjects' => $request->get('copy_subjects', true),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $newGrade,
+                'message' => 'Sinif uğurla kopyalandı'
+            ], 201);
+
+        } catch (\Exception $e) {
+            Log::error('Grade duplicate error: ' . $e->getMessage(), [
+                'grade_id' => $grade->id,
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Sinif kopyalanarkən xəta baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
 }

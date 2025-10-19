@@ -7,6 +7,7 @@ import { GradeDetailsDialog } from './GradeDetailsDialog';
 import { GradeDetailsDialogWithTabs } from './GradeDetailsDialogWithTabs';
 import { GradeStudentsDialog } from './GradeStudentsDialog';
 import { GradeAnalyticsModal } from './GradeAnalyticsModal';
+import { GradeDuplicateModal } from './GradeDuplicateModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { institutionService } from '@/services/institutions';
@@ -34,6 +35,7 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
   const [createModalOpen, setCreateModalOpen] = React.useState(false);
   const [selectedGrade, setSelectedGrade] = React.useState<Grade | null>(null);
   const [editingGrade, setEditingGrade] = React.useState<Grade | null>(null);
+  const [duplicatingGrade, setDuplicatingGrade] = React.useState<Grade | null>(null);
   const [studentsModalOpen, setStudentsModalOpen] = React.useState(false);
   const [studentsGrade, setStudentsGrade] = React.useState<Grade | null>(null);
   const [analyticsModalOpen, setAnalyticsModalOpen] = React.useState(false);
@@ -159,6 +161,9 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
           case 'edit':
             setEditingGrade(grade);
             break;
+          case 'duplicate':
+            setDuplicatingGrade(grade);
+            break;
           case 'students':
             setStudentsGrade(grade);
             setStudentsModalOpen(true);
@@ -229,6 +234,7 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     setCreateModalOpen(false);
     setSelectedGrade(null);
     setEditingGrade(null);
+    setDuplicatingGrade(null);
     setStudentsModalOpen(false);
     setStudentsGrade(null);
     setAnalyticsModalOpen(false);
@@ -255,20 +261,11 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
         availableAcademicYears={availableAcademicYears}
       />
 
-      {/* Grade Details Modal */}
+      {/* Grade Curriculum Modal */}
       {selectedGrade && (
         <GradeDetailsDialogWithTabs
           grade={selectedGrade}
           onClose={handleCloseModals}
-          onEdit={(grade) => {
-            setSelectedGrade(null);
-            setEditingGrade(grade);
-          }}
-          onManageStudents={(grade) => {
-            setSelectedGrade(null);
-            setStudentsGrade(grade);
-            setStudentsModalOpen(true);
-          }}
           onUpdate={() => {
             queryClient.invalidateQueries({ queryKey: ['grades'] });
           }}
@@ -302,6 +299,18 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
           grade={analyticsGrade}
           open={analyticsModalOpen}
           onClose={handleCloseModals}
+        />
+      )}
+
+      {/* Duplicate Modal */}
+      {duplicatingGrade && (
+        <GradeDuplicateModal
+          grade={duplicatingGrade}
+          open={!!duplicatingGrade}
+          onClose={handleCloseModals}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['grades'] });
+          }}
         />
       )}
     </>

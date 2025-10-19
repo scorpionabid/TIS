@@ -236,7 +236,10 @@ Route::prefix('grades')->group(function () {
     
     // Analytics
     Route::get('/{grade}/analytics', [GradeUnifiedController::class, 'getAnalytics'])->middleware('permission:grades.analytics');
-    
+
+    // Duplicate/Copy grade
+    Route::post('/{grade}/duplicate', [GradeUnifiedController::class, 'duplicate'])->middleware('permission:grades.create');
+
     // Smart naming system routes
     Route::get('/naming/options', [GradeUnifiedController::class, 'getNamingOptions'])->middleware('permission:grades.create');
     Route::get('/naming/suggestions', [GradeUnifiedController::class, 'getNamingSuggestions'])->middleware('permission:grades.create');

@@ -77,13 +77,13 @@ const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4">
+      <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[70vh] flex flex-col">
+        {/* Header - Sticky */}
+        <div className="flex-shrink-0 bg-white border-b border-gray-200 px-5 py-3 flex items-center justify-between rounded-t-lg">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Fənn Düzəlişi</h2>
-            <p className="text-sm text-gray-500 mt-1">
+            <h2 className="text-lg font-semibold text-gray-900">Fənn Düzəlişi</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
               {gradeSubject.subject_name} - {gradeName}
             </p>
           </div>
@@ -91,12 +91,13 @@ const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
           >
-            <X className="h-6 w-6" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Content */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        {/* Content - Scrollable */}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3">
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
               <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
@@ -245,24 +246,27 @@ const EditSubjectModal: React.FC<EditSubjectModalProps> = ({
               placeholder="Əlavə qeydlər (ixtiyari)"
             />
           </div>
+          </div>
 
-          {/* Footer */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              Ləğv et
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Save className="h-4 w-4" />
-              {submitting ? 'Yenilənir...' : 'Yadda Saxla'}
-            </button>
+          {/* Footer - Sticky */}
+          <div className="flex-shrink-0 bg-gray-50 border-t border-gray-200 px-5 py-3 rounded-b-lg">
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+              >
+                Ləğv et
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium shadow-sm"
+              >
+                <Save className="h-4 w-4" />
+                {submitting ? 'Yenilənir...' : 'Yadda Saxla'}
+              </button>
+            </div>
           </div>
         </form>
       </div>

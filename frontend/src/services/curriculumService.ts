@@ -46,7 +46,8 @@ class CurriculumService {
     const response = await api.get<AvailableSubjectsResponse>(
       `${this.baseUrl}/${gradeId}/subjects/available`
     );
-    return response.data.data;
+    // API client already unwraps the response, so response.data is the array
+    return response.data as unknown as AvailableSubject[];
   }
 
   /**

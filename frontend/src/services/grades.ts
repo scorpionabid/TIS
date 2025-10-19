@@ -632,6 +632,26 @@ class GradeService {
 
     return apiClient.get<any>(`${this.baseURL}/naming/system-stats`);
   }
+
+  /**
+   * Duplicate/Copy a grade with its curriculum
+   */
+  async duplicateGrade(
+    gradeId: number,
+    data: {
+      name: string;
+      copy_subjects?: boolean;
+      academic_year_id?: number;
+    }
+  ): Promise<ApiResponse<Grade>> {
+    logger.debug('Duplicating grade', {
+      component: 'GradeService',
+      action: 'duplicateGrade',
+      data: { gradeId, newName: data.name, copySubjects: data.copy_subjects }
+    });
+
+    return apiClient.post<Grade>(`${this.baseURL}/${gradeId}/duplicate`, data);
+  }
 }
 
 export const gradeService = new GradeService();
