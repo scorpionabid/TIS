@@ -694,11 +694,29 @@ class SurveyCrudService
                     'type' => $question->type,
                 ];
             }
+
+            // Reindex remaining questions after deletion
+            $this->reindexQuestions($survey);
         }
 
         $survey->updateQuestionsCount();
 
         return $summary;
+    }
+
+    /**
+     * Reindex questions after deletion to ensure sequential order_index
+     */
+    private function reindexQuestions(Survey $survey): void
+    {
+        $questions = $survey->questions()->ordered()->get();
+
+        foreach ($questions as $index => $question) {
+            $newOrderIndex = $index + 1;
+            if ($question->order_index !== $newOrderIndex) {
+                $question->update(['order_index' => $newOrderIndex]);
+            }
+        }
     }
 
     private function prepareQuestionPayload(array $questionData, int $index): array

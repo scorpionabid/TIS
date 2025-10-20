@@ -167,6 +167,16 @@ class SurveyService extends BaseService<Survey> {
     return surveyAnalyticsService.getQuestionRestrictions(id);
   }
 
+  /**
+   * Reorder survey questions
+   */
+  async reorderQuestions(surveyId: number, questions: Array<{ id: string | number; order_index: number }>): Promise<Survey> {
+    const response = await apiClient.post<Survey>(`${this.baseEndpoint}/${surveyId}/reorder-questions`, {
+      questions
+    });
+    return response.data;
+  }
+
   // Survey notification methods
   async getSurveyNotifications(params?: { limit?: number; only_unread?: boolean }): Promise<UnknownRecord> {
     return surveyNotificationService.getNotifications(params);

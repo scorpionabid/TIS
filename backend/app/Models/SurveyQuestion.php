@@ -12,6 +12,27 @@ class SurveyQuestion extends Model
 {
     use HasFactory;
 
+    /**
+     * Boot the model and set default values for non-nullable fields
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($question) {
+            // Set default values for fields that cannot be NULL in SQLite
+            if (!isset($question->max_file_size)) {
+                $question->max_file_size = 10240; // 10MB default
+            }
+            if (!isset($question->rating_min)) {
+                $question->rating_min = 1;
+            }
+            if (!isset($question->rating_max)) {
+                $question->rating_max = 10;
+            }
+        });
+    }
+
     protected $fillable = [
         'survey_id',
         'title',

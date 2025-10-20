@@ -698,4 +698,56 @@ class SurveyController extends BaseController
 
     // NOTE: sendSurveyPublishNotification() has been moved to SurveyStatusService
     // Notifications are now sent automatically when survey is published via SurveyStatusService::publish()
+
+    /**
+     * Reorder survey questions
+     */
+    public function reorderQuestions(Request $request, Survey $survey): JsonResponse
+    {
+        // Check if user can edit this survey
+        if (!auth()->user()->can('surveys.write') && $survey->creator_id !== auth()->id()) {
+            return $this->errorResponse('Bu sorğunun suallarını yenidən sıralamaq üçün icazəniz yoxdur', 403);
+        }
+
+        // Check if survey is published with responses
+        if ($survey->status === 'published' && $survey->responses()->count() > 0) {
+            return $this->errorResponse('Yayımlanmış və cavabı olan sorğunun suallarını yenidən sıralamaq olmaz', 403);
+        }
+
+        $validated = $request->validate([
+            'questions' => 'required|array|min:1',
+            'questions.*.id' => 'required|exists:survey_questions,id',
+            'questions.*.order_index' => 'required|integer|min:1',
+        ]);
+
+        try {
+            \DB::transaction(function () use ($validated, $survey) {
+                foreach ($validated['questions'] as $questionData) {
+                    \App\Models\SurveyQuestion::where('id', $questionData['id'])
+                        ->where('survey_id', $survey->id)
+                        ->update(['order_index' => $questionData['order_index']]);
+                }
+
+                // Create audit log
+                \App\Models\SurveyAuditLog::create([
+                    'survey_id' => $survey->id,
+                    'user_id' => auth()->id(),
+                    'action' => 'reorder_questions',
+                    'old_data' => null,
+                    'new_data' => $validated['questions'],
+                    'metadata' => [
+                        'reorder_timestamp' => now(),
+                        'question_count' => count($validated['questions']),
+                    ]
+                ]);
+            });
+
+            $updatedSurvey = $survey->fresh()->load('questions');
+            $formattedSurvey = $this->crudService->formatDetailedForResponse($updatedSurvey);
+
+            return $this->successResponse($formattedSurvey, 'Suallar uğurla yenidən sıralandı');
+        } catch (\Exception $e) {
+            return $this->errorResponse('Sıralama zamanı səhv baş verdi: ' . $e->getMessage(), 400);
+        }
+    }
 }

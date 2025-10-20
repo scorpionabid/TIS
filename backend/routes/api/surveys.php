@@ -55,6 +55,9 @@ Route::middleware('permission:surveys.write')->group(function () {
     Route::delete('surveys/{survey}', [SurveyController::class, 'destroy']);
     Route::post('surveys/{survey}/duplicate', [SurveyController::class, 'duplicate']);
 
+    // Question reordering
+    Route::post('surveys/{survey}/reorder-questions', [SurveyController::class, 'reorderQuestions']);
+
     // Status management routes - delegated to SurveyStatusController
     Route::post('surveys/{survey}/publish', [SurveyStatusController::class, 'publish']);
     Route::post('surveys/{survey}/pause', [SurveyStatusController::class, 'pause']);

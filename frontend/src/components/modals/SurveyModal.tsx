@@ -1,21 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
-import { CalendarIcon, Loader2, Plus, X, Target, Users, Building2, Clock, AlertTriangle, Edit, Layout } from 'lucide-react';
+import { Loader2, Target, AlertTriangle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { Survey, CreateSurveyData, SurveyQuestionRestrictions, QuestionRestrictions, surveyService } from '@/services/surveys';
+import { Survey, CreateSurveyData, surveyService } from '@/services/surveys';
 import { institutionService } from '@/services/institutions';
-import { departmentService } from '@/services/departments';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { USER_ROLES } from '@/constants/roles';
 import { SurveyTemplateGallery } from '@/components/surveys/SurveyTemplateGallery';
+import { Step1BasicInfo } from './survey/Step1BasicInfo';
+import { Step2Questions } from './survey/Step2Questions';
+import { Step3Targeting } from './survey/Step3Targeting';
 
 // Template type import (SurveyTemplateGallery-dən)
 interface SurveyTemplate extends Survey {
@@ -850,792 +846,70 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Step 1: Basic Information */}
           {currentStep === 1 && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <Label htmlFor="title">Sorğu başlığı *</Label>
-                  <span className="text-xs text-muted-foreground">
-                    {formData.title.length}/{MAX_TITLE_LENGTH}
-                  </span>
-                </div>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  maxLength={MAX_TITLE_LENGTH}
-                  onChange={(e) => handleInputChange('title', e.target.value)}
-                  placeholder="Sorğunun başlığını daxil edin"
-                  required
-                  className={isPublishedWithResponses ? "bg-blue-50 border-blue-200" : ""}
-                  disabled={!isEditable(survey)}
-                />
-                {formData.title.length > MAX_TITLE_LENGTH * 0.9 && (
-                  <p className="text-xs text-amber-600">Başlıq uzunluq limitinə yaxındır</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <Label htmlFor="description">Təsvir</Label>
-                  <span className="text-xs text-muted-foreground">
-                    {(formData.description || '').length}/{MAX_DESCRIPTION_LENGTH}
-                  </span>
-                </div>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  maxLength={MAX_DESCRIPTION_LENGTH}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
-                  placeholder="Sorğunun təsvirini daxil edin..."
-                  rows={4}
-                  className={isPublishedWithResponses ? "bg-blue-50 border-blue-200" : ""}
-                  disabled={!isEditable(survey)}
-                />
-                {(formData.description || '').length > MAX_DESCRIPTION_LENGTH * 0.9 && (
-                  <p className="text-xs text-amber-600">Təsvir uzunluq limitinə yaxındır</p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="start_date">Başlama tarixi</Label>
-                  <Input
-                    id="start_date"
-                    type="date"
-                    value={formData.start_date?.split('T')[0] || ''}
-                    onChange={(e) => handleInputChange('start_date', e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="end_date">Bitmə tarixi</Label>
-                  <Input
-                    id="end_date"
-                    type="date"
-                    value={formData.end_date?.split('T')[0] || ''}
-                    onChange={(e) => handleInputChange('end_date', e.target.value)}
-                    min={formData.start_date?.split('T')[0] || new Date().toISOString().split('T')[0]}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="is_anonymous"
-                    checked={formData.is_anonymous}
-                    onCheckedChange={(checked) => handleInputChange('is_anonymous', checked)}
-                  />
-                  <Label htmlFor="is_anonymous" className="text-sm font-normal cursor-pointer">
-                    Anonim sorğu (cavab verənlərin kimliyi məxfi qalacaq)
-                  </Label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="allow_multiple_responses"
-                    checked={formData.allow_multiple_responses}
-                    onCheckedChange={(checked) => handleInputChange('allow_multiple_responses', checked)}
-                  />
-                  <Label htmlFor="allow_multiple_responses" className="text-sm font-normal cursor-pointer">
-                    Çoxsaylı cavablar (eyni istifadəçi bir neçə dəfə cavab verə bilər)
-                  </Label>
-                </div>
-              </div>
-
-              {/* Template Selection - Only for new surveys */}
-              {!isEditMode && (
-                <div className="space-y-3 pt-4 border-t">
-                  <div className="flex items-center gap-2">
-                    <Layout className="h-5 w-5 text-primary" />
-                    <Label className="text-base font-medium">Sürətli Başlama</Label>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Hazır template-lərdən birini seçərək sorğunu tez yaradın
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowTemplateGallery(true)}
-                    disabled={isLoading}
-                    className="w-full flex items-center justify-center gap-2 h-11 border-dashed hover:border-solid hover:bg-muted/50"
-                  >
-                    <Layout className="h-4 w-4" />
-                    <span>Template Qaleriyasından Seç</span>
-                  </Button>
-                </div>
-              )}
-            </div>
+            <Step1BasicInfo
+              formData={formData}
+              survey={survey}
+              isEditMode={isEditMode}
+              isLoading={isLoading}
+              isPublishedWithResponses={isPublishedWithResponses}
+              MAX_TITLE_LENGTH={MAX_TITLE_LENGTH}
+              MAX_DESCRIPTION_LENGTH={MAX_DESCRIPTION_LENGTH}
+              handleInputChange={handleInputChange}
+              isEditable={isEditable}
+              onShowTemplateGallery={() => setShowTemplateGallery(true)}
+            />
           )}
+
 
           {/* Step 2: Questions */}
           {currentStep === 2 && (
-            <div className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium">Mövcud Suallar ({questions.length})</h3>
-                  {restrictionsLoading && isPublishedWithResponses && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Məhdudiyyətlər yüklənir...
-                    </div>
-                  )}
-                </div>
-
-                {/* YENİ: Restrictions summary */}
-                {!restrictionsLoading && Object.keys(questionRestrictions).length > 0 && isPublishedWithResponses && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <h4 className="font-medium text-blue-900 mb-2">Məhdud Edit Rejimi</h4>
-                        <div className="text-sm text-blue-800 space-y-1">
-                          {(() => {
-                            const totalQuestions = questions.length;
-                            const restrictedQuestions = questions.filter(q =>
-                              getQuestionRestrictions(q.id)?.approved_responses_count > 0
-                            ).length;
-                            const editableQuestions = totalQuestions - restrictedQuestions;
-
-                            return (
-                              <>
-                                <p>• <strong>{editableQuestions}</strong> sual tam dəyişdirilə bilər</p>
-                                <p>• <strong>{restrictedQuestions}</strong> sualın təsdiq edilmiş cavabları var və məhdudiyyətlidir</p>
-                                <p>• Yeni suallar əlavə edilə bilər</p>
-                              </>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {questions.map((question, index) => (
-                  <div
-                    key={question.id}
-                    className={`p-4 border rounded-lg space-y-3 ${
-                      editingQuestionId === question.id ? 'border-blue-300 bg-blue-50' : ''
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">{index + 1}</Badge>
-                        <Badge variant="secondary">{questionTypes.find(t => t.value === question.type)?.label}</Badge>
-                        {question.required && <Badge variant="destructive">Məcburi</Badge>}
-                        {isPublishedWithResponses && (
-                          <Badge variant="outline" className="text-blue-600 border-blue-300">
-                            {restrictionsLoading ? 'Yüklənir...' : 'Məhdud Edit'}
-                          </Badge>
-                        )}
-                        {!restrictionsLoading && Object.keys(questionRestrictions).length > 0 && getQuestionRestrictions(question.id)?.approved_responses_count > 0 && (
-                          <Badge variant="outline" className="text-amber-600 border-amber-300">
-                            {getQuestionRestrictions(question.id)?.approved_responses_count} Təsdiq
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {editingQuestionId === question.id ? (
-                          <>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={saveEditingQuestion}
-                              disabled={!editingQuestion?.question?.trim() || isLoading}
-                            >
-                              {isLoading ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                  Saxlanır...
-                                </>
-                              ) : (
-                                'Saxla'
-                              )}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={cancelEditingQuestion}
-                            >
-                              İmtina
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => startEditingQuestion(question)}
-                              disabled={
-                                !isEditable(survey) ||
-                                (restrictionsLoading && isPublishedWithResponses)
-                              }
-                              title={
-                                restrictionsLoading && isPublishedWithResponses
-                                  ? 'Məhdudiyyətlər yüklənir...'
-                                  : !isEditable(survey)
-                                    ? 'Bu sorğunu redaktə etmək üçün icazəniz yoxdur'
-                                    : isPublishedWithResponses
-                                      ? 'Məhdud redaktə rejimi - sual mətnini və seçimlərini dəyişə bilərsiniz'
-                                      : 'Suali redaktə et'
-                              }
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeQuestion(question.id!)}
-                              disabled={
-                                isPublishedWithResponses ||
-                                (restrictionsLoading && survey?.status === 'published') ||
-                                (!restrictionsLoading && getQuestionRestrictions(question.id)?.approved_responses_count > 0)
-                              }
-                              title={
-                                restrictionsLoading && survey?.status === 'published'
-                                  ? 'Məhdudiyyətlər yüklənir...'
-                                  : getQuestionRestrictions(question.id)?.approved_responses_count > 0
-                                    ? `Bu sualın ${getQuestionRestrictions(question.id)?.approved_responses_count} təsdiq edilmiş cavabı var - silmək olmaz`
-                                    : isPublishedWithResponses
-                                      ? 'Yayımlanmış sorğuda sualları silmək olmaz'
-                                      : 'Suali sil'
-                              }
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Question Content - Either Display or Edit Mode */}
-                    {editingQuestionId === question.id && editingQuestion ? (
-                      // EDIT MODE
-                      <div className="space-y-4">
-                        {/* Question Text Edit */}
-                        <div className="space-y-2">
-                          <Label>Sual mətni *</Label>
-                          <Input
-                            value={editingQuestion.question}
-                            onChange={(e) => updateEditingQuestion('question', e.target.value)}
-                            placeholder="Sual mətnini daxil edin"
-                            maxLength={MAX_QUESTION_LENGTH}
-                            className={getQuestionRestrictions(question.id)?.can_edit_text ? "bg-white" : "bg-gray-100"}
-                            disabled={!getQuestionRestrictions(question.id)?.can_edit_text}
-                          />
-                          <div className="flex justify-between text-xs text-muted-foreground">
-                            {getQuestionRestrictions(question.id)?.can_edit_text ? (
-                              <span className="text-green-600">✓ Bu sahə dəyişdirilə bilər</span>
-                            ) : (
-                              <span className="text-amber-600">⚠️ Təsdiq edilmiş cavablar var ({getQuestionRestrictions(question.id)?.approved_responses_count} cavab)</span>
-                            )}
-                            <span>{editingQuestion.question.length}/{MAX_QUESTION_LENGTH}</span>
-                          </div>
-                        </div>
-
-                        {/* Question Description Edit */}
-                        <div className="space-y-2">
-                          <Label>Sual təsviri (İxtiyari)</Label>
-                          <Textarea
-                            value={editingQuestion.description || ''}
-                            onChange={(e) => updateEditingQuestion('description', e.target.value)}
-                            placeholder="Sualın təsvirini daxil edin (ixtiyari)"
-                            rows={2}
-                            maxLength={MAX_DESCRIPTION_LENGTH}
-                            className="bg-white"
-                          />
-                          <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>Bu sahə dəyişdirilə bilər</span>
-                            <span>{(editingQuestion.description || '').length}/{MAX_DESCRIPTION_LENGTH}</span>
-                          </div>
-                        </div>
-
-                        {/* Question Type - READONLY for published surveys */}
-                        <div className="space-y-2">
-                          <Label>Sual növü</Label>
-                          <Select
-                            value={editingQuestion.type}
-                            onValueChange={(value) => updateEditingQuestion('type', value)}
-                            disabled={isPublishedWithResponses}
-                          >
-                            <SelectTrigger className={isPublishedWithResponses ? "bg-gray-100" : "bg-white"}>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {questionTypes.map((type) => (
-                                <SelectItem key={type.value} value={type.value}>
-                                  {type.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          {isPublishedWithResponses && (
-                            <p className="text-xs text-amber-600">⚠️ Yayımlanmış sorğuda sual növü dəyişdirilə bilməz</p>
-                          )}
-                        </div>
-
-                        {/* Required Toggle */}
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`required-${question.id}`}
-                            checked={editingQuestion.required}
-                            onCheckedChange={(checked) => updateEditingQuestion('required', checked)}
-                            disabled={!getQuestionRestrictions(question.id)?.can_edit_required}
-                          />
-                          <Label
-                            htmlFor={`required-${question.id}`}
-                            className={!getQuestionRestrictions(question.id)?.can_edit_required ? "text-gray-500" : ""}
-                          >
-                            Məcburi sual
-                          </Label>
-                          {!getQuestionRestrictions(question.id)?.can_edit_required && (
-                            <span className="text-xs text-amber-600">
-                              ⚠️ Təsdiq edilmiş cavablar var ({getQuestionRestrictions(question.id)?.approved_responses_count} cavab)
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Options Editing for Choice Questions */}
-                        {['single_choice', 'multiple_choice'].includes(editingQuestion.type) && (
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <Label>Seçimlər</Label>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={addOptionToEditingQuestion}
-                              >
-                                <Plus className="h-4 w-4 mr-1" />
-                                Yeni seçim
-                              </Button>
-                            </div>
-
-                            {editingQuestion.options?.map((option, optionIndex) => (
-                              <div key={optionIndex} className="flex items-center space-x-2">
-                                <Badge variant="outline" className="text-xs min-w-[24px] text-center">
-                                  {optionIndex + 1}
-                                </Badge>
-                                <Input
-                                  value={option}
-                                  onChange={(e) => updateEditingQuestionOption(optionIndex, e.target.value)}
-                                  placeholder={`Seçim ${optionIndex + 1}`}
-                                  className="flex-1 bg-white"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeEditingQuestionOption(optionIndex)}
-                                  disabled={!getQuestionRestrictions(question.id)?.can_remove_options}
-                                  title={!getQuestionRestrictions(question.id)?.can_remove_options ? 'Təsdiq edilmiş cavablar var - seçimi silmək olmaz' : 'Seçimi sil'}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ))}
-
-                            {!getQuestionRestrictions(question.id)?.can_remove_options && getQuestionRestrictions(question.id)?.approved_responses_count > 0 && (
-                              <div className="bg-amber-50 border border-amber-200 rounded p-3">
-                                <p className="text-xs text-amber-700">
-                                  <strong>Məhdud rejim:</strong> Bu sualın {getQuestionRestrictions(question.id)?.approved_responses_count} təsdiq edilmiş cavabı var.
-                                  Yeni seçimlər əlavə edə bilərsiniz, lakin mövcud seçimləri silə bilməzsiniz.
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      // DISPLAY MODE
-                      <div className="space-y-3">
-                        <div>
-                          <p className="font-medium text-lg">{question.question}</p>
-                          {question.description && (
-                            <p className="text-sm text-muted-foreground mt-1 italic">{question.description}</p>
-                          )}
-                        </div>
-                        {question.options && question.options.length > 0 && (
-                          <div className="mt-3">
-                            <p className="text-sm font-medium text-muted-foreground mb-2">Seçimlər:</p>
-                            <div className="grid grid-cols-1 gap-2">
-                              {(() => {
-                                const safeOptions = Array.isArray(question.options) ? question.options : [];
-                                return safeOptions.map((option, i) => (
-                                  <div key={i} className="flex items-center space-x-2 text-sm">
-                                    <Badge variant="outline" className="text-xs min-w-[24px] text-center">
-                                      {i + 1}
-                                    </Badge>
-                                    <span>{option}</span>
-                                  </div>
-                                ));
-                              })()}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                {questions.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Target className="h-12 w-12 mx-auto mb-4" />
-                    <p>Hələlik sual əlavə edilməyib</p>
-                    {isEditMode && (
-                      <p className="text-xs text-red-500 mt-2">
-                        DEBUG: Edit mode - Questions count: {questions.length} | Survey ID: {survey?.id}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="border rounded-lg p-4 space-y-4">
-                <h4 className="font-medium">Yeni sual əlavə et</h4>
-                
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Sual mətni *</Label>
-                    <Textarea
-                      value={newQuestion.question || ''}
-                      onChange={(e) => setNewQuestion(prev => ({ ...prev, question: e.target.value }))}
-                      placeholder="Sualınızı daxil edin..."
-                      rows={2}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Sual növü</Label>
-                      <Select
-                        value={newQuestion.type || 'text'}
-                        onValueChange={(value) => setNewQuestion(prev => ({ ...prev, type: value as any, options: [] }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {questionTypes.map((type) => (
-                            <SelectItem key={type.value} value={type.value}>
-                              {type.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="flex items-end">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="required"
-                          checked={Boolean(newQuestion.required)}
-                          onCheckedChange={(checked) => setNewQuestion(prev => ({ ...prev, required: Boolean(checked) }))}
-                        />
-                        <Label htmlFor="required" className="text-sm font-normal cursor-pointer">
-                          Məcburi sual
-                        </Label>
-                      </div>
-                    </div>
-                  </div>
-
-                  {needsOptions && (
-                    <div className="space-y-2">
-                      <Label>Seçim variantları</Label>
-                      <div className="space-y-2">
-                        {(newQuestion.options || []).map((option, index) => (
-                          <div key={index} className="flex items-center gap-2">
-                            <Input
-                              value={option}
-                              onChange={(e) => updateOption(index, e.target.value)}
-                              placeholder={`Seçim ${index + 1}`}
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeOption(index)}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={addOption}
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Seçim əlavə et
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {needsNumberValidation && (
-                    <div className="space-y-2">
-                      <Label>Rəqəm tənzimləmələri</Label>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-xs">Minimum dəyər</Label>
-                          <Input 
-                            type="number" 
-                            placeholder="0"
-                            onChange={(e) => setNewQuestion(prev => ({
-                              ...prev,
-                              validation: { ...prev.validation, min_value: e.target.value ? Number(e.target.value) : undefined }
-                            }))}
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Maksimum dəyər</Label>
-                          <Input 
-                            type="number" 
-                            placeholder="100"
-                            onChange={(e) => setNewQuestion(prev => ({
-                              ...prev,
-                              validation: { ...prev.validation, max_value: e.target.value ? Number(e.target.value) : undefined }
-                            }))}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {needsFileValidation && (
-                    <div className="space-y-2">
-                      <Label>Fayl yükləmə tənzimləmələri</Label>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-xs">Maksimum fayl ölçüsü (MB)</Label>
-                          <Input 
-                            type="number" 
-                            min="1" 
-                            max="50" 
-                            defaultValue="10"
-                            onChange={(e) => setNewQuestion(prev => ({
-                              ...prev,
-                              validation: { ...prev.validation, max_file_size: e.target.value ? Number(e.target.value) * 1024 * 1024 : undefined }
-                            }))}
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">İcazəli formatlar</Label>
-                          <Select onValueChange={(value) => {
-                            const formats = value.split(',');
-                            setNewQuestion(prev => ({
-                              ...prev,
-                              validation: { ...prev.validation, allowed_file_types: formats }
-                            }));
-                          }}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Format seçin..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pdf">PDF</SelectItem>
-                              <SelectItem value="doc,docx">Word</SelectItem>
-                              <SelectItem value="xls,xlsx">Excel</SelectItem>
-                              <SelectItem value="jpg,png">Şəkil</SelectItem>
-                              <SelectItem value="pdf,doc,docx,xls,xlsx">Sənədlər</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <Button
-                    type="button"
-                    onClick={addQuestion}
-                    disabled={isPublishedWithResponses}
-                    title={isPublishedWithResponses ? 'Yayımlanmış sorğuda yeni sual əlavə etmək olmaz' : 'Yeni sual əlavə et'}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Sualı əlavə et
-                  </Button>
-                </div>
-              </div>
-            </div>
+            <Step2Questions
+              questions={questions}
+              newQuestion={newQuestion}
+              editingQuestion={editingQuestion}
+              editingQuestionId={editingQuestionId}
+              isPublishedWithResponses={isPublishedWithResponses}
+              restrictionsLoading={restrictionsLoading}
+              isLoading={isLoading}
+              questionRestrictions={questionRestrictions}
+              MAX_QUESTION_LENGTH={MAX_QUESTION_LENGTH}
+              MAX_DESCRIPTION_LENGTH={MAX_DESCRIPTION_LENGTH}
+              needsOptions={needsOptions}
+              needsNumberValidation={needsNumberValidation}
+              needsFileValidation={needsFileValidation}
+              questionTypes={questionTypes}
+              setQuestions={setQuestions}
+              setNewQuestion={setNewQuestion}
+              getQuestionRestrictions={getQuestionRestrictions}
+              startEditingQuestion={startEditingQuestion}
+              removeQuestion={removeQuestion}
+              updateEditingQuestion={updateEditingQuestion}
+              addEditingQuestionOption={addOptionToEditingQuestion}
+              updateEditingQuestionOption={updateEditingQuestionOption}
+              removeEditingQuestionOption={removeEditingQuestionOption}
+              saveEditingQuestion={saveEditingQuestion}
+              cancelEditingQuestion={cancelEditingQuestion}
+              addQuestion={addQuestion}
+              addOption={addOption}
+              updateOption={updateOption}
+              removeOption={removeOption}
+              toast={toast}
+            />
           )}
 
           {/* Step 3: Targeting & Settings */}
           {currentStep === 3 && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Hədəf müəssisələr</Label>
-                
-                {/* Search Input */}
-                <div className="relative">
-                  <Input
-                    type="text"
-                    placeholder="Müəssisə adı ilə axtar..."
-                    value={institutionSearch}
-                    onChange={(e) => setInstitutionSearch(e.target.value)}
-                    className="pl-10"
-                  />
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </div>
-                </div>
-                
-                {/* Enhanced Bulk Selection Buttons */}
-                <div className="space-y-2">
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        // Filtered institutions əsasında seç (axtarış nəticəsindəkilər)
-                        const filteredIds = filteredInstitutions.map((inst: any) => inst.id);
-                        handleInputChange('target_institutions', filteredIds);
-                      }}
-                    >
-                      <Users className="h-4 w-4 mr-1" />
-                      {institutionSearch
-                        ? `Görünənləri seç (${filteredInstitutions.length})`
-                        : `Hamısını seç (${availableInstitutions.length})`
-                      }
-                    </Button>
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleInputChange('target_institutions', [])}
-                    >
-                      <X className="h-4 w-4 mr-1" />
-                      Hamısını ləğv et
-                    </Button>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => selectInstitutionsByLevel(2)}
-                    >
-                      <Building2 className="h-4 w-4 mr-1" />
-                      Regional idarələr ({availableInstitutions.filter((inst: any) => inst.level === 2).length})
-                    </Button>
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => selectInstitutionsByLevel(3)}
-                    >
-                      <Target className="h-4 w-4 mr-1" />
-                      Sektorlar ({availableInstitutions.filter((inst: any) => inst.level === 3).length})
-                    </Button>
-                    
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => selectInstitutionsByType((inst: any) => {
-                        // Məktəb tipləri: secondary_school, vocational_school, və məktəb sözü olan bütün level 4 müəssisələr
-                        const isSchoolType = ['secondary_school', 'vocational_school'].includes(inst.type);
-                        const isSchoolByName = inst.level === 4 && inst.name?.toLowerCase().includes('məktəb');
-                        return isSchoolType || isSchoolByName;
-                      })}
-                    >
-                      <Building2 className="h-4 w-4 mr-1" />
-                      Məktəblər ({availableInstitutions.filter((inst: any) => {
-                        const isSchoolType = ['secondary_school', 'vocational_school'].includes(inst.type);
-                        const isSchoolByName = inst.level === 4 && inst.name?.toLowerCase().includes('məktəb');
-                        return isSchoolType || isSchoolByName;
-                      }).length})
-                    </Button>
-                    
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => selectInstitutionsByType((inst: any) => 
-                        inst.level === 4 && (inst.name.toLowerCase().includes('bağça') || inst.name.toLowerCase().includes('uşaq'))
-                      )}
-                    >
-                      <Users className="h-4 w-4 mr-1" />
-                      Məktəbəqədər
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="border rounded-lg p-4 max-h-48 overflow-y-auto">
-                  {filteredInstitutions.length === 0 ? (
-                    <div className="text-center py-4 text-muted-foreground">
-                      <Building2 className="h-8 w-8 mx-auto mb-2" />
-                      <p>Axtarış nəticəsində müəssisə tapılmadı</p>
-                    </div>
-                  ) : (
-                    filteredInstitutions.map((institution: any) => (
-                      <div key={institution.id} className="flex items-center space-x-2 py-1">
-                        <Checkbox
-                          id={`institution-${institution.id}`}
-                          checked={
-                            // Sadə və etibarlı yoxlama - həm number həm string ID-ləri dəstəkləyir
-                            (formData.target_institutions || []).some(id => String(id) === String(institution.id))
-                          }
-                          onCheckedChange={(checked) => {
-                            const currentTargets = formData.target_institutions || [];
-                            const institutionId = institution.id;
-
-                            if (checked) {
-                              // Əgər artıq seçilməyibsə əlavə et (duplicate yoxla)
-                              if (!currentTargets.some(id => String(id) === String(institutionId))) {
-                                handleInputChange('target_institutions', [...currentTargets, institutionId]);
-                              }
-                            } else {
-                              // Seçimi ləğv et - bütün eyni ID-li elementləri sil
-                              handleInputChange('target_institutions',
-                                currentTargets.filter(id => String(id) !== String(institutionId))
-                              );
-                            }
-                          }}
-                        />
-                        <Label
-                          htmlFor={`institution-${institution.id}`}
-                          className="text-sm font-normal cursor-pointer flex items-center gap-2"
-                        >
-                          <span>{institution.name}</span>
-                          {institution.level && (
-                            <Badge variant="outline" className="text-xs">
-                              Səviyyə {institution.level}
-                            </Badge>
-                          )}
-                        </Label>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {(formData.target_institutions || []).length} müəssisə seçilib
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="max_responses">Maksimal cavab sayı (isteğe bağlı)</Label>
-                <Input
-                  id="max_responses"
-                  type="number"
-                  min="1"
-                  value={formData.max_responses || ''}
-                  onChange={(e) => handleInputChange('max_responses', e.target.value ? parseInt(e.target.value) : undefined)}
-                  placeholder="Məhdudiyyət qoyulmur"
-                />
-              </div>
-            </div>
+            <Step3Targeting
+              formData={formData}
+              institutionSearch={institutionSearch}
+              availableInstitutions={availableInstitutions}
+              filteredInstitutions={filteredInstitutions}
+              setInstitutionSearch={setInstitutionSearch}
+              handleInputChange={handleInputChange}
+              selectInstitutionsByLevel={selectInstitutionsByLevel}
+              selectInstitutionsByType={selectInstitutionsByType}
+            />
           )}
-
           {/* Form Actions */}
           <div className="flex justify-between pt-4 border-t">
             <div>
