@@ -7,6 +7,7 @@ use App\Models\ScheduleSession;
 use App\Models\TeachingLoad;
 use App\Models\ScheduleGenerationSetting;
 use App\Services\Schedule\WorkloadScheduleIntegrationService;
+use App\Services\Schedule\ScheduleRoomAssignmentService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -15,13 +16,15 @@ use Carbon\Carbon;
 class ScheduleGenerationEngine
 {
     private WorkloadScheduleIntegrationService $integrationService;
+    private ScheduleRoomAssignmentService $roomAssignmentService;
     private array $timeMatrix = [];
     private array $conflicts = [];
     private array $generationLog = [];
 
-    public function __construct(WorkloadScheduleIntegrationService $integrationService)
+    public function __construct(WorkloadScheduleIntegrationService $integrationService, ScheduleRoomAssignmentService $roomAssignmentService)
     {
         $this->integrationService = $integrationService;
+        $this->roomAssignmentService = $roomAssignmentService;
     }
 
     /**
@@ -30,6 +33,9 @@ class ScheduleGenerationEngine
     public function generateFromWorkload(array $workloadData, array $preferences = []): array
     {
         try {
+            $startTime = microtime(true);
+            $startMemory = memory_get_usage();
+
             $this->log('Starting schedule generation', ['institution_id' => $workloadData['institution']['id']]);
 
             // Initialize generation process
@@ -55,7 +61,8 @@ class ScheduleGenerationEngine
             $this->updateTeachingLoadsStatus($workloadData['teaching_loads'], $schedule->id);
 
             // Calculate final statistics
-            $statistics = $this->calculateFinalStatistics($schedule);
+            $executionTime = (microtime(true) - $startTime) * 1000;
+            $statistics = $this->calculateFinalStatistics($schedule, $executionTime, $startMemory);
 
             $this->log('Schedule generation completed successfully');
 
@@ -326,16 +333,18 @@ class ScheduleGenerationEngine
     private function createSessionsForSlots(array $load, int $day, array $slots): array
     {
         $sessions = [];
+        $dayName = $this->convertDayToString($day);
 
         foreach ($slots as $period) {
             $timeSlot = $this->timeMatrix[$day][$period]['time_slot'];
-            
+            $assignedRoomId = $this->roomAssignmentService->assignRoom($load, $dayName, $timeSlot);
+
             $session = [
                 'teaching_load_id' => $load['id'],
                 'subject_id' => $load['subject']['id'],
                 'teacher_id' => $load['teacher']['id'],
-                'room_id' => null, // TODO: Room assignment
-                'day_of_week' => $this->convertDayToString($day),
+                'room_id' => $assignedRoomId,
+                'day_of_week' => $dayName,
                 'period_number' => $period,
                 'start_time' => $timeSlot['start_time'],
                 'end_time' => $timeSlot['end_time'],
@@ -349,6 +358,7 @@ class ScheduleGenerationEngine
                 'teacher_id' => $load['teacher']['id'],
                 'class_id' => $load['class']['id'],
                 'subject_id' => $load['subject']['id'],
+                'room_id' => $assignedRoomId,
                 'teaching_load_id' => $load['id']
             ];
 
@@ -497,7 +507,33 @@ class ScheduleGenerationEngine
      */
     private function detectRoomConflicts(): void
     {
-        // TODO: Implement room conflict detection when room assignment is added
+        foreach ($this->timeMatrix as $day => $periods) {
+            foreach ($periods as $period => $slot) {
+                $roomAssignments = [];
+                
+                foreach ($slot['assignments'] as $assignment) {
+                    $roomId = $assignment['room_id'] ?? null;
+                    if (!$roomId) {
+                        continue;
+                    }
+
+                    if (isset($roomAssignments[$roomId])) {
+                        $this->addConflict([
+                            'type' => 'room_double_booking',
+                            'room_id' => $roomId,
+                            'day' => $day,
+                            'period' => $period,
+                            'conflicting_loads' => [
+                                $roomAssignments[$roomId],
+                                $assignment['teaching_load_id']
+                            ]
+                        ]);
+                    } else {
+                        $roomAssignments[$roomId] = $assignment['teaching_load_id'];
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -542,18 +578,35 @@ class ScheduleGenerationEngine
     /**
      * Calculate final statistics.
      */
-    private function calculateFinalStatistics(Schedule $schedule): array
+    private function calculateFinalStatistics(Schedule $schedule, float $durationMs, int $startMemory): array
     {
         $totalSessions = $schedule->sessions()->count();
         $conflictCount = count($this->conflicts);
-        
+        $memoryUsage = max(memory_get_usage() - $startMemory, 0);
+        $successRate = $totalSessions > 0
+            ? round((($totalSessions - $conflictCount) / $totalSessions) * 100, 2)
+            : 0;
+
         return [
             'total_sessions' => $totalSessions,
             'conflicts_count' => $conflictCount,
-            'success_rate' => $totalSessions > 0 ? round((($totalSessions - $conflictCount) / $totalSessions) * 100, 2) : 0,
-            'generation_duration' => 'TODO', // Implement timing
-            'efficiency_score' => 'TODO' // Implement efficiency calculation
+            'success_rate' => $successRate,
+            'generation_duration_ms' => round($durationMs, 2),
+            'memory_usage_bytes' => $memoryUsage,
+            'efficiency_score' => $this->calculateEfficiencyScore($totalSessions, $conflictCount)
         ];
+    }
+
+    private function calculateEfficiencyScore(int $totalSessions, int $conflictCount): float
+    {
+        if ($totalSessions === 0) {
+            return 0.0;
+        }
+
+        $conflictPenalty = min(1, $conflictCount / max($totalSessions, 1));
+        $score = (1 - $conflictPenalty) * 100;
+
+        return round($score, 2);
     }
 
     /**

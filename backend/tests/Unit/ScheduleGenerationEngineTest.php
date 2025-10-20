@@ -31,7 +31,7 @@ class ScheduleGenerationEngineTest extends TestCase
     {
         parent::setUp();
         
-        $this->engine = new ScheduleGenerationEngine();
+        $this->engine = app(ScheduleGenerationEngine::class);
         
         $this->institution = Institution::factory()->create([
             'name' => 'Test School',
@@ -278,7 +278,9 @@ class ScheduleGenerationEngineTest extends TestCase
                     ],
                     'class' => [
                         'id' => $class->id,
-                        'name' => $class->name
+                        'name' => $class->name,
+                        'institution_id' => $class->institution_id,
+                        'expected_students' => $class->student_count ?? null
                     ],
                     'weekly_hours' => 4,
                     'priority_level' => 8,
@@ -320,7 +322,9 @@ class ScheduleGenerationEngineTest extends TestCase
                     ],
                     'class' => [
                         'id' => $class1->id,
-                        'name' => $class1->name
+                        'name' => $class1->name,
+                        'institution_id' => $class1->institution_id,
+                        'expected_students' => $class1->student_count ?? null
                     ],
                     'weekly_hours' => 15, // High hours for one teacher
                     'priority_level' => 10,
@@ -342,7 +346,9 @@ class ScheduleGenerationEngineTest extends TestCase
                     ],
                     'class' => [
                         'id' => $class2->id,
-                        'name' => $class2->name
+                        'name' => $class2->name,
+                        'institution_id' => $class2->institution_id,
+                        'expected_students' => $class2->student_count ?? null
                     ],
                     'weekly_hours' => 12, // Another high load for same teacher
                     'priority_level' => 9,

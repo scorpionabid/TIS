@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Builder;
 use Carbon\Carbon;
+use App\Services\AcademicContextService;
+use App\Models\User;
 
 class DailyAttendanceSummary extends Model
 {
@@ -431,19 +433,20 @@ class DailyAttendanceSummary extends Model
             $summary = new static();
             $summary->student_id = $studentId;
             $summary->attendance_date = $date;
-            
-            // Get student's grade/class information
-            $student = User::find($studentId);
-            if ($student && $student->grades->isNotEmpty()) {
-                $summary->grade_id = $student->grades->first()->id;
-            } else {
-                // Create a default grade if student has no grade assigned
-                $summary->grade_id = 1; // TODO: Handle this better
-            }
-            
-            // Set academic year and term (you might want to get these dynamically)
-            $summary->academic_year_id = 1; // TODO: Get current academic year
-            $summary->academic_term_id = 1; // TODO: Get current academic term
+
+            /** @var AcademicContextService $academicContext */
+            $academicContext = app(AcademicContextService::class);
+            $student = User::with('grades')->find($studentId);
+            $enrollment = $academicContext->resolveStudentEnrollment($studentId);
+
+            $summary->grade_id = $enrollment?->grade_id
+                ?? $academicContext->getStudentGradeId($studentId)
+                ?? $student?->grades?->first()?->id;
+
+            $summary->academic_year_id = $enrollment?->academic_year_id
+                ?? $academicContext->getCurrentAcademicYearId($student?->institution_id, $date);
+
+            $summary->academic_term_id = $academicContext->getCurrentAcademicTermId($date, $student?->institution_id);
         }
 
         $summary->processAttendanceRecords($attendanceRecords);
@@ -454,19 +457,21 @@ class DailyAttendanceSummary extends Model
 
     private static function createEmptySummary(int $studentId, Carbon $date): self
     {
-        // Get student's grade information
-        $student = User::find($studentId);
-        $gradeId = 1; // Default
-        
-        if ($student && $student->grades->isNotEmpty()) {
-            $gradeId = $student->grades->first()->id;
-        }
+        /** @var AcademicContextService $academicContext */
+        $academicContext = app(AcademicContextService::class);
+        $student = User::with('grades')->find($studentId);
+        $enrollment = $academicContext->resolveStudentEnrollment($studentId);
+
+        $gradeId = $enrollment?->grade_id
+            ?? $academicContext->getStudentGradeId($studentId)
+            ?? $student?->grades?->first()?->id;
 
         return static::create([
             'student_id' => $studentId,
             'grade_id' => $gradeId,
-            'academic_year_id' => 1, // TODO: Get current academic year
-            'academic_term_id' => 1, // TODO: Get current academic term
+            'academic_year_id' => $enrollment?->academic_year_id
+                ?? $academicContext->getCurrentAcademicYearId($student?->institution_id, $date),
+            'academic_term_id' => $academicContext->getCurrentAcademicTermId($date, $student?->institution_id),
             'attendance_date' => $date,
             'daily_status' => 'not_scheduled',
             'total_periods_scheduled' => 0,

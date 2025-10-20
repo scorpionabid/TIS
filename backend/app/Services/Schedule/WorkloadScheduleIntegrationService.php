@@ -159,12 +159,15 @@ class WorkloadScheduleIntegrationService
                 'subject' => [
                     'id' => $load->subject->id,
                     'name' => $load->subject->name,
-                    'code' => $load->subject->code ?? null
+                    'code' => $load->subject->code ?? null,
+                    'requires_lab' => (bool) ($load->subject->requires_lab ?? false)
                 ],
                 'class' => [
                     'id' => $load->class->id,
                     'name' => $load->class->name,
-                    'grade_level' => $load->class->grade_level ?? null
+                    'grade_level' => $load->class->grade_level ?? null,
+                    'institution_id' => $load->class->institution_id,
+                    'expected_students' => $load->class->student_count ?? null
                 ],
                 'weekly_hours' => $load->weekly_hours,
                 'priority_level' => $load->priority_level,
