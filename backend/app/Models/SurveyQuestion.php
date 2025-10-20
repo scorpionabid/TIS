@@ -171,11 +171,11 @@ class SurveyQuestion extends Model
     /**
      * Validate response data
      */
-    public function validateResponse($responseData): array
+    public function validateResponse($responseData, bool $enforceRequired = true): array
     {
         $errors = [];
 
-        if ($this->is_required && $this->isEmpty($responseData)) {
+        if ($enforceRequired && $this->is_required && $this->isEmpty($responseData)) {
             $errors[] = 'Bu sual mütləqdir və cavablandırılmalıdır.';
             return $errors;
         }

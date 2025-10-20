@@ -138,24 +138,11 @@ class SurveyCrudService
                 'estimated_recipients' => count($data['target_institutions'] ?? []) * 10,
             ]);
 
+            $questionChanges = [];
+
             // Create questions if provided
             if (!empty($data['questions'])) {
-                foreach ($data['questions'] as $index => $questionData) {
-                    // Map frontend question types to backend types
-                    $backendType = $this->mapQuestionType($questionData['type']);
-                    
-                    $survey->questions()->create([
-                        'title' => $questionData['question'],
-                        'type' => $backendType,
-                        'order_index' => $questionData['order'] ?? $index + 1,
-                        'is_required' => $questionData['required'] ?? false,
-                        'options' => $questionData['options'] ?? null,
-                        'validation_rules' => $questionData['validation'] ?? null,
-                    ]);
-                }
-                
-                // Update questions count
-                $survey->updateQuestionsCount();
+                $questionChanges = $this->syncQuestions($survey, $data['questions']);
             }
 
             // Create initial version
@@ -165,11 +152,14 @@ class SurveyCrudService
             $this->logActivity('survey_create', "Created survey: {$survey->title}", [
                 'entity_type' => 'Survey',
                 'entity_id' => $survey->id,
-                'after_state' => $survey->toArray()
+                'after_state' => $survey->toArray(),
+                'question_changes' => $questionChanges,
             ]);
             
             // Log survey audit
-            $this->logSurveyAudit($survey, 'created', 'Survey created');
+            $this->logSurveyAudit($survey, 'created', 'Survey created', [
+                'question_changes' => $questionChanges,
+            ]);
 
             // NOTE: Notifications are sent when survey is published, not on creation
             // This prevents duplicate notifications (create + publish)
@@ -232,92 +222,12 @@ class SurveyCrudService
                 throw $e;
             }
 
-            // Update questions if provided
+            $questionChanges = null;
             if (isset($data['questions'])) {
-                try {
-                    // Remove old questions
-                    \Log::info('Deleting existing questions for survey', ['survey_id' => $survey->id]);
-                    $survey->questions()->delete();
-                    \Log::info('Successfully deleted existing questions');
-                } catch (\Exception $e) {
-                    \Log::error('Failed to delete existing questions:', [
-                        'survey_id' => $survey->id,
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
-                    ]);
-                    throw $e;
-                }
-                
-                // Create new questions
-                foreach ($data['questions'] as $index => $questionData) {
-                    try {
-                        $backendType = $this->mapQuestionType($questionData['type']);
-                        
-                        \Log::info('Creating question:', [
-                            'index' => $index,
-                            'question' => $questionData['question'],
-                            'type' => $backendType,
-                            'options' => $questionData['options'] ?? null,
-                            'options_type' => gettype($questionData['options'] ?? null)
-                        ]);
-                        
-                        // Handle options - convert empty arrays to null
-                        $options = $questionData['options'] ?? null;
-                        if (is_array($options) && empty($options)) {
-                            $options = null;
-                        }
-                        
-                        $newQuestion = $survey->questions()->create([
-                            'title' => $questionData['question'],
-                            'type' => $backendType,
-                            'order_index' => $questionData['order'] ?? $index + 1,
-                            'is_required' => $questionData['required'] ?? false,
-                            'options' => $options,
-                            'validation_rules' => $questionData['validation'] ?? null,
-                        ]);
-                        
-                        \Log::info('Question created successfully:', [
-                            'question_id' => $newQuestion->id,
-                            'title' => $newQuestion->title,
-                            'type' => $newQuestion->type
-                        ]);
-                    } catch (\Exception $e) {
-                        \Log::error('Question creation failed:', [
-                            'survey_id' => $survey->id,
-                            'question_index' => $index,
-                            'error' => $e->getMessage(),
-                            'question_data' => $questionData
-                        ]);
-                        throw $e;
-                    }
-                }
-                
-                \Log::info('All questions processed successfully');
-                
-                // Update questions count
-                try {
-                    \Log::info('Updating questions count');
-                    $survey->updateQuestionsCount();
-                    \Log::info('Questions count updated successfully');
-                } catch (\Exception $e) {
-                    \Log::error('Failed to update questions count:', [
-                        'survey_id' => $survey->id,
-                        'error' => $e->getMessage()
-                    ]);
-                    throw $e;
-                }
-                
-                // Create version for questions change
-                try {
-                    \Log::info('Creating version for questions change');
+                $questionChanges = $this->syncQuestions($survey, $data['questions']);
+
+                if ($this->hasQuestionChanges($questionChanges)) {
                     $this->createVersion($survey, 'Questions updated', $data);
-                    \Log::info('Version created successfully');
-                } catch (\Exception $e) {
-                    \Log::error('Failed to create version:', [
-                        'survey_id' => $survey->id,
-                        'error' => $e->getMessage()
-                    ]);
-                    throw $e;
                 }
             }
 
@@ -328,7 +238,8 @@ class SurveyCrudService
                     'entity_type' => 'Survey',
                     'entity_id' => $survey->id,
                     'before_state' => $oldData,
-                    'after_state' => $survey->toArray()
+                    'after_state' => $survey->toArray(),
+                    'question_changes' => $questionChanges,
                 ]);
                 \Log::info('Activity log completed');
             } catch (\Exception $e) {
@@ -353,7 +264,11 @@ class SurveyCrudService
                         ];
                     }
                 }
-                
+
+                if ($this->hasQuestionChanges($questionChanges)) {
+                    $changes['questions'] = $questionChanges;
+                }
+
                 $this->logSurveyAudit($survey, 'updated', 'Survey updated', [
                     'changes' => $changes
                 ]);
@@ -719,6 +634,155 @@ class SurveyCrudService
             'ip_address' => request()->ip(),
             'user_agent' => request()->userAgent()
         ]);
+    }
+
+    private function syncQuestions(Survey $survey, array $questions): array
+    {
+        $existingQuestions = $survey->questions()->get()->keyBy('id');
+        $processedIds = [];
+
+        $summary = [
+            'created' => [],
+            'updated' => [],
+            'deleted' => [],
+        ];
+
+        foreach ($questions as $index => $questionData) {
+            $questionId = $questionData['id'] ?? null;
+            $payload = $this->prepareQuestionPayload($questionData, $index);
+
+            if ($questionId && $existingQuestions->has($questionId)) {
+                /** @var \App\Models\SurveyQuestion $question */
+                $question = $existingQuestions->get($questionId);
+                $diff = $this->diffQuestionPayload($question, $payload);
+
+                if (!empty($diff)) {
+                    $question->fill($payload);
+                    $question->save();
+
+                    $summary['updated'][] = [
+                        'id' => $question->id,
+                        'changes' => $diff,
+                    ];
+                } elseif ($question->order_index !== $payload['order_index']) {
+                    $question->update(['order_index' => $payload['order_index']]);
+                }
+
+                $processedIds[] = $question->id;
+            } else {
+                $newQuestion = $survey->questions()->create($payload);
+
+                $summary['created'][] = [
+                    'id' => $newQuestion->id,
+                    'title' => $newQuestion->title,
+                    'type' => $newQuestion->type,
+                ];
+
+                $processedIds[] = $newQuestion->id;
+            }
+        }
+
+        $deletedIds = $existingQuestions->keys()->diff($processedIds);
+        if ($deletedIds->isNotEmpty()) {
+            $deletedQuestions = $survey->questions()->whereIn('id', $deletedIds->all())->get();
+            $survey->questions()->whereIn('id', $deletedIds->all())->delete();
+
+            foreach ($deletedQuestions as $question) {
+                $summary['deleted'][] = [
+                    'id' => $question->id,
+                    'title' => $question->title,
+                    'type' => $question->type,
+                ];
+            }
+        }
+
+        $survey->updateQuestionsCount();
+
+        return $summary;
+    }
+
+    private function prepareQuestionPayload(array $questionData, int $index): array
+    {
+        $backendType = $this->mapQuestionType($questionData['type'] ?? 'text');
+
+        return [
+            'title' => $questionData['question'] ?? $questionData['title'] ?? 'Unnamed question',
+            'description' => $questionData['description'] ?? null,
+            'type' => $backendType,
+            'order_index' => $questionData['order'] ?? $questionData['order_index'] ?? $index + 1,
+            'is_required' => (bool) ($questionData['required'] ?? $questionData['is_required'] ?? false),
+            'is_active' => (bool) ($questionData['is_active'] ?? true),
+            'options' => $this->normaliseOptions($questionData['options'] ?? null),
+            'validation_rules' => $questionData['validation'] ?? $questionData['validation_rules'] ?? null,
+            'metadata' => $questionData['metadata'] ?? null,
+            'min_value' => $questionData['min_value'] ?? null,
+            'max_value' => $questionData['max_value'] ?? null,
+            'min_length' => $questionData['min_length'] ?? null,
+            'max_length' => $questionData['max_length'] ?? null,
+            'allowed_file_types' => $questionData['allowed_file_types'] ?? null,
+            'max_file_size' => $questionData['max_file_size'] ?? null,
+            'rating_min' => $questionData['rating_min'] ?? null,
+            'rating_max' => $questionData['rating_max'] ?? null,
+            'rating_min_label' => $questionData['rating_min_label'] ?? null,
+            'rating_max_label' => $questionData['rating_max_label'] ?? null,
+            'table_headers' => $questionData['table_headers'] ?? null,
+            'table_rows' => $questionData['table_rows'] ?? null,
+            'translations' => $questionData['translations'] ?? null,
+        ];
+    }
+
+    private function normaliseOptions($options): ?array
+    {
+        if ($options === null) {
+            return null;
+        }
+
+        if (is_array($options)) {
+            return empty($options) ? null : array_values($options);
+        }
+
+        if (is_string($options)) {
+            $decoded = json_decode($options, true);
+            return empty($decoded) ? null : array_values($decoded);
+        }
+
+        return null;
+    }
+
+    private function diffQuestionPayload($question, array $payload): array
+    {
+        $changes = [];
+
+        foreach ($payload as $key => $value) {
+            $original = $question->{$key};
+
+            if (in_array($key, ['options', 'validation_rules', 'metadata', 'allowed_file_types', 'table_headers', 'table_rows', 'translations'], true)) {
+                if (json_encode($original) !== json_encode($value)) {
+                    $changes[$key] = [
+                        'old' => $original,
+                        'new' => $value,
+                    ];
+                }
+            } elseif ($original != $value) {
+                $changes[$key] = [
+                    'old' => $original,
+                    'new' => $value,
+                ];
+            }
+        }
+
+        return $changes;
+    }
+
+    private function hasQuestionChanges(?array $summary): bool
+    {
+        if (empty($summary)) {
+            return false;
+        }
+
+        return !empty($summary['created'])
+            || !empty($summary['updated'])
+            || !empty($summary['deleted']);
     }
     
     /**
