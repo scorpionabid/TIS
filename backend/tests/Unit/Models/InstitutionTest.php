@@ -37,6 +37,7 @@ class InstitutionTest extends ModelTestCase
         'name',
         'short_name',
         'type',
+        'institution_type_id',
         'utis_code',
         'parent_id',
         'level',
@@ -70,6 +71,7 @@ class InstitutionTest extends ModelTestCase
         'is_active' => 'boolean',
         'established_date' => 'date',
         'deleted_at' => 'datetime',
+        'institution_type_id' => 'integer',
     ];
 
     /**

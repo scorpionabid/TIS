@@ -387,8 +387,8 @@ class InventoryCrudService
     protected function createInitialTransaction(InventoryItem $item, array $data): void
     {
         InventoryTransaction::create([
-            'inventory_item_id' => $item->id,
-            'type' => 'created',
+            'item_id' => $item->id,
+            'transaction_type' => 'created',
             'status' => 'completed',
             'user_id' => Auth::id(),
             'description' => 'Item added to inventory',
@@ -417,16 +417,16 @@ class InventoryCrudService
         $changes = array_diff_assoc($updateData, $oldData);
         
         InventoryTransaction::create([
-            'inventory_item_id' => $item->id,
-            'type' => 'updated',
+            'item_id' => $item->id,
+            'transaction_type' => 'updated',
             'status' => 'completed',
             'user_id' => Auth::id(),
             'description' => 'Item information updated',
             'transaction_date' => now(),
-            'metadata' => json_encode([
+            'metadata' => [
                 'changes' => $changes,
                 'old_values' => array_intersect_key($oldData, $changes)
-            ])
+            ]
         ]);
     }
     

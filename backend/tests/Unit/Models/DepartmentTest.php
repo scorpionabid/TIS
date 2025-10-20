@@ -4,6 +4,7 @@ namespace Tests\Unit\Models;
 
 use App\Models\Department;
 use App\Models\Institution;
+use App\Models\InstitutionType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -71,9 +72,26 @@ class DepartmentTest extends ModelTestCase
     {
         parent::setUp();
         // Create basic test data instead of using missing seeder
+        $institutionType = InstitutionType::query()->firstOrCreate(
+            ['key' => 'ministry'],
+            [
+                'label' => 'Nazirlik',
+                'label_az' => 'Nazirlik',
+                'label_en' => 'Ministry',
+                'default_level' => 1,
+                'allowed_parent_types' => [],
+                'icon' => 'Building',
+                'color' => '#dc2626',
+                'is_active' => true,
+                'is_system' => false,
+                'metadata' => [],
+                'description' => null,
+            ]
+        );
+
         Institution::factory()->create([
             'name' => 'Test Institution',
-            'institution_type_id' => 1,
+            'institution_type_id' => $institutionType->id,
         ]);
     }
 

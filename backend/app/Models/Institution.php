@@ -22,6 +22,7 @@ class Institution extends Model
         'name',
         'short_name',
         'type',
+        'institution_type_id',
         'utis_code',
         'parent_id',
         'level',
@@ -46,6 +47,7 @@ class Institution extends Model
             'contact_info' => 'array',
             'location' => 'array',
             'metadata' => 'array',
+            'institution_type_id' => 'integer',
             'is_active' => 'boolean',
             'established_date' => 'date',
         ];
@@ -153,7 +155,7 @@ class Institution extends Model
      */
     public function institutionType(): BelongsTo
     {
-        return $this->belongsTo(InstitutionType::class, 'type', 'key');
+        return $this->belongsTo(InstitutionType::class, 'institution_type_id');
     }
 
     /**

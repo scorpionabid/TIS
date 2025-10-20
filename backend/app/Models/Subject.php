@@ -27,6 +27,7 @@ class Subject extends Model
         'grade_levels',
         'weekly_hours',
         'metadata',
+        'institution_id',
     ];
 
     /**

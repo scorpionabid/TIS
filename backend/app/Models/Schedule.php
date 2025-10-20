@@ -21,12 +21,17 @@ class Schedule extends Model
         'name',
         'code',
         'description',
+        'type',
         'schedule_type',
         'effective_date',
+        'effective_from',
         'end_date',
+        'effective_to',
         'total_periods_per_day',
         'total_teaching_periods',
         'working_days',
+        'schedule_data',
+        'generation_settings',
         'generation_method',
         'template_id',
         'copied_from_schedule_id',
@@ -59,8 +64,12 @@ class Schedule extends Model
 
     protected $casts = [
         'effective_date' => 'date',
+        'effective_from' => 'date',
         'end_date' => 'date',
+        'effective_to' => 'date',
         'working_days' => 'array',
+        'schedule_data' => 'array',
+        'generation_settings' => 'array',
         'submitted_at' => 'datetime',
         'reviewed_at' => 'datetime',
         'approved_at' => 'datetime',
@@ -106,6 +115,73 @@ class Schedule extends Model
         'archived' => 'Archived',
         'rejected' => 'Rejected',
     ];
+
+    public function setTypeAttribute($value): void
+    {
+        $this->attributes['type'] = $value;
+        $this->attributes['schedule_type'] = $value;
+    }
+
+    public function setScheduleTypeAttribute($value): void
+    {
+        $this->attributes['schedule_type'] = $value;
+        $this->attributes['type'] = $value;
+    }
+
+    public function getTypeAttribute($value): ?string
+    {
+        return $value ?? ($this->attributes['schedule_type'] ?? null);
+    }
+
+    public function setEffectiveFromAttribute($value): void
+    {
+        $date = $value ? Carbon::parse($value)->toDateString() : null;
+        $this->attributes['effective_from'] = $date;
+        $this->attributes['effective_date'] = $date;
+    }
+
+    public function setEffectiveDateAttribute($value): void
+    {
+        $date = $value ? Carbon::parse($value)->toDateString() : null;
+        $this->attributes['effective_date'] = $date;
+        $this->attributes['effective_from'] = $date;
+    }
+
+    public function getEffectiveFromAttribute($value)
+    {
+        $raw = $value ?? ($this->attributes['effective_date'] ?? null);
+
+        if ($raw instanceof Carbon) {
+            return $raw;
+        }
+
+        return $raw ? Carbon::parse($raw) : null;
+    }
+
+    public function setEffectiveToAttribute($value): void
+    {
+        $date = $value ? Carbon::parse($value)->toDateString() : null;
+        $this->attributes['effective_to'] = $date;
+        $this->attributes['end_date'] = $date;
+    }
+
+    public function setEndDateAttribute($value): void
+    {
+        $date = $value ? Carbon::parse($value)->toDateString() : null;
+        $this->attributes['end_date'] = $date;
+        $this->attributes['effective_to'] = $date;
+    }
+
+    public function getEffectiveToAttribute($value)
+    {
+        $raw = $value ?? ($this->attributes['end_date'] ?? null);
+
+        if ($raw instanceof Carbon) {
+            return $raw;
+        }
+
+        return $raw ? Carbon::parse($raw) : null;
+    }
 
     /**
      * Academic year relationship

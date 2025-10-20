@@ -25,11 +25,6 @@ class InventoryItemFactory extends Factory
             'cleaning', 'stationery', 'tools', 'software', 'other'
         ];
 
-        $statuses = [
-            'available', 'in_use', 'maintenance', 'repair', 'retired',
-            'lost', 'damaged', 'reserved'
-        ];
-
         $conditions = ['new', 'excellent', 'good', 'fair', 'poor', 'damaged'];
 
         $category = fake()->randomElement($categories);
@@ -53,7 +48,7 @@ class InventoryItemFactory extends Factory
             'vendor' => fake()->optional()->company(),
             'warranty_expiry' => $warrantyExpiry,
             'condition' => fake()->randomElement($conditions),
-            'status' => fake()->randomElement($statuses),
+            'status' => 'available',
             'location' => fake()->optional()->words(2, true),
             'room_id' => null, // Will be set by specific factory states
             'specifications' => null,

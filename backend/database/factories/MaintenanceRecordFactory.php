@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\InventoryItem;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -27,9 +28,16 @@ class MaintenanceRecordFactory extends Factory
         $priorities = ['low', 'medium', 'high', 'critical'];
         $conditions = ['poor', 'fair', 'good', 'excellent'];
 
-        $scheduledDate = fake()->dateTimeBetween('-6 months', '+3 months');
-        $maintenanceDate = fake()->dateTimeBetween($scheduledDate, '+1 month');
-        $completionDate = fake()->optional(0.7)->dateTimeBetween($maintenanceDate, '+1 week');
+        $scheduledDate = Carbon::instance(fake()->dateTimeBetween('-6 months', '+3 months'));
+        $maintenanceDate = fake()->dateTimeBetween(
+            $scheduledDate,
+            (clone $scheduledDate)->addMonth()
+        );
+        $maintenanceDate = Carbon::instance($maintenanceDate);
+        $completionDate = fake()->optional(0.7)->dateTimeBetween(
+            $maintenanceDate,
+            (clone $maintenanceDate)->addWeeks(1)
+        );
 
         $laborHours = fake()->randomFloat(2, 0.5, 24);
         $laborCost = $laborHours * fake()->randomFloat(2, 25, 100);
@@ -41,23 +49,40 @@ class MaintenanceRecordFactory extends Factory
             'technician_id' => User::factory(),
             'scheduled_by' => User::factory(),
             'maintenance_type' => fake()->randomElement($maintenanceTypes),
+            'maintenance_category' => fake()->randomElement(['general', 'electrical', 'safety', 'infrastructure']),
             'maintenance_date' => $maintenanceDate,
             'scheduled_date' => $scheduledDate,
+            'estimated_duration' => fake()->numberBetween(1, 8),
+            'estimated_cost' => fake()->optional()->randomFloat(2, 50, 1500),
+            'assigned_to' => User::factory(),
+            'work_order_number' => fake()->unique()->bothify('WO-######'),
+            'started_at' => fake()->optional()->dateTimeBetween($scheduledDate, $maintenanceDate),
+            'started_by' => User::factory(),
+            'actual_start_date' => fake()->optional()->dateTimeBetween($scheduledDate, $maintenanceDate),
             'completion_date' => $completionDate,
+            'completed_at' => $completionDate,
+            'actual_completion_date' => $completionDate,
+            'completed_by' => User::factory(),
             'description' => fake()->sentence(),
             'work_performed' => fake()->optional()->paragraph(),
             'parts_used' => fake()->optional()->randomElements([
                 'Filter', 'Belt', 'Battery', 'Fuse', 'Bulb', 'Cable',
                 'Screw', 'Gasket', 'Oil', 'Brake pad', 'Wire'
             ], fake()->numberBetween(0, 3)),
+            'parts_needed' => fake()->optional()->randomElements([
+                'Filter', 'Battery', 'Cable', 'Fuse'
+            ], fake()->numberBetween(0, 2)),
             'labor_hours' => $laborHours,
+            'actual_duration' => fake()->optional()->numberBetween(1, 10),
             'cost' => $totalCost,
+            'actual_cost' => fake()->optional()->randomFloat(2, 50, 1500),
             'parts_cost' => $partsCost,
             'labor_cost' => $laborCost,
             'vendor' => fake()->optional()->company(),
             'invoice_number' => fake()->optional()->bothify('INV-######'),
             'warranty_extended' => fake()->boolean(30),
             'warranty_extension_date' => fake()->optional()->dateTimeBetween('+1 month', '+2 years'),
+            'warranty_period' => fake()->optional()->numberBetween(1, 24),
             'condition_before' => fake()->randomElement($conditions),
             'condition_after' => fake()->randomElement(array_slice($conditions, 1)), // Exclude 'poor'
             'issues_found' => fake()->optional()->sentence(),
@@ -66,10 +91,21 @@ class MaintenanceRecordFactory extends Factory
             'status' => fake()->randomElement($statuses),
             'priority' => fake()->randomElement($priorities),
             'notes' => fake()->optional()->paragraph(),
+            'technician_notes' => fake()->optional()->paragraph(),
+            'completion_notes' => fake()->optional()->paragraph(),
             'attachments' => fake()->optional()->randomElements([
                 'before_photo.jpg', 'after_photo.jpg', 'receipt.pdf',
                 'manual.pdf', 'warranty.pdf'
             ], fake()->numberBetween(0, 2)),
+            'external_service' => fake()->boolean(20),
+            'service_provider' => fake()->optional()->company(),
+            'recurring' => fake()->boolean(15),
+            'recurring_interval' => fake()->optional()->randomElement(['weekly', 'monthly', 'quarterly', 'yearly']),
+            'parent_maintenance_id' => null,
+            'quality_check_passed' => fake()->boolean(90),
+            'cancelled_at' => null,
+            'cancelled_by' => null,
+            'cancellation_reason' => null,
             'metadata' => fake()->optional()->randomElements([
                 'downtime_hours' => fake()->numberBetween(1, 48),
                 'temperature' => fake()->numberBetween(-20, 50) . '°C',
@@ -123,12 +159,21 @@ class MaintenanceRecordFactory extends Factory
      */
     public function completed(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'status' => 'completed',
-            'completion_date' => fake()->dateTimeBetween($attributes['maintenance_date'], 'now'),
-            'work_performed' => fake()->paragraph(),
-            'condition_after' => fake()->randomElement(['fair', 'good', 'excellent']),
-        ]);
+        return $this->state(function (array $attributes) {
+            $completedAt = fake()->dateTimeBetween($attributes['maintenance_date'] ?? now()->subDays(2), 'now');
+
+            return [
+                'status' => 'completed',
+                'completion_date' => $completedAt,
+                'completed_at' => $completedAt,
+                'actual_completion_date' => $completedAt,
+                'completed_by' => $attributes['completed_by'] ?? User::factory(),
+                'work_performed' => fake()->paragraph(),
+                'condition_after' => fake()->randomElement(['fair', 'good', 'excellent']),
+                'actual_cost' => fake()->randomFloat(2, 50, 1500),
+                'actual_duration' => fake()->numberBetween(1, 10),
+            ];
+        });
     }
 
     /**
@@ -139,8 +184,16 @@ class MaintenanceRecordFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'status' => 'scheduled',
             'completion_date' => null,
+            'completed_at' => null,
+            'actual_completion_date' => null,
+            'completed_by' => null,
+            'started_at' => null,
+            'started_by' => null,
+            'actual_start_date' => null,
             'work_performed' => null,
             'condition_after' => null,
+            'actual_cost' => null,
+            'actual_duration' => null,
         ]);
     }
 
@@ -149,11 +202,23 @@ class MaintenanceRecordFactory extends Factory
      */
     public function inProgress(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'status' => 'in_progress',
-            'completion_date' => null,
-            'condition_after' => null,
-        ]);
+        return $this->state(function (array $attributes) {
+            $startedAt = fake()->dateTimeBetween('-2 days', 'now');
+
+            return [
+                'status' => 'in_progress',
+                'completion_date' => null,
+                'completed_at' => null,
+                'actual_completion_date' => null,
+                'completed_by' => null,
+                'condition_after' => null,
+                'started_at' => $startedAt,
+                'started_by' => $attributes['started_by'] ?? User::factory(),
+                'actual_start_date' => $startedAt,
+                'actual_cost' => null,
+                'actual_duration' => null,
+            ];
+        });
     }
 
     /**
@@ -167,6 +232,12 @@ class MaintenanceRecordFactory extends Factory
             'work_performed' => null,
             'condition_after' => null,
             'notes' => 'Maintenance cancelled - ' . fake()->sentence(),
+            'completed_at' => null,
+            'completed_by' => null,
+            'cancelled_at' => now(),
+            'cancelled_by' => $attributes['cancelled_by'] ?? User::factory(),
+            'cancellation_reason' => fake()->sentence(),
+            'actual_completion_date' => null,
         ]);
     }
 

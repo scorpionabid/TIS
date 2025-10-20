@@ -7,6 +7,7 @@ use App\Models\StudentEnrollment;
 use App\Models\Grade;
 use App\Models\AcademicYear;
 use App\Models\Institution;
+use App\Models\InstitutionType;
 use App\Models\UserProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
@@ -44,6 +45,24 @@ class StudentApiTest extends TestCase
         $superadminRole->givePermissionTo(['students.create', 'students.read', 'students.update', 'students.delete']);
         $schooladminRole->givePermissionTo(['students.create', 'students.read', 'students.update', 'students.delete']);
 
+        // Ensure at least one institution type exists for foreign key constraint
+        $institutionType = InstitutionType::query()->firstOrCreate(
+            ['key' => 'school'],
+            [
+                'label' => 'Məktəb',
+                'label_az' => 'Məktəb',
+                'label_en' => 'School',
+                'default_level' => 4,
+                'allowed_parent_types' => [],
+                'icon' => 'School',
+                'color' => '#7c3aed',
+                'is_active' => true,
+                'is_system' => false,
+                'metadata' => [],
+                'description' => null,
+            ]
+        );
+
         // Create test institution with all required fields
         $this->institution = Institution::create([
             'name' => 'Test Məktəbi',
@@ -60,7 +79,7 @@ class StudentApiTest extends TestCase
             'district' => 'Nəsimi',
             'village' => 'Test kəndi',
             'status' => 'active',
-            'institution_type_id' => 1,
+            'institution_type_id' => $institutionType->id,
             'parent_id' => null,
             'created_by' => 1,
             'updated_by' => 1,

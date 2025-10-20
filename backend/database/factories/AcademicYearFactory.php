@@ -24,7 +24,7 @@ class AcademicYearFactory extends Factory
      */
     public function definition(): array
     {
-        $startYear = $this->faker->numberBetween(2020, 2025);
+        $startYear = $this->faker->unique()->numberBetween(2010, 2050);
         $endYear = $startYear + 1;
         
         $startDate = \Carbon\Carbon::create($startYear, 9, 1); // September 1st

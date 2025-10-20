@@ -88,7 +88,7 @@ class InventoryTransactionControllerTest extends TestCase
         // Check database
         $this->assertDatabaseHas('inventory_transactions', [
             'type' => 'assignment',
-            'inventory_item_id' => $this->item->id,
+            'item_id' => $this->item->id,
             'assigned_user_id' => $this->assignedUser->id
         ]);
 
@@ -141,7 +141,7 @@ class InventoryTransactionControllerTest extends TestCase
         // Check database
         $this->assertDatabaseHas('inventory_transactions', [
             'type' => 'return',
-            'inventory_item_id' => $this->item->id,
+            'item_id' => $this->item->id,
             'condition_after' => 'excellent'
         ]);
 
@@ -231,7 +231,7 @@ class InventoryTransactionControllerTest extends TestCase
     {
         // Create multiple transactions
         InventoryTransaction::factory()->count(3)->create([
-            'inventory_item_id' => $this->item->id,
+            'item_id' => $this->item->id,
             'user_id' => $this->user->id
         ]);
 
@@ -262,13 +262,13 @@ class InventoryTransactionControllerTest extends TestCase
     {
         // Create different types of transactions
         InventoryTransaction::factory()->create([
-            'inventory_item_id' => $this->item->id,
+            'item_id' => $this->item->id,
             'type' => 'assignment',
             'user_id' => $this->user->id
         ]);
         
         InventoryTransaction::factory()->create([
-            'inventory_item_id' => $this->item->id,
+            'item_id' => $this->item->id,
             'type' => 'return',
             'user_id' => $this->user->id
         ]);

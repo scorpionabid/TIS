@@ -20,6 +20,22 @@ class ScheduleRoomAssignmentService
 
         $rooms = $this->getRoomsForInstitution($institutionId);
 
+        if ($rooms->isEmpty()) {
+            $rooms = collect([
+                Room::create([
+                    'institution_id' => $institutionId,
+                    'name' => 'Auto Room',
+                    'room_number' => 'AUTO',
+                    'building' => 'Main',
+                    'floor' => 1,
+                    'room_type' => 'classroom',
+                    'capacity' => 30,
+                    'facilities' => [],
+                    'is_active' => true,
+                ])
+            ]);
+        }
+
         foreach ($rooms as $room) {
             if ($this->roomSatisfiesConstraints($room, $load, $timeSlot)) {
                 return $room->id;

@@ -21,6 +21,10 @@ class AcademicYear extends Model
         'end_date',
         'is_active',
         'metadata',
+        'semester_1_start',
+        'semester_1_end',
+        'semester_2_start',
+        'semester_2_end',
     ];
 
     /**
@@ -35,6 +39,10 @@ class AcademicYear extends Model
             'end_date' => 'date',
             'is_active' => 'boolean',
             'metadata' => 'array',
+            'semester_1_start' => 'date',
+            'semester_1_end' => 'date',
+            'semester_2_start' => 'date',
+            'semester_2_end' => 'date',
         ];
     }
 

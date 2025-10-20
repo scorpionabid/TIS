@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MaintenanceRecord extends Model
 {
@@ -19,21 +20,36 @@ class MaintenanceRecord extends Model
         'item_id',
         'technician_id',
         'scheduled_by',
+        'assigned_to',
         'maintenance_type',
+        'maintenance_category',
         'maintenance_date',
         'scheduled_date',
+        'estimated_duration',
+        'estimated_cost',
+        'started_at',
+        'started_by',
+        'actual_start_date',
         'completion_date',
+        'completed_at',
+        'actual_completion_date',
+        'completed_by',
         'description',
         'work_performed',
+        'completion_notes',
         'parts_used',
+        'parts_needed',
         'labor_hours',
+        'actual_duration',
         'cost',
+        'actual_cost',
         'parts_cost',
         'labor_cost',
         'vendor',
         'invoice_number',
         'warranty_extended',
         'warranty_extension_date',
+        'warranty_period',
         'condition_before',
         'condition_after',
         'issues_found',
@@ -42,8 +58,19 @@ class MaintenanceRecord extends Model
         'status',
         'priority',
         'notes',
+        'technician_notes',
         'attachments',
         'metadata',
+        'external_service',
+        'service_provider',
+        'recurring',
+        'recurring_interval',
+        'parent_maintenance_id',
+        'work_order_number',
+        'quality_check_passed',
+        'cancelled_at',
+        'cancelled_by',
+        'cancellation_reason',
     ];
 
     /**
@@ -57,18 +84,39 @@ class MaintenanceRecord extends Model
             'maintenance_date' => 'date',
             'scheduled_date' => 'date',
             'completion_date' => 'date',
+            'completed_at' => 'datetime',
+            'actual_completion_date' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'started_at' => 'datetime',
+            'actual_start_date' => 'datetime',
             'warranty_extension_date' => 'date',
             'next_maintenance_date' => 'date',
+            'assigned_to' => 'integer',
+            'scheduled_by' => 'integer',
+            'started_by' => 'integer',
+            'completed_by' => 'integer',
+            'cancelled_by' => 'integer',
+            'parent_maintenance_id' => 'integer',
+            'estimated_duration' => 'integer',
+            'actual_duration' => 'integer',
             'labor_hours' => 'decimal:2',
             'cost' => 'decimal:2',
+            'estimated_cost' => 'decimal:2',
+            'actual_cost' => 'decimal:2',
             'parts_cost' => 'decimal:2',
             'labor_cost' => 'decimal:2',
+            'warranty_period' => 'integer',
+            'quality_check_passed' => 'boolean',
             'warranty_extended' => 'boolean',
             'parts_used' => 'array',
+            'parts_needed' => 'array',
             'issues_found' => 'array',
             'recommendations' => 'array',
             'attachments' => 'array',
             'metadata' => 'array',
+            'external_service' => 'boolean',
+            'recurring' => 'boolean',
+            'recurring_interval' => 'string',
         ];
     }
 
@@ -88,6 +136,41 @@ class MaintenanceRecord extends Model
     public function scheduler(): BelongsTo
     {
         return $this->belongsTo(User::class, 'scheduled_by');
+    }
+
+    public function scheduledBy(): BelongsTo
+    {
+        return $this->scheduler();
+    }
+
+    public function assignedTo(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    public function startedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'started_by');
+    }
+
+    public function completedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'completed_by');
+    }
+
+    public function cancelledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
+    }
+
+    public function parentMaintenance(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_maintenance_id');
+    }
+
+    public function childMaintenances(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_maintenance_id');
     }
 
     /**
@@ -175,7 +258,7 @@ class MaintenanceRecord extends Model
             'repair' => 'Təmir',
             'overhaul' => 'Əsaslı təmir',
             default => 'Ümumi'
-        ];
+        };
     }
 
     public function getStatusLabelAttribute(): string
@@ -188,7 +271,7 @@ class MaintenanceRecord extends Model
             'postponed' => 'Təxirə salınıb',
             'on_hold' => 'Dayandırılıb',
             default => 'Naməlum'
-        ];
+        };
     }
 
     public function getPriorityLabelAttribute(): string

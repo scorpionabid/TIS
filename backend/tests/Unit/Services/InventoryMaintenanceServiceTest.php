@@ -83,7 +83,7 @@ class InventoryMaintenanceServiceTest extends TestCase
         $this->assertEquals('maintenance', $this->item->status);
         
         $this->assertDatabaseHas('maintenance_records', [
-            'inventory_item_id' => $this->item->id,
+            'item_id' => $this->item->id,
             'maintenance_type' => 'repair',
             'status' => 'scheduled'
         ]);
@@ -115,7 +115,7 @@ class InventoryMaintenanceServiceTest extends TestCase
     public function it_can_start_maintenance()
     {
         $maintenance = MaintenanceRecord::factory()->create([
-            'inventory_item_id' => $this->item->id,
+            'item_id' => $this->item->id,
             'status' => 'scheduled',
             'assigned_to' => $this->technician->id
         ]);
@@ -141,7 +141,7 @@ class InventoryMaintenanceServiceTest extends TestCase
     public function it_can_complete_maintenance()
     {
         $maintenance = MaintenanceRecord::factory()->create([
-            'inventory_item_id' => $this->item->id,
+            'item_id' => $this->item->id,
             'status' => 'in_progress',
             'estimated_cost' => 150.00
         ]);
@@ -180,7 +180,7 @@ class InventoryMaintenanceServiceTest extends TestCase
     public function it_can_cancel_maintenance()
     {
         $maintenance = MaintenanceRecord::factory()->create([
-            'inventory_item_id' => $this->item->id,
+            'item_id' => $this->item->id,
             'status' => 'scheduled'
         ]);
 
@@ -209,7 +209,7 @@ class InventoryMaintenanceServiceTest extends TestCase
     public function it_can_get_maintenance_records_for_item()
     {
         MaintenanceRecord::factory()->count(3)->create([
-            'inventory_item_id' => $this->item->id
+            'item_id' => $this->item->id
         ]);
 
         $records = $this->service->getMaintenanceRecords($this->item);
@@ -428,7 +428,7 @@ class InventoryMaintenanceServiceTest extends TestCase
     public function it_calculates_maintenance_duration_correctly()
     {
         $maintenance = MaintenanceRecord::factory()->create([
-            'inventory_item_id' => $this->item->id,
+            'item_id' => $this->item->id,
             'status' => 'in_progress',
             'actual_start_date' => now()->subHours(5)
         ]);

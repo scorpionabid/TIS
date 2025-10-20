@@ -320,14 +320,14 @@ class InventoryAnalyticsServiceTest extends TestCase
         ]);
         
         MaintenanceRecord::factory()->create([
-            'inventory_item_id' => $item->id,
+            'item_id' => $item->id,
             'status' => 'completed',
             'actual_cost' => 150.00,
             'maintenance_type' => 'repair'
         ]);
         
         MaintenanceRecord::factory()->create([
-            'inventory_item_id' => $item->id,
+            'item_id' => $item->id,
             'status' => 'completed',
             'actual_cost' => 75.00,
             'maintenance_type' => 'preventive'

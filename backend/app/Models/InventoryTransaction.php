@@ -12,8 +12,10 @@ class InventoryTransaction extends Model
 
     protected $fillable = [
         'item_id',
+        'maintenance_record_id',
         'user_id',
         'transaction_type',
+        'condition_on_return',
         'quantity',
         'unit_price',
         'total_amount',
@@ -40,6 +42,7 @@ class InventoryTransaction extends Model
         return [
             'transaction_date' => 'date',
             'approved_at' => 'datetime',
+            'maintenance_record_id' => 'integer',
             'quantity' => 'integer',
             'previous_quantity' => 'integer',
             'new_quantity' => 'integer',
@@ -52,6 +55,11 @@ class InventoryTransaction extends Model
     public function item(): BelongsTo
     {
         return $this->belongsTo(InventoryItem::class, 'item_id');
+    }
+
+    public function maintenanceRecord(): BelongsTo
+    {
+        return $this->belongsTo(MaintenanceRecord::class);
     }
 
     public function user(): BelongsTo

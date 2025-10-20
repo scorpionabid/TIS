@@ -6,6 +6,9 @@ use App\Models\Schedule;
 use App\Models\ScheduleSession;
 use App\Models\TeachingLoad;
 use App\Models\ScheduleGenerationSetting;
+use App\Models\AcademicYear;
+use App\Models\ClassModel;
+use App\Models\TimeSlot;
 use App\Services\Schedule\WorkloadScheduleIntegrationService;
 use App\Services\Schedule\ScheduleRoomAssignmentService;
 use Illuminate\Support\Collection;
@@ -20,6 +23,8 @@ class ScheduleGenerationEngine
     private array $timeMatrix = [];
     private array $conflicts = [];
     private array $generationLog = [];
+    private array $originalTeachingLoads = [];
+    private array $preferences = [];
 
     public function __construct(WorkloadScheduleIntegrationService $integrationService, ScheduleRoomAssignmentService $roomAssignmentService)
     {
@@ -32,11 +37,16 @@ class ScheduleGenerationEngine
      */
     public function generateFromWorkload(array $workloadData, array $preferences = []): array
     {
+        $this->validateWorkloadPayload($workloadData);
+        $workloadData = $this->prepareWorkloadData($workloadData, auth()->user());
+        $this->originalTeachingLoads = $workloadData['teaching_loads'];
+        $this->preferences = $preferences;
+
         try {
             $startTime = microtime(true);
             $startMemory = memory_get_usage();
 
-            $this->log('Starting schedule generation', ['institution_id' => $workloadData['institution']['id']]);
+            $this->log('Starting schedule generation', ['institution_id' => $workloadData['institution']['id'] ?? null]);
 
             // Initialize generation process
             $this->initializeGeneration($workloadData, $preferences);
@@ -68,10 +78,11 @@ class ScheduleGenerationEngine
 
             return [
                 'success' => true,
-                'schedule' => $schedule->fresh(['sessions', 'teachingLoads']),
+                'schedule' => $schedule->fresh(['sessions']),
                 'sessions_created' => count($scheduledSessions),
                 'conflicts' => $this->conflicts,
                 'resolved_conflicts' => $resolvedConflicts,
+                'generation_time' => round($executionTime, 2),
                 'statistics' => $statistics,
                 'generation_log' => $this->generationLog
             ];
@@ -89,6 +100,94 @@ class ScheduleGenerationEngine
                 'generation_log' => $this->generationLog
             ];
         }
+    }
+
+    /**
+     * Ensure workload payload contains required keys.
+     */
+    private function validateWorkloadPayload(array $workloadData): void
+    {
+        if (empty($workloadData['teaching_loads'] ?? [])) {
+            throw new \InvalidArgumentException('Heç bir dərs yükü tapılmadı');
+        }
+
+        if (empty($workloadData['time_slots'] ?? [])) {
+            throw new \InvalidArgumentException('Time slots are required for schedule generation.');
+        }
+
+        $settings = $workloadData['settings'] ?? [];
+
+        if (empty($settings['working_days'] ?? [])) {
+            throw new \InvalidArgumentException('Working days must be defined in schedule settings.');
+        }
+
+        if (empty($settings['daily_periods']) || $settings['daily_periods'] <= 0) {
+            throw new \InvalidArgumentException('Daily periods must be greater than zero.');
+        }
+    }
+
+    /**
+     * Ensure institution and academic year data are present.
+     */
+    private function prepareWorkloadData(array $workloadData, $user = null): array
+    {
+        $firstLoad = $workloadData['teaching_loads'][0] ?? null;
+
+        $institutionId = $workloadData['institution']['id']
+            ?? $firstLoad['class']['institution_id']
+            ?? ($user?->institution_id);
+
+        $classRecord = null;
+        if (!$institutionId && isset($firstLoad['class']['id'])) {
+            $classRecord = ClassModel::find($firstLoad['class']['id']);
+            $institutionId = $classRecord?->institution_id;
+        }
+
+        if (!$institutionId) {
+            throw new \InvalidArgumentException('Institution information is required for schedule generation.');
+        }
+
+        $institutionName = $workloadData['institution']['name']
+            ?? ($user?->institution?->name ?? ('Institution #' . $institutionId));
+
+        $workloadData['institution'] = [
+            'id' => $institutionId,
+            'name' => $institutionName,
+        ];
+
+        $academicYearId = $workloadData['academic_year_id']
+            ?? ($firstLoad['class']['academic_year_id'] ?? null);
+
+        if (!$academicYearId && $classRecord) {
+            $academicYearId = $classRecord->academic_year_id;
+        }
+
+        if (!$academicYearId) {
+            $academicYearId = AcademicYear::query()
+                ->where('is_active', true)
+                ->orderByDesc('start_date')
+                ->value('id');
+        }
+
+        if (!$academicYearId) {
+            throw new \InvalidArgumentException('Academic year identifier is required for schedule generation.');
+        }
+
+        $workloadData['academic_year_id'] = $academicYearId;
+
+        return $workloadData;
+    }
+
+    /**
+     * Backwards-compatible entry point for schedule generation.
+     */
+    public function generateSchedule(array $workloadData, array $preferences = [], $user = null): array
+    {
+        if ($user) {
+            auth()->setUser($user);
+        }
+
+        return $this->generateFromWorkload($workloadData, $preferences);
     }
 
     /**
@@ -118,13 +217,25 @@ class ScheduleGenerationEngine
             'name' => $scheduleName,
             'institution_id' => $workloadData['institution']['id'],
             'academic_year_id' => $workloadData['academic_year_id'],
+            'type' => 'regular',
             'schedule_type' => 'regular',
             'generation_method' => 'automated',
             'status' => 'draft',
             'created_by' => auth()->id() ?? 1,
             'effective_date' => Carbon::now()->startOfWeek(),
+            'effective_from' => Carbon::now()->startOfWeek(),
+            'end_date' => Carbon::now()->addMonths(1),
+            'effective_to' => Carbon::now()->addMonths(1),
             'working_days' => $workloadData['settings']['working_days'],
             'total_periods_per_day' => $workloadData['settings']['daily_periods'],
+            'schedule_data' => [
+                'working_days' => $workloadData['settings']['working_days'],
+                'time_slots' => $workloadData['time_slots'],
+            ],
+            'generation_settings' => [
+                'preferences' => $preferences,
+                'settings' => $workloadData['settings'],
+            ],
             'scheduling_preferences' => $preferences,
             'metadata' => [
                 'generated_at' => now()->toISOString(),
@@ -147,9 +258,11 @@ class ScheduleGenerationEngine
         
         foreach ($settings['working_days'] as $day) {
             $this->timeMatrix[$day] = [];
-            
+
             foreach ($timeSlots as $slot) {
-                if ($slot['slot_type'] === 'lesson') {
+                $slotType = $slot['slot_type'] ?? (($slot['is_break'] ?? false) ? 'break' : 'lesson');
+
+                if ($slotType === 'lesson') {
                     $this->timeMatrix[$day][$slot['period_number']] = [
                         'available' => true,
                         'assignments' => [],
@@ -241,6 +354,16 @@ class ScheduleGenerationEngine
         $viableSlots = array_filter($availableSlots, function ($slot) use ($load) {
             return $this->isSlotViableForLoad($day, $slot, $load);
         });
+
+        if (($this->preferences['prefer_morning_core_subjects'] ?? false) && $this->isCoreSubject($load['subject'] ?? [])) {
+            $weight = function (int $period): int {
+                return $period <= 4 ? $period : $period + 10;
+            };
+
+            usort($viableSlots, function ($a, $b) use ($weight) {
+                return $weight($a) <=> $weight($b);
+            });
+        }
 
         if (count($viableSlots) < $lessonsNeeded) {
             $this->addConflict([
@@ -339,11 +462,34 @@ class ScheduleGenerationEngine
             $timeSlot = $this->timeMatrix[$day][$period]['time_slot'];
             $assignedRoomId = $this->roomAssignmentService->assignRoom($load, $dayName, $timeSlot);
 
+            $institutionId = $load['class']['institution_id'] ?? ($load['institution']['id'] ?? null);
+
+            $timeSlotModel = TimeSlot::firstOrCreate(
+                [
+                    'institution_id' => $institutionId,
+                    'start_time' => $timeSlot['start_time'],
+                    'end_time' => $timeSlot['end_time'],
+                    'duration_minutes' => $timeSlot['duration'],
+                    'slot_type' => 'class',
+                    'order_index' => $period,
+                ],
+                [
+                    'name' => 'Auto Slot ' . $period,
+                    'code' => 'AUTO-' . $day . '-' . $period,
+                    'applicable_days' => [$day],
+                    'is_active' => true,
+                    'is_teaching_period' => true,
+                    'allow_conflicts' => false,
+                    'metadata' => [],
+                ]
+            );
+
             $session = [
                 'teaching_load_id' => $load['id'],
                 'subject_id' => $load['subject']['id'],
                 'teacher_id' => $load['teacher']['id'],
                 'room_id' => $assignedRoomId,
+                'time_slot_id' => $timeSlotModel->id,
                 'day_of_week' => $dayName,
                 'period_number' => $period,
                 'start_time' => $timeSlot['start_time'],
@@ -396,8 +542,18 @@ class ScheduleGenerationEngine
         // Try to fit remaining hours in any available slots
         foreach ($this->timeMatrix as $day => $periods) {
             if ($remainingHours <= 0) break;
-            
-            foreach ($periods as $period => $slot) {
+
+            $periodKeys = array_keys($periods);
+
+            if (($this->preferences['prefer_morning_core_subjects'] ?? false) && $this->isCoreSubject($load['subject'] ?? [])) {
+                $periodKeys = collect($periodKeys)->sort(function ($a, $b) {
+                    $weight = fn($period) => $period <= 4 ? $period : $period + 10;
+                    return $weight($a) <=> $weight($b);
+                })->values()->all();
+            }
+
+            foreach ($periodKeys as $period) {
+                $slot = $periods[$period];
                 if ($remainingHours <= 0) break;
                 
                 if ($this->isSlotViableForLoad($day, $period, $load)) {
@@ -427,6 +583,7 @@ class ScheduleGenerationEngine
     private function addConflict(array $conflict): void
     {
         $this->conflicts[] = array_merge($conflict, [
+            'severity' => $conflict['severity'] ?? 'warning',
             'timestamp' => now()->toISOString()
         ]);
     }
@@ -436,6 +593,7 @@ class ScheduleGenerationEngine
      */
     private function detectConflicts(): void
     {
+        $this->detectTeacherLoadConflicts();
         // Teacher conflicts
         $this->detectTeacherConflicts();
         
@@ -470,6 +628,34 @@ class ScheduleGenerationEngine
                         $teachers[$teacherId] = $assignment['teaching_load_id'];
                     }
                 }
+            }
+        }
+    }
+
+    private function detectTeacherLoadConflicts(): void
+    {
+        $teacherTotals = [];
+
+        foreach ($this->originalTeachingLoads as $load) {
+            $teacherId = $load['teacher']['id'] ?? null;
+            if (!$teacherId) {
+                continue;
+            }
+
+            $teacherTotals[$teacherId]['name'] = $load['teacher']['name'] ?? 'Unknown Teacher';
+            $teacherTotals[$teacherId]['hours'] = ($teacherTotals[$teacherId]['hours'] ?? 0) + ($load['weekly_hours'] ?? 0);
+        }
+
+        foreach ($teacherTotals as $teacherId => $data) {
+            if ($data['hours'] > 25) {
+                $this->addConflict([
+                    'type' => 'teacher_conflict',
+                    'teacher_id' => $teacherId,
+                    'teacher_name' => $data['name'],
+                    'weekly_hours' => $data['hours'],
+                    'threshold' => 25,
+                    'severity' => 'critical',
+                ]);
             }
         }
     }
@@ -639,5 +825,11 @@ class ScheduleGenerationEngine
         ];
 
         Log::info("Schedule Generation: {$message}", $context);
+    }
+
+    private function isCoreSubject(array $subject): bool
+    {
+        $coreSubjects = ['Riyaziyyat', 'Azərbaycan dili'];
+        return in_array($subject['name'] ?? '', $coreSubjects, true);
     }
 }

@@ -79,6 +79,7 @@ class UserTest extends ModelTestCase
         'password' => 'hashed',
         'failed_login_attempts' => 'integer',
         'preferences' => 'array',
+        'deleted_at' => 'datetime',
     ];
 
     /**
