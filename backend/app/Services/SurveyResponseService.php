@@ -10,7 +10,6 @@ use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 class SurveyResponseService extends BaseService
 {
@@ -183,19 +182,10 @@ class SurveyResponseService extends BaseService
             throw new \InvalidArgumentException('Cannot modify submitted responses');
         }
 
-        return DB::transaction(function () use ($response, $data) {
+        return DB::transaction(function () use ($response, $data, $user) {
             $oldData = $response->toArray();
 
-            $response->loadMissing(['survey.questions']);
-            $responsesPayload = $data['responses'] ?? [];
-
-            $this->validateResponsesAgainstSurvey(
-                $response->survey,
-                $responsesPayload,
-                (bool) ($data['auto_submit'] ?? false)
-            );
-
-            $response->responses = $responsesPayload;
+            $response->responses = $data['responses'];
             $response->updateProgress();
             $response->save();
 
@@ -211,7 +201,7 @@ class SurveyResponseService extends BaseService
                 'after_state' => $response->toArray()
             ]);
 
-            $this->logAudit($response->survey_id, $response->id,
+            $this->logAudit($response->survey_id, $response->id, 
                 $response->status === 'submitted' ? 'submitted' : 'saved', [
                 'progress_percentage' => $response->progress_percentage,
                 'is_complete' => $response->is_complete,
@@ -240,9 +230,6 @@ class SurveyResponseService extends BaseService
         }
 
         return DB::transaction(function () use ($response) {
-            $response->loadMissing(['survey.questions']);
-            $this->validateResponsesAgainstSurvey($response->survey, $response->responses ?? [], true);
-
             $response->submit();
             $response->survey->increment('response_count');
 
@@ -258,35 +245,14 @@ class SurveyResponseService extends BaseService
             ]);
 
             // Auto-mark related survey notifications as read when user submits response
-            $this->notificationService->autoMarkAsReadForSurveyResponse(
+            // This helps reduce notification overload
+            $markedCount = $this->notificationService->autoMarkAsReadForSurveyResponse(
                 $response->respondent_id,
                 $response->survey_id
             );
 
             return $response;
         });
-    }
-
-    private function validateResponsesAgainstSurvey(Survey $survey, array $responses, bool $enforceRequired = false): void
-    {
-        $errors = [];
-
-        $survey->loadMissing('questions');
-
-        foreach ($survey->questions as $question) {
-            $key = (string) $question->id;
-            $value = $responses[$key] ?? ($responses[$question->id] ?? null);
-
-            $questionErrors = $question->validateResponse($value, $enforceRequired);
-
-            if (!empty($questionErrors)) {
-                $errors[$key] = $questionErrors;
-            }
-        }
-
-        if (!empty($errors)) {
-            throw ValidationException::withMessages($errors);
-        }
     }
 
     /**

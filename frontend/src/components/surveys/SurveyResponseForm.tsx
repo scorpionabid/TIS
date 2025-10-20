@@ -2,13 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Save, Send, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { surveyService, SurveyResponse, SurveyQuestion, SurveyFormSchema } from '@/services/surveys';
+import { surveyService, SurveyResponse, SurveyQuestion } from '@/services/surveys';
 import { useToast } from '@/hooks/use-toast';
-import { SurveyQuestionRenderer } from '@/components/surveys/questions';
 
 interface SurveyResponseFormProps {
   surveyId: number;
@@ -17,16 +22,28 @@ interface SurveyResponseFormProps {
   onSave?: (response: SurveyResponse) => void;
 }
 
+interface SurveyFormData {
+  id: number;
+  title: string;
+  description?: string;
+  survey_type: string;
+  questions: SurveyQuestion[];
+  is_anonymous: boolean;
+  allow_multiple_responses: boolean;
+  requires_login: boolean;
+  response_count: number;
+  max_responses?: number;
+  remaining_responses?: number;
+  expires_at?: string;
+  estimated_duration: number;
+}
+
 export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }: SurveyResponseFormProps) {
   const { toast } = useToast();
   const [responses, setResponses] = useState<Record<string, any>>({});
   const [currentResponse, setCurrentResponse] = useState<SurveyResponse | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [autoSaveFailureCount, setAutoSaveFailureCount] = useState(0);
-  const [autoSaveDelay, setAutoSaveDelay] = useState(30000);
-  const [lastSaveSilentFailure, setLastSaveSilentFailure] = useState(false);
   const queryClient = useQueryClient();
 
   // Get survey form data
@@ -63,48 +80,23 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
   });
 
   // Save response mutation
-  type SaveResponsePayload = {
-    responseId: number;
-    responses: Record<string, any>;
-    autoSubmit?: boolean;
-    silent?: boolean;
-  };
-
   const saveResponseMutation = useMutation({
-    mutationFn: ({ responseId, responses, autoSubmit }: SaveResponsePayload) =>
+    mutationFn: ({ responseId, responses, autoSubmit }: { responseId: number; responses: Record<string, any>; autoSubmit?: boolean }) =>
       surveyService.saveResponse(responseId, responses, autoSubmit),
-    onSuccess: (data, variables) => {
+    onSuccess: (data) => {
       setCurrentResponse(data.response);
-      setHasUnsavedChanges(false);
-      setLastSaved(new Date());
-      setAutoSaveFailureCount(0);
-      setAutoSaveDelay(30000);
-      setLastSaveSilentFailure(false);
-
-      if (variables?.responseId) {
-        queryClient.invalidateQueries({ queryKey: ['survey-response', variables.responseId] });
-      }
-
+      queryClient.invalidateQueries({ queryKey: ['survey-response', responseId] });
+      
       if (data.response.status === 'submitted') {
         toast.success('Survey təqdim edildi');
         onComplete?.(data.response);
-        return;
-      }
-
-      if (!variables?.silent) {
+      } else {
         toast.success('Survey saxlanıldı');
+        onSave?.(data.response);
       }
-
-      onSave?.(data.response);
     },
-    onError: (error: any, variables) => {
-      setAutoSaveFailureCount((count) => count + 1);
-      setAutoSaveDelay((delay) => Math.min(delay * 2, 120000));
-      setLastSaveSilentFailure(Boolean(variables?.silent));
-
-      if (!variables?.silent) {
-        toast.error(error.response?.data?.message || 'Saxlanılan zaman xəta baş verdi');
-      }
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Saxlanılan zaman xəta baş verdi');
     }
   });
 
@@ -136,183 +128,6 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     }
   });
 
-  const getQuestionKey = (question: SurveyQuestion): string => {
-    if (question.id != null) {
-      return question.id.toString();
-    }
-
-    const order = question.order ?? question.order_index ?? 0;
-    return `${question.title}-${order}`;
-  };
-
-  const isEmptyValue = (value: any): boolean => {
-    if (value === undefined || value === null) {
-      return true;
-    }
-
-    if (typeof value === 'string') {
-      return value.trim().length === 0;
-    }
-
-    if (Array.isArray(value)) {
-      return value.length === 0;
-    }
-
-    if (typeof value === 'object') {
-      return Object.keys(value).length === 0;
-    }
-
-    return false;
-  };
-
-  const validateQuestionValue = (question: SurveyQuestion, value: any): string | undefined => {
-    const isRequired = question.required || question.is_required;
-
-    if (isRequired && isEmptyValue(value)) {
-      return 'Bu sahə məcburidir.';
-    }
-
-    switch (question.type) {
-      case 'text': {
-        if (typeof value === 'string') {
-          const trimmed = value.trim();
-          if (question.min_length && trimmed.length < question.min_length) {
-            return `Minimum ${question.min_length} simvol daxil edilməlidir.`;
-          }
-          if (question.max_length && trimmed.length > question.max_length) {
-            return `Maksimum ${question.max_length} simvol daxil edilə bilər.`;
-          }
-        }
-        break;
-      }
-      case 'number': {
-        if (value === null || value === '') {
-          break;
-        }
-        const numericValue = Number(value);
-        if (Number.isNaN(numericValue)) {
-          return 'Yalnız rəqəm daxil edilə bilər.';
-        }
-        if (question.min_value != null && numericValue < question.min_value) {
-          return `Dəyər ${question.min_value} səviyyəsindən kiçik ola bilməz.`;
-        }
-        if (question.max_value != null && numericValue > question.max_value) {
-          return `Dəyər ${question.max_value} səviyyəsindən böyük ola bilməz.`;
-        }
-        break;
-      }
-      case 'single_choice': {
-        if (isRequired && typeof value !== 'string') {
-          return 'Seçim tələb olunur.';
-        }
-        break;
-      }
-      case 'multiple_choice': {
-        if (!Array.isArray(value)) {
-          if (isEmptyValue(value)) {
-            return undefined;
-          }
-          return 'Uyğun olmayan cavab formatı.';
-        }
-        const minSelection = question.metadata?.min_selection;
-        const maxSelection = question.metadata?.max_selection;
-        if (minSelection && value.length < minSelection) {
-          return `Ən azı ${minSelection} seçim edilməlidir.`;
-        }
-        if (maxSelection && value.length > maxSelection) {
-          return `Ən çox ${maxSelection} seçim edilə bilər.`;
-        }
-        break;
-      }
-      case 'rating': {
-        if (value == null || value === '') {
-          break;
-        }
-
-        const min = question.rating_min ?? 1;
-        const max = question.rating_max ?? 5;
-        const numericValue = Number(value);
-
-        if (Number.isNaN(numericValue) || numericValue < min || numericValue > max) {
-          return `Dəyər ${min}-${max} intervalında olmalıdır.`;
-        }
-        break;
-      }
-      case 'date': {
-        if (value == null || value === '') {
-          break;
-        }
-        const min = question.metadata?.min ? new Date(question.metadata.min) : null;
-        const max = question.metadata?.max ? new Date(question.metadata.max) : null;
-        const selectedDate = new Date(value);
-
-        if (Number.isNaN(selectedDate.getTime())) {
-          return 'Tarix formatı yanlışdır.';
-        }
-        if (min && selectedDate < min) {
-          return `Tarix ${min.toLocaleDateString('az-AZ')} tarixindən qabaq ola bilməz.`;
-        }
-        if (max && selectedDate > max) {
-          return `Tarix ${max.toLocaleDateString('az-AZ')} tarixindən gec ola bilməz.`;
-        }
-        break;
-      }
-      case 'file_upload': {
-        if (!value) {
-          break;
-        }
-        const allowedTypes = question.allowed_file_types;
-        if (allowedTypes && !allowedTypes.includes(value.type)) {
-          return 'İcazə verilməyən fayl növü seçildi.';
-        }
-        const maxSize = question.max_file_size ?? question.metadata?.max_size;
-        if (maxSize && value.size > maxSize) {
-          const sizeInMb = Math.round((value.size / (1024 * 1024)) * 10) / 10;
-          const maxInMb = Math.round((maxSize / (1024 * 1024)) * 10) / 10;
-          return `Fayl ölçüsü ${maxInMb} MB-dan çox ola bilməz (seçilən fayl: ${sizeInMb} MB).`;
-        }
-        break;
-      }
-      case 'table_matrix': {
-        if (!value) {
-          break;
-        }
-        if (typeof value !== 'object') {
-          return 'Uyğun olmayan cədvəl cavabı.';
-        }
-        const rows = question.table_rows ?? [];
-        if (isRequired) {
-          const missing = rows.filter((row) => !value[row]);
-          if (missing.length > 0) {
-            return `Zəhmət olmasa bütün sətrlər üçün seçim edin.`;
-          }
-        }
-        break;
-      }
-      default:
-        break;
-    }
-
-    return undefined;
-  };
-
-  const validateAllQuestions = (questions: SurveyQuestion[], nextResponses: Record<string, any>) => {
-    const errors: Record<string, string> = {};
-
-    questions.forEach((question) => {
-      const key = getQuestionKey(question);
-      const value = nextResponses[key];
-      const validationError = validateQuestionValue(question, value);
-
-      if (validationError) {
-        errors[key] = validationError;
-      }
-    });
-
-    setValidationErrors(errors);
-    return errors;
-  };
-
   // Initialize responses from existing data
   useEffect(() => {
     if (existingResponse?.response) {
@@ -338,31 +153,18 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     }
   }, [currentResponse, responseId, responses]);
 
+  // Auto-save every 30 seconds if there are unsaved changes
   useEffect(() => {
-    if (autoSaveFailureCount === 0 || !lastSaveSilentFailure) {
+    if (!hasUnsavedChanges || !currentResponse || currentResponse.status !== 'draft') {
       return;
     }
 
-    toast.error(`Avto-saxlama alınmadı. Sistem ${Math.round(autoSaveDelay / 1000)} saniyəyə yenidən cəhd edəcək.`);
-  }, [autoSaveFailureCount, autoSaveDelay, lastSaveSilentFailure, toast]);
+    const autoSaveInterval = setInterval(() => {
+      handleSave(false);
+    }, 30000); // 30 seconds
 
-  // Auto-save with adaptive delay if there are unsaved changes
-  useEffect(() => {
-    if (
-      !hasUnsavedChanges ||
-      !currentResponse ||
-      currentResponse.status !== 'draft' ||
-      saveResponseMutation.isPending
-    ) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      handleSave(false, true);
-    }, autoSaveDelay);
-
-    return () => clearTimeout(timer);
-  }, [hasUnsavedChanges, currentResponse, responses, autoSaveDelay, surveyData, saveResponseMutation.isPending]);
+    return () => clearInterval(autoSaveInterval);
+  }, [hasUnsavedChanges, currentResponse]);
 
   // Warn user about unsaved changes before leaving
   useEffect(() => {
@@ -378,35 +180,11 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges, currentResponse]);
 
-  const handleQuestionChange = (question: SurveyQuestion, value: any) => {
-    const key = getQuestionKey(question);
-
-    setResponses((prev) => {
-      const nextResponses = {
-        ...prev,
-        [key]: value,
-      };
-
-      const errorMessage = validateQuestionValue(question, value);
-
-      setValidationErrors((prevErrors) => {
-        if (!errorMessage) {
-          if (prevErrors[key]) {
-            const { [key]: _, ...rest } = prevErrors;
-            return rest;
-          }
-          return prevErrors;
-        }
-
-        return {
-          ...prevErrors,
-          [key]: errorMessage,
-        };
-      });
-
-      return nextResponses;
-    });
-
+  const handleInputChange = (questionId: string, value: any) => {
+    setResponses(prev => ({
+      ...prev,
+      [questionId]: value
+    }));
     setHasUnsavedChanges(true);
   };
 
@@ -418,77 +196,225 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
       responses,
       autoSubmit
     });
-  const handleSave = (autoSubmit: boolean = false, silent: boolean = false) => {
-    if (!currentResponse || !surveyData?.questions) {
-      return;
-    }
-
-    const errors = validateAllQuestions(surveyData.questions, responses);
-    const hasBlockingErrors = Object.keys(errors).length > 0;
-
-    if (!silent && !autoSubmit && hasBlockingErrors) {
-      toast.error('Zəhmət olmasa səhvləri düzəldin.');
-      return;
-    }
-
-    saveResponseMutation.mutate({
-      responseId: currentResponse.id,
-      responses,
-      autoSubmit,
-      silent,
-    });
+    setHasUnsavedChanges(false);
+    setLastSaved(new Date());
   };
 
   const handleSubmit = () => {
-    if (!currentResponse || !surveyData?.questions) return;
-
-    const errors = validateAllQuestions(surveyData.questions, responses);
-    if (Object.keys(errors).length > 0) {
-      toast.error('Təqdim etməzdən əvvəl bütün məcburi sahələri doldurun.');
-      return;
-    }
-
+    if (!currentResponse) return;
     submitResponseMutation.mutate(currentResponse.id);
   };
 
   const calculateProgress = (): number => {
     if (!surveyData?.questions) return 0;
-
+    
     const totalQuestions = surveyData.questions.length;
-    const answeredQuestions = surveyData.questions.filter((question) => {
-      const key = getQuestionKey(question);
-      const response = responses[key];
-
-      if (isEmptyValue(response)) {
+    const answeredQuestions = surveyData.questions.filter(q => {
+      const questionId = q.id?.toString() || '';
+      const response = responses[questionId];
+      
+      // Check if question has a meaningful answer
+      if (response === undefined || response === null || response === '') {
         return false;
       }
-
-      const validationError = validateQuestionValue(question, response);
-      return !validationError;
+      
+      // For multiple choice, check if array has items
+      if (q.type === 'multiple_choice' && Array.isArray(response)) {
+        return response.length > 0;
+      }
+      
+      // For other types, check if value exists and is not empty
+      if (typeof response === 'string') {
+        return response.trim().length > 0;
+      }
+      
+      return true;
     }).length;
-
+    
     return totalQuestions > 0 ? Math.round((answeredQuestions / totalQuestions) * 100) : 0;
   };
   
   const getUnansweredRequiredQuestions = (): SurveyQuestion[] => {
     if (!surveyData?.questions) return [];
-
-    return surveyData.questions.filter((question) => {
-      const key = getQuestionKey(question);
-      const response = responses[key];
-      const validationError = validateQuestionValue(question, response);
-
-      if (validationError) {
+    
+    return surveyData.questions.filter(q => {
+      const isRequired = q.required || q.is_required;
+      if (!isRequired) return false;
+      
+      const questionId = q.id?.toString() || '';
+      const response = responses[questionId];
+      
+      // Check if required question is unanswered
+      if (response === undefined || response === null || response === '') {
         return true;
       }
+      
+      // For multiple choice, check if array has items
+      if (q.type === 'multiple_choice' && Array.isArray(response)) {
+        return response.length === 0;
+      }
+      
+      // For other types, check if value exists and is not empty
+      if (typeof response === 'string') {
+        return response.trim().length === 0;
+      }
+      
+      return false;
+    });
+  };
 
-      const isRequired = question.required || question.is_required;
-      if (!isRequired) {
-        return false;
+  const renderQuestion = (question: SurveyQuestion) => {
+    const questionId = question.id?.toString() || '';
+    const value = responses[questionId];
+    const isDisabled = currentResponse?.status !== 'draft';
+
+    switch (question.type) {
+      case 'text':
+        return (
+          <Textarea
+            value={value || ''}
+            onChange={(e) => handleInputChange(questionId, e.target.value)}
+            placeholder="Cavabınızı yazın..."
+            rows={3}
+            className="w-full"
+            disabled={isDisabled}
+          />
+        );
+
+      case 'number':
+        return (
+          <Input
+            type="number"
+            value={value || ''}
+            onChange={(e) => handleInputChange(questionId, e.target.value)}
+            placeholder="Rəqəm daxil edin..."
+            className="w-full"
+            disabled={isDisabled}
+          />
+        );
+
+      case 'single_choice':
+        return (
+          <RadioGroup
+            value={value || ''}
+            onValueChange={(val) => handleInputChange(questionId, val)}
+            className="space-y-2"
+            disabled={isDisabled}
+          >
+            {question.options?.map((option, index) => (
+              <div key={index} className="flex items-center space-x-2">
+                <RadioGroupItem value={option} id={`${questionId}-${index}`} />
+                <Label htmlFor={`${questionId}-${index}`}>{option}</Label>
+              </div>
+            ))}
+          </RadioGroup>
+        );
+
+      case 'multiple_choice': {
+        const checkboxValue = value || [];
+        return (
+          <div className="space-y-2">
+            {question.options?.map((option, index) => (
+              <div key={index} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`${questionId}-${index}`}
+                  checked={checkboxValue.includes(option)}
+                  onCheckedChange={(checked) => {
+                    const newValue = checked
+                      ? [...checkboxValue, option]
+                      : checkboxValue.filter((v: string) => v !== option);
+                    handleInputChange(questionId, newValue);
+                  }}
+                  disabled={isDisabled}
+                />
+                <Label htmlFor={`${questionId}-${index}`}>{option}</Label>
+              </div>
+            ))}
+          </div>
+        );
       }
 
-      return isEmptyValue(response);
-    });
+      case 'rating': {
+        const ratings = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        return (
+          <div className="space-y-3">
+            <div className="flex justify-between items-center text-sm text-gray-600">
+              <span>Pis</span>
+              <span>Əla</span>
+            </div>
+            <RadioGroup
+              value={value?.toString() || ''}
+              onValueChange={(val) => handleInputChange(questionId, parseInt(val))}
+              className="flex space-x-2 justify-between"
+              disabled={isDisabled}
+            >
+              {ratings.map((rating) => (
+                <div key={rating} className="flex flex-col items-center space-y-1">
+                  <RadioGroupItem value={rating.toString()} id={`${questionId}-${rating}`} />
+                  <Label htmlFor={`${questionId}-${rating}`} className="text-xs">
+                    {rating}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
+        );
+      }
+
+      case 'date':
+        return (
+          <Input
+            type="date"
+            value={value || ''}
+            onChange={(e) => handleInputChange(questionId, e.target.value)}
+            className="w-full"
+            disabled={isDisabled}
+          />
+        );
+
+      case 'file_upload':
+        return (
+          <div className="space-y-2">
+            <Input
+              type="file"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  handleInputChange(questionId, {
+                    name: file.name,
+                    size: file.size,
+                    type: file.type
+                  });
+                }
+              }}
+              accept=".pdf,.doc,.docx,.xls,.xlsx"
+              className="w-full"
+              disabled={isDisabled}
+            />
+            {value && (
+              <p className="text-sm text-gray-600">Seçilmiş fayl: {value.name}</p>
+            )}
+          </div>
+        );
+
+      case 'table_matrix':
+        return (
+          <div className="space-y-2">
+            <p className="text-sm text-gray-600">Cədvəl tipli suallar hələ dəstəklənmir</p>
+          </div>
+        );
+
+      default:
+        return (
+          <Input
+            value={value || ''}
+            onChange={(e) => handleInputChange(questionId, e.target.value)}
+            placeholder="Cavabınızı yazın..."
+            className="w-full"
+            disabled={isDisabled}
+          />
+        );
+    }
   };
 
   if (surveyLoading || responseLoading) {
@@ -524,7 +450,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     );
   }
 
-  const survey: SurveyFormSchema = surveyData;
+  const survey: SurveyFormData = surveyData;
   const progress = calculateProgress();
   const unansweredRequired = getUnansweredRequiredQuestions();
   const isComplete = progress === 100 && unansweredRequired.length === 0;
@@ -604,13 +530,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <SurveyQuestionRenderer
-                question={question}
-                value={responses[getQuestionKey(question)]}
-                onChange={(value) => handleQuestionChange(question, value)}
-                disabled={currentResponse?.status !== 'draft'}
-                error={validationErrors[getQuestionKey(question)]}
-              />
+              {renderQuestion(question)}
             </CardContent>
           </Card>
         ))}

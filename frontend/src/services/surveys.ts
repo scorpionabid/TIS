@@ -1,93 +1,202 @@
-import { BaseService, PaginationParams } from './BaseService';
-import { apiClient, ApiResponse, PaginatedResponse } from './api';
-import { fetchBlob } from './utils/downloadBlob';
-import { surveyAnalyticsService } from './surveys/analytics';
-import { surveyNotificationService } from './surveys/notifications';
-import type {
-  Survey,
-  SurveyQuestion,
-  CreateSurveyData,
-  SurveyFilters,
-  SurveyResponse,
-  SurveyAnswer,
-  SurveyStats,
-  SurveyQuestionRestrictions,
-  SurveyFormSchema,
-} from './surveys/types';
+import { BaseService, BaseEntity, PaginationParams } from './BaseService';
+import { apiClient } from './api';
 
-type UnknownRecord = Record<string, unknown>;
-
-export type SurveyListResponse = ApiResponse<PaginatedResponse<Survey>>;
-export type SurveyResponseListResponse = ApiResponse<PaginatedResponse<SurveyResponse>>;
-
-interface SurveyActionResponsePayload {
-  response: SurveyResponse;
-  message?: string;
+export interface Survey extends BaseEntity {
+  title: string;
+  description?: string;
+  questions?: SurveyQuestion[];
+  status: 'draft' | 'published' | 'active' | 'paused' | 'completed' | 'archived';
+  start_date?: string;
+  end_date?: string;
+  target_roles?: string[];
+  target_institutions?: number[];
+  response_count?: number;
+  questions_count?: number;
+  max_responses?: number;
+  is_anonymous: boolean;
+  allow_multiple_responses: boolean;
+  creator?: {
+    id: number;
+    username: string;
+    full_name: string;
+  };
+  institution?: {
+    id: number;
+    name: string;
+  };
+  survey_type?: string;
+  published_at?: string;
 }
 
-type SurveyActionResponse = ApiResponse<SurveyActionResponsePayload>;
+export interface SurveyQuestion {
+  id?: number;
+  title: string;
+  description?: string;
+  type: 'text' | 'number' | 'date' | 'single_choice' | 'multiple_choice' | 'file_upload' | 'rating' | 'table_matrix';
+  options?: string[];
+  required?: boolean;
+  is_required?: boolean;
+  order?: number;
+  order_index?: number;
+  is_active?: boolean;
+  validation_rules?: any;
+  metadata?: any;
+  min_value?: number;
+  max_value?: number;
+  min_length?: number;
+  max_length?: number;
+  allowed_file_types?: string[];
+  max_file_size?: number;
+  rating_min?: number;
+  rating_max?: number;
+  rating_min_label?: string;
+  rating_max_label?: string;
+  table_headers?: string[];
+  table_rows?: string[];
+  translations?: any;
+  created_at?: string;
+  updated_at?: string;
+  survey_id?: number;
+}
+
+export interface CreateSurveyData {
+  title: string;
+  description?: string;
+  questions: Omit<SurveyQuestion, 'id'>[];
+  start_date?: string;
+  end_date?: string;
+  target_roles?: string[];
+  target_institutions?: number[];
+  is_anonymous?: boolean;
+  allow_multiple_responses?: boolean;
+  max_responses?: number;
+}
+
+export interface SurveyFilters extends PaginationParams {
+  status?: Survey['status'];
+  created_by?: number;
+  target_role?: string;
+  target_institution?: number;
+}
+
+export interface SurveyResponse {
+  id: number;
+  survey_id: number;
+  institution_id: number;
+  department_id?: number;
+  respondent_id: number;
+  respondent_role?: string;
+  responses: Record<string, any>;
+  progress_percentage: number;
+  is_complete: boolean;
+  status: 'draft' | 'submitted' | 'approved' | 'rejected';
+  started_at: string;
+  submitted_at?: string;
+  approved_at?: string;
+  approved_by?: number;
+  rejection_reason?: string;
+  survey?: {
+    id: number;
+    title: string;
+    survey_type: string;
+    is_anonymous: boolean;
+  };
+  institution?: {
+    id: number;
+    name: string;
+    type: string;
+  };
+  respondent?: {
+    id: number;
+    username: string;
+    name: string;
+  };
+}
+
+export interface SurveyAnswer {
+  question_id: number;
+  answer: string | string[];
+}
+
+export interface SurveyStats {
+  total_responses: number;
+  completion_rate: number;
+  average_completion_time: number;
+  responses_by_day: Array<{ date: string; count: number }>;
+  demographic_breakdown?: Record<string, number>;
+}
+
+export interface QuestionRestrictions {
+  approved_responses_count: number;
+  can_edit_text: boolean;
+  can_edit_type: boolean;
+  can_edit_required: boolean;
+  can_add_options: boolean;
+  can_remove_options: boolean;
+}
+
+export interface SurveyQuestionRestrictions {
+  survey_id: number;
+  survey_status: string;
+  total_responses: number;
+  question_restrictions: Record<string, QuestionRestrictions>;
+  editing_allowed: boolean;
+}
 
 class SurveyService extends BaseService<Survey> {
   constructor() {
     super('/surveys');
   }
 
-  // Override getAll to expose the raw API response with pagination metadata
-  async getAll(params?: SurveyFilters, useCache: boolean = true): Promise<SurveyListResponse> {
-    return apiClient.get<PaginatedResponse<Survey>>(this.baseEndpoint, params, {
-      cache: useCache,
-    });
+  // Override getAll to handle API response structure correctly
+  async getAll(params?: PaginationParams, useCache: boolean = true): Promise<any> {
+    const response = await apiClient.get(this.baseEndpoint, params);
+    return response;
   }
 
-  async publish(id: number): Promise<UnknownRecord> {
-    const response = await apiClient.post<UnknownRecord>(`${this.baseEndpoint}/${id}/publish`);
-    return response.data ?? {};
-  }
-
-  async pause(id: number): Promise<UnknownRecord> {
-    const response = await apiClient.post<UnknownRecord>(`${this.baseEndpoint}/${id}/pause`);
-    return response.data ?? {};
-  }
-
-  async resume(id: number): Promise<UnknownRecord> {
-    const response = await apiClient.post<UnknownRecord>(`${this.baseEndpoint}/${id}/resume`);
-    return response.data ?? {};
-  }
-
-  async archive(id: number): Promise<UnknownRecord> {
-    const response = await apiClient.post<UnknownRecord>(`${this.baseEndpoint}/${id}/archive`);
-    return response.data ?? {};
-  }
-
-  async duplicate(id: number): Promise<UnknownRecord> {
-    const response = await apiClient.post<UnknownRecord>(`${this.baseEndpoint}/${id}/duplicate`);
-    return response.data ?? {};
-  }
-
-  async getResponses(id: number, params?: PaginationParams): Promise<SurveyResponseListResponse> {
-    return apiClient.get<PaginatedResponse<SurveyResponse>>(
-      `${this.baseEndpoint}/${id}/responses`,
-      params
-    );
-  }
-
-  async getSurveyForResponse(id: number): Promise<SurveyFormSchema> {
-    const response = await apiClient.get<SurveyFormSchema>(`${this.baseEndpoint}/${id}/form`);
+  async publish(id: number) {
+    const response = await apiClient.post(`${this.baseEndpoint}/${id}/publish`);
     return response.data;
   }
 
-  async startResponse(surveyId: number, departmentId?: number): Promise<SurveyActionResponsePayload> {
+  async pause(id: number) {
+    const response = await apiClient.post(`${this.baseEndpoint}/${id}/pause`);
+    return response.data;
+  }
+
+  async resume(id: number) {
+    const response = await apiClient.post(`${this.baseEndpoint}/${id}/resume`);
+    return response.data;
+  }
+
+  async archive(id: number) {
+    const response = await apiClient.post(`${this.baseEndpoint}/${id}/archive`);
+    return response.data;
+  }
+
+  async duplicate(id: number) {
+    const response = await apiClient.post(`${this.baseEndpoint}/${id}/duplicate`);
+    return response.data;
+  }
+
+  async getResponses(id: number, params?: PaginationParams) {
+    const response = await apiClient.get<SurveyResponse[]>(`${this.baseEndpoint}/${id}/responses`, params);
+    return response as any; // PaginatedResponse
+  }
+
+  async getSurveyForResponse(id: number) {
+    const response = await apiClient.get(`${this.baseEndpoint}/${id}/form`);
+    return response.data;
+  }
+
+  async startResponse(surveyId: number, departmentId?: number) {
     const response = await apiClient.post(`${this.baseEndpoint}/${surveyId}/responses/start`, {
       department_id: departmentId
     });
     return response.data;
   }
 
-  async saveResponse(
-    responseId: number,
-    responses: Record<string, unknown>,
-    autoSubmit: boolean = false
-  ): Promise<SurveyActionResponsePayload> {
+  async saveResponse(responseId: number, responses: Record<string, any>, autoSubmit: boolean = false) {
     const response = await apiClient.put(`/survey-responses/${responseId}/save`, {
       responses,
       auto_submit: autoSubmit
@@ -95,121 +204,178 @@ class SurveyService extends BaseService<Survey> {
     return response.data;
   }
 
-  async submitResponse(responseId: number): Promise<SurveyActionResponsePayload> {
+  async submitResponse(responseId: number) {
     const response = await apiClient.post(`/survey-responses/${responseId}/submit`);
     return response.data;
   }
 
-  async reopenAsDraft(responseId: number): Promise<SurveyActionResponsePayload> {
+  async reopenAsDraft(responseId: number) {
     const response = await apiClient.post(`/survey-responses/${responseId}/reopen`);
     return response.data;
   }
 
-  async getResponse(responseId: number): Promise<SurveyActionResponsePayload> {
+  async getResponse(responseId: number) {
     const response = await apiClient.get(`/survey-responses/${responseId}`);
     return response.data;
   }
 
-  async deleteResponse(responseId: number): Promise<UnknownRecord> {
+  async deleteResponse(responseId: number) {
     const response = await apiClient.delete(`/survey-responses/${responseId}`);
-    return response.data ?? {};
+    return response.data;
   }
 
-  async getStats(id: number): Promise<SurveyStats> {
-    return surveyAnalyticsService.getStats(id);
+  async getStats(id: number) {
+    const response = await apiClient.get<SurveyStats>(`${this.baseEndpoint}/${id}/statistics`);
+    return response.data;
   }
 
   async exportResponses(id: number, format: 'xlsx' | 'csv' = 'xlsx') {
-    return fetchBlob(`${this.baseEndpoint}/${id}/export`, {
-      params: { format },
-      errorMessage: 'Export failed',
-    });
+    try {
+      const response = await apiClient.get(`${this.baseEndpoint}/${id}/export`, {
+        format,
+        responseType: 'blob'
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Export failed');
+    }
   }
 
-  async getAnalyticsOverview(): Promise<UnknownRecord> {
-    return surveyAnalyticsService.getOverview();
+  async getAnalyticsOverview() {
+    const response = await apiClient.get(`${this.baseEndpoint}/analytics/overview`);
+    return response.data;
   }
 
-  async getSurveyAnalytics(id: number): Promise<UnknownRecord> {
-    return surveyAnalyticsService.getSurveyAnalytics(id);
+  async getSurveyAnalytics(id: number) {
+    const response = await apiClient.get(`${this.baseEndpoint}/${id}/analytics`);
+    return response.data;
   }
 
-  async getInstitutionBreakdown(id: number): Promise<UnknownRecord> {
-    return surveyAnalyticsService.getInstitutionBreakdown(id);
+  async getInstitutionBreakdown(id: number) {
+    const response = await apiClient.get(`${this.baseEndpoint}/${id}/institution-breakdown`);
+    return response.data;
   }
 
-  async getHierarchicalBreakdown(id: number): Promise<UnknownRecord> {
-    return surveyAnalyticsService.getHierarchicalBreakdown(id);
+  async getHierarchicalBreakdown(id: number) {
+    const response = await apiClient.get(`${this.baseEndpoint}/${id}/hierarchical-breakdown`);
+    return response.data;
   }
 
   // NEW: Survey Results Analytics API Methods
-  async getSurveyAnalyticsOverview(id: number): Promise<UnknownRecord> {
-    return surveyAnalyticsService.getSurveyAnalyticsOverview(id);
+  async getSurveyAnalyticsOverview(id: number) {
+    const response = await apiClient.get(`${this.baseEndpoint}/${id}/analytics/overview`);
+    return response.data;
   }
 
-  async getResponseTrends(id: number, days: number = 30): Promise<UnknownRecord> {
-    return surveyAnalyticsService.getResponseTrends(id, days);
+  async getResponseTrends(id: number, days: number = 30) {
+    const response = await apiClient.get(`${this.baseEndpoint}/${id}/analytics/trends?days=${days}`);
+    return response.data;
   }
 
-  async getHierarchicalInstitutionsAnalytics(id: number): Promise<UnknownRecord> {
-    return surveyAnalyticsService.getHierarchicalInstitutionsAnalytics(id);
+  async getHierarchicalInstitutionsAnalytics(id: number) {
+    const response = await apiClient.get(`${this.baseEndpoint}/${id}/analytics/hierarchical-institutions`);
+    return response.data;
   }
 
-  async getNonRespondingInstitutions(id: number): Promise<UnknownRecord> {
-    return surveyAnalyticsService.getNonRespondingInstitutions(id);
+  async getNonRespondingInstitutions(id: number) {
+    const response = await apiClient.get(`${this.baseEndpoint}/${id}/analytics/non-responding-institutions`);
+    return response.data;
   }
 
-  async getAvailableTargets(): Promise<UnknownRecord> {
-    return surveyAnalyticsService.getAvailableTargets();
+  async getAvailableTargets() {
+    const response = await apiClient.get(`${this.baseEndpoint}/targets`);
+    return response.data;
   }
 
-  async getQuestionRestrictions(id: number): Promise<SurveyQuestionRestrictions> {
-    return surveyAnalyticsService.getQuestionRestrictions(id);
+  async getQuestionRestrictions(id: number) {
+    const response = await apiClient.get(`${this.baseEndpoint}/${id}/question-restrictions`);
+    return response.data;
   }
 
   // Survey notification methods
-  async getSurveyNotifications(params?: { limit?: number; only_unread?: boolean }): Promise<UnknownRecord> {
-    return surveyNotificationService.getNotifications(params);
+  async getSurveyNotifications(params?: { limit?: number; only_unread?: boolean }) {
+    const response = await apiClient.get('/survey-notifications', params);
+    return response.data;
   }
 
-  async getUnreadSurveyCount(): Promise<number> {
-    return surveyNotificationService.getUnreadCount();
+  async getUnreadSurveyCount() {
+    const response = await apiClient.get('/survey-notifications/unread-count');
+    return response.data;
   }
 
-  async getSurveyNotificationStats(): Promise<UnknownRecord> {
-    return surveyNotificationService.getStats();
+  async getSurveyNotificationStats() {
+    const response = await apiClient.get('/survey-notifications/stats');
+    return response.data;
   }
 
-  async markSurveyNotificationAsRead(surveyId: number): Promise<UnknownRecord> {
-    return surveyNotificationService.markAsRead(surveyId);
+  async markSurveyNotificationAsRead(surveyId: number) {
+    const response = await apiClient.post(`/survey-notifications/${surveyId}/mark-read`);
+    return response.data;
   }
 
   // Dashboard and user-facing survey methods
-  async getDashboardStats(): Promise<UnknownRecord> {
-    const response = await apiClient.get<UnknownRecord>('/my-surveys/dashboard-stats');
-    return response.data ?? {};
+  async getDashboardStats() {
+    const response = await apiClient.get('/my-surveys/dashboard-stats');
+    return response.data;
   }
 
-  async getAssignedSurveys(params?: PaginationParams): Promise<ApiResponse<PaginatedResponse<Survey>>> {
-    return apiClient.get<PaginatedResponse<Survey>>('/my-surveys/assigned', params);
+  async getAssignedSurveys(params?: PaginationParams) {
+    const response = await apiClient.get('/my-surveys/assigned', params);
+    return response.data;
   }
 
-  async getMyResponses(params?: PaginationParams): Promise<ApiResponse<PaginatedResponse<SurveyResponse>>> {
-    return apiClient.get<PaginatedResponse<SurveyResponse>>('/my-surveys/responses', params);
+  async getMyResponses(params?: PaginationParams) {
+    const response = await apiClient.get('/my-surveys/responses', params);
+    return response.data;
   }
 
-  async getRecentAssignedSurveys(limit: number = 5): Promise<ApiResponse<Survey[]>> {
-    return apiClient.get<Survey[]>('/my-surveys/recent', { limit });
+  async getRecentAssignedSurveys(limit: number = 5) {
+    const response = await apiClient.get('/my-surveys/recent', { limit });
+    return response.data;
   }
 
-  async downloadResponseReport(responseId: number): Promise<Blob> {
-    return fetchBlob(`/survey-responses/${responseId}/report`, {
-      errorMessage: 'Server error occurred',
-    });
+  async downloadResponseReport(responseId: number) {
+    try {
+      // Clear any cached blob data for this endpoint to prevent null data issues
+      const endpoint = `/survey-responses/${responseId}/report`;
+
+      // Clear cache patterns to ensure fresh blob data
+      apiClient.clearCache(endpoint);
+      const params = { responseType: 'blob' };
+      const exactCacheKey = endpoint + JSON.stringify(params);
+      apiClient.clearCache(exactCacheKey);
+
+      const response = await apiClient.get(`/survey-responses/${responseId}/report`, undefined, {
+        responseType: 'blob'
+      });
+
+      // Ensure we received a proper blob
+      if (!(response.data instanceof Blob)) {
+        throw new Error('Server returned invalid file format');
+      }
+
+      // Check if the blob contains error JSON (sometimes servers return JSON errors as blobs)
+      if (response.data.type === 'application/json') {
+        const text = await response.data.text();
+        const errorData = JSON.parse(text);
+        throw new Error(errorData.message || 'Server error occurred');
+      }
+
+      return response.data;
+    } catch (error: any) {
+      // If the error response contains JSON, extract the error message
+      if (error.response?.data instanceof Blob && error.response.data.type === 'application/json') {
+        try {
+          const text = await error.response.data.text();
+          const errorData = JSON.parse(text);
+          throw new Error(errorData.message || 'Server error occurred');
+        } catch {
+          // Fall back to original error if parsing fails
+        }
+      }
+      throw error;
+    }
   }
 }
 
 export const surveyService = new SurveyService();
-export { surveyAnalyticsService } from './surveys/analytics';
-export { surveyNotificationService } from './surveys/notifications';
-export * from './surveys/types';
