@@ -53,8 +53,41 @@ export const useSectors = () => {
   });
 
   // Use real data or fallback to mock data - ensure arrays are always returned
+  const normalizeSector = (sector: Partial<Sector>): Sector => {
+    const defaultStats = {
+      total_institutions: 0,
+      total_students: 0,
+      total_teachers: 0,
+      total_staff: 0,
+      active_surveys: 0,
+      pending_tasks: 0,
+    };
+
+    const defaultPerformance = {
+      response_rate: 0,
+      task_completion_rate: 0,
+      survey_participation: 0,
+      document_compliance: 0,
+    };
+
+    return {
+      ...(sector as Sector),
+      statistics: {
+        ...defaultStats,
+        ...(sector.statistics ?? {}),
+      },
+      performance_metrics: {
+        ...defaultPerformance,
+        ...(sector.performance_metrics ?? {}),
+      },
+      institutions_breakdown: Array.isArray(sector.institutions_breakdown)
+        ? sector.institutions_breakdown
+        : [],
+    };
+  };
+
   const rawSectors = sectorsResponse?.data?.sectors?.data || sectorsResponse?.data?.sectors || sectorsService.getMockSectors() || [];
-  const sectors = Array.isArray(rawSectors) ? rawSectors : [];
+  const sectors = Array.isArray(rawSectors) ? rawSectors.map(normalizeSector) : [];
   
   const stats = statsResponse?.data || sectorsService.getMockStatistics();
   const availableManagers = managersResponse?.data || sectorsService.getMockManagers() || [];

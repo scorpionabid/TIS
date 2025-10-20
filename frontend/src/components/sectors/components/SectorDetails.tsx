@@ -155,7 +155,7 @@ export function SectorDetails({
             <div className="space-y-2">
               <h4 className="font-medium text-sm">Müəssisə Növləri</h4>
               <div className="space-y-2">
-                {sector.institutions_breakdown.map((breakdown, index) => (
+                {(sector.institutions_breakdown ?? []).map((breakdown, index) => (
                   <div key={index} className="flex items-center justify-between text-sm">
                     <span>{breakdown.type}</span>
                     <div className="flex items-center gap-2">
