@@ -4,11 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Clock, Calendar, Search, AlertCircle, Users, Play, Lock, Eye, ArrowRight } from 'lucide-react';
-import { formatDistanceToNow, format, isAfter, isBefore } from 'date-fns';
+import { Clock, Calendar, Search, AlertCircle, Users } from 'lucide-react';
+import { format, isAfter } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { surveyService } from '@/services/surveys';
@@ -177,6 +175,8 @@ const PendingSurveys: React.FC = () => {
     // Navigate to survey preview modal or page
     navigate(`/surveys/${surveyId}/preview`);
   };
+
+  const hasAnySurvey = filteredSurveys.length > 0;
 
   if (isLoading) {
     return (
@@ -407,3 +407,363 @@ const PendingSurveys: React.FC = () => {
 };
 
 export default PendingSurveys;
+  const sortedSurveys = React.useMemo(() => {
+    const byCategory = filteredSurveys.reduce<Record<'overdue' | 'week' | 'month' | 'later', SurveyWithStatus[]>>(
+      (acc, survey) => {
+        const endDate = survey.end_date ? new Date(survey.end_date) : null;
+        const now = new Date();
+
+        if (endDate && endDate < now) {
+          acc.overdue.push(survey);
+          return acc;
+        }
+
+        if (endDate) {
+          const diffDays = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+          if (diffDays <= 7) {
+            acc.week.push(survey);
+            return acc;
+          }
+
+          if (diffDays <= 30) {
+            acc.month.push(survey);
+            return acc;
+          }
+        }
+
+        acc.later.push(survey);
+        return acc;
+      },
+      { overdue: [], week: [], month: [], later: [] }
+    );
+
+    const sortByDueDate = (list: SurveyWithStatus[]) =>
+      [...list].sort((a, b) => {
+        if (!a.end_date) return 1;
+        if (!b.end_date) return -1;
+        return new Date(a.end_date).getTime() - new Date(b.end_date).getTime();
+      });
+
+    return {
+      overdue: sortByDueDate(byCategory.overdue),
+      week: sortByDueDate(byCategory.week),
+      month: sortByDueDate(byCategory.month),
+      later: sortByDueDate(byCategory.later),
+    };
+  }, [filteredSurveys]);
+
+const renderSurveyCard = (survey: SurveyWithStatus) => {
+    return (
+      <Card key={survey.id} className="transition-shadow hover:shadow-md">
+        <CardHeader className="space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <CardTitle className="text-lg font-semibold text-foreground">
+                {survey.title}
+              </CardTitle>
+              {survey.description && (
+                <CardDescription className="line-clamp-2 text-sm text-muted-foreground">
+                  {survey.description}
+                </CardDescription>
+              )}
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              <Badge variant={getStatusBadgeVariant(survey)} className="text-xs">
+                {getStatusLabel(survey)}
+              </Badge>
+              {survey.priority && (
+                <Badge variant="outline" className={getPriorityColor(survey.priority)}>
+                  {survey.priority === 'high' ? 'Yüksək' : survey.priority === 'medium' ? 'Orta' : 'Aşağı'}
+                </Badge>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex items-center gap-3 rounded-md bg-muted/50 p-3">
+              <Calendar className="h-5 w-5 text-primary" />
+              <div>
+                <p className="text-xs text-muted-foreground">Son tarix</p>
+                <p className="text-sm font-medium text-foreground">
+                  {survey.end_date
+                    ? format(new Date(survey.end_date), 'dd MMMM yyyy', { locale: az })
+                    : 'Müəyyən edilməyib'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-md bg-muted/50 p-3">
+              <Clock className="h-5 w-5 text-primary" />
+              <div>
+                <p className="text-xs text-muted-foreground">Status</p>
+                <p className="text-sm font-medium text-foreground">{getStatusLabel(survey)}</p>
+              </div>
+            </div>
+          </div>
+
+          {survey.questions_count && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Users className="h-4 w-4" />
+              <span>{survey.questions_count} sual</span>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              {renderDueInfo(survey)}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" onClick={() => handleStartSurvey(survey.id)}>
+                {survey.response_status === 'overdue' ? 'Təcili başla' : 'Başla'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => handlePreviewSurvey(survey.id)}>
+                Önbaxış
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderSection = (title: string, data: SurveyWithStatus[], emptyMessage: string) => {
+    if (data.length === 0) {
+      return (
+        <div className="rounded-xl border border-dashed border-gray-200 bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+          {emptyMessage}
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {data.map(renderSurveyCard)}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">Gözləyən sorğular</h1>
+          <p className="text-sm text-muted-foreground">Bu məktəb üçün təyin edilmiş və hələ tamamlanmamış sorğular</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {isFilterActive && (
+            <Button variant="ghost" size="sm" onClick={resetFilters}>
+              Filtrləri sıfırla
+            </Button>
+          )}
+          <Button variant={showFilters ? 'secondary' : 'outline'} size="sm" onClick={() => setShowFilters((prev) => !prev)}>
+            Filtrlər
+            {isFilterActive && (
+              <span className="ml-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary/10 px-2 text-xs font-medium text-primary">
+                !
+              </span>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {showFilters && (
+        <Card className="border border-dashed">
+          <CardContent className="grid gap-4 pt-6 md:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Axtarış</label>
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Sorğu başlığı və ya təsviri..."
+                  className="pl-8"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Prioritet</label>
+              <Select value={priorityFilter} onValueChange={(value: any) => setPriorityFilter(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Hamısı" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Hamısı</SelectItem>
+                  <SelectItem value="high">Yüksək</SelectItem>
+                  <SelectItem value="medium">Orta</SelectItem>
+                  <SelectItem value="low">Aşağı</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Status</label>
+              <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Hamısı" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Hamısı</SelectItem>
+                  <SelectItem value="not_started">Başlanmayıb</SelectItem>
+                  <SelectItem value="in_progress">Davam edir</SelectItem>
+                  <SelectItem value="overdue">Gecikmiş</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Sırala</label>
+              <Select defaultValue="due">
+                <SelectTrigger>
+                  <SelectValue placeholder="Son tarixə görə" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="due">Son tarix</SelectItem>
+                  <SelectItem value="priority">Prioritet</SelectItem>
+                  <SelectItem value="title">Başlıq (A-Z)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!hasAnySurvey && !isLoading ? (
+        <Card className="border border-dashed border-muted">
+          <CardContent className="flex flex-col items-center gap-3 py-10 text-center text-muted-foreground">
+            <Clock className="h-10 w-10 text-muted-foreground/70" />
+            <div>
+              <p className="text-base font-medium text-foreground">Bu məktəb üçün gözləyən sorğu yoxdur</p>
+              <p className="text-sm text-muted-foreground">Yeni sorğu təyin olunana qədər burası boş qalacaq.</p>
+            </div>
+            {isFilterActive && (
+              <Button size="sm" onClick={resetFilters}>
+                Filtrləri sıfırla
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-8">
+          {sortedSurveys.overdue.length > 0 && (
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-red-600">Gecikən sorğular</h2>
+                <Badge variant="destructive">{sortedSurveys.overdue.length}</Badge>
+              </div>
+              {renderSection('overdue', sortedSurveys.overdue, 'Hazırda gecikən sorğu yoxdur')}
+            </section>
+          )}
+
+          {sortedSurveys.week.length > 0 && (
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Yaxın 7 gün</h2>
+                <Badge variant="secondary">{sortedSurveys.week.length}</Badge>
+              </div>
+              {renderSection('week', sortedSurveys.week, 'Yaxın həftə üçün sorğu tapılmadı')}
+            </section>
+          )}
+
+          {sortedSurveys.month.length > 0 && (
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Bu ay</h2>
+                <Badge variant="outline">{sortedSurveys.month.length}</Badge>
+              </div>
+              {renderSection('month', sortedSurveys.month, 'Bu ay üçün planlaşdırılan sorğu yoxdur')}
+            </section>
+          )}
+
+          {sortedSurveys.later.length > 0 && (
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-muted-foreground">Sonrakı tarixlər</h2>
+                <Badge variant="outline">{sortedSurveys.later.length}</Badge>
+              </div>
+              {renderSection('later', sortedSurveys.later, 'Sonrakı tarixlər üçün sorğu yoxdur')}
+            </section>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default PendingSurveys;
+  const getStatusLabel = (survey: SurveyWithStatus) => {
+    const status = (survey.response_status ?? (survey as any).status ?? '').toLowerCase();
+    switch (status) {
+      case 'overdue':
+        return 'Gecikib';
+      case 'in_progress':
+      case 'started':
+        return 'Davam edir';
+      case 'not_started':
+      case 'draft':
+      case 'pending':
+        return 'Gözləyir';
+      case 'completed':
+        return 'Tamamlanıb';
+      default:
+        return status || 'Naməlum';
+    }
+  };
+
+  const getStatusBadgeVariant = (survey: SurveyWithStatus): 'default' | 'secondary' | 'destructive' | 'outline' => {
+    const status = (survey.response_status ?? (survey as any).status ?? '').toLowerCase();
+    switch (status) {
+      case 'overdue':
+        return 'destructive';
+      case 'in_progress':
+      case 'started':
+        return 'secondary';
+      case 'not_started':
+      case 'pending':
+        return 'outline';
+      default:
+        return 'default';
+    }
+  };
+
+  const renderDueInfo = (survey: SurveyWithStatus) => {
+    if (!survey.end_date) {
+      return (
+        <span className="inline-flex items-center text-sm text-muted-foreground">
+          <Clock className="mr-1 h-4 w-4" />
+          Bitmə tarixi yoxdur
+        </span>
+      );
+    }
+
+    const dueDate = new Date(survey.end_date);
+    const now = new Date();
+    const diffDays = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      return (
+        <span className="inline-flex items-center text-sm text-red-600">
+          <Clock className="mr-1 h-4 w-4" />
+          {Math.abs(diffDays)} gün gecikib
+        </span>
+      );
+    }
+
+    if (diffDays === 0) {
+      return (
+        <span className="inline-flex items-center text-sm text-orange-600">
+          <Clock className="mr-1 h-4 w-4" />
+          Bu gün son gündür
+        </span>
+      );
+    }
+
+    return (
+      <span className="inline-flex items-center text-sm text-green-600">
+        <Clock className="mr-1 h-4 w-4" />
+        {diffDays} gün qalıb
+      </span>
+    );
+  };
