@@ -410,14 +410,6 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     setHasUnsavedChanges(true);
   };
 
-  const handleSave = (autoSubmit: boolean = false) => {
-    if (!currentResponse) return;
-    
-    saveResponseMutation.mutate({
-      responseId: currentResponse.id,
-      responses,
-      autoSubmit
-    });
   const handleSave = (autoSubmit: boolean = false, silent: boolean = false) => {
     if (!currentResponse || !surveyData?.questions) {
       return;

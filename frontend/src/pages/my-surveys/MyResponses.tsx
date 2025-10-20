@@ -49,12 +49,25 @@ const MyResponses: React.FC = () => {
   const [periodFilter, setPeriodFilter] = useState<string>('all');
   const [approvalFilter, setApprovalFilter] = useState<string>('all');
 
-  const { data: responses = [], isLoading, error } = useQuery({
+  const { data: responses = [], isLoading, error } = useQuery<ResponseWithSurvey[]>({
     queryKey: ['my-survey-responses'],
     queryFn: async () => {
       const response = await surveyService.getMyResponses();
-      // Type assertion since we know the structure of the response
-      return (response as any).data as ResponseWithSurvey[];
+
+      if (Array.isArray(response)) {
+        return response as ResponseWithSurvey[];
+      }
+
+      const payload = (response as any)?.data;
+      if (payload && Array.isArray(payload.data)) {
+        return payload.data as ResponseWithSurvey[];
+      }
+
+      if (payload && Array.isArray(payload)) {
+        return payload as ResponseWithSurvey[];
+      }
+
+      return [];
     },
     refetchInterval: 30000,
   });

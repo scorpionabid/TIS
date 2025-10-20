@@ -35,13 +35,26 @@ const PendingSurveys: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'not_started' | 'in_progress' | 'overdue'>('all');
   const [showFilters, setShowFilters] = useState(false);
 
-  const { data: apiResponse, isLoading, error } = useQuery({
+  const { data: apiResponse, isLoading, error } = useQuery<SurveyWithStatus[]>({
     queryKey: ['pending-surveys'],
     queryFn: async () => {
       try {
         const response = await surveyService.getAssignedSurveys();
         console.log('API Response:', response);
-        return response;
+        if (Array.isArray(response)) {
+          return response as SurveyWithStatus[];
+        }
+
+        const payload = (response as any)?.data;
+        if (payload && Array.isArray(payload.data)) {
+          return payload.data as SurveyWithStatus[];
+        }
+
+        if (payload && Array.isArray(payload)) {
+          return payload as SurveyWithStatus[];
+        }
+
+        return [];
       } catch (err) {
         console.error('Error fetching surveys:', err);
         throw err;
@@ -61,20 +74,9 @@ const PendingSurveys: React.FC = () => {
   const surveys = React.useMemo(() => {
     if (!apiResponse) return [];
     
-    // Handle different possible response structures
-    let surveysData: SurveyWithStatus[] = [];
-    
-    if (Array.isArray(apiResponse)) {
-      // Direct array response
-      surveysData = apiResponse as SurveyWithStatus[];
-    } else if (apiResponse && typeof apiResponse === 'object' && 'data' in apiResponse) {
-      // Response with { data: [...] } structure
-      surveysData = Array.isArray(apiResponse.data) ? apiResponse.data : [];
-    }
-    
     // Filter for pending, in-progress, and overdue surveys
-    return surveysData.filter(survey => {
-      const status = survey.response_status?.toLowerCase();
+    return apiResponse.filter(survey => {
+      const status = (survey.response_status ?? (survey as any).status ?? '').toLowerCase();
       return (
         status === 'not_started' || 
         status === 'in_progress' ||
@@ -97,10 +99,11 @@ const PendingSurveys: React.FC = () => {
     const matchesPriority = priorityFilter === 'all' || survey.priority === priorityFilter;
     
     // Status filter
+    const normalizedStatus = (survey.response_status ?? (survey as any).status ?? '').toLowerCase();
     const matchesStatus = statusFilter === 'all' || 
-      (statusFilter === 'overdue' && survey.response_status === 'overdue') ||
-      (statusFilter === 'not_started' && survey.response_status === 'not_started') ||
-      (statusFilter === 'in_progress' && survey.response_status === 'in_progress');
+      (statusFilter === 'overdue' && normalizedStatus === 'overdue') ||
+      (statusFilter === 'not_started' && normalizedStatus === 'not_started') ||
+      (statusFilter === 'in_progress' && normalizedStatus === 'in_progress');
 
     return matchesSearch && matchesPriority && matchesStatus;
   });
