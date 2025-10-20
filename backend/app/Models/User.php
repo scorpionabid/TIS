@@ -44,6 +44,8 @@ class User extends Authenticatable
         'email_verified_at',
         'remember_token',
         'preferences',
+        'first_name',
+        'last_name',
     ];
 
     /**
@@ -342,9 +344,16 @@ class User extends Authenticatable
      */
     public function getNameAttribute(): string
     {
-        // Access name fields through profile relationship
-        $firstName = trim($this->profile?->first_name ?? '');
-        $lastName = trim($this->profile?->last_name ?? '');
+        $firstName = trim($this->first_name ?? '');
+        $lastName = trim($this->last_name ?? '');
+
+        if (!$firstName && !$lastName) {
+            $profileFirst = trim($this->profile?->first_name ?? '');
+            $profileLast = trim($this->profile?->last_name ?? '');
+
+            $firstName = $profileFirst ?: $firstName;
+            $lastName = $profileLast ?: $lastName;
+        }
 
         // If both first and last name exist, combine them
         if ($firstName && $lastName) {
@@ -356,12 +365,10 @@ class User extends Authenticatable
             return $firstName;
         }
 
-        // If only last name exists
         if ($lastName) {
             return $lastName;
         }
 
-        // Fallback to username or email
         if ($this->username) {
             return $this->username;
         }

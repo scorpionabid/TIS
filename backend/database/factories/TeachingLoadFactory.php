@@ -4,7 +4,7 @@ namespace Database\Factories;
 
 use App\Models\TeachingLoad;
 use App\Models\User;
-use App\Models\Classes;
+use App\Models\ClassModel;
 use App\Models\Subject;
 use App\Models\AcademicYear;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -32,24 +32,30 @@ class TeachingLoadFactory extends Factory
         
         return [
             'teacher_id' => User::factory(),
-            'class_id' => Classes::factory(),
+            'class_id' => ClassModel::factory(),
             'subject_id' => Subject::factory(),
             'academic_year_id' => AcademicYear::factory(),
             'weekly_hours' => $weeklyHours,
             'total_hours' => $weeklyHours * 36, // Assuming 36 weeks in academic year
-            'semester' => $this->faker->randomElement([1, 2, 'full']),
-            'status' => $this->faker->randomElement(['pending', 'active', 'completed', 'cancelled']),
+            'status' => $this->faker->randomElement(['pending', 'active', 'completed']),
             'start_date' => $this->faker->dateTimeBetween('-1 month', 'now'),
             'end_date' => $this->faker->dateTimeBetween('+1 month', '+6 months'),
-            'notes' => $this->faker->optional()->sentence(),
-            'load_metadata' => json_encode([
+            'metadata' => [
                 'difficulty_level' => $this->faker->randomElement(['basic', 'intermediate', 'advanced']),
                 'teaching_method' => $this->faker->randomElement(['traditional', 'project_based', 'interactive']),
                 'assessment_frequency' => $this->faker->randomElement(['weekly', 'biweekly', 'monthly']),
-                'required_resources' => $this->faker->randomElements(['projector', 'computer', 'lab_equipment', 'textbooks'], $this->faker->numberBetween(1, 3))
-            ]),
-            'created_at' => now(),
-            'updated_at' => now(),
+                'required_resources' => $this->faker->randomElements(
+                    ['projector', 'computer', 'lab_equipment', 'textbooks'],
+                    $this->faker->numberBetween(1, 3)
+                ),
+            ],
+            'schedule_generation_status' => 'pending',
+            'preferred_consecutive_hours' => $this->faker->numberBetween(1, 3),
+            'preferred_time_slots' => [],
+            'unavailable_periods' => [],
+            'scheduling_constraints' => [],
+            'distribution_pattern' => null,
+            'priority_level' => $this->faker->numberBetween(1, 10),
         ];
     }
 
@@ -102,9 +108,9 @@ class TeachingLoadFactory extends Factory
     {
         return $this->state(function (array $attributes) {
             return [
-                'semester' => 1,
                 'start_date' => now()->startOfYear()->addMonths(8), // September
                 'end_date' => now()->startOfYear()->addMonths(11)->endOfMonth(), // December
+                'metadata' => array_merge($attributes['metadata'] ?? [], ['semester' => 1]),
             ];
         });
     }
@@ -116,9 +122,9 @@ class TeachingLoadFactory extends Factory
     {
         return $this->state(function (array $attributes) {
             return [
-                'semester' => 2,
                 'start_date' => now()->startOfYear()->addMonths(12)->addDays(15), // January 15
                 'end_date' => now()->startOfYear()->addMonths(17)->endOfMonth(), // June
+                'metadata' => array_merge($attributes['metadata'] ?? [], ['semester' => 2]),
             ];
         });
     }
@@ -130,9 +136,9 @@ class TeachingLoadFactory extends Factory
     {
         return $this->state(function (array $attributes) {
             return [
-                'semester' => 'full',
                 'start_date' => now()->startOfYear()->addMonths(8), // September
                 'end_date' => now()->startOfYear()->addMonths(17)->endOfMonth(), // June next year
+                'metadata' => array_merge($attributes['metadata'] ?? [], ['semester' => 'full']),
             ];
         });
     }

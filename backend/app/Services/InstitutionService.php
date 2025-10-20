@@ -150,28 +150,37 @@ class InstitutionService
      */
     public function getInstitutionStatistics($institutionId = null): array
     {
-        $query = Institution::query();
+        $baseQuery = Institution::query();
         
         if ($institutionId) {
             $institution = Institution::find($institutionId);
             $childrenIds = $institution->getAllChildrenIds();
             $childrenIds[] = $institutionId;
-            $query->whereIn('id', $childrenIds);
+            $baseQuery->whereIn('id', $childrenIds);
         }
 
+        $totalInstitutions = (clone $baseQuery)->count();
+        $activeInstitutions = (clone $baseQuery)->where('is_active', true)->count();
+        $byType = (clone $baseQuery)->selectRaw('type, count(*) as count')
+                                    ->groupBy('type')
+                                    ->pluck('count', 'type');
+        $byLevel = (clone $baseQuery)->selectRaw('level, count(*) as count')
+                                     ->groupBy('level')
+                                     ->pluck('count', 'level');
+
+        $institutionIds = (clone $baseQuery)->pluck('id');
+        $totalUsers = \App\Models\User::whereIn('institution_id', $institutionIds)->count();
+        $activeUsers = \App\Models\User::whereIn('institution_id', $institutionIds)
+                                       ->where('is_active', true)
+                                       ->count();
+
         return [
-            'total_institutions' => $query->count(),
-            'active_institutions' => $query->where('is_active', true)->count(),
-            'by_type' => $query->groupBy('type')
-                              ->selectRaw('type, count(*) as count')
-                              ->pluck('count', 'type'),
-            'by_level' => $query->groupBy('level')
-                               ->selectRaw('level, count(*) as count')
-                               ->pluck('count', 'level'),
-            'total_users' => \App\Models\User::whereIn('institution_id', 
-                $query->pluck('id'))->count(),
-            'active_users' => \App\Models\User::whereIn('institution_id', 
-                $query->pluck('id'))->where('is_active', true)->count(),
+            'total_institutions' => $totalInstitutions,
+            'active_institutions' => $activeInstitutions,
+            'by_type' => $byType,
+            'by_level' => $byLevel,
+            'total_users' => $totalUsers,
+            'active_users' => $activeUsers,
         ];
     }
 

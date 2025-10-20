@@ -36,15 +36,21 @@ class DocumentSharingService
         $share = DocumentShare::create([
             'document_id' => $document->id,
             'shared_by' => $user->id,
+            'share_token' => DocumentShare::generateShareToken(),
             'shared_with_users' => $shareData['user_ids'] ?? [],
             'shared_with_roles' => $shareData['role_names'] ?? [],
             'shared_with_institutions' => $shareData['institution_ids'] ?? [],
             'share_type' => $shareData['share_type'] ?? 'view',
             'message' => $shareData['message'] ?? null,
-            'expires_at' => $shareData['expires_at'] ?? null,
+            'expires_at' => $shareData['expires_at'] ?? now()->addDays(7),
             'is_active' => true,
             'allow_download' => $shareData['allow_download'] ?? true,
-            'allow_reshare' => $shareData['allow_reshare'] ?? false
+            'allow_reshare' => $shareData['allow_reshare'] ?? false,
+            'password_protected' => !empty($shareData['password']),
+            'access_password' => !empty($shareData['password']) ? bcrypt($shareData['password']) : null,
+            'requires_password' => !empty($shareData['password']),
+            'password_hash' => !empty($shareData['password']) ? bcrypt($shareData['password']) : null,
+            'max_downloads' => $shareData['max_downloads'] ?? null,
         ]);
 
         // Send notifications to shared users
@@ -71,6 +77,7 @@ class DocumentSharingService
         $share = DocumentShare::create([
             'document_id' => $document->id,
             'shared_by' => $user->id,
+            'share_token' => DocumentShare::generateShareToken(),
             'share_type' => 'public_link',
             'public_token' => $token,
             'expires_at' => $linkData['expires_at'] ?? now()->addDays(7),
@@ -78,7 +85,9 @@ class DocumentSharingService
             'allow_download' => $linkData['allow_download'] ?? false,
             'max_downloads' => $linkData['max_downloads'] ?? null,
             'password_protected' => !empty($linkData['password']),
-            'access_password' => !empty($linkData['password']) ? bcrypt($linkData['password']) : null
+            'access_password' => !empty($linkData['password']) ? bcrypt($linkData['password']) : null,
+            'requires_password' => !empty($linkData['password']),
+            'password_hash' => !empty($linkData['password']) ? bcrypt($linkData['password']) : null,
         ]);
 
         return $share;

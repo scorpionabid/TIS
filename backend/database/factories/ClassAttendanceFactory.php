@@ -3,7 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\ClassAttendance;
-use App\Models\Classes;
+use App\Models\ClassModel;
 use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -33,7 +33,7 @@ class ClassAttendanceFactory extends Factory
         $absentUnexcused = $totalStudents - $presentStudents - $absentExcused;
 
         return [
-            'class_id' => Classes::factory(),
+            'class_id' => ClassModel::factory(),
             'subject_id' => Subject::factory(),
             'teacher_id' => User::factory(),
             'attendance_date' => $this->faker->dateTimeBetween('-1 month', 'now')->format('Y-m-d'),
@@ -48,12 +48,12 @@ class ClassAttendanceFactory extends Factory
             'lesson_status' => $this->faker->randomElement(['completed', 'cancelled', 'partial', 'substituted']),
             'approval_status' => $this->faker->randomElement(['pending', 'approved', 'rejected', 'needs_review']),
             'notes' => $this->faker->optional()->sentence(),
-            'attendance_metadata' => json_encode([
+            'attendance_metadata' => [
                 'created_by_ip' => $this->faker->ipv4(),
                 'created_by_user_agent' => $this->faker->userAgent(),
                 'total_accounted' => $presentStudents + $absentExcused + $absentUnexcused,
                 'attendance_percentage' => $totalStudents > 0 ? round(($presentStudents / $totalStudents) * 100, 2) : 0
-            ]),
+            ],
             'created_at' => now(),
             'updated_at' => now(),
         ];

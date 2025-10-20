@@ -17,18 +17,23 @@ class DatabaseSeeder extends Seeder
 
         // Test user will be created and configured in BasicDataSeeder
 
-        $this->call([ // Call other seeders
+        $coreSeeders = [
             RoleSeeder::class,
             PermissionSeeder::class,
             SuperAdminSeeder::class, // Create superadmin after roles
             SystemConfigSeeder::class,
-            
-            // Test Data Seeders (Modular)
-            BasicDataSeeder::class,        // Users, institutions, academic years
-            SurveyDataSeeder::class,       // Surveys and responses
-            SchoolDataSeeder::class,       // Grades, classes, schedules, attendance
-            TaskDocumentSeeder::class,     // Tasks and documents
-            AssessmentDataSeeder::class,   // KSQ/BSQ results
-        ]);
+        ];
+
+        $this->call($coreSeeders);
+
+        if (app()->environment('production')) {
+            $this->call([
+                BasicDataSeeder::class,        // Users, institutions, academic years
+                SurveyDataSeeder::class,       // Surveys and responses
+                SchoolDataSeeder::class,       // Grades, classes, schedules, attendance
+                TaskDocumentSeeder::class,     // Tasks and documents
+                AssessmentDataSeeder::class,   // KSQ/BSQ results
+            ]);
+        }
     }
 }

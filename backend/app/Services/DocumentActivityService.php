@@ -32,7 +32,7 @@ class DocumentActivityService extends BaseService
                 'user:id,first_name,last_name', 
                 'institution:id,name'
             ])
-            ->orderBy('accessed_at', 'desc');
+            ->orderByDesc('created_at');
 
         // Apply filters
         $this->applyActivityFilters($query, $filters);
@@ -62,7 +62,7 @@ class DocumentActivityService extends BaseService
 
         $query = DocumentAccessLog::where('document_id', $document->id)
             ->with(['user:id,first_name,last_name', 'institution:id,name'])
-            ->orderBy('accessed_at', 'desc');
+            ->orderByDesc('created_at');
 
         $perPage = $request->get('per_page', 20);
         $history = $query->paginate($perPage);
@@ -83,7 +83,7 @@ class DocumentActivityService extends BaseService
             $activityData = [
                 'document_id' => $document->id,
                 'user_id' => $user->id,
-                'action' => $action,
+                'access_type' => $action,
                 'ip_address' => $request ? $request->ip() : null,
                 'user_agent' => $request ? $request->userAgent() : null,
                 'access_metadata' => $this->prepareActivityMetadata($document, $user, $action, $request)
@@ -112,7 +112,7 @@ class DocumentActivityService extends BaseService
         
         return [
             'total_activities' => $baseQuery->count(),
-            'recent_activities' => $baseQuery->where('accessed_at', '>=', now()->subHours(24))->count(),
+            'recent_activities' => $baseQuery->where('created_at', '>=', now()->subHours(24))->count(),
             'by_action' => $this->getActivityByAction($baseQuery),
             'by_date' => $this->getActivityByDate($baseQuery),
             'top_documents' => $this->getTopAccessedDocuments($baseQuery),
@@ -138,6 +138,7 @@ class DocumentActivityService extends BaseService
 
         $totalAccess = DocumentAccessLog::where('document_id', $document->id)->count();
         $uniqueUsers = DocumentAccessLog::where('document_id', $document->id)
+            ->whereNotNull('user_id')
             ->distinct('user_id')
             ->count('user_id');
 
@@ -189,8 +190,8 @@ class DocumentActivityService extends BaseService
                 'document_id',
                 DB::raw('COUNT(*) as total_access'),
                 DB::raw('COUNT(DISTINCT user_id) as unique_users'),
-                DB::raw('COUNT(CASE WHEN action = "download" THEN 1 END) as downloads'),
-                DB::raw('MAX(accessed_at) as last_access')
+                DB::raw("COUNT(CASE WHEN access_type = 'download' THEN 1 END) as downloads"),
+                DB::raw('MAX(created_at) as last_access')
             ])
             ->with('document:id,title,original_filename,file_size,created_at')
             ->groupBy('document_id')
@@ -226,7 +227,7 @@ class DocumentActivityService extends BaseService
                 'user:id,first_name,last_name,email',
                 'institution:id,name'
             ])
-            ->orderBy('accessed_at', 'desc');
+            ->orderByDesc('created_at');
 
         // Apply filters
         $this->applyActivityFilters($query, $filters);
@@ -252,19 +253,21 @@ class DocumentActivityService extends BaseService
     private function applyActivityFilters($query, array $filters): void
     {
         if (!empty($filters['action'])) {
-            $query->where('action', $filters['action']);
+            $query->where('access_type', $filters['action']);
         }
 
         if (!empty($filters['date_from'])) {
-            $query->whereDate('accessed_at', '>=', $filters['date_from']);
+            $query->whereDate('created_at', '>=', $filters['date_from']);
         }
 
         if (!empty($filters['date_to'])) {
-            $query->whereDate('accessed_at', '<=', $filters['date_to']);
+            $query->whereDate('created_at', '<=', $filters['date_to']);
         }
 
         if (!empty($filters['institution_id'])) {
-            $query->where('institution_id', $filters['institution_id']);
+            $query->whereHas('document', function ($docQuery) use ($filters) {
+                $docQuery->where('institution_id', $filters['institution_id']);
+            });
         }
 
         if (!empty($filters['user_id'])) {
@@ -293,19 +296,25 @@ class DocumentActivityService extends BaseService
             case 'regionoperator':
                 // Regional admins can see activities in their region
                 $institutionIds = $this->permissionService->getUserAccessibleInstitutions($user);
-                $query->whereIn('institution_id', $institutionIds);
+                $query->whereHas('document', function ($docQuery) use ($institutionIds) {
+                    $docQuery->whereIn('institution_id', $institutionIds);
+                });
                 break;
                 
             case 'sektoradmin':
                 // Sector admins can see activities in their sector
                 $institutionIds = $this->permissionService->getUserAccessibleInstitutions($user);
-                $query->whereIn('institution_id', $institutionIds);
+                $query->whereHas('document', function ($docQuery) use ($institutionIds) {
+                    $docQuery->whereIn('institution_id', $institutionIds);
+                });
                 break;
                 
             case 'schooladmin':
             case 'məktəbadmin':
                 // School admins can only see activities in their institution
-                $query->where('institution_id', $userInstitutionId);
+                $query->whereHas('document', function ($docQuery) use ($userInstitutionId) {
+                    $docQuery->where('institution_id', $userInstitutionId);
+                });
                 break;
                 
             default:
@@ -321,9 +330,9 @@ class DocumentActivityService extends BaseService
     private function getActivityByAction($query): array
     {
         return $query->clone()
-            ->select('action', DB::raw('COUNT(*) as count'))
-            ->groupBy('action')
-            ->pluck('count', 'action')
+            ->select('access_type', DB::raw('COUNT(*) as count'))
+            ->groupBy('access_type')
+            ->pluck('count', 'access_type')
             ->toArray();
     }
 
@@ -333,8 +342,8 @@ class DocumentActivityService extends BaseService
     private function getActivityByDate($query, int $days = 7): array
     {
         return $query->clone()
-            ->select(DB::raw('DATE(accessed_at) as date'), DB::raw('COUNT(*) as count'))
-            ->where('accessed_at', '>=', now()->subDays($days))
+            ->select(DB::raw('DATE(created_at) as date'), DB::raw('COUNT(*) as count'))
+            ->where('created_at', '>=', now()->subDays($days))
             ->groupBy('date')
             ->orderBy('date')
             ->pluck('count', 'date')
@@ -434,8 +443,8 @@ class DocumentActivityService extends BaseService
         $days = $this->getPeriodDays($period);
         
         return $query
-            ->select(DB::raw('DATE(accessed_at) as date'), DB::raw('COUNT(*) as count'))
-            ->where('accessed_at', '>=', now()->subDays($days))
+            ->select(DB::raw('DATE(created_at) as date'), DB::raw('COUNT(*) as count'))
+            ->where('created_at', '>=', now()->subDays($days))
             ->groupBy('date')
             ->orderBy('date')
             ->get()
@@ -450,12 +459,12 @@ class DocumentActivityService extends BaseService
         $days = $this->getPeriodDays($period);
         
         return $query
-            ->select('action', DB::raw('DATE(accessed_at) as date'), DB::raw('COUNT(*) as count'))
-            ->where('accessed_at', '>=', now()->subDays($days))
-            ->groupBy('action', 'date')
+            ->select('access_type', DB::raw('DATE(created_at) as date'), DB::raw('COUNT(*) as count'))
+            ->where('created_at', '>=', now()->subDays($days))
+            ->groupBy('access_type', 'date')
             ->orderBy('date')
             ->get()
-            ->groupBy('action')
+            ->groupBy('access_type')
             ->toArray();
     }
 
@@ -468,11 +477,11 @@ class DocumentActivityService extends BaseService
         
         return $query
             ->select(
-                DB::raw('DATE(accessed_at) as date'),
+                DB::raw('DATE(created_at) as date'),
                 DB::raw('COUNT(DISTINCT user_id) as unique_users'),
                 DB::raw('COUNT(*) as total_activities')
             )
-            ->where('accessed_at', '>=', now()->subDays($days))
+            ->where('created_at', '>=', now()->subDays($days))
             ->groupBy('date')
             ->orderBy('date')
             ->get()
@@ -485,7 +494,7 @@ class DocumentActivityService extends BaseService
     private function getPeakActivityHours($query): array
     {
         return $query
-            ->select(DB::raw('HOUR(accessed_at) as hour'), DB::raw('COUNT(*) as count'))
+            ->select(DB::raw('HOUR(created_at) as hour'), DB::raw('COUNT(*) as count'))
             ->groupBy('hour')
             ->orderBy('hour')
             ->get()
@@ -517,12 +526,12 @@ class DocumentActivityService extends BaseService
     private function exportToCsv($activities): string
     {
         $csv = "Date,Time,Action,Document,User,Institution,IP Address\n";
-        
+
         foreach ($activities as $activity) {
             $csv .= implode(',', [
-                $activity->accessed_at->format('Y-m-d'),
-                $activity->accessed_at->format('H:i:s'),
-                $activity->action,
+                $activity->created_at->format('Y-m-d'),
+                $activity->created_at->format('H:i:s'),
+                $activity->access_type,
                 '"' . ($activity->document->title ?? '') . '"',
                 '"' . ($activity->user->first_name ?? '') . ' ' . ($activity->user->last_name ?? '') . '"',
                 '"' . ($activity->institution->name ?? '') . '"',
@@ -540,9 +549,9 @@ class DocumentActivityService extends BaseService
     {
         $exportData = $activities->map(function ($activity) {
             return [
-                'date' => $activity->accessed_at->format('Y-m-d'),
-                'time' => $activity->accessed_at->format('H:i:s'),
-                'action' => $activity->action,
+                'date' => $activity->created_at->format('Y-m-d'),
+                'time' => $activity->created_at->format('H:i:s'),
+                'action' => $activity->access_type,
                 'document' => $activity->document->title ?? '',
                 'user' => ($activity->user->first_name ?? '') . ' ' . ($activity->user->last_name ?? ''),
                 'institution' => $activity->institution->name ?? '',

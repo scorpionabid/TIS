@@ -149,7 +149,7 @@ class StudentImportExportService extends BaseService
                         
                         // Check if user can access this institution
                         $institution = Institution::find($studentData['institution_id']);
-                        if (!$this->studentManagementService->canAccessStudent($user, (object)['institution_id' => $institution->id])) {
+                        if (!$this->studentManagementService->canManageStudentsInInstitution($user, $institution->id)) {
                             $results['errors'][] = "Sətir {$rowNum}: Bu quruma şagird əlavə etmək icazəniz yoxdur";
                             continue;
                         }

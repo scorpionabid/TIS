@@ -30,12 +30,13 @@ class DocumentShareFactory extends Factory
         return [
             'document_id' => Document::factory(),
             'shared_by' => User::factory(),
-            'shared_with_users' => json_encode([]),
-            'shared_with_roles' => json_encode([]),
-            'shared_with_institutions' => json_encode([]),
+            'share_token' => Str::random(32),
+            'shared_with_users' => [],
+            'shared_with_roles' => [],
+            'shared_with_institutions' => [],
             'share_type' => $this->faker->randomElement(['view', 'edit']),
             'message' => $this->faker->optional()->sentence(),
-            'expires_at' => $this->faker->optional()->dateTimeBetween('+1 day', '+1 month'),
+            'expires_at' => $this->faker->dateTimeBetween('+1 day', '+1 month'),
             'is_active' => true,
             'allow_download' => $this->faker->boolean(80),
             'allow_reshare' => $this->faker->boolean(30),
@@ -43,6 +44,8 @@ class DocumentShareFactory extends Factory
             'password_protected' => false,
             'access_password' => null,
             'max_downloads' => null,
+            'download_count' => 0,
+            'view_count' => 0,
             'access_count' => 0,
             'created_at' => now(),
             'updated_at' => now(),
@@ -58,9 +61,10 @@ class DocumentShareFactory extends Factory
             return [
                 'share_type' => 'public_link',
                 'public_token' => Str::random(32),
-                'shared_with_users' => json_encode([]),
-                'shared_with_roles' => json_encode([]),
-                'shared_with_institutions' => json_encode([]),
+                'share_token' => Str::random(32),
+                'shared_with_users' => [],
+                'shared_with_roles' => [],
+                'shared_with_institutions' => [],
                 'expires_at' => $this->faker->dateTimeBetween('+1 day', '+1 month'),
                 'max_downloads' => $this->faker->optional()->numberBetween(5, 100),
             ];
@@ -149,7 +153,7 @@ class DocumentShareFactory extends Factory
     {
         return $this->state(function (array $attributes) use ($userIds) {
             return [
-                'shared_with_users' => json_encode($userIds),
+                'shared_with_users' => $userIds,
                 'share_type' => 'view',
             ];
         });
@@ -162,7 +166,7 @@ class DocumentShareFactory extends Factory
     {
         return $this->state(function (array $attributes) use ($roles) {
             return [
-                'shared_with_roles' => json_encode($roles),
+                'shared_with_roles' => $roles,
                 'share_type' => 'view',
             ];
         });
@@ -175,7 +179,7 @@ class DocumentShareFactory extends Factory
     {
         return $this->state(function (array $attributes) use ($institutionIds) {
             return [
-                'shared_with_institutions' => json_encode($institutionIds),
+                'shared_with_institutions' => $institutionIds,
                 'share_type' => 'view',
             ];
         });

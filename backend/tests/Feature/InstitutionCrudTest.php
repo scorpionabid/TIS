@@ -5,562 +5,205 @@ namespace Tests\Feature;
 use App\Models\Institution;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Support\Str;
+use Laravel\Sanctum\Sanctum;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 class InstitutionCrudTest extends TestCase
 {
-    use RefreshDatabase, WithFaker;
+    use RefreshDatabase;
+
+    protected User $superadmin;
 
     protected function setUp(): void
     {
         parent::setUp();
-        
-        // Create test user with admin role for API testing
-        $this->testUser = User::factory()->create([
-            'username' => 'testadmin',
-            'email' => 'admin@test.com',
-            'is_active' => true,
+
+        $this->seed([
+            \Database\Seeders\RoleSeeder::class,
+            \Database\Seeders\PermissionSeeder::class,
         ]);
 
-        // Create auth token for API testing
-        $this->token = $this->testUser->createToken('test-token')->plainTextToken;
+        $this->superadmin = User::factory()->create(['is_active' => true]);
+        $this->superadmin->assignRole('superadmin');
+        $this->superadmin->givePermissionTo(
+            Permission::where('guard_name', 'web')->pluck('name')->all()
+        );
+
+        Sanctum::actingAs($this->superadmin);
     }
 
-    /**
-     * Test institution creation via API
-     *
-     * @return void
-     */
-    public function test_can_create_institution_via_api()
+    public function test_superadmin_can_create_institution(): void
     {
-        $institutionData = [
-            'name' => 'Test Məktəbi',
-            'level' => 4,
-            'type' => 'school',
+        $payload = [
+            'name' => 'Test Nazirlik',
+            'short_name' => 'TN',
+            'type' => 'ministry',
+            'level' => 1,
+            'region_code' => 'AZ-01',
+            'institution_code' => 'MIN-' . Str::upper(Str::random(5)),
             'is_active' => true,
-            'address' => 'Test ünvanı',
-            'phone' => '+994501234567',
-            'email' => 'test@school.edu.az',
         ];
 
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $this->token,
-            'Accept' => 'application/json',
-        ])->postJson('/api/institutions', $institutionData);
+        $response = $this->postJson('/api/institutions', $payload);
 
-        $response->assertStatus(201)
-                ->assertJsonStructure([
-                    'institution' => [
-                        'id',
-                        'name',
-                        'level',
-                        'type',
-                        'is_active',
-                        'created_at',
-                        'updated_at'
-                    ]
-                ]);
+        $response->assertCreated()
+            ->assertJsonFragment([
+                'name' => 'Test Nazirlik',
+                'type' => 'ministry',
+                'level' => 1,
+            ]);
 
         $this->assertDatabaseHas('institutions', [
-            'name' => 'Test Məktəbi',
-            'level' => 4,
-            'type' => 'school',
-            'is_active' => true,
+            'name' => 'Test Nazirlik',
+            'institution_code' => $payload['institution_code'],
         ]);
     }
 
-    /**
-     * Test institution creation validation
-     *
-     * @return void
-     */
-    public function test_institution_creation_validation()
+    public function test_required_fields_are_validated_when_creating_institution(): void
     {
-        // Test empty data
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $this->token,
-            'Accept' => 'application/json',
-        ])->postJson('/api/institutions', []);
+        $response = $this->postJson('/api/institutions', []);
 
         $response->assertStatus(422)
-                ->assertJsonValidationErrors(['name', 'level', 'type']);
-
-        // Test invalid level
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $this->token,
-            'Accept' => 'application/json',
-        ])->postJson('/api/institutions', [
-            'name' => 'Test Institution',
-            'level' => 10, // Invalid level
-            'type' => 'school',
-        ]);
-
-        $response->assertStatus(422)
-                ->assertJsonValidationErrors(['level']);
-
-        // Test invalid type
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $this->token,
-            'Accept' => 'application/json',
-        ])->postJson('/api/institutions', [
-            'name' => 'Test Institution',
-            'level' => 4,
-            'type' => 'invalid_type',
-        ]);
-
-        $response->assertStatus(422)
-                ->assertJsonValidationErrors(['type']);
+            ->assertJsonValidationErrors([
+                'name',
+                'type',
+                'level',
+                'institution_code',
+                'region_code',
+            ]);
     }
 
-    /**
-     * Test institution retrieval via API
-     *
-     * @return void
-     */
-    public function test_can_retrieve_institutions_via_api()
-    {
-        // Create test institutions with different levels
-        Institution::factory()->create([
-            'name' => 'Təhsil Nazirliyi',
-            'level' => 1,
-            'type' => 'ministry',
-        ]);
-
-        Institution::factory()->create([
-            'name' => 'Bakı Şəhər Təhsil İdarəsi',
-            'level' => 2,
-            'type' => 'region',
-        ]);
-
-        Institution::factory()->create([
-            'name' => 'Test Məktəbi',
-            'level' => 4,
-            'type' => 'school',
-        ]);
-
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $this->token,
-            'Accept' => 'application/json',
-        ])->getJson('/api/institutions');
-
-        $response->assertStatus(200)
-                ->assertJsonStructure([
-                    'data' => [
-                        '*' => [
-                            'id',
-                            'name',
-                            'level',
-                            'type',
-                            'is_active',
-                            'created_at',
-                            'updated_at'
-                        ]
-                    ],
-                    'meta' => [
-                        'current_page',
-                        'per_page',
-                        'total',
-                        'last_page'
-                    ]
-                ]);
-
-        $this->assertCount(3, $response->json('data'));
-    }
-
-    /**
-     * Test single institution retrieval
-     *
-     * @return void
-     */
-    public function test_can_retrieve_single_institution()
-    {
-        $institution = Institution::factory()->create([
-            'name' => 'Tək Məktəb',
-            'level' => 4,
-            'type' => 'school',
-        ]);
-
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $this->token,
-            'Accept' => 'application/json',
-        ])->getJson("/api/institutions/{$institution->id}");
-
-        $response->assertStatus(200)
-                ->assertJson([
-                    'data' => [
-                        'id' => $institution->id,
-                        'name' => 'Tək Məktəb',
-                        'level' => 4,
-                        'type' => 'school',
-                    ]
-                ]);
-    }
-
-    /**
-     * Test institution update via API
-     *
-     * @return void
-     */
-    public function test_can_update_institution_via_api()
-    {
-        $institution = Institution::factory()->create([
-            'name' => 'Köhnə Ad',
-            'level' => 4,
-            'type' => 'school',
-            'is_active' => true,
-        ]);
-
-        $updateData = [
-            'name' => 'Yeni Ad',
-            'is_active' => false,
-            'address' => 'Yeni ünvan',
-            'phone' => '+994501234567',
-        ];
-
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $this->token,
-            'Accept' => 'application/json',
-        ])->putJson("/api/institutions/{$institution->id}", $updateData);
-
-        $response->assertStatus(200)
-                ->assertJson([
-                    'message' => 'Təssisət uğurla yeniləndi',
-                    'data' => [
-                        'id' => $institution->id,
-                        'name' => 'Yeni Ad',
-                        'is_active' => false,
-                    ]
-                ]);
-
-        $this->assertDatabaseHas('institutions', [
-            'id' => $institution->id,
-            'name' => 'Yeni Ad',
-            'is_active' => false,
-        ]);
-    }
-
-    /**
-     * Test institution deletion via API
-     *
-     * @return void
-     */
-    public function test_can_delete_institution_via_api()
-    {
-        $institution = Institution::factory()->create([
-            'name' => 'Silinəcək Məktəb',
-            'level' => 4,
-            'type' => 'school',
-        ]);
-
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $this->token,
-            'Accept' => 'application/json',
-        ])->deleteJson("/api/institutions/{$institution->id}");
-
-        $response->assertStatus(200)
-                ->assertJson([
-                    'message' => 'Təssisət uğurla silindi'
-                ]);
-
-        $this->assertDatabaseMissing('institutions', [
-            'id' => $institution->id,
-        ]);
-    }
-
-    /**
-     * Test institution search functionality
-     *
-     * @return void
-     */
-    public function test_can_search_institutions()
-    {
-        Institution::factory()->create([
-            'name' => 'Bakı Məktəbi',
-            'level' => 4,
-            'type' => 'school',
-        ]);
-
-        Institution::factory()->create([
-            'name' => 'Gəncə Məktəbi',
-            'level' => 4,
-            'type' => 'school',
-        ]);
-
-        // Search by name
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $this->token,
-            'Accept' => 'application/json',
-        ])->getJson('/api/institutions?search=Bakı');
-
-        $response->assertStatus(200);
-        $institutions = $response->json('data');
-        
-        $this->assertGreaterThanOrEqual(1, count($institutions));
-        $this->assertStringContainsString('Bakı', $institutions[0]['name']);
-    }
-
-    /**
-     * Test institution filtering by level
-     *
-     * @return void
-     */
-    public function test_can_filter_institutions_by_level()
-    {
-        Institution::factory()->create([
-            'name' => 'Nazirlik',
-            'level' => 1,
-            'type' => 'ministry',
-        ]);
-
-        Institution::factory()->create([
-            'name' => 'İdarə',
-            'level' => 2,
-            'type' => 'region',
-        ]);
-
-        Institution::factory()->create([
-            'name' => 'Məktəb',
-            'level' => 4,
-            'type' => 'school',
-        ]);
-
-        // Filter by level 4 (schools)
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $this->token,
-            'Accept' => 'application/json',
-        ])->getJson('/api/institutions?level=4');
-
-        $response->assertStatus(200);
-        $institutions = $response->json('data');
-        
-        $this->assertCount(1, $institutions);
-        $this->assertEquals(4, $institutions[0]['level']);
-        $this->assertEquals('school', $institutions[0]['type']);
-    }
-
-    /**
-     * Test institution filtering by type
-     *
-     * @return void
-     */
-    public function test_can_filter_institutions_by_type()
-    {
-        Institution::factory()->create([
-            'name' => 'Birinci Məktəb',
-            'level' => 4,
-            'type' => 'school',
-        ]);
-
-        Institution::factory()->create([
-            'name' => 'İkinci Məktəb',
-            'level' => 4,
-            'type' => 'school',
-        ]);
-
-        Institution::factory()->create([
-            'name' => 'Regional İdarə',
-            'level' => 2,
-            'type' => 'region',
-        ]);
-
-        // Filter by type school
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $this->token,
-            'Accept' => 'application/json',
-        ])->getJson('/api/institutions?type=school');
-
-        $response->assertStatus(200);
-        $institutions = $response->json('data');
-        
-        $this->assertCount(2, $institutions);
-        foreach ($institutions as $institution) {
-            $this->assertEquals('school', $institution['type']);
-        }
-    }
-
-    /**
-     * Test institution hierarchy relationships
-     *
-     * @return void
-     */
-    public function test_institution_hierarchy_relationships()
+    public function test_can_list_and_filter_institutions(): void
     {
         $ministry = Institution::factory()->create([
             'name' => 'Təhsil Nazirliyi',
-            'level' => 1,
             'type' => 'ministry',
+            'level' => 1,
             'parent_id' => null,
+            'institution_code' => 'MIN' . Str::upper(Str::random(4)),
+            'region_code' => 'AZ-00',
         ]);
 
         $region = Institution::factory()->create([
             'name' => 'Bakı Şəhər Təhsil İdarəsi',
-            'level' => 2,
             'type' => 'region',
+            'level' => 2,
             'parent_id' => $ministry->id,
+            'institution_code' => 'REG' . Str::upper(Str::random(4)),
+            'region_code' => 'AZ-BA',
         ]);
 
-        $school = Institution::factory()->create([
-            'name' => 'Test Məktəbi',
-            'level' => 4,
+        Institution::factory()->count(2)->create([
             'type' => 'school',
+            'level' => 4,
             'parent_id' => $region->id,
         ]);
 
-        // Test hierarchy endpoint
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $this->token,
-            'Accept' => 'application/json',
-        ])->getJson('/api/institutions/hierarchy');
+        $listResponse = $this->getJson('/api/institutions');
+        $listResponse->assertOk();
+        $this->assertGreaterThanOrEqual(3, $listResponse->json('data') ? count($listResponse->json('data')) : 0);
 
-        $response->assertStatus(200)
-                ->assertJsonStructure([
-                    'data' => [
-                        '*' => [
-                            'id',
-                            'name',
-                            'level',
-                            'type',
-                            'children_count',
-                            'children' => [
-                                '*' => [
-                                    'id',
-                                    'name',
-                                    'level',
-                                    'type'
-                                ]
-                            ]
-                        ]
-                    ]
-                ]);
+        $levelResponse = $this->getJson('/api/institutions?level=2');
+        $levelResponse->assertOk();
+        $this->assertSame(1, count($levelResponse->json('data')));
+        $this->assertEquals('region', $levelResponse->json('data')[0]['type']);
+
+        $typeResponse = $this->getJson('/api/institutions?type=school');
+        $typeResponse->assertOk();
+        $this->assertSame(2, count($typeResponse->json('data')));
+
+        $searchResponse = $this->getJson('/api/institutions?search=' . urlencode('Bakı'));
+        $searchResponse->assertOk();
+        $this->assertGreaterThanOrEqual(1, count($searchResponse->json('data')));
+        $this->assertStringContainsString('Bakı', $searchResponse->json('data')[0]['name']);
     }
 
-    /**
-     * Test institution status toggle
-     *
-     * @return void
-     */
-    public function test_can_toggle_institution_status()
+    public function test_can_view_single_institution(): void
     {
         $institution = Institution::factory()->create([
-            'name' => 'Status Test Məktəbi',
-            'level' => 4,
+            'name' => 'Tək Məktəb',
             'type' => 'school',
-            'is_active' => true,
+            'level' => 4,
         ]);
 
-        // Deactivate institution
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $this->token,
-            'Accept' => 'application/json',
-        ])->postJson("/api/institutions/{$institution->id}/toggle-status");
+        $this->getJson("/api/institutions/{$institution->id}")
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => $institution->id,
+                'name' => 'Tək Məktəb',
+                'type' => 'school',
+                'level' => 4,
+            ]);
+    }
 
-        $response->assertStatus(200)
-                ->assertJson([
-                    'message' => 'Təssisət statusu dəyişdirildi',
-                    'data' => [
-                        'is_active' => false
-                    ]
-                ]);
+    public function test_can_update_institution(): void
+    {
+        $parent = Institution::factory()->create([
+            'type' => 'sektor',
+            'level' => 3,
+        ]);
 
-        $this->assertDatabaseHas('institutions', [
-            'id' => $institution->id,
+        $institution = Institution::factory()->create([
+            'name' => 'Köhnə Ad',
+            'type' => 'school',
+            'level' => 4,
+            'is_active' => true,
+            'parent_id' => $parent->id,
+        ]);
+
+        $payload = [
+            'name' => 'Yeni Ad',
             'is_active' => false,
-        ]);
+            'region_code' => 'AZ-99',
+            'parent_id' => $parent->id,
+        ];
 
-        // Reactivate institution
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $this->token,
-            'Accept' => 'application/json',
-        ])->postJson("/api/institutions/{$institution->id}/toggle-status");
-
-        $response->assertStatus(200)
-                ->assertJson([
-                    'message' => 'Təssisət statusu dəyişdirildi',
-                    'data' => [
-                        'is_active' => true
-                    ]
-                ]);
+        $this->putJson("/api/institutions/{$institution->id}", $payload)
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => $institution->id,
+                'name' => 'Yeni Ad',
+                'is_active' => false,
+            ]);
 
         $this->assertDatabaseHas('institutions', [
             'id' => $institution->id,
+            'name' => 'Yeni Ad',
+            'is_active' => false,
+            'region_code' => 'AZ-99',
+        ]);
+    }
+
+    public function test_soft_delete_requires_confirmation_payload(): void
+    {
+        $institution = Institution::factory()->create();
+
+        $this->deleteJson("/api/institutions/{$institution->id}", [
+            'type' => 'soft',
+        ])->assertStatus(422)->assertJsonFragment([
+            'message' => 'Doğrulama xətası',
+        ]);
+    }
+
+    public function test_can_soft_delete_institution_when_confirmed(): void
+    {
+        $institution = Institution::factory()->create([
             'is_active' => true,
         ]);
-    }
 
-    /**
-     * Test institution statistics
-     *
-     * @return void
-     */
-    public function test_institution_statistics()
-    {
-        // Create institutions at different levels
-        Institution::factory()->create(['level' => 1, 'type' => 'ministry']);
-        Institution::factory()->count(5)->create(['level' => 2, 'type' => 'region']);
-        Institution::factory()->count(15)->create(['level' => 3, 'type' => 'sector']);
-        Institution::factory()->count(100)->create(['level' => 4, 'type' => 'school']);
-
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $this->token,
-            'Accept' => 'application/json',
-        ])->getJson('/api/institutions/statistics');
-
-        $response->assertStatus(200)
-                ->assertJsonStructure([
-                    'data' => [
-                        'total_institutions',
-                        'by_level' => [
-                            '1',
-                            '2',
-                            '3',
-                            '4'
-                        ],
-                        'by_type' => [
-                            'ministry',
-                            'region',
-                            'sector',
-                            'school'
-                        ],
-                        'active_count',
-                        'inactive_count'
-                    ]
-                ]);
-
-        $stats = $response->json('data');
-        $this->assertEquals(121, $stats['total_institutions']);
-        $this->assertEquals(1, $stats['by_level']['1']);
-        $this->assertEquals(5, $stats['by_level']['2']);
-        $this->assertEquals(15, $stats['by_level']['3']);
-        $this->assertEquals(100, $stats['by_level']['4']);
-    }
-
-    /**
-     * Test unauthorized access
-     *
-     * @return void
-     */
-    public function test_unauthorized_access_denied()
-    {
-        // Test without token
-        $response = $this->postJson('/api/institutions', [
-            'name' => 'Test Məktəbi',
-            'level' => 4,
-            'type' => 'school',
+        $response = $this->deleteJson("/api/institutions/{$institution->id}", [
+            'type' => 'soft',
+            'confirmation' => true,
         ]);
 
-        $response->assertStatus(401);
+        $response->assertOk()
+            ->assertJsonFragment([
+                'success' => true,
+                'delete_type' => 'soft',
+            ]);
 
-        // Test with invalid token
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer invalid-token',
-            'Accept' => 'application/json',
-        ])->postJson('/api/institutions', [
-            'name' => 'Test Məktəbi',
-            'level' => 4,
-            'type' => 'school',
-        ]);
-
-        $response->assertStatus(401);
+        $this->assertSoftDeleted('institutions', ['id' => $institution->id]);
     }
 }

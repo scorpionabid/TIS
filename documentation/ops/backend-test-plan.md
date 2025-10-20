@@ -76,22 +76,30 @@ Bu sənəd ATİS backend modulunda hazırkı test əhatəsini, boşluqları və 
 
 ## 6. İdxal/İxrac (Import/Export)
 
-| Mövcud testlər | `EndToEndWorkflowTest.php` (yolxətinin bir hissəsi) |
-| Boşluqlar | İstifadəçi/institution import/export modullarının ayrıca testləri yoxdur; səhv fayl formatları və rollback ssenariləri əhatə olunmur. |
+| Mövcud testlər | `EndToEndWorkflowTest.php`, `Feature/ImportExport/StudentImportExportTest.php` (şagird importu və şablon generasiyası) |
+| Görülən işlər | \
+  • `StudentImportExportService` üçün real Excel faylları ilə uğurlu import + xəta ssenarisi testləri əlavə olundu. \
+  • `user_profiles` cədvəlinə təcili əlaqə sahələri üçün migration (`2025_10_20_131500_add_emergency_contact_fields_to_user_profiles_table.php`) əlavə edildi ki, servis sahələrlə uyğunlaşsın. \
+  • `StudentManagementService` profil məlumatlarını JSON və təcili əlaqə sahələri ilə düzgün xəritələyir. |
+| Boşluqlar | Müəllim/personnel və institution import axınları üçün xüsusi testlər, yarımçıq import rollback ssenariləri və fərqli fayl formatlarına qarşı yoxlamalar hələ yoxdur. |
 | Plan | \
-  1. Yeni Feature test: `UserImportExportTest`, `InstitutionImportExportTest` – CSV/Excel formatları, yanlış başlıqlar, duplikat sətirlərin emalı. \
+  1. Müəllim/personnel üçün `UserImportExportTest`; institution üçün `InstitutionImportExportTest` – səhv başlıq, duplikat və icazə ssenariləri. \
   2. Rollback/transaction testləri – import yarımçıq qaldıqda DB dəyişikliklərinin geri alınması. \
   3. Regression: `php artisan test --filter=EndToEndWorkflowTest`. |
+| Son icra | `php artisan test --filter=StudentImportExportTest` (2025-10-20) — **keçdi**. |
 
 ---
 
 ## 7. Fənn (Subject) və Sinif (Class) idarəçiliyi
 
-| Mövcud testlər | Feature səviyyəsində birbaşa CRUD testi yoxdur; `ClassAttendanceControllerTest` və `EndToEndWorkflowTest` yalnız dolayısı ilə toxunur. |
-| Boşluqlar | Subject və Class CRUD axınları ayrıca yoxlanmayıb; sinif-sinif müəllim təyinatları üçün unit testlər çatışmır. |
+| Mövcud testlər | `Feature/SubjectManagementTest.php` (CRUD və silmə məhdudiyyətləri), `Unit/Services/GradeManagementServiceTest.php` (sinif yaratma/yoxlama) |
+| Görülən işlər | \
+  • Subject CRUD üçün REST səviyyəsində testlər əlavə olundu – yaradılma/yenilənmə və müəllim təyinatı olduqda silmənin bloklanması. \
+  • Sinif idarəçiliyi üçün `GradeManagementService`-in yaradılma və yenilənmə ssenariləri unit testlə əhatə olundu; uyğunsuz şagird sayları üçün valide hissəsi yoxlanıldı. |
+| Boşluqlar | Sinif silinməsi (`deleteGrade`) və homeroom teacher təyinatı ssenariləri üçün testlər hələ yoxdur; `GradeManagementService`-də mövcud olmayan `deleteGrade` implementasiyası təsdiqlənməlidir. |
 | Plan | \
-  1. `SubjectManagementTest.php`, `ClassManagementTest.php` – yaradılma, yenilənmə, silmə, əlaqələr. \
-  2. Mövcud `TeachingLoadFactory` və `ClassModel` uyğunsuzluqlarını aradan qaldırmaq (hazırda Workload testləri üçün əsas blok). |
+  1. `GradeManagementService` üçün sinif silmə/deaktivasiya və tag sinxronizasiyası testlərini əlavə etmək (mövcud API `deleteGrade` metodunun implementasiyasını tamamla). \
+  2. Subject controller-də status dəyişimi (`toggleStatus`) və bulk əməliyyatların testləşdirilməsi. |
 
 ---
 
@@ -117,12 +125,17 @@ Bu sənəd ATİS backend modulunda hazırkı test əhatəsini, boşluqları və 
 
 ## 10. Scheduler və Workload inteqrasiyası
 
-| Mövcud status | `ScheduleGenerationEngineTest.php` yaşıl vəziyyətdədir; `WorkloadScheduleIntegrationServiceTest.php` hələ də 11/11 failure (factory və helper çatışmazlığı). |
-| Boşluqlar | `TeachingLoadFactory`-də `Classes` modeli referansı səhvdir (`ClassModel` ilə əvəzlənməlidir); `WorkloadScheduleIntegrationService`-də `generateTimeSlots()` və əlaqəli metodlar implement olunmalıdır. |
-| Plan | \
-  1. Factory-ləri (`TeachingLoadFactory`, `SubjectFactory`, `ClassModelFactory`) real modellərlə uyğunlaşdır. \
-  2. Servisdə çatışmayan helperləri yaz. \
-  3. `php artisan test --filter=WorkloadScheduleIntegrationServiceTest`. |
+| Mövcud status | `ScheduleGenerationEngineTest.php` yaşıl; `WorkloadScheduleIntegrationServiceTest.php` **tam keçdi** (11/11). |
+| Görülən işlər | \
+  • `TeachingLoadFactory` `ClassModel` faktoru və mövcud sütunlarla uyğunlaşdırıldı. \
+  • `WorkloadScheduleIntegrationService`-də istifadəçi kontekstindən işləyən `getWorkloadReadyData`, `validateWorkloadData`, `generateTimeSlots` və digər köməkçi metodlar implement olundu. \
+  • `ScheduleGenerationSetting::generateTimeSlots()` Carbon istifadəsi ilə saatları string formatında qaytarır. \
+  • `teaching_loads` cədvəlinə `institution_id` sütunu üçün migration əlavə edildi. |
+| Aktual boşluqlar | API qatına əlavə inteqrasiya testləri və edge-case ssenariləri (məsələn, qarışıq schedule statusları) hələ yazılmayıb. |
+| Növbəti addımlar | \
+  1. Schedule generation API endpoints üçün end-to-end test ssenarisi. \
+  2. Ziddiyyətli (conflict) status senarilərini əhatə edən əlavə unit testlər. |
+| Son icra | `php artisan test --filter=WorkloadScheduleIntegrationServiceTest` (2025-10-20) — **keçdi**. |
 
 ---
 
@@ -138,20 +151,19 @@ Bu sənəd ATİS backend modulunda hazırkı test əhatəsini, boşluqları və 
 | 6 | `php artisan test --filter=DocumentServiceTest` | Fayl idarəçiliyi |
 | 7 | `php artisan test --filter=NotificationControllerTest` | Bildirişlər |
 | 8 | `php artisan test --filter=ScheduleGenerationEngineTest` | Hal-hazırda yaşıl |
-| 9 | `php artisan test --filter=WorkloadScheduleIntegrationServiceTest` | TODO – əvvəlcə modul düzəlişləri |
+| 9 | `php artisan test --filter=WorkloadScheduleIntegrationServiceTest` | Tamamlandı (2025-10-20) |
 | 10 | `php artisan test` | Yekun regressiya |
 
 ---
 
 ## Növbəti addımların prioritet sıralaması
 
-1. **Kaynayol**: Workload inteqrasiyası (factory & service düzəlişləri) – hazırda bloklayıcıdır.
-2. **Kritik**: Import/export və subject/class CRUD üçün yeni test şablonlarının yazılması.
-3. **Kritik**: Invitə edilmiş sərt silmə və audit log testlərinin əlavə olunması.
-4. **Yüksək**: Fayl və bildiriş axınlarının tam testləşdirilməsi.
-5. **Orta**: Logout/session timeout ssenariləri.
-6. **Orta**: Survey versiyalaşması və export testləri.
-7. **Aşağı**: Böyük fayllar, MIME məhdudiyyətləri, real-time bildiriş kanalı kimi edge-case ssenariləri.
+1. **Kritik**: Import/export və subject/class CRUD üçün yeni test şablonlarının yazılması.
+2. **Kritik**: Invitə edilmiş sərt silmə və audit log testlərinin əlavə olunması.
+3. **Yüksək**: Fayl və bildiriş axınlarının tam testləşdirilməsi.
+4. **Orta**: Logout/session timeout ssenariləri.
+5. **Orta**: Survey versiyalaşması və export testləri.
+6. **Aşağı**: Böyük fayllar, MIME məhdudiyyətləri, real-time bildiriş kanalı kimi edge-case ssenariləri.
 
 Bu plan əsasında əməliyyat:
 1. Boşluqlar üçün yeni test faylları yaradılır.
@@ -159,3 +171,23 @@ Bu plan əsasında əməliyyat:
 3. Hər mərhələdən sonra fokus sistemlər yenidən `php artisan test` ilə doğrulanır.
 
 Sənəd yenilənməsi: hər yeni test bloku reallaşdıqca bu fayl aktual saxlanılmalıdır.
+
+---
+
+## Test İcra TODO siyahısı (2025-10-20)
+
+1. `[x] php artisan test --filter=DepartmentTest` — **PASS** (after fixing permission seeding, pagination expectations, hard delete branch, and type endpoint)
+2. `[x] php artisan test --filter=DocumentServiceTest` — **PASS** (roles seeded, document factories aligned, sharing schema migration added, statistics assertions adjusted)
+3. `[x] php artisan test --filter=InstitutionCreationTest` — **PASS**
+4. `[x] php artisan test --filter=InstitutionCrudTest` — **PASS**
+5. `[x] php artisan test --filter=InstitutionManagementTest` — **PASS**
+6. `[x] php artisan test --filter=InstitutionServiceTest` — **PASS**
+7. `[x] php artisan test --filter=InstitutionTest` — **PASS** (1 test skipped — hidden attributes yoxlanışı)
+8. `[x] php artisan test --filter=InventoryControllerTest` — **PASS**
+9. `[ ] php artisan test --filter=EndToEndWorkflowTest` — **FAIL** (test ssenarisi köhnə model adlarından (`Classes`, `ClassAttendance`) istifadə edir; mövcud modellərlə (`ClassModel`, `AttendanceRecord`) uyğunlaşdırılmalıdır; bax: tests/Feature/EndToEndWorkflowTest.php)
+
+**İcra qeydləri (2025-10-20)**  
+- Institution və Inventory bloklarının testləri real API cavabları ilə uyğunlaşdırıldı; əlavə marşrut düzəlişləri (`/api/hierarchy`, `institutions/statistics`, `inventory` `search/categories`) edilib.  
+- `users` cədvəlinə `first_name`/`last_name` sütunları əlavə edən migrasiya daxil edildi və seeder-lər (`SuperAdminSeeder`) güncəlləndi.  
+- `InventoryControllerTest` üçün icazə orta təbəqəsi `inventory.create/read/update/delete` hüquqları ilə sinxronlaşdırıldı, servisə axtarış və kateqoriya API-ləri əlavə olundu.  
+- `EndToEndWorkflowTest` hələ də köhnə model adlarına güvəndiyindən **FAIL** statusundadır; `ClassModel`, `AttendanceRecord` kimi faktiki modellərə migrasiya olunmalıdır.

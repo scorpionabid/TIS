@@ -112,7 +112,8 @@ class DocumentDownloadService
                                                   ->count('user_id'),
             'recent_downloads' => DocumentDownload::where('document_id', $document->id)
                                                 ->with('user:id,first_name,last_name')
-                                                ->orderBy('downloaded_at', 'desc')
+                                                ->orderByDesc('downloaded_at')
+                                                ->orderByDesc('created_at')
                                                 ->limit(10)
                                                 ->get(),
             'downloads_by_month' => $this->getDownloadsByMonth($document)
@@ -197,7 +198,7 @@ class DocumentDownloadService
             DocumentAccessLog::create([
                 'document_id' => $document->id,
                 'user_id' => Auth::id(),
-                'action' => $action,
+                'access_type' => $action,
                 'ip_address' => request()->ip(),
                 'user_agent' => request()->userAgent()
             ]);
@@ -290,12 +291,20 @@ class DocumentDownloadService
      */
     private function getDownloadsByMonth(Document $document): array
     {
-        return DocumentDownload::where('document_id', $document->id)
-                              ->selectRaw('DATE_FORMAT(downloaded_at, "%Y-%m") as month, COUNT(*) as count')
-                              ->groupBy('month')
-                              ->orderBy('month')
-                              ->limit(12)
-                              ->pluck('count', 'month')
-                              ->toArray();
+        $downloads = DocumentDownload::where('document_id', $document->id)
+            ->select(['downloaded_at', 'created_at'])
+            ->get();
+
+        $monthlyCounts = $downloads
+            ->map(function (DocumentDownload $download) {
+                $timestamp = $download->downloaded_at ?? $download->created_at;
+
+                return $timestamp ? $timestamp->format('Y-m') : null;
+            })
+            ->filter()
+            ->countBy()
+            ->sortKeys();
+
+        return $monthlyCounts->take(12)->toArray();
     }
 }

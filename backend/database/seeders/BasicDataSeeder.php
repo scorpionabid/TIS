@@ -15,6 +15,11 @@ class BasicDataSeeder extends Seeder
 {
     public function run()
     {
+        if (app()->environment('testing')) {
+            $this->command->info('⏭️  BasicDataSeeder skipped in testing environment.');
+            return;
+        }
+
         $this->command->info('🔧 Seeding basic data (users, institutions, academic years)...');
         
         DB::beginTransaction();
@@ -215,9 +220,11 @@ class BasicDataSeeder extends Seeder
             }
         }
         
-        foreach ($teachers as $index => $teacher) {
-            $school = $schools[$index % $schools->count()];
-            $teacher->update(['institution_id' => $school->id]);
+        if ($schools->count() > 0) {
+            foreach ($teachers as $index => $teacher) {
+                $school = $schools[$index % $schools->count()];
+                $teacher->update(['institution_id' => $school->id]);
+            }
         }
     }
 }

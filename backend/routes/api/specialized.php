@@ -43,17 +43,18 @@ Route::prefix('psychology')->group(function () {
 // Inventory Management Routes
 Route::prefix('inventory')->group(function () {
     Route::get('/', [InventoryController::class, 'index'])->middleware('permission:inventory.read');
-    Route::post('/', [InventoryController::class, 'store'])->middleware('permission:inventory.write');
+    Route::post('/', [InventoryController::class, 'store'])->middleware('permission:inventory.create');
+    Route::get('/search', [InventoryController::class, 'search'])->middleware('permission:inventory.read');
+    Route::get('/categories', [InventoryController::class, 'categories'])->middleware('permission:inventory.read');
     Route::get('/{inventory}', [InventoryController::class, 'show'])->middleware('permission:inventory.read');
-    Route::put('/{inventory}', [InventoryController::class, 'update'])->middleware('permission:inventory.write');
-    Route::delete('/{inventory}', [InventoryController::class, 'destroy'])->middleware('permission:inventory.write');
-    Route::get('/search/{query}', [InventoryController::class, 'search'])->middleware('permission:inventory.read');
-    Route::get('/categories', [InventoryController::class, 'getCategories'])->middleware('permission:inventory.read');
-    Route::post('/bulk-create', [InventoryController::class, 'bulkCreate'])->middleware('permission:inventory.bulk');
-    Route::post('/bulk-update', [InventoryController::class, 'bulkUpdate'])->middleware('permission:inventory.bulk');
-    Route::get('/low-stock', [InventoryController::class, 'getLowStockItems'])->middleware('permission:inventory.alerts');
-    Route::get('/expired', [InventoryController::class, 'getExpiredItems'])->middleware('permission:inventory.alerts');
-    Route::post('/{inventory}/reorder', [InventoryController::class, 'reorderItem'])->middleware('permission:inventory.reorder');
+    Route::put('/{inventory}', [InventoryController::class, 'update'])->middleware('permission:inventory.update');
+    Route::delete('/{inventory}', [InventoryController::class, 'destroy'])->middleware('permission:inventory.delete');
+    Route::post('/{inventory}/duplicate', [InventoryController::class, 'duplicate'])->middleware('permission:inventory.create');
+    Route::post('/bulk-create', [InventoryController::class, 'bulkCreate'])->middleware('permission:inventory.manage');
+    Route::post('/bulk-update', [InventoryController::class, 'bulkUpdate'])->middleware('permission:inventory.manage');
+    Route::get('/low-stock', [InventoryController::class, 'getLowStockItems'])->middleware('permission:inventory.maintenance');
+    Route::get('/expired', [InventoryController::class, 'getExpiredItems'])->middleware('permission:inventory.maintenance');
+    Route::post('/{inventory}/reorder', [InventoryController::class, 'reorderItem'])->middleware('permission:inventory.manage');
 });
 
 // Inventory Transaction Routes

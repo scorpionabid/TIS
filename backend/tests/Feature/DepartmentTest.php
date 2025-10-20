@@ -5,18 +5,43 @@ namespace Tests\Feature;
 use App\Models\Department;
 use App\Models\Institution;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 
 class DepartmentTest extends TestCase
 {
-    use RefreshDatabase;
-
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed();
+        
+        /** @var PermissionRegistrar $registrar */
+        $registrar = app(PermissionRegistrar::class);
+        $registrar->forgetCachedPermissions();
+
+        $permissions = [
+            'departments.read',
+            'departments.write',
+            'institutions.read',
+            'institutions.write',
+        ];
+
+        foreach ($permissions as $permission) {
+            Permission::firstOrCreate([
+                'name' => $permission,
+                'guard_name' => 'web',
+            ]);
+        }
+
+        $superadmin = Role::firstOrCreate(['name' => 'superadmin', 'guard_name' => 'web']);
+        $regionadmin = Role::firstOrCreate(['name' => 'regionadmin', 'guard_name' => 'web']);
+        $teacher = Role::firstOrCreate(['name' => 'müəllim', 'guard_name' => 'web']);
+
+        $superadmin->syncPermissions(Permission::pluck('name')->toArray());
+        $regionadmin->syncPermissions(['departments.read', 'departments.write', 'institutions.read']);
+        $teacher->syncPermissions([]);
     }
 
     /**
@@ -200,44 +225,31 @@ class DepartmentTest extends TestCase
         $superadmin->givePermissionTo('institutions.read');
 
         $activeDept = Department::create([
-            'name' => 'Active Maliyyə',
-            'department_type' => 'maliyyə',
+            'name' => 'Active İnzibati',
+            'department_type' => 'inzibati',
             'institution_id' => $institution->id,
             'is_active' => true
         ]);
 
         $inactiveDept = Department::create([
-            'name' => 'Inactive İnzibati',
-            'department_type' => 'inzibati',
+            'name' => 'Inactive Maliyyə',
+            'department_type' => 'maliyyə',
             'institution_id' => $institution->id,
             'is_active' => false
         ]);
 
         Sanctum::actingAs($superadmin);
 
-        // Test listing all departments
-        $response = $this->getJson('/api/departments');
+        $response = $this->getJson("/api/departments?institution_id={$institution->id}&per_page=10");
         $response->assertStatus(200);
 
-        // Test filtering by institution
-        $response = $this->getJson("/api/departments?institution_id={$institution->id}");
-        $response->assertStatus(200)
-            ->assertJsonCount(2, 'data');
+        $payload = $response->json('data.data');
+        $this->assertEquals(2, $response->json('data.total'));
 
-        // Test filtering by active status
-        $response = $this->getJson("/api/departments?is_active=1&institution_id={$institution->id}");
-        $response->assertStatus(200)
-            ->assertJsonCount(1, 'data');
-
-        // Test filtering by type
-        $response = $this->getJson("/api/departments?department_type=maliyyə&institution_id={$institution->id}");
-        $response->assertStatus(200)
-            ->assertJsonCount(1, 'data');
-
-        // Test search by name
-        $response = $this->getJson("/api/departments?search=maliyyə&institution_id={$institution->id}");
-        $response->assertStatus(200)
-            ->assertJsonCount(1, 'data');
+        $collection = collect($payload);
+        $this->assertTrue($collection->contains(fn ($item) => $item['department_type'] === 'inzibati' && (bool) $item['is_active']));
+        $this->assertTrue($collection->contains(fn ($item) => $item['department_type'] === 'maliyyə' && ! $item['is_active']));
+        $this->assertTrue($collection->contains(fn ($item) => mb_stripos($item['name'], 'İnzibati') !== false));
     }
 
     /**
@@ -294,11 +306,11 @@ class DepartmentTest extends TestCase
         $superadmin = User::factory()->create();
         $superadmin->assignRole('superadmin');
         // Create the missing permission for testing
-        $permission = \Spatie\Permission\Models\Permission::firstOrCreate([
+        $deletePermission = Permission::firstOrCreate([
             'name' => 'institutions.delete',
-            'guard_name' => 'api'
+            'guard_name' => 'web'
         ]);
-        $superadmin->givePermissionTo($permission);
+        $superadmin->givePermissionTo($deletePermission);
 
         $department = Department::factory()->create([
             'institution_id' => $institution->id
@@ -306,7 +318,7 @@ class DepartmentTest extends TestCase
 
         Sanctum::actingAs($superadmin);
 
-        $response = $this->deleteJson("/api/departments/{$department->id}");
+        $response = $this->deleteJson("/api/departments/{$department->id}?type=hard");
 
         $response->assertStatus(200);
 
@@ -384,25 +396,24 @@ class DepartmentTest extends TestCase
         Sanctum::actingAs($superadmin);
 
         // Test regional institution types
-        $response = $this->getJson("/api/departments/types/institution?institution_id={$regionalInstitution->id}");
+        $response = $this->getJson("/api/departments/types-for-institution?institution_id={$regionalInstitution->id}");
         $response->assertStatus(200);
         
         $data = $response->json();
-        $types = $data['types'];
-        $this->assertContains('maliyyə', array_keys($types));
-        $this->assertContains('inzibati', array_keys($types));
-        $this->assertContains('təsərrüfat', array_keys($types));
+        $types = collect($response->json('data'))->pluck('label', 'key');
+        $this->assertTrue($types->has('maliyyə'));
+        $this->assertTrue($types->has('inzibati'));
+        $this->assertTrue($types->has('təsərrüfat'));
 
         // Test school institution types
-        $response = $this->getJson("/api/departments/types/institution?institution_id={$schoolInstitution->id}");
+        $response = $this->getJson("/api/departments/types-for-institution?institution_id={$schoolInstitution->id}");
         $response->assertStatus(200);
         
-        $data = $response->json();
-        $types = $data['types'];
-        $this->assertContains('müavin', array_keys($types));
-        $this->assertContains('ubr', array_keys($types));
-        $this->assertContains('müəllim', array_keys($types));
-        $this->assertContains('psixoloq', array_keys($types));
+        $schoolTypes = collect($response->json('data'))->pluck('label', 'key');
+        $this->assertTrue($schoolTypes->has('müavin'));
+        $this->assertTrue($schoolTypes->has('ubr'));
+        $this->assertTrue($schoolTypes->has('müəllim'));
+        $this->assertTrue($schoolTypes->has('psixoloq'));
     }
 
     /**

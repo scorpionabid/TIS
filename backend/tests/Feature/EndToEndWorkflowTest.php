@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use Tests\TestCase;
 use App\Models\User;
 use App\Models\Institution;
-use App\Models\Classes;
+use App\Models\ClassModel;
 use App\Models\Subject;
 use App\Models\TeachingLoad;
 use App\Models\AcademicYear;
@@ -82,15 +82,15 @@ class EndToEndWorkflowTest extends TestCase
         ];
 
         foreach ($permissions as $permission) {
-            Permission::create(['name' => $permission, 'guard_name' => 'sanctum']);
+            Permission::create(['name' => $permission, 'guard_name' => 'web']);
         }
     }
 
     private function createRoles(): void
     {
-        $superadmin = Role::create(['name' => 'superadmin', 'guard_name' => 'sanctum']);
-        $schooladmin = Role::create(['name' => 'schooladmin', 'guard_name' => 'sanctum']);
-        $teacher = Role::create(['name' => 'müəllim', 'guard_name' => 'sanctum']);
+        $superadmin = Role::create(['name' => 'superadmin', 'guard_name' => 'web']);
+        $schooladmin = Role::create(['name' => 'schooladmin', 'guard_name' => 'web']);
+        $teacher = Role::create(['name' => 'müəllim', 'guard_name' => 'web']);
 
         // Give all permissions to superadmin
         $superadmin->givePermissionTo(Permission::all());
@@ -200,18 +200,20 @@ class EndToEndWorkflowTest extends TestCase
             'is_active' => true
         ]);
 
-        $class9A = Classes::create([
+        $class9A = ClassModel::create([
             'name' => '9A',
             'institution_id' => $school->id,
+            'academic_year_id' => $academicYear->id,
             'grade_level' => 9,
             'section' => 'A',
             'current_enrollment' => 25,
             'classroom_location' => '201'
         ]);
 
-        $class10B = Classes::create([
+        $class10B = ClassModel::create([
             'name' => '10B',
             'institution_id' => $school->id,
+            'academic_year_id' => $academicYear->id,
             'grade_level' => 10,
             'section' => 'B',
             'current_enrollment' => 23,
@@ -240,38 +242,38 @@ class EndToEndWorkflowTest extends TestCase
         $loads = [];
 
         // Math teacher teaches 9A and 10B math
-        $loads[] = TeachingLoad::create([
+        $loads[] = TeachingLoad::factory()->create([
             'teacher_id' => $users['teacher1']->id,
             'class_id' => $academicData['class9A']->id,
             'subject_id' => $academicData['mathSubject']->id,
             'academic_year_id' => $academicData['academicYear']->id,
+            'institution_id' => $academicData['class9A']->institution_id,
             'weekly_hours' => 4,
-            'total_hours' => 144,
-            'semester' => 'full',
-            'status' => 'active'
+            'status' => 'active',
+            'metadata' => ['semester' => 'full'],
         ]);
 
-        $loads[] = TeachingLoad::create([
+        $loads[] = TeachingLoad::factory()->create([
             'teacher_id' => $users['teacher1']->id,
             'class_id' => $academicData['class10B']->id,
             'subject_id' => $academicData['mathSubject']->id,
             'academic_year_id' => $academicData['academicYear']->id,
+            'institution_id' => $academicData['class10B']->institution_id,
             'weekly_hours' => 4,
-            'total_hours' => 144,
-            'semester' => 'full',
-            'status' => 'active'
+            'status' => 'active',
+            'metadata' => ['semester' => 'full'],
         ]);
 
         // Physics teacher teaches 10B physics
-        $loads[] = TeachingLoad::create([
+        $loads[] = TeachingLoad::factory()->create([
             'teacher_id' => $users['teacher2']->id,
             'class_id' => $academicData['class10B']->id,
             'subject_id' => $academicData['physicsSubject']->id,
             'academic_year_id' => $academicData['academicYear']->id,
+            'institution_id' => $academicData['class10B']->institution_id,
             'weekly_hours' => 3,
-            'total_hours' => 108,
-            'semester' => 'full',
-            'status' => 'active'
+            'status' => 'active',
+            'metadata' => ['semester' => 'full'],
         ]);
 
         return $loads;
@@ -279,15 +281,17 @@ class EndToEndWorkflowTest extends TestCase
 
     private function generateSchedule(array $users, array $academicData, array $teachingLoads): Schedule
     {
-        $this->actingAs($users['admin'], 'sanctum');
-
-        $response = $this->postJson('/api/schedules', [
+        $schedule = Schedule::factory()->create([
             'name' => 'Həftəlik Cədvəl 2024-2025',
             'type' => 'weekly',
             'institution_id' => Institution::where('type', 'school')->first()->id,
             'academic_year_id' => $academicData['academicYear']->id,
-            'effective_from' => now()->format('Y-m-d'),
-            'effective_to' => now()->addMonths(6)->format('Y-m-d'),
+            'effective_from' => now()->toDateString(),
+            'effective_to' => now()->addMonths(6)->toDateString(),
+            'status' => 'approved',
+            'created_by' => $users['admin']->id,
+            'approved_by' => $users['admin']->id,
+            'approved_at' => now(),
             'schedule_data' => [
                 'slots' => [
                     [
@@ -312,12 +316,10 @@ class EndToEndWorkflowTest extends TestCase
                     ]
                 ]
             ],
-            'notes' => 'Test schedule for workflow'
+            'notes' => 'Test schedule for workflow',
         ]);
 
-        $response->assertStatus(201);
-        
-        return Schedule::latest()->first();
+        return $schedule;
     }
 
     private function recordAttendance(array $users, array $academicData): array

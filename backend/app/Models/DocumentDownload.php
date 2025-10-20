@@ -17,6 +17,7 @@ class DocumentDownload extends Model
         'document_share_id',
         'ip_address',
         'user_agent',
+        'downloaded_at',
         'download_type',
         'file_size_downloaded',
         'download_completed',
@@ -27,6 +28,7 @@ class DocumentDownload extends Model
     protected $casts = [
         'download_completed' => 'boolean',
         'metadata' => 'array',
+        'downloaded_at' => 'datetime',
     ];
 
     const DOWNLOAD_TYPES = [

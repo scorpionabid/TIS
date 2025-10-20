@@ -17,7 +17,12 @@ class TeachingLoad extends Model
         'subject_id',
         'class_id',
         'weekly_hours',
+        'total_hours',
         'academic_year_id',
+        'status',
+        'start_date',
+        'end_date',
+        'schedule_slots',
         'is_scheduled',
         'last_schedule_id',
         'last_scheduled_at',
@@ -27,14 +32,18 @@ class TeachingLoad extends Model
         'unavailable_periods',
         'schedule_generation_status',
         'distribution_pattern',
-        'priority_level'
+        'priority_level',
+        'metadata',
+        'institution_id'
     ];
 
     protected $casts = [
+        'schedule_slots' => 'array',
         'scheduling_constraints' => 'array',
         'preferred_time_slots' => 'array',
         'unavailable_periods' => 'array',
         'distribution_pattern' => 'array',
+        'metadata' => 'array',
         'is_scheduled' => 'boolean',
         'last_scheduled_at' => 'datetime',
         'priority_level' => 'integer',
@@ -63,7 +72,7 @@ class TeachingLoad extends Model
      */
     public function class(): BelongsTo
     {
-        return $this->belongsTo(SchoolClass::class, 'class_id');
+        return $this->belongsTo(ClassModel::class, 'class_id');
     }
 
     /**

@@ -29,9 +29,9 @@ class DocumentDownloadFactory extends Factory
         return [
             'document_id' => Document::factory(),
             'user_id' => User::factory(),
-            'downloaded_at' => $this->faker->dateTimeBetween('-1 month', 'now'),
             'ip_address' => $this->faker->ipv4(),
             'user_agent' => $this->faker->userAgent(),
+            'downloaded_at' => $this->faker->dateTimeBetween('-1 month', 'now'),
         ];
     }
 

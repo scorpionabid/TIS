@@ -135,8 +135,15 @@ class InstitutionTest extends TestCase
 
     public function test_user_can_view_own_institution()
     {
-        // Create an institution
-        $institution = Institution::factory()->create();
+        $parent = Institution::factory()->create([
+            'type' => 'region',
+            'level' => 2,
+        ]);
+
+        $institution = Institution::factory()->create([
+            'level' => 3,
+            'parent_id' => $parent->id,
+        ]);
         
         // Create a user and assign to the institution
         $user = User::factory()->create(['institution_id' => $institution->id]);
@@ -171,8 +178,16 @@ class InstitutionTest extends TestCase
 
     public function test_admin_can_update_institution()
     {
-        // Create an institution
-        $institution = Institution::factory()->create();
+        $parent = Institution::factory()->create([
+            'type' => 'region',
+            'level' => 2,
+        ]);
+
+        $institution = Institution::factory()->create([
+            'type' => 'school',
+            'level' => 3,
+            'parent_id' => $parent->id,
+        ]);
         
         // Create an admin user with update permissions
         $admin = User::factory()->create();
@@ -191,17 +206,13 @@ class InstitutionTest extends TestCase
         $this->assertTrue($admin->hasPermissionTo('institutions.write'));
         
         // Prepare update data
-        $updateData = ['name' => 'Updated Institution Name'];
+        $updateData = [
+            'name' => 'Updated Institution Name',
+            'parent_id' => $parent->id,
+        ];
         
         // Make the update request
         $response = $this->putJson("/api/institutions/{$institution->id}", $updateData);
-        
-        // Debugging output if the test fails
-        if ($response->status() !== 200) {
-            dump('Response status: ' . $response->status());
-            dump('Response content: ' . $response->content());
-            dump('User permissions: ' . json_encode($admin->getAllPermissions()->pluck('name')));
-        }
         
         // Check the response
         $response->assertStatus(200)

@@ -13,17 +13,16 @@ class DocumentAccessLog extends Model
     protected $fillable = [
         'document_id',
         'user_id',
-        'institution_id',
-        'action',
+        'share_id',
+        'access_type',
         'ip_address',
         'user_agent',
-        'metadata',
-        'accessed_at',
+        'referrer',
+        'access_metadata',
     ];
 
     protected $casts = [
-        'metadata' => 'array',
-        'accessed_at' => 'datetime',
+        'access_metadata' => 'array',
     ];
 
     /**
@@ -55,7 +54,7 @@ class DocumentAccessLog extends Model
      */
     public function scopeByAction($query, string $action)
     {
-        return $query->where('action', $action);
+        return $query->where('access_type', $action);
     }
 
     /**
@@ -63,7 +62,7 @@ class DocumentAccessLog extends Model
      */
     public function scopeRecent($query, int $days = 7)
     {
-        return $query->where('accessed_at', '>=', now()->subDays($days));
+        return $query->where('created_at', '>=', now()->subDays($days));
     }
 
     /**
@@ -71,7 +70,7 @@ class DocumentAccessLog extends Model
      */
     public function scopeDownloads($query)
     {
-        return $query->where('action', 'download');
+        return $query->where('access_type', 'download');
     }
 
     /**
@@ -79,7 +78,7 @@ class DocumentAccessLog extends Model
      */
     public function scopeViews($query)
     {
-        return $query->where('action', 'view');
+        return $query->where('access_type', 'view');
     }
 
     /**
@@ -90,11 +89,11 @@ class DocumentAccessLog extends Model
         return self::create([
             'document_id' => $documentId,
             'user_id' => $userId,
-            'institution_id' => auth()->user()?->institution_id,
-            'action' => $action,
+            'share_id' => null,
+            'access_type' => $action,
             'ip_address' => $request?->ip(),
             'user_agent' => $request?->userAgent(),
-            'accessed_at' => now(),
+            'referrer' => $request?->headers->get('referer'),
         ]);
     }
 }

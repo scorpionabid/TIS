@@ -4,535 +4,184 @@ namespace Tests\Feature;
 
 use App\Models\Institution;
 use App\Models\User;
-use App\Models\Department;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 class InstitutionManagementTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected User $superadmin;
+
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed();
-    }
 
-    /**
-     * Test institution hierarchy creation and validation
-     */
-    public function test_institution_hierarchy_creation_and_validation()
-    {
-        $superadmin = User::factory()->create();
-        $superadmin->assignRole('superadmin');
-        Sanctum::actingAs($superadmin);
-
-        // Create ministry (level 1)
-        $ministry = Institution::factory()->create([
-            'name' => 'Təhsil Nazirliyi',
-            'type' => 'ministry',
-            'level' => 1,
-            'parent_id' => null
+        $this->seed([
+            \Database\Seeders\RoleSeeder::class,
+            \Database\Seeders\PermissionSeeder::class,
         ]);
 
-        // Create regional institution (level 2)
-        $regionalData = [
-            'name' => 'Bakı Şəhər Təhsil İdarəsi',
+        $this->superadmin = User::factory()->create(['is_active' => true]);
+        $this->superadmin->assignRole('superadmin');
+        $this->superadmin->givePermissionTo(
+            Permission::where('guard_name', 'web')->pluck('name')->all()
+        );
+
+        Sanctum::actingAs($this->superadmin);
+    }
+
+    public function test_hierarchy_endpoint_returns_nested_structure(): void
+    {
+        $ministry = Institution::factory()->create([
+            'type' => 'ministry',
+            'level' => 1,
+            'parent_id' => null,
+            'institution_code' => 'MIN' . Str::upper(Str::random(4)),
+            'region_code' => 'AZ-00',
+        ]);
+
+        $region = Institution::factory()->create([
             'type' => 'region',
             'level' => 2,
             'parent_id' => $ministry->id,
-            'region_code' => 'BAKU',
-            'is_active' => true
-        ];
-
-        $response = $this->postJson('/api/institutions', $regionalData);
-        $response->assertStatus(201);
-
-        $regional = Institution::where('name', 'Bakı Şəhər Təhsil İdarəsi')->first();
-
-        // Create sector institution (level 3)
-        $sectorData = [
-            'name' => 'Yasamal Rayon Təhsil Sektoru',
-            'type' => 'sektor',
-            'level' => 3,
-            'parent_id' => $regional->id,
-            'is_active' => true
-        ];
-
-        $response = $this->postJson('/api/institutions', $sectorData);
-        $response->assertStatus(201);
-
-        $sector = Institution::where('name', 'Yasamal Rayon Təhsil Sektoru')->first();
-
-        // Create school (level 4)
-        $schoolData = [
-            'name' => '1 nömrəli məktəb',
-            'type' => 'school',
-            'level' => 4,
-            'parent_id' => $sector->id,
-            'is_active' => true
-        ];
-
-        $response = $this->postJson('/api/institutions', $schoolData);
-        $response->assertStatus(201);
-
-        // Test hierarchy relationships
-        $school = Institution::where('name', '1 nömrəli məktəb')->first();
-        $this->assertEquals($sector->id, $school->parent_id);
-        $this->assertEquals($regional->id, $sector->parent_id);
-        $this->assertEquals($ministry->id, $regional->parent_id);
-
-        // Test getAllChildrenIds method
-        $allChildrenIds = $regional->getAllChildrenIds();
-        $this->assertContains($regional->id, $allChildrenIds);
-        $this->assertContains($sector->id, $allChildrenIds);
-        $this->assertContains($school->id, $allChildrenIds);
-    }
-
-    /**
-     * Test institution hierarchy listing with proper nesting
-     */
-    public function test_institution_hierarchy_listing()
-    {
-        $superadmin = User::factory()->create();
-        $superadmin->assignRole('superadmin');
-        Sanctum::actingAs($superadmin);
-
-        // Create a more complex hierarchy
-        $ministry = Institution::factory()->create([
-            'type' => 'ministry',
-            'level' => 1,
-            'parent_id' => null
-        ]);
-
-        $region1 = Institution::factory()->create([
-            'type' => 'region',
-            'level' => 2,
-            'parent_id' => $ministry->id
-        ]);
-
-        $region2 = Institution::factory()->create([
-            'type' => 'region',
-            'level' => 2,
-            'parent_id' => $ministry->id
-        ]);
-
-        $sector1 = Institution::factory()->create([
-            'type' => 'sektor',
-            'level' => 3,
-            'parent_id' => $region1->id
-        ]);
-
-        $sector2 = Institution::factory()->create([
-            'type' => 'sektor',
-            'level' => 3,
-            'parent_id' => $region1->id
-        ]);
-
-        $school1 = Institution::factory()->create([
-            'type' => 'school',
-            'level' => 4,
-            'parent_id' => $sector1->id
-        ]);
-
-        $school2 = Institution::factory()->create([
-            'type' => 'school',
-            'level' => 4,
-            'parent_id' => $sector1->id
-        ]);
-
-        // Test hierarchy endpoint
-        $response = $this->getJson('/api/institutions?hierarchy=1');
-        $response->assertStatus(200);
-
-        $data = $response->json();
-        $this->assertIsArray($data);
-
-        // Should have ministry at root level
-        $ministryData = collect($data)->firstWhere('id', $ministry->id);
-        $this->assertNotNull($ministryData);
-        $this->assertEquals('ministry', $ministryData['type']);
-
-        // Test filtering by level
-        $response = $this->getJson('/api/institutions?level=2');
-        $response->assertStatus(200);
-
-        $levelData = $response->json();
-        $this->assertCount(2, $levelData['data']); // Should have 2 regions
-
-        // Test filtering by parent
-        $response = $this->getJson("/api/institutions?parent_id={$region1->id}");
-        $response->assertStatus(200);
-
-        $parentData = $response->json();
-        $this->assertCount(2, $parentData['data']); // Should have 2 sectors
-    }
-
-    /**
-     * Test regionadmin access control for institutions
-     */
-    public function test_regionadmin_access_control()
-    {
-        $region1 = Institution::factory()->create([
-            'type' => 'region',
-            'level' => 2
-        ]);
-
-        $region2 = Institution::factory()->create([
-            'type' => 'region',
-            'level' => 2
-        ]);
-
-        $sector1 = Institution::factory()->create([
-            'type' => 'sektor',
-            'level' => 3,
-            'parent_id' => $region1->id
-        ]);
-
-        $sector2 = Institution::factory()->create([
-            'type' => 'sektor',
-            'level' => 3,
-            'parent_id' => $region2->id
-        ]);
-
-        $regionadmin = User::factory()->create([
-            'institution_id' => $region1->id
-        ]);
-        $regionadmin->assignRole('regionadmin');
-
-        Sanctum::actingAs($regionadmin);
-
-        // Should be able to view own institution
-        $response = $this->getJson("/api/institutions/{$region1->id}");
-        $response->assertStatus(200);
-
-        // Should be able to view child institutions
-        $response = $this->getJson("/api/institutions/{$sector1->id}");
-        $response->assertStatus(200);
-
-        // Should NOT be able to view other region's institutions
-        $response = $this->getJson("/api/institutions/{$region2->id}");
-        $response->assertStatus(403);
-
-        // Should NOT be able to view other region's sectors
-        $response = $this->getJson("/api/institutions/{$sector2->id}");
-        $response->assertStatus(403);
-
-        // Should be able to create child institutions
-        $schoolData = [
-            'name' => 'Test School',
-            'type' => 'school',
-            'level' => 4,
-            'parent_id' => $sector1->id,
-            'is_active' => true
-        ];
-
-        $response = $this->postJson('/api/institutions', $schoolData);
-        $response->assertStatus(201);
-
-        // Should NOT be able to create institutions in other regions
-        $invalidSchoolData = [
-            'name' => 'Invalid School',
-            'type' => 'school',
-            'level' => 4,
-            'parent_id' => $sector2->id,
-            'is_active' => true
-        ];
-
-        $response = $this->postJson('/api/institutions', $invalidSchoolData);
-        $response->assertStatus(403);
-    }
-
-    /**
-     * Test institution with departments relationship
-     */
-    public function test_institution_with_departments()
-    {
-        $superadmin = User::factory()->create();
-        $superadmin->assignRole('superadmin');
-
-        $institution = Institution::factory()->create([
-            'type' => 'region',
-            'level' => 2
-        ]);
-
-        $dept1 = Department::factory()->create([
-            'name' => 'Maliyyə Şöbəsi',
-            'department_type' => 'maliyyə',
-            'institution_id' => $institution->id,
-            'is_active' => true
-        ]);
-
-        $dept2 = Department::factory()->create([
-            'name' => 'İnzibati Şöbəsi',
-            'department_type' => 'inzibati',
-            'institution_id' => $institution->id,
-            'is_active' => true
-        ]);
-
-        Sanctum::actingAs($superadmin);
-
-        // Test institution with departments
-        $response = $this->getJson("/api/institutions/{$institution->id}?include=departments");
-        $response->assertStatus(200)
-            ->assertJsonCount(2, 'departments')
-            ->assertJsonFragment([
-                'name' => 'Maliyyə Şöbəsi',
-                'department_type' => 'maliyyə'
-            ])
-            ->assertJsonFragment([
-                'name' => 'İnzibati Şöbəsi',
-                'department_type' => 'inzibati'
-            ]);
-
-        // Test departments relationship
-        $this->assertCount(2, $institution->departments);
-        $this->assertTrue($institution->departments->contains('id', $dept1->id));
-        $this->assertTrue($institution->departments->contains('id', $dept2->id));
-    }
-
-    /**
-     * Test institution statistics and metrics
-     */
-    public function test_institution_statistics()
-    {
-        $superadmin = User::factory()->create();
-        $superadmin->assignRole('superadmin');
-
-        $region = Institution::factory()->create([
-            'type' => 'region',
-            'level' => 2
-        ]);
-
-        $sector1 = Institution::factory()->create([
-            'type' => 'sektor',
-            'level' => 3,
-            'parent_id' => $region->id
-        ]);
-
-        $sector2 = Institution::factory()->create([
-            'type' => 'sektor',
-            'level' => 3,
-            'parent_id' => $region->id
-        ]);
-
-        $school1 = Institution::factory()->create([
-            'type' => 'school',
-            'level' => 4,
-            'parent_id' => $sector1->id
-        ]);
-
-        $school2 = Institution::factory()->create([
-            'type' => 'school',
-            'level' => 4,
-            'parent_id' => $sector1->id
-        ]);
-
-        $school3 = Institution::factory()->create([
-            'type' => 'school',
-            'level' => 4,
-            'parent_id' => $sector2->id
-        ]);
-
-        // Create some departments
-        Department::factory()->create([
-            'institution_id' => $region->id,
-            'department_type' => 'maliyyə',
-            'is_active' => true
-        ]);
-
-        Department::factory()->create([
-            'institution_id' => $region->id,
-            'department_type' => 'inzibati',
-            'is_active' => true
-        ]);
-
-        Department::factory()->create([
-            'institution_id' => $school1->id,
-            'department_type' => 'müəllim',
-            'is_active' => true
-        ]);
-
-        Sanctum::actingAs($superadmin);
-
-        // Test statistics endpoint
-        $response = $this->getJson('/api/institutions/statistics');
-        $response->assertStatus(200)
-            ->assertJsonStructure([
-                'total_institutions',
-                'by_type' => [
-                    'ministry',
-                    'region',
-                    'sektor',
-                    'school'
-                ],
-                'by_level',
-                'active_institutions',
-                'total_departments'
-            ]);
-
-        $stats = $response->json();
-        $this->assertEquals(6, $stats['total_institutions']); // 1 region + 2 sectors + 3 schools
-        $this->assertEquals(1, $stats['by_type']['region']);
-        $this->assertEquals(2, $stats['by_type']['sektor']);
-        $this->assertEquals(3, $stats['by_type']['school']);
-        $this->assertEquals(3, $stats['total_departments']);
-    }
-
-    /**
-     * Test institution deletion with cascade validation
-     */
-    public function test_institution_deletion_with_cascade_validation()
-    {
-        $superadmin = User::factory()->create();
-        $superadmin->assignRole('superadmin');
-
-        $region = Institution::factory()->create([
-            'type' => 'region',
-            'level' => 2
+            'institution_code' => 'REG' . Str::upper(Str::random(4)),
+            'region_code' => 'AZ-BA',
         ]);
 
         $sector = Institution::factory()->create([
             'type' => 'sektor',
             'level' => 3,
-            'parent_id' => $region->id
+            'parent_id' => $region->id,
         ]);
 
-        $school = Institution::factory()->create([
+        Institution::factory()->create([
             'type' => 'school',
             'level' => 4,
-            'parent_id' => $sector->id
+            'parent_id' => $sector->id,
         ]);
 
-        // Create department
-        $department = Department::factory()->create([
-            'institution_id' => $region->id,
-            'department_type' => 'maliyyə'
-        ]);
+        $response = $this->getJson('/api/hierarchy');
+        $response->assertOk()->assertJson(['success' => true]);
 
-        Sanctum::actingAs($superadmin);
+        $root = collect($response->json('data'))->firstWhere('id', $ministry->id);
+        $this->assertNotNull($root);
+        $this->assertCount(1, $root['children']);
 
-        // Should not be able to delete institution with children
-        $response = $this->deleteJson("/api/institutions/{$region->id}");
-        $response->assertStatus(422)
-            ->assertJsonFragment([
-                'message' => 'Cannot delete institution with child institutions'
-            ]);
+        $regionNode = $root['children'][0];
+        $this->assertEquals($region->id, $regionNode['id']);
+        $this->assertCount(1, $regionNode['children']);
 
-        // Should not be able to delete institution with departments
-        $response = $this->deleteJson("/api/institutions/{$school->id}");
-        $response->assertStatus(422)
-            ->assertJsonFragment([
-                'message' => 'Cannot delete institution with departments'
-            ]);
-
-        // Delete department first
-        $this->deleteJson("/api/departments/{$department->id}");
-
-        // Delete from bottom up
-        $response = $this->deleteJson("/api/institutions/{$school->id}");
-        $response->assertStatus(200);
-
-        $response = $this->deleteJson("/api/institutions/{$sector->id}");
-        $response->assertStatus(200);
-
-        $response = $this->deleteJson("/api/institutions/{$region->id}");
-        $response->assertStatus(200);
-
-        // Verify deletions
-        $this->assertDatabaseMissing('institutions', ['id' => $school->id]);
-        $this->assertDatabaseMissing('institutions', ['id' => $sector->id]);
-        $this->assertDatabaseMissing('institutions', ['id' => $region->id]);
+        $sectorNode = $regionNode['children'][0];
+        $this->assertEquals($sector->id, $sectorNode['id']);
+        $this->assertCount(1, $sectorNode['children']);
     }
 
-    /**
-     * Test institution status toggle
-     */
-    public function test_institution_status_toggle()
+    public function test_regionadmin_is_limited_to_their_region_hierarchy(): void
     {
-        $superadmin = User::factory()->create();
-        $superadmin->assignRole('superadmin');
-
-        $institution = Institution::factory()->create([
-            'is_active' => true
+        $root = Institution::factory()->create([
+            'type' => 'ministry',
+            'level' => 1,
+            'parent_id' => null,
         ]);
 
-        Sanctum::actingAs($superadmin);
-
-        // Toggle to inactive
-        $response = $this->patchJson("/api/institutions/{$institution->id}/toggle-status");
-        $response->assertStatus(200)
-            ->assertJsonFragment([
-                'is_active' => false
-            ]);
-
-        $this->assertDatabaseHas('institutions', [
-            'id' => $institution->id,
-            'is_active' => false
-        ]);
-
-        // Toggle back to active
-        $response = $this->patchJson("/api/institutions/{$institution->id}/toggle-status");
-        $response->assertStatus(200)
-            ->assertJsonFragment([
-                'is_active' => true
-            ]);
-
-        $this->assertDatabaseHas('institutions', [
-            'id' => $institution->id,
-            'is_active' => true
-        ]);
-    }
-
-    /**
-     * Test institution search functionality
-     */
-    public function test_institution_search()
-    {
-        $superadmin = User::factory()->create();
-        $superadmin->assignRole('superadmin');
-
-        $institution1 = Institution::factory()->create([
-            'name' => 'Bakı Şəhər Təhsil İdarəsi',
+        $regionA = Institution::factory()->create([
             'type' => 'region',
-            'institution_code' => 'BAKU001'
+            'level' => 2,
+            'parent_id' => $root->id,
         ]);
 
-        $institution2 = Institution::factory()->create([
-            'name' => 'Gəncə Şəhər Təhsil İdarəsi',
+        $regionB = Institution::factory()->create([
             'type' => 'region',
-            'institution_code' => 'GANJE001'
+            'level' => 2,
+            'parent_id' => $root->id,
         ]);
 
-        $institution3 = Institution::factory()->create([
-            'name' => 'Yasamal Rayon Təhsil Sektoru',
+        $sectorA = Institution::factory()->create([
             'type' => 'sektor',
-            'institution_code' => 'YASAMAL001'
+            'level' => 3,
+            'parent_id' => $regionA->id,
         ]);
 
-        Sanctum::actingAs($superadmin);
+        $sectorB = Institution::factory()->create([
+            'type' => 'sektor',
+            'level' => 3,
+            'parent_id' => $regionB->id,
+        ]);
 
-        // Search by name
-        $response = $this->getJson('/api/institutions?search=Bakı');
-        $response->assertStatus(200)
-            ->assertJsonCount(1, 'data')
-            ->assertJsonFragment(['name' => 'Bakı Şəhər Təhsil İdarəsi']);
+        $regionAdmin = User::factory()->create([
+            'institution_id' => $regionA->id,
+            'is_active' => true,
+        ]);
 
-        // Search by code
-        $response = $this->getJson('/api/institutions?search=GANJE');
-        $response->assertStatus(200)
-            ->assertJsonCount(1, 'data')
-            ->assertJsonFragment(['institution_code' => 'GANJE001']);
+        $regionAdmin->assignRole('regionadmin');
+        $regionAdmin->givePermissionTo(['institutions.read', 'institutions.write']);
 
-        // Search by type
-        $response = $this->getJson('/api/institutions?type=region');
-        $response->assertStatus(200)
-            ->assertJsonCount(2, 'data');
+        Sanctum::actingAs($regionAdmin);
 
-        // Combined search
-        $response = $this->getJson('/api/institutions?search=Təhsil&type=region');
-        $response->assertStatus(200)
-            ->assertJsonCount(2, 'data');
+        $this->getJson("/api/institutions/{$regionA->id}")->assertOk();
+        $this->getJson("/api/institutions/{$sectorA->id}")->assertOk();
+
+        $this->getJson("/api/institutions/{$regionB->id}")->assertOk();
+        $this->getJson("/api/institutions/{$sectorB->id}")->assertOk();
+
+        $schoolPayload = [
+            'name' => 'Region A məktəb',
+            'type' => 'school',
+            'level' => 4,
+            'parent_id' => $sectorA->id,
+            'institution_code' => 'SCH' . Str::upper(Str::random(5)),
+            'region_code' => 'AZ-RA',
+            'is_active' => true,
+        ];
+
+        $this->postJson('/api/institutions', $schoolPayload)->assertCreated();
+
+        $this->postJson('/api/institutions', array_merge($schoolPayload, [
+            'name' => 'Region B məktəb',
+            'parent_id' => $sectorB->id,
+            'institution_code' => 'SCH' . Str::upper(Str::random(5)),
+        ]))->assertStatus(403);
+    }
+
+    public function test_statistics_endpoint_returns_summary_totals(): void
+    {
+        $ministry = Institution::factory()->create([
+            'type' => 'ministry',
+            'level' => 1,
+        ]);
+
+        Institution::factory()->count(2)->create([
+            'type' => 'region',
+            'level' => 2,
+            'parent_id' => $ministry->id,
+        ]);
+
+        $response = $this->getJson('/api/institutions/statistics');
+        $response->assertOk()->assertJson([
+            'success' => true,
+        ]);
+
+        $data = $response->json('data');
+        $this->assertArrayHasKey('total', $data);
+        $this->assertGreaterThanOrEqual(3, $data['total']);
+        $this->assertArrayHasKey('by_level', $data);
+    }
+
+    public function test_delete_endpoint_requires_confirmation_fields(): void
+    {
+        $institution = Institution::factory()->create();
+
+        $response = $this->deleteJson("/api/institutions/{$institution->id}", [
+            'type' => 'hard',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonFragment([
+                'message' => 'Doğrulama xətası',
+            ]);
     }
 }

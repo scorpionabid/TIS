@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -77,37 +78,42 @@ class ScheduleGenerationSetting extends Model
     public function generateTimeSlots(): array
     {
         $timeSlots = [];
-        $currentTime = $this->first_period_start;
+        $currentTime = $this->first_period_start instanceof Carbon
+            ? $this->first_period_start->copy()
+            : Carbon::createFromFormat('H:i', $this->first_period_start);
         
         for ($period = 1; $period <= $this->daily_periods; $period++) {
-            $startTime = $currentTime;
-            $endTime = date('H:i', strtotime($currentTime . ' +' . $this->period_duration . ' minutes'));
+            $startTime = $currentTime->copy();
+            $endTime = $currentTime->copy()->addMinutes($this->period_duration);
             
             $timeSlots[] = [
                 'period_number' => $period,
-                'start_time' => $startTime,
-                'end_time' => $endTime,
+                'start_time' => $startTime->format('H:i'),
+                'end_time' => $endTime->format('H:i'),
                 'duration' => $this->period_duration,
                 'is_break' => false,
                 'slot_type' => 'lesson'
             ];
             
             // Add break after this period if it's in break_periods
-            if (in_array($period, $this->break_periods)) {
-                $breakDuration = ($period == $this->lunch_break_period) 
-                    ? $this->lunch_duration 
+            $isScheduledBreak = in_array($period, $this->break_periods);
+            $isLunchBreak = $this->lunch_break_period && (int) $period === (int) $this->lunch_break_period;
+
+            if ($isScheduledBreak || $isLunchBreak) {
+                $breakDuration = $isLunchBreak
+                    ? $this->lunch_duration
                     : $this->break_duration;
                 
-                $breakStart = $endTime;
-                $breakEnd = date('H:i', strtotime($breakStart . ' +' . $breakDuration . ' minutes'));
+                $breakStart = $endTime->copy();
+                $breakEnd = $breakStart->copy()->addMinutes($breakDuration);
                 
                 $timeSlots[] = [
                     'period_number' => $period . '_break',
-                    'start_time' => $breakStart,
-                    'end_time' => $breakEnd,
+                    'start_time' => $breakStart->format('H:i'),
+                    'end_time' => $breakEnd->format('H:i'),
                     'duration' => $breakDuration,
                     'is_break' => true,
-                    'slot_type' => ($period == $this->lunch_break_period) ? 'lunch' : 'break'
+                    'slot_type' => $isLunchBreak ? 'lunch' : 'break'
                 ];
                 
                 $currentTime = $breakEnd;

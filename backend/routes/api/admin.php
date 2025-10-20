@@ -120,6 +120,7 @@ Route::middleware('permission:institutions.write')->group(function () {
 // Institution management routes (resource routes)
 Route::middleware('permission:institutions.read')->group(function () {
     Route::get('institutions', [InstitutionController::class, 'index']);
+    Route::get('institutions/statistics', [InstitutionController::class, 'getStatistics']);
     Route::get('institutions/{institution}', [InstitutionController::class, 'show']);
     Route::get('institutions/{institution}/users', [InstitutionController::class, 'getUsers']);
     Route::get('institutions/{institution}/children', [InstitutionController::class, 'getChildren']);

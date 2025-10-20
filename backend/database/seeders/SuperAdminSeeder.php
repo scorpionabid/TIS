@@ -15,20 +15,25 @@ class SuperAdminSeeder extends Seeder
     public function run(): void
     {
         // Create or update the superadmin user
-        $superadmin = User::firstOrCreate([
-            'username' => 'superadmin'
-        ], [
-            'email' => 'superadmin@atis.az',
-            'password' => bcrypt('admin123'),
-            'is_active' => true,
-            'email_verified_at' => now(),
-        ]);
+        $superadmin = User::firstOrCreate(
+            ['username' => 'superadmin'],
+            [
+                'email' => 'superadmin@atis.az',
+                'password' => bcrypt('admin123'),
+                'is_active' => true,
+                'email_verified_at' => now(),
+                'first_name' => 'Super',
+                'last_name' => 'Admin',
+            ]
+        );
 
         // Ensure user is active (in case it already existed)
         $superadmin->update([
             'is_active' => true,
             'failed_login_attempts' => 0,
             'locked_until' => null,
+            'first_name' => $superadmin->first_name ?? 'Super',
+            'last_name' => $superadmin->last_name ?? 'Admin',
         ]);
 
         // Assign superadmin role with the correct guard

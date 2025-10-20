@@ -198,7 +198,7 @@ class SubjectController extends BaseController
         $subject = Subject::findOrFail($id);
         
         // Check if subject is in use
-        if ($subject->teacherSubjects()->exists()) {
+        if ($subject->teacherAssignments()->exists()) {
             return $this->errorResponse('Bu fən hazırda istifadə edildiyi üçün silinə bilməz', 422);
         }
         

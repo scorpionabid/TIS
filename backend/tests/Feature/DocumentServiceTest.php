@@ -9,15 +9,16 @@ use App\Models\Institution;
 use App\Services\DocumentService;
 use App\Services\DocumentDownloadService;
 use App\Services\DocumentSharingService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 
 class DocumentServiceTest extends TestCase
 {
-    use RefreshDatabase, WithFaker;
+    use WithFaker;
 
     protected $documentService;
     protected $downloadService;
@@ -28,6 +29,30 @@ class DocumentServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        
+        /** @var PermissionRegistrar $registrar */
+        $registrar = app(PermissionRegistrar::class);
+        $registrar->forgetCachedPermissions();
+
+        $permissions = [
+            'documents.read',
+            'documents.write',
+        ];
+
+        foreach ($permissions as $permission) {
+            Permission::firstOrCreate([
+                'name' => $permission,
+                'guard_name' => 'web',
+            ]);
+        }
+
+        $superadminRole = Role::firstOrCreate(['name' => 'superadmin', 'guard_name' => 'web']);
+        $regionadminRole = Role::firstOrCreate(['name' => 'regionadmin', 'guard_name' => 'web']);
+        $schooladminRole = Role::firstOrCreate(['name' => 'schooladmin', 'guard_name' => 'web']);
+
+        $superadminRole->syncPermissions(Permission::pluck('name')->toArray());
+        $regionadminRole->syncPermissions(['documents.read']);
+        $schooladminRole->syncPermissions(['documents.read', 'documents.write']);
         
         // Create services
         $this->documentService = app(DocumentService::class);
@@ -40,11 +65,6 @@ class DocumentServiceTest extends TestCase
             'type' => 'school',
             'is_active' => true
         ]);
-        
-        // Create roles
-        Role::create(['name' => 'superadmin', 'guard_name' => 'sanctum']);
-        Role::create(['name' => 'regionadmin', 'guard_name' => 'sanctum']);
-        Role::create(['name' => 'schooladmin', 'guard_name' => 'sanctum']);
         
         $this->user = User::factory()->create([
             'institution_id' => $this->institution->id,
@@ -277,6 +297,7 @@ class DocumentServiceTest extends TestCase
         \App\Models\DocumentShare::factory()->count(3)->create([
             'document_id' => $document->id,
             'shared_by' => $this->user->id,
+            'share_type' => 'view',
             'is_active' => true
         ]);
 
@@ -308,7 +329,7 @@ class DocumentServiceTest extends TestCase
         $this->assertDatabaseHas('document_access_logs', [
             'document_id' => $document->id,
             'user_id' => $this->user->id,
-            'action' => 'view'
+            'access_type' => 'view'
         ]);
     }
 

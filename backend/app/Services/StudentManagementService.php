@@ -107,21 +107,7 @@ class StudentManagementService extends BaseService
             $student = User::create($userData);
 
             // Create profile
-            $profileData = [
-                'user_id' => $student->id,
-                'first_name' => $data['first_name'],
-                'last_name' => $data['last_name'],
-                'patronymic' => $data['patronymic'] ?? null,
-                'birth_date' => $data['birth_date'] ?? null,
-                'gender' => $data['gender'] ?? null,
-                'national_id' => $data['national_id'] ?? null,
-                'contact_phone' => $data['contact_phone'] ?? null,
-                'address' => $data['address'] ?? null,
-                'emergency_contact_name' => $data['emergency_contact_name'] ?? null,
-                'emergency_contact_phone' => $data['emergency_contact_phone'] ?? null,
-                'emergency_contact_email' => $data['emergency_contact_email'] ?? null,
-                'notes' => $data['notes'] ?? null
-            ];
+            $profileData = $this->prepareProfileData(array_merge($data, ['user_id' => $student->id]), true);
 
             $student->profile()->create($profileData);
 
@@ -164,22 +150,7 @@ class StudentManagementService extends BaseService
             }
 
             // Update profile
-            $profileData = array_filter([
-                'first_name' => $data['first_name'] ?? null,
-                'last_name' => $data['last_name'] ?? null,
-                'patronymic' => $data['patronymic'] ?? null,
-                'birth_date' => $data['birth_date'] ?? null,
-                'gender' => $data['gender'] ?? null,
-                'national_id' => $data['national_id'] ?? null,
-                'contact_phone' => $data['contact_phone'] ?? null,
-                'address' => $data['address'] ?? null,
-                'emergency_contact_name' => $data['emergency_contact_name'] ?? null,
-                'emergency_contact_phone' => $data['emergency_contact_phone'] ?? null,
-                'emergency_contact_email' => $data['emergency_contact_email'] ?? null,
-                'notes' => $data['notes'] ?? null
-            ], function ($value) {
-                return $value !== null;
-            });
+            $profileData = $this->prepareProfileData($data);
 
             if (!empty($profileData) && $student->profile) {
                 $student->profile->update($profileData);
@@ -187,6 +158,86 @@ class StudentManagementService extends BaseService
 
             return $student->fresh(['profile', 'institution', 'studentEnrollments.grade']);
         });
+    }
+
+    /**
+     * Prepare user profile data for create or update operations.
+     */
+    private function prepareProfileData(array $data, bool $includeNulls = false): array
+    {
+        $fields = [
+            'first_name',
+            'last_name',
+            'patronymic',
+            'birth_date',
+            'gender',
+            'national_id',
+            'contact_phone',
+            'address',
+            'emergency_contact',
+            'emergency_contact_name',
+            'emergency_contact_phone',
+            'emergency_contact_email',
+            'notes',
+        ];
+
+        $payload = [];
+
+        foreach ($fields as $field) {
+            $provided = array_key_exists($field, $data);
+            $value = $data[$field] ?? null;
+
+            if ($field === 'address') {
+                $value = $this->normalizeAddress($value);
+            }
+
+            if ($field === 'emergency_contact') {
+                $value = $data['emergency_contact'] ?? ($data['emergency_contact_phone'] ?? null);
+            }
+
+            if (is_string($value)) {
+                $value = trim($value);
+                if ($value === '') {
+                    $value = null;
+                }
+            }
+
+            if (in_array($field, ['contact_phone', 'emergency_contact_phone'], true) && is_string($value)) {
+                $value = preg_replace('/\s+/', '', $value);
+            }
+
+            if ($this->shouldIncludeProfileValue($value, $includeNulls, $provided)) {
+                $payload[$field] = $value;
+            }
+        }
+
+        if (isset($data['user_id'])) {
+            $payload['user_id'] = $data['user_id'];
+        }
+
+        return $payload;
+    }
+
+    private function normalizeAddress($value): ?array
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        if (is_array($value)) {
+            return $value;
+        }
+
+        return ['formatted' => $value];
+    }
+
+    private function shouldIncludeProfileValue($value, bool $includeNulls, bool $provided): bool
+    {
+        if ($includeNulls) {
+            return $provided || $value !== null;
+        }
+
+        return $provided && $value !== null;
     }
 
     /**
@@ -433,6 +484,16 @@ class StudentManagementService extends BaseService
         }
 
         return false;
+    }
+
+    /**
+     * Determine if the given user can manage students for a specific institution.
+     */
+    public function canManageStudentsInInstitution($user, int $institutionId): bool
+    {
+        $studentStub = (object) ['institution_id' => $institutionId];
+
+        return $this->canAccessStudent($user, $studentStub);
     }
 
     /**
