@@ -59,11 +59,6 @@ export default function RegionAdminUsers() {
         per_page: 50,
       });
 
-      console.log('🔍 RegionAdmin Users API Response:', result.raw);
-      console.log('🔍 Users array:', result.users);
-      console.log('🔍 Users meta:', result.meta);
-      console.log('🔍 First user sample:', result.users[0]);
-
       const users: RegionalUser[] = result.users.map((user: any) => {
         // Handle roles array - get the first role or fallback
         let roleName = 'Təyin edilməyib';

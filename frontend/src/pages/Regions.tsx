@@ -26,12 +26,14 @@ interface RegionStats {
   departments: number;
   institutions: number;
   users: number;
+  active_users?: number;
+  total_institutions?: number;
 }
 
 export default function Regions() {
   const { currentUser } = useAuth();
   const [regionStats, setRegionStats] = useState<Record<number, RegionStats>>({});
-  const [loadingStats, setLoadingStats] = useState<Record<number, boolean>>({});
+  const [isStatsLoading, setIsStatsLoading] = useState(false);
 
   // Check access permissions
   const hasAccess = currentUser && [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN].includes(currentUser.role);
@@ -45,103 +47,77 @@ export default function Regions() {
 
   // Filter regions (level 2) from all institutions
   const regions: Region[] = React.useMemo(() => {
-    console.log('🔍 Regions filter - Raw response:', institutionsResponse);
-    
-    // First, check what structure we have
     let institutionsData = null;
     if (institutionsResponse?.data?.data) {
       // Laravel pagination structure
       institutionsData = institutionsResponse.data.data;
-      console.log('📊 Using Laravel pagination structure (data.data)');
     } else if (institutionsResponse?.data && Array.isArray(institutionsResponse.data)) {
       // Direct array structure
       institutionsData = institutionsResponse.data;
-      console.log('📊 Using direct array structure (data)');
     } else if (Array.isArray(institutionsResponse)) {
       // Response is direct array
       institutionsData = institutionsResponse;
-      console.log('📊 Using direct response array');
     } else {
-      console.log('❌ No institutions data found in response');
       return [];
     }
     
     if (!institutionsData || !Array.isArray(institutionsData)) {
-      console.log('❌ Institutions data is not an array:', typeof institutionsData);
       return [];
     }
     
-    console.log('🏢 All institutions:', institutionsData.length, institutionsData.map(i => ({id: i.id, name: i.name, level: i.level})));
-    
     const level2Institutions = institutionsData.filter((institution: any) => institution.level === 2);
-    console.log('🏛️ Level 2 institutions (regions):', level2Institutions.length, level2Institutions.map(i => ({id: i.id, name: i.name, level: i.level})));
     
     return level2Institutions.sort((a: any, b: any) => a.name.localeCompare(b.name));
   }, [institutionsResponse]);
 
-  // Load statistics for each region
-  const loadRegionStats = async (regionId: number) => {
-    try {
-      setLoadingStats(prev => ({ ...prev, [regionId]: true }));
-      
-      // Get children institutions (sectors) for this region
-      const sectorsResponse = await institutionService.getChildren(regionId);
-      const sectors = sectorsResponse.data?.children || [];
-      
-      let totalInstitutions = 0;
-      let totalUsers = 0;
-      
-      // Count institutions and users in all sectors under this region
-      for (const sector of sectors) {
-        const sectorChildren = await institutionService.getChildren(sector.id);
-        totalInstitutions += sectorChildren.data?.children?.length || 0;
-        
-        // Get users for this sector
-        const sectorUsers = await institutionService.getUsers(sector.id);
-        totalUsers += sectorUsers.data?.length || 0;
-      }
-      
-      setRegionStats(prev => ({
-        ...prev,
-        [regionId]: {
-          departments: sectors.length,
-          institutions: totalInstitutions,
-          users: totalUsers,
-        }
-      }));
-    } catch (error) {
-      console.error(`Error loading stats for region ${regionId}:`, error);
-      setRegionStats(prev => ({
-        ...prev,
-        [regionId]: {
-          departments: 0,
-          institutions: 0,
-          users: 0,
-        }
-      }));
-    } finally {
-      setLoadingStats(prev => ({ ...prev, [regionId]: false }));
-    }
-  };
-
-  // Load statistics for all regions when they are loaded
+  // Load aggregated statistics for all regions when they are available
   useEffect(() => {
-    if (!hasAccess) return;
-    regions.forEach(region => {
-      if (!regionStats[region.id] && !loadingStats[region.id]) {
-        loadRegionStats(region.id);
+    if (!hasAccess || regions.length === 0) return;
+
+    let isCancelled = false;
+
+    const fetchSummaries = async () => {
+      setIsStatsLoading(true);
+      try {
+        const regionIds = regions.map((region) => region.id);
+        const summaries = await institutionService.getSummaries(regionIds);
+
+        if (isCancelled) return;
+
+        const nextStats: Record<number, RegionStats> = {};
+        regions.forEach((region) => {
+          const summary = summaries?.[region.id] ?? summaries?.[String(region.id)] ?? {};
+          nextStats[region.id] = {
+            departments: Number(summary?.departments ?? 0),
+            institutions: Number(summary?.institutions ?? 0),
+            users: Number(summary?.users ?? 0),
+            active_users: summary?.active_users !== undefined ? Number(summary.active_users) : undefined,
+            total_institutions: summary?.total_institutions !== undefined ? Number(summary.total_institutions) : undefined,
+          };
+        });
+
+        setRegionStats(nextStats);
+      } catch (error) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Region summaries fetch failed:', error);
+        }
+        setRegionStats({});
+      } finally {
+        if (!isCancelled) {
+          setIsStatsLoading(false);
+        }
       }
-    });
-  }, [regions, hasAccess, regionStats, loadingStats]);
+    };
+
+    fetchSummaries();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [regions, hasAccess]);
 
   // Security check - only SuperAdmin and RegionAdmin can access regional management
   if (!hasAccess) {
-    console.log('🚫 Regions access denied:', {
-      hasCurrentUser: !!currentUser,
-      currentUserRole: currentUser?.role,
-      allowedRoles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN],
-      roleCheck: currentUser ? [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN].includes(currentUser.role) : false
-    });
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
@@ -252,7 +228,7 @@ export default function Regions() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {regions.map((region) => {
           const stats = regionStats[region.id];
-          const isLoadingRegionStats = loadingStats[region.id];
+          const isLoadingRegionStats = isStatsLoading && !stats;
 
           return (
             <Card key={region.id} className={!region.is_active ? 'opacity-75' : ''}>
@@ -293,7 +269,14 @@ export default function Regions() {
                     {isLoadingRegionStats ? (
                       <Skeleton className="h-4 w-8" />
                     ) : (
-                      <span className="font-medium">{stats?.users || 0}</span>
+                      <span className="font-medium">
+                        {stats?.users || 0}
+                        {stats?.active_users !== undefined && (
+                          <span className="text-xs text-muted-foreground ml-1">
+                            ({stats.active_users} aktiv)
+                          </span>
+                        )}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -301,7 +284,7 @@ export default function Regions() {
                   variant="outline" 
                   size="sm" 
                   className="w-full mt-4"
-                  disabled={isLoadingRegionStats}
+                  disabled={isStatsLoading && !stats}
                 >
                   {isLoadingRegionStats && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   Ətraflı

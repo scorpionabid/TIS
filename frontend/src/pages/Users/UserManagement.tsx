@@ -1,17 +1,17 @@
-import { useState, Suspense, lazy, memo } from "react";
+import { useState, Suspense, lazy, memo, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { User, CreateUserData, UpdateUserData, userService } from "@/services/users";
 import { sektorAdminService } from "@/services/sektoradmin";
 import { apiClient } from "@/services/api";
 import { storageHelpers } from "@/utils/helpers";
 import { useToast } from "@/hooks/use-toast";
-import { usePagination } from "@/hooks/usePagination";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserFilters } from "./hooks/useUserFilters";
 import { UserActions } from "./components/UserActions";
 import { UserFilters } from "./components/UserFilters";
 import { UserTable } from "./components/UserTable";
 import { TablePagination } from "@/components/common/TablePagination";
+import { ModalFallback } from "@/components/common/ModalFallback";
 // Performance monitoring import removed for speed
 
 // Lazy load modals for better performance
@@ -31,22 +31,6 @@ const TrashedUsersModal = lazy(() => import("@/components/modals/TrashedUsersMod
   default: module.TrashedUsersModal
 })));
 
-// Loading components
-const ModalSkeleton = () => (
-  <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
-    <div className="bg-background p-6 rounded-lg shadow-lg">
-      <div className="animate-pulse space-y-4">
-        <div className="h-4 bg-muted rounded w-48" />
-        <div className="h-32 bg-muted rounded w-96" />
-        <div className="flex gap-2">
-          <div className="h-8 bg-muted rounded w-16" />
-          <div className="h-8 bg-muted rounded w-16" />
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
 export const UserManagement = memo(() => {
   // Performance monitoring removed for speed
   
@@ -62,46 +46,9 @@ export const UserManagement = memo(() => {
   const [isImportExportModalOpen, setIsImportExportModalOpen] = useState(false);
   const [isTrashedUsersModalOpen, setIsTrashedUsersModalOpen] = useState(false);
 
-  // Data fetching with role-based endpoint selection
-  const {
-    data: usersResponse,
-    isLoading,
-    error,
-    refetch
-  } = useQuery({
-    queryKey: ['users', currentUser?.role], // Include role in cache key
-    queryFn: async () => {
-      // Use role-specific endpoints for proper hierarchy filtering
-      if (currentUser?.role === 'sektoradmin') {
-        const response: any = await sektorAdminService.getSectorUsers({ per_page: 1000 });
-        // Transform SektorAdmin response to match PaginatedResponse format
-        return {
-          data: response.users || [],
-          total: response.pagination?.total || 0,
-          current_page: response.pagination?.current_page || 1,
-          last_page: response.pagination?.last_page || 1,
-          per_page: response.pagination?.per_page || 1000,
-          from: response.pagination?.from || 1,
-          to: response.pagination?.to || 0,
-          first_page_url: '',
-          last_page_url: '',
-          next_page_url: null,
-          prev_page_url: null,
-          path: ''
-        };
-      }
-      // Default to userService for other roles
-      return userService.getAll({ per_page: 1000 });
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes cache
-    retry: 1,
-    enabled: !!currentUser, // Only run when user is authenticated
-  });
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
 
-  const users = usersResponse?.data || [];
-
-
-  // Filtering and sorting
   const {
     searchTerm,
     roleFilter,
@@ -109,29 +56,152 @@ export const UserManagement = memo(() => {
     institutionFilter,
     sortField,
     sortDirection,
-    availableRoles,
-    availableStatuses,
-    availableInstitutions,
-    filteredAndSortedUsers,
     setSearchTerm,
     setRoleFilter,
     setStatusFilter,
     setInstitutionFilter,
     handleSortChange,
     handleClearFilters,
-  } = useUserFilters(users);
+    filterParams,
+  } = useUserFilters();
 
-  // Pagination for filtered results
   const {
-    currentPage,
-    totalPages,
-    paginatedItems: paginatedUsers,
-    goToPage,
-    goToNextPage: nextPage,
-    goToPreviousPage: prevPage,
-    itemsPerPage,
-    setItemsPerPage
-  } = usePagination(filteredAndSortedUsers || [], { initialItemsPerPage: 20 });
+    data: usersResponse,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery({
+    queryKey: [
+      'users',
+      currentUser?.role,
+      page,
+      perPage,
+      filterParams.search ?? '',
+      filterParams.role ?? '',
+      filterParams.status ?? '',
+      filterParams.institution_id ?? '',
+      filterParams.sort_by,
+      filterParams.sort_direction,
+    ],
+    queryFn: async () => {
+      const params: Record<string, any> = {
+        page,
+        per_page: perPage,
+        sort_by: filterParams.sort_by,
+        sort_direction: filterParams.sort_direction,
+      };
+
+      if (filterParams.search) {
+        params.search = filterParams.search;
+      }
+      if (filterParams.role) {
+        params.role = filterParams.role;
+      }
+      if (filterParams.status) {
+        params.status = filterParams.status;
+      }
+      if (filterParams.institution_id) {
+        params.institution_id = filterParams.institution_id;
+      }
+
+      if (currentUser?.role === 'sektoradmin') {
+        const response: any = await sektorAdminService.getSectorUsers(params);
+        const pagination = response?.meta ?? response?.pagination ?? {};
+        const records = response?.data ?? response?.users ?? [];
+
+        return {
+          data: records,
+          total: pagination.total ?? records.length,
+          current_page: pagination.current_page ?? page,
+          last_page: pagination.last_page ?? 1,
+          per_page: pagination.per_page ?? perPage,
+          from: pagination.from ?? ((page - 1) * perPage + (records.length > 0 ? 1 : 0)),
+          to: pagination.to ?? ((page - 1) * perPage + records.length),
+        };
+      }
+
+      return userService.getAll(params);
+    },
+    keepPreviousData: true,
+    retry: 1,
+    enabled: !!currentUser,
+  });
+
+  const users = usersResponse?.data || [];
+  const totalItems = usersResponse?.total ?? users.length;
+  const totalPages = usersResponse?.last_page ?? 1;
+  const currentPage = usersResponse?.current_page ?? page;
+  const itemsPerPage = usersResponse?.per_page ?? perPage;
+  const rangeStart = usersResponse?.from ?? ((currentPage - 1) * itemsPerPage + (users.length > 0 ? 1 : 0));
+  const rangeEnd = usersResponse?.to ?? ((currentPage - 1) * itemsPerPage + users.length);
+
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  useEffect(() => {
+    if (usersResponse?.per_page && usersResponse.per_page !== perPage) {
+      setPerPage(usersResponse.per_page);
+    }
+  }, [usersResponse?.per_page, perPage]);
+
+  const availableRoles = useMemo(() => {
+    const roles = new Set<string>();
+    users.forEach((user) => {
+      if (user.role) {
+        roles.add(user.role);
+      }
+    });
+    return Array.from(roles).sort();
+  }, [users]);
+
+  const availableStatuses = useMemo(() => ['active', 'inactive'], []);
+
+  const availableInstitutions = useMemo(() => {
+    const map = new Map<number, string>();
+    users.forEach((user) => {
+      const institutionId = user.institution?.id;
+      if (institutionId) {
+        map.set(institutionId, user.institution?.name || `#${institutionId}`);
+      }
+    });
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [users]);
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setPage(1);
+  };
+
+  const handleRoleFilterChange = (value: string) => {
+    setRoleFilter(value);
+    setPage(1);
+  };
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
+
+  const handleInstitutionFilterChange = (value: string) => {
+    setInstitutionFilter(value);
+    setPage(1);
+  };
+
+  const handleSortChangeWithReset = (field: Parameters<typeof handleSortChange>[0]) => {
+    handleSortChange(field);
+    setPage(1);
+  };
+
+  const handleClearFiltersWithReset = () => {
+    handleClearFilters();
+    setPage(1);
+  };
 
   // Handlers
   const handleOpenModal = (user?: User) => {
@@ -203,28 +273,59 @@ export const UserManagement = memo(() => {
     }
   };
 
-  const handleExport = () => {
-    const csvContent = [
-      ['Ad', 'Email', 'Username', 'Rol', 'Status', 'Müəssisə', 'Telefon', 'Yaradılma Tarixi'].join(','),
-      ...filteredAndSortedUsers.map(user => [
-        user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : (user.username || ''),
-        user.email || '',
-        user.username || '',
-        user.role || '',
-        user.is_active ? 'Aktiv' : 'Passiv',
-        user.institution?.name || '',
-        user.profile?.phone || '',
-        user.created_at ? new Date(user.created_at).toLocaleDateString('az-AZ') : ''
-      ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
-    ].join('\n');
+  const handleExport = async () => {
+    try {
+      const exportParams: Record<string, any> = {
+        page: 1,
+        per_page: Math.max(totalItems, itemsPerPage),
+        sort_by: filterParams.sort_by,
+        sort_direction: filterParams.sort_direction,
+      };
 
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `istifadeciler-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+      if (filterParams.search) {
+        exportParams.search = filterParams.search;
+      }
+      if (filterParams.role) {
+        exportParams.role = filterParams.role;
+      }
+      if (filterParams.status) {
+        exportParams.status = filterParams.status;
+      }
+      if (filterParams.institution_id) {
+        exportParams.institution_id = filterParams.institution_id;
+      }
+
+      const response = await userService.getAll(exportParams);
+      const exportUsers = response.data || [];
+
+      const csvContent = [
+        ['Ad', 'Email', 'Username', 'Rol', 'Status', 'Müəssisə', 'Telefon', 'Yaradılma Tarixi'].join(','),
+        ...exportUsers.map(user => [
+          user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : (user.username || ''),
+          user.email || '',
+          user.username || '',
+          user.role || '',
+          user.is_active ? 'Aktiv' : 'Passiv',
+          user.institution?.name || '',
+          user.profile?.phone || '',
+          user.created_at ? new Date(user.created_at).toLocaleDateString('az-AZ') : ''
+        ].map(field => `"${String(field ?? '').replace(/"/g, '""')}"`).join(','))
+      ].join('\n');
+
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `istifadeciler-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      toast({
+        title: "Xəta",
+        description: error?.message || 'Eksport zamanı xəta baş verdi',
+        variant: "destructive",
+      });
+    }
   };
 
   // Loading state
@@ -279,46 +380,52 @@ export const UserManagement = memo(() => {
 
       <UserFilters
         searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
+        onSearchChange={handleSearchChange}
         roleFilter={roleFilter}
-        onRoleFilterChange={setRoleFilter}
+        onRoleFilterChange={handleRoleFilterChange}
         statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
+        onStatusFilterChange={handleStatusFilterChange}
         institutionFilter={institutionFilter}
-        onInstitutionFilterChange={setInstitutionFilter}
+        onInstitutionFilterChange={handleInstitutionFilterChange}
         sortField={sortField}
         sortDirection={sortDirection}
-        onSortChange={handleSortChange}
+        onSortChange={handleSortChangeWithReset}
         availableRoles={availableRoles}
         availableStatuses={availableStatuses}
         availableInstitutions={availableInstitutions}
-        onClearFilters={handleClearFilters}
+        onClearFilters={handleClearFiltersWithReset}
       />
 
       <UserTable
-        users={paginatedUsers}
+        users={users}
         onEditUser={handleOpenModal}
         onDeleteUser={handleDeleteUser}
         currentUserRole={currentUser?.role || ''}
+        isLoading={isLoading || isFetching}
       />
 
 
-      {totalPages > 1 && (
-        <TablePagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={filteredAndSortedUsers.length}
-          itemsPerPage={itemsPerPage}
-          onPageChange={goToPage}
-          onNextPage={nextPage}
-          onPrevPage={prevPage}
-          onItemsPerPageChange={setItemsPerPage}
-        />
-      )}
+      <TablePagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        itemsPerPage={itemsPerPage}
+        onPageChange={(newPage) => setPage(newPage)}
+        onNext={() => setPage(prev => Math.min(prev + 1, totalPages))}
+        onPrevious={() => setPage(prev => Math.max(prev - 1, 1))}
+        onItemsPerPageChange={(value) => {
+          setPerPage(value);
+          setPage(1);
+        }}
+        startIndex={Math.max(rangeStart - 1, 0)}
+        endIndex={Math.max(rangeEnd, 0)}
+        canGoNext={currentPage < totalPages}
+        canGoPrevious={currentPage > 1}
+      />
 
       {/* Modals with Suspense */}
       {isModalOpen && (
-        <Suspense fallback={<ModalSkeleton />}>
+        <Suspense fallback={<ModalFallback />}>
           <UserModal
             open={isModalOpen}
             onClose={handleCloseModal}
@@ -329,7 +436,7 @@ export const UserManagement = memo(() => {
       )}
 
       {isDeleteModalOpen && userToDelete && (
-        <Suspense fallback={<ModalSkeleton />}>
+        <Suspense fallback={<ModalFallback />}>
           <DeleteConfirmationModal
             open={isDeleteModalOpen}
             onClose={() => {
@@ -344,7 +451,7 @@ export const UserManagement = memo(() => {
       )}
 
       {isImportExportModalOpen && (
-        <Suspense fallback={<ModalSkeleton />}>
+        <Suspense fallback={<ModalFallback />}>
           <UserImportExportModal
             isOpen={isImportExportModalOpen}
             onClose={() => setIsImportExportModalOpen(false)}
@@ -357,14 +464,10 @@ export const UserManagement = memo(() => {
       )}
 
       {isTrashedUsersModalOpen && (
-        <Suspense fallback={<ModalSkeleton />}>
+        <Suspense fallback={<ModalFallback />}>
           <TrashedUsersModal
-            isOpen={isTrashedUsersModalOpen}
+            open={isTrashedUsersModalOpen}
             onClose={() => setIsTrashedUsersModalOpen(false)}
-            onRestoreComplete={() => {
-              queryClient.invalidateQueries({ queryKey: ['users'] });
-              refetch();
-            }}
           />
         </Suspense>
       )}

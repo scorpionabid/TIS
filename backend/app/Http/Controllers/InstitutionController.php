@@ -195,6 +195,106 @@ class InstitutionController extends Controller
     }
 
     /**
+     * Provide aggregated statistics for a single institution (descendants counts, user metrics)
+     */
+    public function getSummary(Institution $institution): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => $this->buildInstitutionSummary($institution),
+        ]);
+    }
+
+    /**
+     * Provide aggregated statistics for multiple institutions in a single request
+     */
+    public function getSummaries(Request $request): JsonResponse
+    {
+        $idsParam = $request->query('ids');
+
+        if (empty($idsParam)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Query parameter "ids" is required.',
+            ], 422);
+        }
+
+        $ids = is_array($idsParam) ? $idsParam : explode(',', (string) $idsParam);
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+
+        if (empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No valid institution IDs supplied.',
+            ], 422);
+        }
+
+        $institutions = Institution::whereIn('id', $ids)->get()->keyBy('id');
+
+        $data = [];
+        foreach ($ids as $id) {
+            if ($institutions->has($id)) {
+                $data[$id] = $this->buildInstitutionSummary($institutions->get($id));
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+            'missing' => array_values(array_diff($ids, $institutions->keys()->all())),
+        ]);
+    }
+
+    /**
+     * Build an aggregated summary for the provided institution.
+     */
+    protected function buildInstitutionSummary(Institution $institution): array
+    {
+        $descendantIds = array_values(array_filter(
+            array_unique($institution->getAllChildrenIds()),
+            fn (int $id) => $id !== $institution->id
+        ));
+
+        $countsByLevel = !empty($descendantIds)
+            ? Institution::whereIn('id', $descendantIds)
+                ->selectRaw('level, COUNT(*) as total')
+                ->groupBy('level')
+                ->pluck('total', 'level')
+            : collect();
+
+        $countsByType = !empty($descendantIds)
+            ? Institution::whereIn('id', $descendantIds)
+                ->selectRaw('type, COUNT(*) as total')
+                ->groupBy('type')
+                ->pluck('total', 'type')
+            : collect();
+
+        $userAggregate = !empty($descendantIds)
+            ? \App\Models\User::whereIn('institution_id', $descendantIds)
+                ->selectRaw('COUNT(*) as total, SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active')
+                ->first()
+            : null;
+
+        $sectorsCount = (int) ($countsByLevel->get(3, 0));
+        $schoolsCount = (int) ($countsByLevel->get(4, 0));
+        $totalInstitutions = (int) array_sum($countsByLevel->toArray());
+
+        return [
+            'institution_id' => $institution->id,
+            'name' => $institution->name,
+            'level' => $institution->level,
+            'departments' => $sectorsCount,
+            'institutions' => $schoolsCount,
+            'total_institutions' => $totalInstitutions,
+            'users' => (int) ($userAggregate->total ?? 0),
+            'active_users' => (int) ($userAggregate->active ?? 0),
+            'counts_by_level' => array_map('intval', $countsByLevel->toArray()),
+            'counts_by_type' => array_map('intval', $countsByType->toArray()),
+            'direct_children' => (int) $institution->children()->count(),
+        ];
+    }
+
+    /**
      * Find similar institutions based on name, code, type, and parent
      */
     public function findSimilar(Request $request): JsonResponse

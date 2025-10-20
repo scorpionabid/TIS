@@ -13,12 +13,12 @@ export interface UserFiltersProps {
   onStatusFilterChange: (status: string) => void;
   institutionFilter: string;
   onInstitutionFilterChange: (institution: string) => void;
-  sortField: string;
+  sortField: 'name' | 'created_at' | 'last_login';
   sortDirection: 'asc' | 'desc';
-  onSortChange: (field: string) => void;
+  onSortChange: (field: 'name' | 'created_at' | 'last_login') => void;
   availableRoles: string[];
   availableStatuses: string[];
-  availableInstitutions: string[];
+  availableInstitutions: Array<{ id: number; name: string }>;
   onClearFilters: () => void;
 }
 
@@ -62,7 +62,7 @@ export const UserFilters = memo(({
     return searchTerm || roleFilter !== 'all' || statusFilter !== 'all' || institutionFilter !== 'all';
   }, [searchTerm, roleFilter, statusFilter, institutionFilter]);
 
-  const getSortIcon = (field: string) => {
+  const getSortIcon = (field: UserFiltersProps['sortField']) => {
     if (sortField !== field) return <ArrowUpDown className="h-4 w-4" />;
     return sortDirection === 'asc' ? 
       <ArrowUp className="h-4 w-4" /> : 
@@ -120,8 +120,8 @@ export const UserFilters = memo(({
         <SelectContent>
           <SelectItem value="all">Bütün müəssisələr</SelectItem>
           {availableInstitutions.map((institution) => (
-            <SelectItem key={institution} value={institution}>
-              {institution}
+            <SelectItem key={institution.id} value={institution.id.toString()}>
+              {institution.name}
             </SelectItem>
           ))}
         </SelectContent>
@@ -140,10 +140,10 @@ export const UserFilters = memo(({
         <Button 
           variant="outline" 
           size="sm"
-          onClick={() => onSortChange('role')}
+          onClick={() => onSortChange('last_login')}
           className="flex items-center gap-1"
         >
-          Rol {getSortIcon('role')}
+          Son giriş {getSortIcon('last_login')}
         </Button>
         <Button 
           variant="outline" 

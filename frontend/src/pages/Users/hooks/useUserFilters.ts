@@ -1,49 +1,15 @@
 import { useState, useMemo, useCallback } from 'react';
-import { User } from '@/services/users';
 
-type SortField = 'name' | 'email' | 'role' | 'status' | 'created_at';
+type SortField = 'name' | 'created_at' | 'last_login';
 type SortDirection = 'asc' | 'desc';
 
-// Utility function to safely convert value to string
-const safeToString = (value: any): string => {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'string') return value;
-  if (typeof value === 'object') {
-    if (value.name === null && value.display_name === null && value.id === null) {
-      return 'Təyin edilməyib';
-    }
-    if (value.name) return String(value.name);
-    if (value.display_name) return String(value.display_name);
-    return JSON.stringify(value);
-  }
-  return String(value);
+const sortFieldToApiMap: Record<SortField, 'username' | 'created_at' | 'last_login_at'> = {
+  name: 'username',
+  created_at: 'created_at',
+  last_login: 'last_login_at',
 };
 
-// Utility function to get user's full name
-const getUserDisplayName = (user: any): string => {
-  const firstName = user.first_name?.trim();
-  const lastName = user.last_name?.trim();
-  
-  if (firstName && lastName) return `${firstName} ${lastName}`;
-  if (firstName) return firstName;
-  if (lastName) return lastName;
-  if (user.username?.trim()) return user.username.trim();
-  if (user.email?.trim()) return user.email.trim().split('@')[0];
-  return 'Anonim İstifadəçi';
-};
-
-// Extract unique values for filters
-const extractUniqueStrings = (users: any[], field: string): string[] => {
-  const values = users
-    .map(user => user[field])
-    .filter(value => value !== null && value !== undefined)
-    .map(value => safeToString(value))
-    .filter(value => value !== '');
-  
-  return [...new Set(values)];
-};
-
-export const useUserFilters = (users: User[] = []) => {
+export const useUserFilters = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -51,79 +17,41 @@ export const useUserFilters = (users: User[] = []) => {
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
-  // Extract available filter options
-  const availableRoles = useMemo(() => extractUniqueStrings(users, 'role'), [users]);
-  const availableStatuses = useMemo(() => 
-    ['active', 'inactive'], // Fixed status options
-  []);
-  const availableInstitutions = useMemo(() => 
-    extractUniqueStrings(users.map(user => ({ institution: user.institution?.name })), 'institution'),
-  [users]);
+  const filterParams = useMemo(() => {
+    const params: {
+      search?: string;
+      role?: string;
+      status?: string;
+      institution_id?: number;
+      sort_by: 'username' | 'created_at' | 'last_login_at';
+      sort_direction: SortDirection;
+    } = {
+      sort_by: sortFieldToApiMap[sortField],
+      sort_direction: sortDirection,
+    };
 
-  // Filter and sort users
-  const filteredAndSortedUsers = useMemo(() => {
-    const filtered = users.filter(user => {
-      const displayName = getUserDisplayName(user).toLowerCase();
-      const email = user.email?.toLowerCase() || '';
-      const username = user.username?.toLowerCase() || '';
-      const searchLower = searchTerm.toLowerCase();
-      
-      // Search filter
-      const matchesSearch = !searchTerm || 
-        displayName.includes(searchLower) ||
-        email.includes(searchLower) ||
-        username.includes(searchLower);
+    const trimmedSearch = searchTerm.trim();
+    if (trimmedSearch.length > 0) {
+      params.search = trimmedSearch;
+    }
 
-      // Role filter
-      const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+    if (roleFilter !== 'all') {
+      params.role = roleFilter;
+    }
 
-      // Status filter  
-      const userStatus = user.is_active ? 'active' : 'inactive';
-      const matchesStatus = statusFilter === 'all' || userStatus === statusFilter;
+    if (statusFilter !== 'all') {
+      params.status = statusFilter;
+    }
 
-      // Institution filter
-      const userInstitution = user.institution?.name || '';
-      const matchesInstitution = institutionFilter === 'all' || userInstitution === institutionFilter;
-
-      return matchesSearch && matchesRole && matchesStatus && matchesInstitution;
-    });
-
-    // Sort users
-    filtered.sort((a, b) => {
-      let aValue: any, bValue: any;
-
-      switch (sortField) {
-        case 'name':
-          aValue = getUserDisplayName(a).toLowerCase();
-          bValue = getUserDisplayName(b).toLowerCase();
-          break;
-        case 'email':
-          aValue = a.email?.toLowerCase() || '';
-          bValue = b.email?.toLowerCase() || '';
-          break;
-        case 'role':
-          aValue = a.role?.toLowerCase() || '';
-          bValue = b.role?.toLowerCase() || '';
-          break;
-        case 'status':
-          aValue = a.is_active ? 'active' : 'inactive';
-          bValue = b.is_active ? 'active' : 'inactive';
-          break;
-        case 'created_at':
-          aValue = new Date(a.created_at || 0);
-          bValue = new Date(b.created_at || 0);
-          break;
-        default:
-          return 0;
+    if (institutionFilter !== 'all') {
+      const numeric = Number(institutionFilter);
+      if (!Number.isNaN(numeric)) {
+        params.institution_id = numeric;
       }
+    }
 
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    return filtered;
-  }, [users, searchTerm, roleFilter, statusFilter, institutionFilter, sortField, sortDirection]);
+    return params;
+  }, [searchTerm, roleFilter, statusFilter, institutionFilter, sortField, sortDirection]);
 
   // Handlers
   const handleSortChange = useCallback((field: SortField) => {
@@ -153,13 +81,8 @@ export const useUserFilters = (users: User[] = []) => {
     sortField,
     sortDirection,
     
-    // Available options
-    availableRoles,
-    availableStatuses,
-    availableInstitutions,
-    
-    // Filtered data
-    filteredAndSortedUsers,
+    // Params for server-side requests
+    filterParams,
     
     // Handlers
     setSearchTerm,

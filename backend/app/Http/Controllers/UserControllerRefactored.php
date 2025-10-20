@@ -70,17 +70,35 @@ class UserControllerRefactored extends BaseController
                 'role' => $userRole
             ]);
             
-            // Apply search if provided
-            if ($search) {
-                $query->where(function($q) use ($search) {
-                    $q->where('username', 'LIKE', "%{$search}%")
-                      ->orWhere('email', 'LIKE', "%{$search}%")
-                      ->orWhereHas('profile', function($profileQuery) use ($search) {
-                          $profileQuery->where('first_name', 'LIKE', "%{$search}%")
-                                      ->orWhere('last_name', 'LIKE', "%{$search}%");
-                      });
-                });
+            $filters = [
+                'per_page' => $perPage,
+                'page' => $request->get('page', 1),
+                'search' => $search,
+            ];
+
+            if ($request->filled('role') && $request->get('role') !== 'all') {
+                $filters['role'] = $request->get('role');
             }
+
+            if ($request->filled('status') && $request->get('status') !== 'all') {
+                $filters['status'] = $request->get('status');
+            }
+
+            $institutionFilter = $request->get('institution_id', $request->get('institution'));
+            if (!empty($institutionFilter) && $institutionFilter !== 'all') {
+                $filters['institution_id'] = $institutionFilter;
+            }
+
+            if ($request->filled('sort_by')) {
+                $filters['sort_by'] = $request->get('sort_by');
+            }
+
+            if ($request->filled('sort_direction')) {
+                $filters['sort_direction'] = $request->get('sort_direction');
+            }
+
+            // Apply additional filtering, search, and sorting
+            $this->userService->applyQueryCustomizations($query, $filters);
             
             $users = $query->paginate($perPage);
             

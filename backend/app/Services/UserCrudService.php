@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Exception;
 
 class UserCrudService
@@ -46,6 +47,20 @@ class UserCrudService
         ]);
         
         return $users;
+    }
+
+    /**
+     * Apply filtering, search, and sorting on an existing query builder instance.
+     */
+    public function applyQueryCustomizations(Builder $query, array $params): void
+    {
+        $this->applyFilters($query, $params);
+
+        if (!empty($params['search'])) {
+            $this->applySearch($query, $params['search']);
+        }
+
+        $this->applySorting($query, $params);
     }
     
     /**

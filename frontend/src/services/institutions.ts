@@ -141,6 +141,30 @@ class InstitutionService extends BaseService<Institution> {
     return [];
   }
 
+  async getSummaries(ids: number[]) {
+    if (!ids || ids.length === 0) {
+      return {};
+    }
+
+    const response = await apiClient.get<Record<string, any>>(`${this.baseEndpoint}/summary`, {
+      ids: ids.join(','),
+    });
+
+    const payload = response.data as unknown as {
+      success?: boolean;
+      data?: Record<number | string, any>;
+    };
+
+    const summaries = payload?.data || {};
+    return Object.keys(summaries).reduce<Record<number, any>>((acc, key) => {
+      const numericKey = Number(key);
+      if (!Number.isNaN(numericKey)) {
+        acc[numericKey] = summaries[key];
+      }
+      return acc;
+    }, {});
+  }
+
   async getRegions() {
     return this.getByType('regional');
   }
