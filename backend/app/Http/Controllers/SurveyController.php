@@ -112,7 +112,7 @@ class SurveyController extends BaseController
             'questions.*.translations' => 'nullable|array',
             'settings' => 'nullable|array',
             'targeting_rules' => 'nullable|array',
-            'start_date' => 'nullable|date|after:now',
+            'start_date' => 'nullable|date|after_or_equal:today',
             'end_date' => 'nullable|date|after:start_date',
             'institution_id' => 'nullable|integer|exists:institutions,id',
             'max_responses' => 'nullable|integer|min:1',

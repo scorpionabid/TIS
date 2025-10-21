@@ -64,6 +64,7 @@ const INITIAL_FORM_DATA: CreateSurveyData = {
   allow_multiple_responses: false,
   target_institutions: [],
   target_roles: [],
+  // Set start_date to today (backend now accepts today with after_or_equal:today validation)
   start_date: new Date().toISOString().split('T')[0],
 };
 
