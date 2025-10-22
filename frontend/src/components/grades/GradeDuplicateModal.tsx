@@ -16,10 +16,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Grade, gradeService } from '@/services/grades';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Copy, AlertCircle, Loader2 } from 'lucide-react';
+import { Copy, AlertCircle, Loader2, Info } from 'lucide-react';
 import { logger } from '@/utils/logger';
 
 interface GradeDuplicateModalProps {
@@ -36,13 +43,17 @@ export const GradeDuplicateModal: React.FC<GradeDuplicateModalProps> = ({
   onSuccess,
 }) => {
   const [newName, setNewName] = useState('');
+  const [newClassLevel, setNewClassLevel] = useState<number>(grade.class_level);
   const [copySubjects, setCopySubjects] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
 
+  // Check if class level has changed
+  const classLevelChanged = newClassLevel !== grade.class_level;
+
   const duplicateMutation = useMutation({
-    mutationFn: (data: { name: string; copy_subjects: boolean }) =>
+    mutationFn: (data: { name: string; class_level?: number; copy_subjects: boolean }) =>
       gradeService.duplicateGrade(grade.id, data),
     onSuccess: (response) => {
       logger.info('Grade duplicated successfully', {
@@ -82,10 +93,17 @@ export const GradeDuplicateModal: React.FC<GradeDuplicateModalProps> = ({
       return;
     }
 
-    duplicateMutation.mutate({
+    const duplicateData: { name: string; class_level?: number; copy_subjects: boolean } = {
       name: newName.trim(),
       copy_subjects: copySubjects,
-    });
+    };
+
+    // Add class_level only if it has changed
+    if (classLevelChanged) {
+      duplicateData.class_level = newClassLevel;
+    }
+
+    duplicateMutation.mutate(duplicateData);
   };
 
   return (
@@ -116,10 +134,41 @@ export const GradeDuplicateModal: React.FC<GradeDuplicateModalProps> = ({
               </div>
             )}
 
+            {/* Class Level Selector */}
+            <div className="space-y-2">
+              <Label htmlFor="classLevel">
+                Sinif səviyyəsi <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={newClassLevel.toString()}
+                onValueChange={(value) => setNewClassLevel(parseInt(value))}
+              >
+                <SelectTrigger id="classLevel">
+                  <SelectValue placeholder="Sinif səviyyəsi seçin" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Hazırlıq sinfi (0)</SelectItem>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((level) => (
+                    <SelectItem key={level} value={level.toString()}>
+                      {level}. sinif
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {classLevelChanged && (
+                <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-md p-2">
+                  <Info className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-700">
+                    Sinif səviyyəsi dəyişdirilib. Fənnlərin yeni səviyyəyə uyğunluğunu yoxlayın.
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* New Name Input */}
             <div className="space-y-2">
               <Label htmlFor="newName">
-                Yeni Sinif Adı <span className="text-red-500">*</span>
+                Sinif hərfi <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="newName"
@@ -131,8 +180,13 @@ export const GradeDuplicateModal: React.FC<GradeDuplicateModalProps> = ({
                 autoFocus
               />
               <p className="text-xs text-gray-500">
-                Yeni sinif adı: {grade.class_level}-{newName || '?'}
+                Yeni sinif adı: <span className="font-semibold">{newClassLevel}-{newName || '?'}</span>
               </p>
+              {newName && (
+                <p className="text-xs text-blue-600">
+                  💡 Əgər bu sinif artıq mövcuddursa, fərqli hərf seçin (B, C, D, Ə, İ, Ö, Ü və s.)
+                </p>
+              )}
             </div>
 
             {/* Copy Subjects Checkbox */}

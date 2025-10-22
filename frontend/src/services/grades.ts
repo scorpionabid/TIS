@@ -640,6 +640,7 @@ class GradeService {
     gradeId: number,
     data: {
       name: string;
+      class_level?: number;
       copy_subjects?: boolean;
       academic_year_id?: number;
     }
@@ -647,7 +648,12 @@ class GradeService {
     logger.debug('Duplicating grade', {
       component: 'GradeService',
       action: 'duplicateGrade',
-      data: { gradeId, newName: data.name, copySubjects: data.copy_subjects }
+      data: {
+        gradeId,
+        newName: data.name,
+        newClassLevel: data.class_level,
+        copySubjects: data.copy_subjects
+      }
     });
 
     return apiClient.post<Grade>(`${this.baseURL}/${gradeId}/duplicate`, data);

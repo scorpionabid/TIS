@@ -1312,7 +1312,7 @@ class GradeUnifiedController extends Controller
             $user = Auth::user();
 
             // Authorization check
-            if (!$user->hasPermissionTo('grade.create')) {
+            if (!$user->hasPermissionTo('grades.create')) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu əməliyyat üçün icazəniz yoxdur'
@@ -1322,6 +1322,7 @@ class GradeUnifiedController extends Controller
             // Validate input
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:10',
+                'class_level' => 'sometimes|integer|min:0|max:12',
                 'copy_subjects' => 'sometimes|boolean',
                 'academic_year_id' => 'sometimes|exists:academic_years,id',
             ]);
@@ -1331,6 +1332,27 @@ class GradeUnifiedController extends Controller
                     'success' => false,
                     'message' => 'Validasiya xətası',
                     'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            // Determine the target class level (use new level if provided, otherwise keep original)
+            $targetClassLevel = $request->has('class_level') ? $request->class_level : $grade->class_level;
+            $targetAcademicYearId = $request->has('academic_year_id') ? $request->academic_year_id : $grade->academic_year_id;
+
+            // Check if grade with same name, class_level, academic_year, and institution already exists
+            $existingGrade = Grade::where('name', $request->name)
+                ->where('class_level', $targetClassLevel)
+                ->where('academic_year_id', $targetAcademicYearId)
+                ->where('institution_id', $grade->institution_id)
+                ->first();
+
+            if ($existingGrade) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "{$targetClassLevel}-{$request->name} sinfi artıq mövcuddur",
+                    'errors' => [
+                        'name' => ["Bu sinif adı artıq istifadə olunur"]
+                    ]
                 ], 422);
             }
 
@@ -1345,6 +1367,11 @@ class GradeUnifiedController extends Controller
 
             // Update with new name
             $newGradeData['name'] = $request->name;
+
+            // Update class level if provided (allows copying to different grade level)
+            if ($request->has('class_level')) {
+                $newGradeData['class_level'] = $request->class_level;
+            }
 
             // Update academic year if provided
             if ($request->has('academic_year_id')) {
@@ -1390,15 +1417,17 @@ class GradeUnifiedController extends Controller
                 'room',
             ]);
 
-            // Generate display names
-            $newGrade->display_name = $this->namingEngine->generateDisplayName($newGrade);
-            $newGrade->full_name = $this->namingEngine->generateFullName($newGrade);
+            // Refresh to get computed attributes (display_name, full_name are model attributes)
+            $newGrade->refresh();
 
             Log::info('Grade duplicated successfully', [
                 'original_grade_id' => $grade->id,
+                'original_class_level' => $grade->class_level,
                 'new_grade_id' => $newGrade->id,
+                'new_class_level' => $newGrade->class_level,
                 'user_id' => $user->id,
                 'copied_subjects' => $request->get('copy_subjects', true),
+                'class_level_changed' => $request->has('class_level') && $request->class_level !== $grade->class_level,
             ]);
 
             return response()->json([
