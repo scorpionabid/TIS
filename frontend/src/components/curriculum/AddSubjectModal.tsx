@@ -109,7 +109,7 @@ const AddSubjectModal: React.FC<AddSubjectModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4">
-      <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[70vh] flex flex-col">
+      <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col">
         {/* Header - Sticky */}
         <div className="flex-shrink-0 bg-white border-b border-gray-200 px-5 py-3 flex items-center justify-between rounded-t-lg">
           <div>
@@ -126,7 +126,8 @@ const AddSubjectModal: React.FC<AddSubjectModalProps> = ({
 
         {/* Content - Scrollable */}
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-          <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3">
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4"
+               style={{ maxHeight: 'calc(85vh - 140px)' }}>
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
               <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
@@ -344,8 +345,8 @@ const AddSubjectModal: React.FC<AddSubjectModalProps> = ({
           </div>
 
           {/* Footer - Sticky */}
-          <div className="flex-shrink-0 bg-gray-50 border-t border-gray-200 px-5 py-3 rounded-b-lg">
-            <div className="flex items-center justify-end gap-2">
+          <div className="flex-shrink-0 bg-gray-50 border-t border-gray-200 px-5 py-3.5 rounded-b-lg sticky bottom-0">
+            <div className="flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={onClose}

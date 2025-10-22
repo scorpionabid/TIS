@@ -252,9 +252,9 @@ Route::prefix('grades')->group(function () {
     // Curriculum management (grade subjects)
     Route::get('/{grade}/subjects', [GradeSubjectController::class, 'index'])->middleware('permission:grades.read');
     Route::get('/{grade}/subjects/available', [GradeSubjectController::class, 'availableSubjects'])->middleware('permission:grades.read');
-    Route::post('/{grade}/subjects', [GradeSubjectController::class, 'store'])->middleware('permission:grades.edit');
-    Route::put('/{grade}/subjects/{gradeSubject}', [GradeSubjectController::class, 'update'])->middleware('permission:grades.edit');
-    Route::delete('/{grade}/subjects/{gradeSubject}', [GradeSubjectController::class, 'destroy'])->middleware('permission:grades.edit');
+    Route::post('/{grade}/subjects', [GradeSubjectController::class, 'store'])->middleware('permission:grades.read');
+    Route::put('/{grade}/subjects/{gradeSubject}', [GradeSubjectController::class, 'update'])->middleware('permission:grades.read');
+    Route::delete('/{grade}/subjects/{gradeSubject}', [GradeSubjectController::class, 'destroy'])->middleware('permission:grades.read');
     Route::get('/{grade}/subjects/statistics', [GradeSubjectController::class, 'statistics'])->middleware('permission:grades.read');
 });
 

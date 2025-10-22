@@ -30,12 +30,15 @@ class CurriculumService {
     subjects: GradeSubject[];
     meta: CurriculumMeta;
   }> {
-    const response = await api.get<CurriculumListResponse>(
+    const response = await api.get<any>(
       `${this.baseUrl}/${gradeId}/subjects`
     );
+
+    // Backend returns: {success: true, data: [...], meta: {...}}
+    // ApiClient returns this structure as-is
     return {
-      subjects: response.data.data,
-      meta: response.data.meta,
+      subjects: response.data || [],
+      meta: response.meta || {},
     };
   }
 
@@ -61,6 +64,8 @@ class CurriculumService {
       `${this.baseUrl}/${gradeId}/subjects`,
       data
     );
+    // Clear cache for this grade's subjects
+    api.clearCache(`/grades/${gradeId}/subjects`);
     return response.data.data;
   }
 
@@ -76,6 +81,8 @@ class CurriculumService {
       `${this.baseUrl}/${gradeId}/subjects/${gradeSubjectId}`,
       data
     );
+    // Clear cache for this grade's subjects
+    api.clearCache(`/grades/${gradeId}/subjects`);
     return response.data.data;
   }
 
@@ -89,6 +96,8 @@ class CurriculumService {
     const response = await api.delete<DeleteGradeSubjectResponse>(
       `${this.baseUrl}/${gradeId}/subjects/${gradeSubjectId}`
     );
+    // Clear cache for this grade's subjects
+    api.clearCache(`/grades/${gradeId}/subjects`);
     return response.data.message;
   }
 
@@ -98,10 +107,11 @@ class CurriculumService {
   async getCurriculumStatistics(
     gradeId: number
   ): Promise<CurriculumStatistics> {
-    const response = await api.get<CurriculumStatisticsResponse>(
+    const response = await api.get<any>(
       `${this.baseUrl}/${gradeId}/subjects/statistics`
     );
-    return response.data.data;
+    // Backend returns: {success: true, data: {...}}
+    return response.data || {};
   }
 
   /**
