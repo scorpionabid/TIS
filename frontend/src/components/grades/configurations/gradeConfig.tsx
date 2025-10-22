@@ -87,13 +87,13 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
   columns: [
     {
       key: 'name',
-      label: 'Sinif Adı',
-      width: 150,
+      label: 'Sinif',
+      width: 120,
       render: (grade: Grade) => (
         <div className="flex flex-col">
-          <span className="font-medium">{grade.full_name || `${grade.class_level || ''}-${grade.name || ''}`}</span>
+          <span className="font-semibold text-base">{grade.full_name || `${grade.class_level || ''}-${grade.name || ''}`}</span>
           <span className="text-xs text-muted-foreground">
-            {grade.class_level || 0}. sinif
+            {grade.class_level || 0}. sinif səviyyəsi
           </span>
         </div>
       )
@@ -101,85 +101,85 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     {
       key: 'specialty',
       label: 'İxtisas',
-      width: 120,
+      width: 110,
       render: (grade: Grade) => grade.specialty ? (
-        <Badge variant="outline" className="text-xs">
+        <Badge variant="outline" className="text-xs py-0.5">
           {grade.specialty}
         </Badge>
       ) : (
-        <span className="text-muted-foreground text-xs">Ümumi</span>
+        <span className="text-muted-foreground text-xs italic">-</span>
       )
     },
     {
       key: 'student_count',
-      label: 'Tələbə Sayı',
-      width: 120,
+      label: 'Tələbələr',
+      width: 100,
       sortable: true,
-      render: (grade: Grade) => (
-        <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-muted-foreground" />
-          <span className="font-medium">{grade.student_count}</span>
-          {grade.room?.capacity && (
-            <span className="text-xs text-muted-foreground">
-              / {grade.room.capacity}
-            </span>
-          )}
-        </div>
-      )
-    },
-    {
-      key: 'capacity_status',
-      label: 'Tutum Vəziyyəti',
-      width: 150,
-      render: (grade: Grade) => getCapacityStatusBadge(
-        grade.capacity_status, 
-        grade.utilization_rate
-      )
+      render: (grade: Grade) => {
+        const utilizationRate = grade.utilization_rate || 0;
+        const statusColor = utilizationRate > 100 ? 'text-red-600' : utilizationRate > 85 ? 'text-yellow-600' : 'text-green-600';
+
+        return (
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className={`font-semibold ${statusColor}`}>{grade.student_count}</span>
+              {grade.room?.capacity && (
+                <span className="text-xs text-muted-foreground">/ {grade.room.capacity}</span>
+              )}
+            </div>
+            {utilizationRate > 0 && (
+              <span className="text-xs text-muted-foreground">{utilizationRate.toFixed(0)}% doluluk</span>
+            )}
+          </div>
+        );
+      }
     },
     {
       key: 'room',
       label: 'Otaq',
-      width: 120,
+      width: 90,
       render: (grade: Grade) => grade.room ? (
         <div className="flex items-center gap-1 text-sm">
           <MapPin className="h-3 w-3 text-muted-foreground" />
-          <span>{grade.room.name}</span>
+          <span className="font-medium">{grade.room.name}</span>
         </div>
       ) : (
-        <span className="text-muted-foreground text-xs">Otaq təyin edilməyib</span>
+        <span className="text-muted-foreground text-xs italic">-</span>
       )
     },
     {
       key: 'homeroom_teacher',
       label: 'Sinif Rəhbəri',
-      width: 180,
+      width: 160,
       render: (grade: Grade) => grade.homeroom_teacher ? (
         <div className="flex items-center gap-1 text-sm">
           <UserCheck className="h-3 w-3 text-muted-foreground" />
-          <span className="truncate">{grade.homeroom_teacher.full_name}</span>
+          <span className="truncate font-medium">{grade.homeroom_teacher.full_name}</span>
         </div>
       ) : (
-        <span className="text-muted-foreground text-xs">Müəllim təyin edilməyib</span>
+        <span className="text-muted-foreground text-xs italic">-</span>
       )
     },
     {
       key: 'academic_year',
       label: 'Təhsil İli',
-      width: 120,
+      width: 100,
       render: (grade: Grade) => grade.academic_year ? (
         <div className="flex items-center gap-1 text-sm">
           <Calendar className="h-3 w-3 text-muted-foreground" />
-          <span>{grade.academic_year.name}</span>
-          {grade.academic_year.is_active && (
-            <Badge variant="default" className="text-xs ml-1">Aktiv</Badge>
-          )}
+          <span className="font-medium">{grade.academic_year.name}</span>
         </div>
-      ) : null
+      ) : <span className="text-muted-foreground text-xs italic">-</span>
     },
     {
       key: 'institution',
       label: 'Məktəb',
       width: 200,
+      // Hide for SchoolAdmin, SektorAdmin and below - they already know their institution
+      isVisible: (grade: Grade, userRole?: string) => {
+        return ['superadmin', 'regionadmin'].includes(userRole || '');
+      },
       render: (grade: Grade) => grade.institution ? (
         <div className="flex items-center gap-1 text-sm">
           <School className="h-3 w-3 text-muted-foreground" />
@@ -190,9 +190,9 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     {
       key: 'is_active',
       label: 'Status',
-      width: 80,
+      width: 70,
       render: (grade: Grade) => (
-        <Badge variant={grade.is_active ? 'default' : 'secondary'} className="text-xs">
+        <Badge variant={grade.is_active ? 'default' : 'secondary'} className="text-xs py-0.5">
           {grade.is_active ? 'Aktiv' : 'Deaktiv'}
         </Badge>
       )
@@ -200,12 +200,15 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
   ],
 
   // Action configuration
+  // Kurikulum is the primary action (always visible as button)
+  // Other actions are grouped in dropdown menu
   actions: [
     {
       key: 'view',
       label: 'Kurikulum',
       icon: BookOpen,
-      variant: 'ghost' as const,
+      variant: 'default' as const,
+      isPrimary: true, // Mark as primary action - always visible
       onClick: (grade: Grade) => {
         // Handle view action - will be overridden in component
         console.log('View grade:', grade.id);

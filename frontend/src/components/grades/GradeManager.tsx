@@ -139,7 +139,16 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
   // Enhanced configuration with grade-specific modal handlers
   const enhancedConfig = React.useMemo(() => ({
     ...gradeEntityConfig,
-    
+
+    // Filter columns based on user role
+    columns: gradeEntityConfig.columns.filter(column => {
+      // Check if column has visibility condition
+      if (column.isVisible && typeof column.isVisible === 'function') {
+        return column.isVisible({} as Grade, currentUser?.role);
+      }
+      return true; // Show column by default
+    }),
+
     // Override actions to connect with local modal handlers
     actions: gradeEntityConfig.actions.map(action => ({
       ...action,
@@ -187,7 +196,7 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
         }
       }
     }))
-  }), [softDeleteMutation, hardDeleteMutation]);
+  }), [currentUser?.role, softDeleteMutation, hardDeleteMutation]);
 
   // Handle create action
   const handleCreate = React.useCallback(() => {
