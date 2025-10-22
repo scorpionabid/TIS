@@ -2,6 +2,14 @@ import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
+import { MoreVertical } from 'lucide-react';
 import { ColumnConfig, ActionConfig, BaseEntity } from './types';
 
 interface GenericTableProps<T extends BaseEntity> {
@@ -158,26 +166,73 @@ export function GenericTable<T extends BaseEntity>({
                 {/* Action buttons */}
                 {actions.length > 0 && (
                   <TableCell className="text-right">
-                    <div className="flex items-center gap-1 justify-end">
-                      {actions.map((action) => {
-                        const isVisible = action.isVisible ? action.isVisible(item) : true;
-                        const isDisabled = action.isDisabled ? action.isDisabled(item) : false;
-                        
-                        if (!isVisible) return null;
-                        
-                        return (
-                          <Button
-                            key={action.key}
-                            variant={action.variant || 'ghost'}
-                            size={action.size || 'sm'}
-                            onClick={() => action.onClick(item)}
-                            disabled={isDisabled}
-                            title={action.label}
-                          >
-                            <action.icon className="h-4 w-4" />
-                          </Button>
-                        );
-                      })}
+                    <div className="flex items-center gap-2 justify-end">
+                      {/* Primary actions - always visible as buttons */}
+                      {actions
+                        .filter(action => (action as any).isPrimary)
+                        .map((action) => {
+                          const isVisible = action.isVisible ? action.isVisible(item) : true;
+                          const isDisabled = action.isDisabled ? action.isDisabled(item) : false;
+
+                          if (!isVisible) return null;
+
+                          return (
+                            <Button
+                              key={action.key}
+                              variant={action.variant || 'ghost'}
+                              size={action.size || 'sm'}
+                              onClick={() => action.onClick(item)}
+                              disabled={isDisabled}
+                              title={action.label}
+                              className="gap-1.5"
+                            >
+                              <action.icon className="h-3.5 w-3.5" />
+                              <span className="text-xs">{action.label}</span>
+                            </Button>
+                          );
+                        })}
+
+                      {/* Secondary actions - dropdown menu */}
+                      {actions.filter(action => !(action as any).isPrimary).length > 0 && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <MoreVertical className="h-4 w-4" />
+                              <span className="sr-only">Əməliyyatlar menyusu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            {actions
+                              .filter(action => !(action as any).isPrimary)
+                              .map((action, index, arr) => {
+                                const isVisible = action.isVisible ? action.isVisible(item) : true;
+                                const isDisabled = action.isDisabled ? action.isDisabled(item) : false;
+
+                                if (!isVisible) return null;
+
+                                // Add separator before destructive actions
+                                const isDestructive = action.variant === 'destructive';
+                                const prevAction = index > 0 ? arr[index - 1] : null;
+                                const prevIsDestructive = prevAction ? prevAction.variant === 'destructive' : false;
+                                const showSeparator = isDestructive && !prevIsDestructive && index > 0;
+
+                                return (
+                                  <React.Fragment key={action.key}>
+                                    {showSeparator && <DropdownMenuSeparator />}
+                                    <DropdownMenuItem
+                                      onClick={() => action.onClick(item)}
+                                      disabled={isDisabled}
+                                      className={isDestructive ? 'text-red-600 focus:text-red-600' : ''}
+                                    >
+                                      <action.icon className="mr-2 h-4 w-4" />
+                                      <span>{action.label}</span>
+                                    </DropdownMenuItem>
+                                  </React.Fragment>
+                                );
+                              })}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
                   </TableCell>
                 )}
