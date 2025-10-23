@@ -177,12 +177,31 @@ Route::prefix('teachers')->middleware('permission:teachers.read')->group(functio
     Route::get('/available', [App\Http\Controllers\School\SchoolTeacherController::class, 'getAvailable'])->middleware('permission:teachers.read');
     Route::post('/bulk-create', [App\Http\Controllers\School\SchoolTeacherController::class, 'bulkCreate'])->middleware('permission:teachers.bulk');
     Route::get('/analytics/overview', [App\Http\Controllers\School\SchoolTeacherController::class, 'getAnalytics'])->middleware('permission:teachers.analytics');
+
+    // Import/Export routes
+    Route::get('/export', [App\Http\Controllers\School\SchoolTeacherController::class, 'exportTeachers'])->middleware('permission:teachers.read');
+    Route::get('/import/template', [App\Http\Controllers\School\SchoolTeacherController::class, 'getImportTemplate'])->middleware('permission:teachers.read');
+    Route::post('/import', [App\Http\Controllers\School\SchoolTeacherController::class, 'importTeachers'])->middleware('permission:teachers.write');
+
+    // Teacher Workplace routes
+    Route::get('/{teacher}/workplaces', [App\Http\Controllers\TeacherWorkplaceController::class, 'index'])->middleware('permission:teachers.read');
+    Route::post('/{teacher}/workplaces', [App\Http\Controllers\TeacherWorkplaceController::class, 'store'])->middleware('permission:teachers.write');
+
     // Wildcard routes AFTER specific routes
     Route::get('/{teacher}', [App\Http\Controllers\School\SchoolTeacherController::class, 'show']);
     Route::put('/{teacher}', [App\Http\Controllers\School\SchoolTeacherController::class, 'update'])->middleware('permission:teachers.write');
     Route::delete('/{teacher}', [App\Http\Controllers\School\SchoolTeacherController::class, 'destroy'])->middleware('permission:teachers.write');
     Route::post('/{teacher}/assign-classes', [App\Http\Controllers\School\SchoolTeacherController::class, 'assignClasses'])->middleware('permission:teachers.assign');
     Route::get('/{teacher}/performance', [App\Http\Controllers\School\SchoolTeacherController::class, 'getPerformance'])->middleware('permission:teachers.performance');
+});
+
+// Teacher Workplace Management Routes
+Route::prefix('teacher-workplaces')->middleware('permission:teachers.read')->group(function () {
+    Route::get('/{workplace}', [App\Http\Controllers\TeacherWorkplaceController::class, 'show']);
+    Route::put('/{workplace}', [App\Http\Controllers\TeacherWorkplaceController::class, 'update'])->middleware('permission:teachers.write');
+    Route::delete('/{workplace}', [App\Http\Controllers\TeacherWorkplaceController::class, 'destroy'])->middleware('permission:teachers.write');
+    Route::post('/{workplace}/activate', [App\Http\Controllers\TeacherWorkplaceController::class, 'activate'])->middleware('permission:teachers.write');
+    Route::post('/{workplace}/deactivate', [App\Http\Controllers\TeacherWorkplaceController::class, 'deactivate'])->middleware('permission:teachers.write');
 });
 
 // Class Management Routes (Legacy - for backward compatibility)

@@ -29,9 +29,11 @@ interface UserModalProps {
   onClose: () => void;
   user?: User | null;
   onSave: (user: any) => Promise<void>;
+  defaultRole?: string; // Default role name to preselect (e.g., 'müəllim', 'tələbə')
+  mode?: 'teacher' | 'student' | 'general'; // Modal mode for specialized contexts
 }
 
-export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
+export function UserModal({ open, onClose, user, onSave, defaultRole, mode }: UserModalProps) {
   
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -102,6 +104,22 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
       currentRoleRef.current = '';
     }
   }, [open, loadOptions]);
+
+  // Set default role when modal opens (for teacher/student specific modals)
+  useEffect(() => {
+    if (open && defaultRole && availableRoles.length > 0 && !user) {
+      // Find the role by name
+      const roleToSelect = availableRoles.find(r =>
+        r.name.toLowerCase() === defaultRole.toLowerCase() ||
+        r.display_name.toLowerCase().includes(defaultRole.toLowerCase())
+      );
+
+      if (roleToSelect) {
+        console.log('🎯 Setting default role:', roleToSelect.name, 'for mode:', mode);
+        setSelectedRole(roleToSelect.id.toString());
+      }
+    }
+  }, [open, defaultRole, mode, availableRoles, user]);
 
   // Load institutions or departments when selected role changes
   useEffect(() => {
@@ -333,21 +351,43 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
 
   // Memoized Teacher Professional Fields
   const getTeacherFields = useCallback(() => [
+    // Position and Employment
+    teacherFields.positionType,
+    teacherFields.employmentStatus,
+    createField('primary_institution_id', 'Əsas iş yeri', 'select', {
+      options: availableInstitutions
+        .filter((inst: any) => inst.level && inst.level >= 3)
+        .map((inst: any) => ({
+          label: inst.name,
+          value: inst.id.toString()
+        })),
+      placeholder: 'Əsas iş yerini seçin',
+      description: 'Müəllimin əsas işlədiyi müəssisə',
+    }),
+    teacherFields.contractStartDate,
+    teacherFields.contractEndDate,
+
+    // Professional Info
     createField('subjects', 'Dərs verdiyi fənlər', 'multiselect', {
       options: subjects || [],
       placeholder: 'Fənləri seçin',
       description: 'Müəllimin dərs verə biləcəyi fənlər',
     }),
     teacherFields.specialty,
+    teacherFields.specialtyScore,
     teacherFields.experienceYears,
+
+    // MIQ and Certification
     teacherFields.miqScore,
     teacherFields.certificationScore,
     teacherFields.lastCertificationDate,
+
+    // Education
     teacherFields.degreeLevel,
     teacherFields.graduationUniversity,
     teacherFields.graduationYear,
     teacherFields.universityGpa,
-  ], [subjects]);
+  ], [subjects, availableInstitutions]);
 
   // Memoized Student Academic Fields - Using modalFieldConfig
   const getStudentFields = useCallback(() => [
@@ -377,18 +417,18 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
     teacher: {
       fields: () => getTeacherFields(),
       condition: () => selectedRole && isTeacherRole(selectedRole),
-      includeBasic: true,
+      includeBasic: false, // Don't duplicate basic fields - user fills them in Basic tab
       dependencies: [subjects]
     },
     student: {
       fields: () => getStudentFields(),
       condition: () => selectedRole && isStudentRole(selectedRole),
-      includeBasic: true,
+      includeBasic: false, // Don't duplicate basic fields - user fills them in Basic tab
       dependencies: []
     },
     additional: {
       fields: () => getAdditionalFields(),
-      includeBasic: true,
+      includeBasic: false, // Don't duplicate basic fields - user fills them in Basic tab
       dependencies: []
     }
   }), [selectedRole, availableRoles, availableInstitutions, availableDepartments, subjects, loadingOptions, selectedBirthDate, emailValidation, getBasicFields, getTeacherFields, getStudentFields, getAdditionalFields, isTeacherRole, isStudentRole]);
@@ -787,7 +827,14 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserIcon className="h-5 w-5" />
-            {user ? 'İstifadəçi məlumatlarını redaktə et' : 'Yeni istifadəçi əlavə et'}
+            {user
+              ? (mode === 'teacher' ? 'Müəllim məlumatlarını redaktə et' :
+                 mode === 'student' ? 'Şagird məlumatlarını redaktə et' :
+                 'İstifadəçi məlumatlarını redaktə et')
+              : (mode === 'teacher' ? 'Yeni müəllim əlavə et' :
+                 mode === 'student' ? 'Yeni şagird əlavə et' :
+                 'Yeni istifadəçi əlavə et')
+            }
             {user && user.utis_code && (
               <Badge variant="outline" className="ml-2">
                 UTIS: {user.utis_code}
@@ -795,9 +842,13 @@ export function UserModal({ open, onClose, user, onSave }: UserModalProps) {
             )}
           </DialogTitle>
           <DialogDescription id="user-modal-description" className="text-muted-foreground">
-            {user 
-              ? 'Mövcud istifadəçinin məlumatlarını dəyişdirin və yadda saxlayın.'
-              : 'Yeni istifadəçinin məlumatlarını daxil edin və əlavə edin.'
+            {user
+              ? (mode === 'teacher' ? 'Mövcud müəllimin məlumatlarını dəyişdirin və yadda saxlayın.' :
+                 mode === 'student' ? 'Mövcud şagirdin məlumatlarını dəyişdirin və yadda saxlayın.' :
+                 'Mövcud istifadəçinin məlumatlarını dəyişdirin və yadda saxlayın.')
+              : (mode === 'teacher' ? 'Yeni müəllimin məlumatlarını daxil edin və əlavə edin.' :
+                 mode === 'student' ? 'Yeni şagirdin məlumatlarını daxil edin və əlavə edin.' :
+                 'Yeni istifadəçinin məlumatlarını daxil edin və əlavə edin.')
             }
           </DialogDescription>
         </DialogHeader>

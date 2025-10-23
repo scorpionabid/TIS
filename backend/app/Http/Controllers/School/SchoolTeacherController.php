@@ -199,6 +199,24 @@ class SchoolTeacherController extends Controller
                 'profile.subjects' => 'nullable|array',
                 'profile.salary' => 'nullable|numeric|min:0',
                 'profile.notes' => 'nullable|string',
+
+                // New teacher fields
+                'profile.position_type' => 'nullable|string|in:direktor,direktor_muavini_tedris,direktor_muavini_inzibati,terbiye_isi_uzre_direktor_muavini,metodik_birlesme_rəhbəri,muəllim_sinif_rəhbəri,muəllim,psixoloq,kitabxanaçı,laborant,tibb_işçisi,təsərrüfat_işçisi',
+                'profile.employment_status' => 'nullable|string|in:full_time,part_time,contract,temporary,substitute',
+                'profile.primary_institution_id' => 'nullable|exists:institutions,id',
+                'profile.contract_start_date' => 'nullable|date',
+                'profile.contract_end_date' => 'nullable|date|after:profile.contract_start_date',
+                'profile.specialty_score' => 'nullable|numeric|min:0|max:100',
+                'profile.has_additional_workplaces' => 'nullable|boolean',
+
+                // Professional development fields
+                'profile.specialty' => 'nullable|string|max:255',
+                'profile.specialty_level' => 'nullable|string|in:bakalavr,magistr,doktorantura,elmi_ishci',
+                'profile.experience_years' => 'nullable|integer|min:0',
+                'profile.miq_score' => 'nullable|numeric|min:0|max:100',
+                'profile.certification_score' => 'nullable|numeric|min:0|max:100',
+                'profile.performance_rating' => 'nullable|numeric|min:0|max:5',
+                'profile.last_evaluation_date' => 'nullable|date',
             ]);
 
             // Verify department belongs to the school if provided
@@ -206,10 +224,15 @@ class SchoolTeacherController extends Controller
                 $department = Department::where('id', $request->department_id)
                     ->where('institution_id', $school->id)
                     ->first();
-                
+
                 if (!$department) {
                     return response()->json(['error' => 'Şöbə sizin məktəbə aid deyil'], 400);
                 }
+            }
+
+            // Verify primary_institution_id matches school if provided
+            if ($request->has('profile.primary_institution_id') && $request->input('profile.primary_institution_id') != $school->id) {
+                return response()->json(['error' => 'Əsas iş yeri sizin məktəb olmalıdır'], 400);
             }
 
             // Create user
@@ -299,6 +322,18 @@ class SchoolTeacherController extends Controller
                 'profile.subjects' => 'nullable|array',
                 'profile.salary' => 'nullable|numeric|min:0',
                 'profile.notes' => 'nullable|string',
+                // New teacher fields
+                'profile.position_type' => 'nullable|string|in:direktor,direktor_muavini_tedris,direktor_muavini_inzibati,terbiye_isi_uzre_direktor_muavini,metodik_birlesme_rəhbəri,muəllim_sinif_rəhbəri,muəllim,psixoloq,kitabxanaçı,laborant,tibb_işçisi,təsərrüfat_işçisi',
+                'profile.employment_status' => 'nullable|string|in:full_time,part_time,contract,temporary,substitute',
+                'profile.primary_institution_id' => 'nullable|exists:institutions,id',
+                'profile.contract_start_date' => 'nullable|date',
+                'profile.contract_end_date' => 'nullable|date|after:profile.contract_start_date',
+                'profile.specialty_score' => 'nullable|numeric|min:0|max:100',
+                'profile.specialty' => 'nullable|string|max:255',
+                'profile.experience_years' => 'nullable|integer|min:0|max:50',
+                'profile.miq_score' => 'nullable|numeric|min:0|max:999.99',
+                'profile.certification_score' => 'nullable|numeric|min:0|max:999.99',
+                'profile.last_certification_date' => 'nullable|date',
             ]);
 
             // Verify department belongs to the school if provided
@@ -364,6 +399,51 @@ class SchoolTeacherController extends Controller
     }
 
     /**
+     * Delete a teacher (REST destroy method)
+     */
+    public function destroy(Request $request, int $teacherId): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $school = $user->institution;
+
+            if (!$school && !$user->hasRole('superadmin')) {
+                return response()->json(['error' => 'İcazə yoxdur'], 403);
+            }
+
+            // Find teacher
+            $query = User::where('id', $teacherId)
+                ->whereHas('roles', function ($query) {
+                    $query->whereIn('name', ['müəllim', 'muavin', 'ubr', 'psixoloq', 'tesarrufat']);
+                });
+
+            // SchoolAdmin can only delete from their institution
+            if (!$user->hasRole('superadmin')) {
+                $query->where('institution_id', $school->id);
+            }
+
+            $teacher = $query->firstOrFail();
+
+            // Soft delete the teacher
+            $teacher->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Müəllim uğurla silindi'
+            ]);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'error' => 'Müəllim tapılmadı və ya sizə aid deyil'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Müəllim silinərkən səhv baş verdi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Get available teachers for grade assignment
      */
     public function getAvailable(Request $request): JsonResponse
@@ -418,6 +498,192 @@ class SchoolTeacherController extends Controller
             return response()->json([
                 'success' => false,
                 'error' => 'Available teachers yüklənərkən səhv baş verdi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Export teachers to Excel/CSV
+     */
+    public function exportTeachers(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $school = $user->institution;
+
+            if (!$school && !$user->hasRole('superadmin')) {
+                return response()->json(['error' => 'İcazə yoxdur'], 403);
+            }
+
+            // Get teachers based on role
+            $query = User::with(['roles', 'profile', 'department'])
+                ->whereHas('roles', function ($query) {
+                    $query->whereIn('name', ['müəllim', 'muavin', 'ubr', 'psixoloq', 'tesarrufat']);
+                });
+
+            if (!$user->hasRole('superadmin')) {
+                $query->where('institution_id', $school->id);
+            }
+
+            $teachers = $query->get();
+
+            // Prepare export data
+            $exportData = $teachers->map(function ($teacher) {
+                $profile = $teacher->profile;
+                return [
+                    'ID' => $teacher->id,
+                    'Ad' => $profile->first_name ?? '',
+                    'Soyad' => $profile->last_name ?? '',
+                    'Email' => $teacher->email,
+                    'Rol' => $teacher->roles->first()?->display_name ?? '',
+                    'Vəzifə' => $profile->position_type ?? '',
+                    'İş Statusu' => $profile->employment_status ?? '',
+                    'Telefon' => $profile->contact_phone ?? '',
+                    'İxtisas' => $profile->specialty ?? '',
+                    'Təcrübə (il)' => $profile->experience_years ?? 0,
+                    'MİQ Balı' => $profile->miq_score ?? 0,
+                    'Sertifikasiya Balı' => $profile->certification_score ?? 0,
+                    'İşə Qəbul Tarixi' => $profile->hire_date ?? '',
+                    'Müqavilə Başlama' => $profile->contract_start_date ?? '',
+                    'Müqavilə Bitmə' => $profile->contract_end_date ?? '',
+                    'Status' => $teacher->is_active ? 'Aktiv' : 'Passiv',
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $exportData,
+                'count' => $exportData->count(),
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'İxrac zamanı səhv baş verdi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get export template
+     */
+    public function getImportTemplate(): JsonResponse
+    {
+        $template = [
+            [
+                'Ad' => 'Məsələn: Əli',
+                'Soyad' => 'Məsələn: Məmmədov',
+                'Email' => 'ali.mammadov@edu.gov.az',
+                'İstifadəçi Adı' => 'ali.mammadov',
+                'Şifrə' => 'Passw0rd!',
+                'Rol' => 'müəllim',
+                'Telefon' => '+994501234567',
+                'Vəzifə' => 'muəllim',
+                'İş Statusu' => 'full_time',
+                'İxtisas' => 'Riyaziyyat müəllimi',
+                'Təcrübə (il)' => '5',
+            ]
+        ];
+
+        return response()->json([
+            'success' => true,
+            'template' => $template,
+            'headers' => array_keys($template[0]),
+        ]);
+    }
+
+    /**
+     * Import teachers from Excel/CSV
+     */
+    public function importTeachers(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $school = $user->institution;
+
+            if (!$school && !$user->hasRole('superadmin')) {
+                return response()->json(['error' => 'İcazə yoxdur'], 403);
+            }
+
+            $request->validate([
+                'teachers' => 'required|array',
+                'teachers.*.first_name' => 'required|string|max:100',
+                'teachers.*.last_name' => 'required|string|max:100',
+                'teachers.*.email' => 'required|email|unique:users,email',
+                'teachers.*.username' => 'required|string|unique:users,username',
+                'teachers.*.password' => 'required|string|min:8',
+                'teachers.*.role' => 'required|string|in:müəllim,muavin,ubr,psixoloq,tesarrufat',
+            ]);
+
+            $imported = 0;
+            $errors = [];
+
+            foreach ($request->teachers as $index => $teacherData) {
+                try {
+                    // Create user
+                    $teacher = User::create([
+                        'name' => $teacherData['first_name'] . ' ' . $teacherData['last_name'],
+                        'email' => $teacherData['email'],
+                        'username' => $teacherData['username'],
+                        'password' => Hash::make($teacherData['password']),
+                        'institution_id' => $school->id,
+                        'is_active' => true,
+                        'email_verified_at' => now(),
+                    ]);
+
+                    // Assign role
+                    $role = Role::where('name', $teacherData['role'])->first();
+                    if ($role) {
+                        $teacher->assignRole($role);
+                    }
+
+                    // Create profile
+                    $profileData = [
+                        'user_id' => $teacher->id,
+                        'first_name' => $teacherData['first_name'],
+                        'last_name' => $teacherData['last_name'],
+                    ];
+
+                    // Add optional fields
+                    if (isset($teacherData['contact_phone'])) {
+                        $profileData['contact_phone'] = $teacherData['contact_phone'];
+                    }
+                    if (isset($teacherData['position_type'])) {
+                        $profileData['position_type'] = $teacherData['position_type'];
+                    }
+                    if (isset($teacherData['employment_status'])) {
+                        $profileData['employment_status'] = $teacherData['employment_status'];
+                    }
+                    if (isset($teacherData['specialty'])) {
+                        $profileData['specialty'] = $teacherData['specialty'];
+                    }
+                    if (isset($teacherData['experience_years'])) {
+                        $profileData['experience_years'] = $teacherData['experience_years'];
+                    }
+
+                    UserProfile::create($profileData);
+
+                    $imported++;
+
+                } catch (\Exception $e) {
+                    $errors[] = "Sətir " . ($index + 1) . ": " . $e->getMessage();
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "$imported müəllim uğurla idxal edildi",
+                'imported' => $imported,
+                'errors' => $errors,
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'error' => 'Validasiya xətası',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'İdxal zamanı səhv baş verdi: ' . $e->getMessage()
             ], 500);
         }
     }

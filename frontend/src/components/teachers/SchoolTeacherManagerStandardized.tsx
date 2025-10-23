@@ -300,6 +300,8 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
         }}
         onSave={handleUserSave}
         user={editingUser}
+        mode="teacher"
+        defaultRole="müəllim"
       />
 
       <TeacherDetailsDialog

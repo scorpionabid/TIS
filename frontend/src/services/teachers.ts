@@ -1,5 +1,6 @@
 import { apiClient } from './api';
 import { schoolAdminService, SchoolTeacher, ImportResult } from './schoolAdmin';
+import { TeacherWorkplace, WorkplaceFormData } from '@/types/teacher';
 
 export type Teacher = SchoolTeacher;
 
@@ -191,6 +192,96 @@ class TeacherService {
    */
   async deleteTeacher(id: number): Promise<void> {
     return schoolAdminService.deleteTeacher(id);
+  }
+
+  // ==================== WORKPLACE MANAGEMENT ====================
+
+  /**
+   * Get all workplaces for a teacher
+   */
+  async getTeacherWorkplaces(teacherId: number): Promise<TeacherWorkplace[]> {
+    try {
+      const response = await apiClient.get(`${this.baseURL}/${teacherId}/workplaces`);
+      return response.data?.data || response.data || [];
+    } catch (error) {
+      console.error('Error fetching teacher workplaces:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get a specific workplace
+   */
+  async getWorkplace(workplaceId: number): Promise<TeacherWorkplace> {
+    try {
+      const response = await apiClient.get(`/teacher-workplaces/${workplaceId}`);
+      return response.data?.data || response.data;
+    } catch (error) {
+      console.error('Error fetching workplace:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a new workplace for a teacher
+   */
+  async createWorkplace(teacherId: number, data: WorkplaceFormData): Promise<TeacherWorkplace> {
+    try {
+      const response = await apiClient.post(`${this.baseURL}/${teacherId}/workplaces`, data);
+      return response.data?.data || response.data;
+    } catch (error) {
+      console.error('Error creating workplace:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update a workplace
+   */
+  async updateWorkplace(workplaceId: number, data: Partial<WorkplaceFormData>): Promise<TeacherWorkplace> {
+    try {
+      const response = await apiClient.put(`/teacher-workplaces/${workplaceId}`, data);
+      return response.data?.data || response.data;
+    } catch (error) {
+      console.error('Error updating workplace:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a workplace
+   */
+  async deleteWorkplace(workplaceId: number): Promise<void> {
+    try {
+      await apiClient.delete(`/teacher-workplaces/${workplaceId}`);
+    } catch (error) {
+      console.error('Error deleting workplace:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Activate a workplace
+   */
+  async activateWorkplace(workplaceId: number): Promise<void> {
+    try {
+      await apiClient.post(`/teacher-workplaces/${workplaceId}/activate`);
+    } catch (error) {
+      console.error('Error activating workplace:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Deactivate a workplace
+   */
+  async deactivateWorkplace(workplaceId: number): Promise<void> {
+    try {
+      await apiClient.post(`/teacher-workplaces/${workplaceId}/deactivate`);
+    } catch (error) {
+      console.error('Error deactivating workplace:', error);
+      throw error;
+    }
   }
 }
 

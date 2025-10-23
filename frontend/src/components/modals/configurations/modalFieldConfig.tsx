@@ -323,11 +323,66 @@ export const emergencyContactFields = {
 
 // Teacher professional fields
 export const teacherFields = {
+  // Position and employment
+  positionType: createField('position_type', 'Vəzifə', 'select', {
+    options: [
+      { label: 'Direktor', value: 'direktor' },
+      { label: 'Direktor müavini (Təhsil)', value: 'direktor_muavini_tedris' },
+      { label: 'Direktor müavini (İnzibati)', value: 'direktor_muavini_inzibati' },
+      { label: 'Tərbiyə işi üzrə direktor müavini', value: 'terbiye_isi_uzre_direktor_muavini' },
+      { label: 'Metodik birləşmə rəhbəri', value: 'metodik_birlesme_rəhbəri' },
+      { label: 'Müəllim (Sinif rəhbəri)', value: 'muəllim_sinif_rəhbəri' },
+      { label: 'Müəllim', value: 'muəllim' },
+      { label: 'Psixoloq', value: 'psixoloq' },
+      { label: 'Kitabxanaçı', value: 'kitabxanaçı' },
+      { label: 'Laborant', value: 'laborant' },
+      { label: 'Tibb işçisi', value: 'tibb_işçisi' },
+      { label: 'Təsərrüfat işçisi', value: 'təsərrüfat_işçisi' },
+    ],
+    placeholder: 'Vəzifəni seçin',
+    description: 'Müəllimin vəzifə növü',
+  }),
+
+  employmentStatus: createField('employment_status', 'İşçi statusu', 'select', {
+    options: [
+      { label: 'Tam ştat', value: 'full_time' },
+      { label: 'Yarım ştat', value: 'part_time' },
+      { label: 'Müqavilə', value: 'contract' },
+      { label: 'Müvəqqəti', value: 'temporary' },
+      { label: 'Əvəzedici', value: 'substitute' },
+    ],
+    placeholder: 'Statusu seçin',
+    description: 'İşçi statusu',
+  }),
+
+  primaryInstitutionId: createField('primary_institution_id', 'Əsas iş yeri', 'select', {
+    options: [], // Will be populated dynamically
+    placeholder: 'Əsas iş yerini seçin',
+    description: 'Müəllimin əsas işlədiyi müəssisə',
+  }),
+
+  contractStartDate: createField('contract_start_date', 'Müqavilə başlama tarixi', 'date', {
+    description: 'Müqavilənin qüvvəyə minmə tarixi',
+  }),
+
+  contractEndDate: createField('contract_end_date', 'Müqavilə bitmə tarixi', 'date', {
+    description: 'Müqavilənin bitmə tarixi',
+  }),
+
+  // Professional info
   specialty: createField('specialty', 'İxtisas', 'text', {
     placeholder: 'Məsələn: Riyaziyyat müəllimi',
     description: 'Müəllimin peşə ixtisası',
   }),
-  
+
+  specialtyScore: createField('specialty_score', 'İxtisas balı', 'number', {
+    placeholder: '0.00',
+    min: 0,
+    max: 100,
+    step: 0.01,
+    description: 'İxtisas üzrə qiymətləndirmə balı (0-100)',
+  }),
+
   experienceYears: createField('experience_years', 'İş təcrübəsi (il)', 'number', {
     placeholder: '0',
     min: 0,

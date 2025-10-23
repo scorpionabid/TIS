@@ -82,6 +82,53 @@ const columns: ColumnConfig<SchoolTeacher>[] = [
     render: (teacher) => teacher.department || 'Təyin edilməyib',
   },
   {
+    key: 'position_type',
+    label: 'Vəzifə',
+    render: (teacher) => {
+      const positionLabels: Record<string, string> = {
+        'direktor': 'Direktor',
+        'direktor_muavini_tedris': 'Direktor Müavini (Tədris)',
+        'direktor_muavini_inzibati': 'Direktor Müavini (İnzibati)',
+        'terbiye_isi_uzre_direktor_muavini': 'Direktor Müavini (Tərbiyə)',
+        'metodik_birlesme_rəhbəri': 'Metodik Birləşmə Rəhbəri',
+        'muəllim_sinif_rəhbəri': 'Müəllim-Sinif Rəhbəri',
+        'muəllim': 'Müəllim',
+        'psixoloq': 'Psixoloq',
+        'kitabxanaçı': 'Kitabxanaçı',
+        'laborant': 'Laborant',
+        'tibb_işçisi': 'Tibb İşçisi',
+        'təsərrüfat_işçisi': 'Təsərrüfat İşçisi',
+      };
+      return teacher.position_type ? positionLabels[teacher.position_type] || teacher.position_type : 'Təyin edilməyib';
+    },
+  },
+  {
+    key: 'employment_status',
+    label: 'İş Statusu',
+    render: (teacher) => {
+      const statusLabels: Record<string, string> = {
+        'full_time': 'Tam Ştat',
+        'part_time': 'Yarım Ştat',
+        'contract': 'Müqavilə',
+        'temporary': 'Müvəqqəti',
+        'substitute': 'Əvəzedici',
+      };
+      const statusColors: Record<string, string> = {
+        'full_time': 'bg-blue-100 text-blue-800',
+        'part_time': 'bg-yellow-100 text-yellow-800',
+        'contract': 'bg-purple-100 text-purple-800',
+        'temporary': 'bg-orange-100 text-orange-800',
+        'substitute': 'bg-gray-100 text-gray-800',
+      };
+      if (!teacher.employment_status) return 'Təyin edilməyib';
+      return (
+        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[teacher.employment_status]}`}>
+          {statusLabels[teacher.employment_status]}
+        </span>
+      );
+    },
+  },
+  {
     key: 'subjects',
     label: 'Fənlər',
     render: (teacher) => {
@@ -96,8 +143,8 @@ const columns: ColumnConfig<SchoolTeacher>[] = [
     label: 'Status',
     render: (teacher) => (
       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-        teacher.is_active 
-          ? 'bg-green-100 text-green-800' 
+        teacher.is_active
+          ? 'bg-green-100 text-green-800'
           : 'bg-red-100 text-red-800'
       }`}>
         {teacher.is_active ? 'Aktiv' : 'Passiv'}
@@ -171,13 +218,34 @@ const filterFields: FilterFieldConfig[] = [
     ],
   },
   {
-    key: 'employment_type',
-    label: 'İş Növü',
+    key: 'position_type',
+    label: 'Vəzifə',
+    type: 'select',
+    options: [
+      { value: 'direktor', label: 'Direktor' },
+      { value: 'direktor_muavini_tedris', label: 'Direktor Müavini (Tədris)' },
+      { value: 'direktor_muavini_inzibati', label: 'Direktor Müavini (İnzibati)' },
+      { value: 'terbiye_isi_uzre_direktor_muavini', label: 'Direktor Müavini (Tərbiyə)' },
+      { value: 'metodik_birlesme_rəhbəri', label: 'Metodik Birləşmə Rəhbəri' },
+      { value: 'muəllim_sinif_rəhbəri', label: 'Müəllim-Sinif Rəhbəri' },
+      { value: 'muəllim', label: 'Müəllim' },
+      { value: 'psixoloq', label: 'Psixoloq' },
+      { value: 'kitabxanaçı', label: 'Kitabxanaçı' },
+      { value: 'laborant', label: 'Laborant' },
+      { value: 'tibb_işçisi', label: 'Tibb İşçisi' },
+      { value: 'təsərrüfat_işçisi', label: 'Təsərrüfat İşçisi' },
+    ],
+  },
+  {
+    key: 'employment_status',
+    label: 'İş Statusu',
     type: 'select',
     options: [
       { value: 'full_time', label: 'Tam Ştat' },
       { value: 'part_time', label: 'Yarım Ştat' },
       { value: 'contract', label: 'Müqavilə' },
+      { value: 'temporary', label: 'Müvəqqəti' },
+      { value: 'substitute', label: 'Əvəzedici' },
     ],
   },
   {
@@ -197,9 +265,10 @@ const calculateTeacherStats = (teachers: SchoolTeacher[]): StatsConfig[] => {
   const total = teachers.length;
   const active = teachers.filter(t => t.is_active === true).length;
   const inactive = teachers.filter(t => t.is_active === false).length;
-  const fullTime = teachers.filter(t => t.position?.includes('full') || !t.position).length;
-  const partTime = teachers.filter(t => t.position?.includes('part')).length;
-  const needsAssignment = teachers.filter(t => !t.department || t.department === '').length;
+  const fullTime = teachers.filter(t => t.employment_status === 'full_time').length;
+  const partTime = teachers.filter(t => t.employment_status === 'part_time').length;
+  const contract = teachers.filter(t => t.employment_status === 'contract').length;
+  const needsAssignment = teachers.filter(t => !t.position_type || !t.employment_status).length;
 
   return [
     {
@@ -238,11 +307,18 @@ const calculateTeacherStats = (teachers: SchoolTeacher[]): StatsConfig[] => {
       color: 'yellow',
     },
     {
+      key: 'contract',
+      label: 'Müqavilə',
+      value: contract,
+      icon: UserCheck,
+      color: 'purple',
+    },
+    {
       key: 'needs_assignment',
       label: 'Təyinat Lazım',
       value: needsAssignment,
       icon: UserCheck,
-      color: 'purple',
+      color: 'orange',
     },
   ];
 };

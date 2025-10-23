@@ -126,16 +126,23 @@ export function GenericManagerV2<
 
           {/* Create Button */}
           {features.create !== false && (
-            <Button 
+            <Button
               onClick={() => {
                 console.log('🚀 GenericManagerV2 Create button clicked:', {
                   entityType: config.entityType,
                   entityName: config.entityName,
-                  currentCreateModalOpen: manager.createModalOpen
+                  hasCustomOnCreateClick: !!customLogic?.onCreateClick
                 });
-                manager.setEditingEntity(null);
-                manager.setCreateModalOpen(true);
-                console.log('✅ GenericManagerV2 Create modal should be open now:', true);
+
+                // Use custom create handler if provided
+                if (customLogic?.onCreateClick) {
+                  customLogic.onCreateClick();
+                } else {
+                  manager.setEditingEntity(null);
+                  manager.setCreateModalOpen(true);
+                }
+
+                console.log('✅ GenericManagerV2 Create handler executed');
               }}
             >
               <Plus className="h-4 w-4 mr-2" />

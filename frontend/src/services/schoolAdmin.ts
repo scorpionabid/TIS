@@ -180,6 +180,26 @@ export interface SchoolTeacher extends BaseEntity {
   classes?: number[];
   workload_hours?: number;
   performance_rating?: number;
+
+  // New teacher fields from teacher management improvement
+  position_type?: 'direktor' | 'direktor_muavini_tedris' | 'direktor_muavini_inzibati' |
+                  'terbiye_isi_uzre_direktor_muavini' | 'metodik_birlesme_rəhbəri' |
+                  'muəllim_sinif_rəhbəri' | 'muəllim' | 'psixoloq' | 'kitabxanaçı' |
+                  'laborant' | 'tibb_işçisi' | 'təsərrüfat_işçisi';
+  employment_status?: 'full_time' | 'part_time' | 'contract' | 'temporary' | 'substitute';
+  primary_institution_id?: number;
+  contract_start_date?: string;
+  contract_end_date?: string;
+  specialty_score?: number;
+  has_additional_workplaces?: boolean;
+
+  // Professional development
+  specialty?: string;
+  specialty_level?: 'bakalavr' | 'magistr' | 'doktorantura' | 'elmi_ishci';
+  experience_years?: number;
+  miq_score?: number;
+  certification_score?: number;
+  last_evaluation_date?: string;
 }
 
 // Attendance interfaces
@@ -517,15 +537,20 @@ class SchoolAdminService {
     return response.data || response as any;
   }
 
-  async importTeachers(file: File): Promise<ImportResult> {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    const response = await apiClient.post<ImportResult>(`${this.baseEndpoint}/import/teachers`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+  async importTeachers(data: any[]): Promise<ImportResult> {
+    const response = await apiClient.post<ImportResult>('/teachers/import', {
+      teachers: data
     });
+    return response.data || response as any;
+  }
+
+  async exportTeachers(): Promise<any> {
+    const response = await apiClient.get('/teachers/export');
+    return response.data || response as any;
+  }
+
+  async getTeacherImportTemplate(): Promise<any> {
+    const response = await apiClient.get('/teachers/import/template');
     return response.data || response as any;
   }
 

@@ -207,6 +207,42 @@ class TeacherEvaluation extends Model
     }
 
     /**
+     * Scope for certification evaluations (for improvement plan compatibility)
+     */
+    public function scopeCertificationType($query)
+    {
+        return $query->where('evaluation_type', 'certification')
+                    ->orWhere('evaluation_type', 'promotion');
+    }
+
+    /**
+     * Scope for diagnostic evaluations
+     */
+    public function scopeDiagnosticType($query)
+    {
+        return $query->where('evaluation_type', 'probationary')
+                    ->orWhere('evaluation_type', 'performance_improvement');
+    }
+
+    /**
+     * Scope for MIQ 60-related evaluations
+     */
+    public function scopeMiq60Type($query)
+    {
+        return $query->where('evaluation_type', 'mid_year')
+                    ->orWhere('certification_status', 'miq_60');
+    }
+
+    /**
+     * Scope for MIQ 100-related evaluations
+     */
+    public function scopeMiq100Type($query)
+    {
+        return $query->where('evaluation_type', 'annual')
+                    ->orWhere('certification_status', 'miq_100');
+    }
+
+    /**
      * Accessors & Mutators
      */
     public function getEvaluationTypeLabelAttribute(): string

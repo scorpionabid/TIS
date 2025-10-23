@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { 
-  Users, 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Users,
   GraduationCap,
   Calendar,
   Phone,
@@ -16,9 +17,14 @@ import {
   Clock,
   Award,
   Briefcase,
-  Building
+  Building,
+  Plus
 } from 'lucide-react';
 import { SchoolTeacher } from '@/services/schoolAdmin';
+import { useQuery } from '@tanstack/react-query';
+import { teacherService } from '@/services/teachers';
+import { WorkplaceManagementModal } from '@/components/modals/WorkplaceManagementModal';
+import { TeacherWorkplace, WORKPLACE_PRIORITY_LABELS } from '@/types/teacher';
 import { format } from 'date-fns';
 import { az } from 'date-fns/locale';
 
@@ -43,17 +49,51 @@ export const TeacherDetailsDialog: React.FC<TeacherDetailsDialogProps> = ({
   getPerformanceColor,
   getWorkloadColor
 }) => {
+  const [workplaceModalOpen, setWorkplaceModalOpen] = useState(false);
+  const [selectedWorkplace, setSelectedWorkplace] = useState<TeacherWorkplace | null>(null);
+
+  // Load teacher workplaces
+  const { data: workplaces, refetch: refetchWorkplaces } = useQuery({
+    queryKey: ['teacher', teacher?.id, 'workplaces'],
+    queryFn: () => teacherService.getTeacherWorkplaces(teacher!.id),
+    enabled: isOpen && !!teacher,
+  });
+
   if (!teacher) return null;
 
+  const handleAddWorkplace = () => {
+    setSelectedWorkplace(null);
+    setWorkplaceModalOpen(true);
+  };
+
+  const handleEditWorkplace = (workplace: TeacherWorkplace) => {
+    setSelectedWorkplace(workplace);
+    setWorkplaceModalOpen(true);
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl">
-        <DialogHeader>
-          <DialogTitle>
-            {teacher.first_name} {teacher.last_name} - Ətraflı məlumat
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-6">
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>
+              {teacher.first_name} {teacher.last_name} - Ətraflı məlumat
+            </DialogTitle>
+          </DialogHeader>
+
+          <Tabs defaultValue="general" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="general">
+                <Users className="h-4 w-4 mr-2" />
+                Ümumi məlumat
+              </TabsTrigger>
+              <TabsTrigger value="workplaces">
+                <Building className="h-4 w-4 mr-2" />
+                İş yerləri ({workplaces?.length || 0})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="general" className="space-y-6 overflow-y-auto max-h-[calc(90vh-200px)]">
           {/* Basic Info */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -265,8 +305,136 @@ export const TeacherDetailsDialog: React.FC<TeacherDetailsDialogProps> = ({
               Redaktə et
             </Button>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+            </TabsContent>
+
+            {/* Workplaces Tab */}
+            <TabsContent value="workplaces" className="space-y-4 overflow-y-auto max-h-[calc(90vh-200px)]">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">İş yerləri</h3>
+                <Button onClick={handleAddWorkplace} size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Yeni iş yeri
+                </Button>
+              </div>
+
+              {workplaces && workplaces.length > 0 ? (
+                <div className="space-y-3">
+                  {workplaces.map((workplace) => (
+                    <div
+                      key={workplace.id}
+                      className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h4 className="font-semibold flex items-center gap-2">
+                            <Building className="h-4 w-4" />
+                            {workplace.institution?.name}
+                          </h4>
+                          <div className="flex gap-2 mt-1">
+                            <Badge variant="outline">
+                              {WORKPLACE_PRIORITY_LABELS[workplace.workplace_priority]}
+                            </Badge>
+                            <Badge
+                              variant={workplace.status === 'active' ? 'default' : 'secondary'}
+                            >
+                              {workplace.status_label}
+                            </Badge>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditWorkplace(workplace)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Vəzifə:</span>
+                          <p className="font-medium">{workplace.position_type_label}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">İşçi növü:</span>
+                          <p className="font-medium">{workplace.employment_type_label}</p>
+                        </div>
+                        {workplace.weekly_hours && (
+                          <div>
+                            <span className="text-muted-foreground">Həftəlik saat:</span>
+                            <p className="font-medium">{workplace.weekly_hours} saat</p>
+                          </div>
+                        )}
+                        {workplace.formatted_subjects && (
+                          <div>
+                            <span className="text-muted-foreground">Fənlər:</span>
+                            <p className="font-medium">{workplace.formatted_subjects}</p>
+                          </div>
+                        )}
+                        {workplace.start_date && (
+                          <div>
+                            <span className="text-muted-foreground">Başlama:</span>
+                            <p className="font-medium">
+                              {format(new Date(workplace.start_date), 'dd MMM yyyy', {
+                                locale: az,
+                              })}
+                            </p>
+                          </div>
+                        )}
+                        {workplace.end_date && (
+                          <div>
+                            <span className="text-muted-foreground">Bitmə:</span>
+                            <p className="font-medium">
+                              {format(new Date(workplace.end_date), 'dd MMM yyyy', {
+                                locale: az,
+                              })}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {workplace.formatted_work_days && (
+                        <div className="mt-2 text-sm">
+                          <span className="text-muted-foreground">İş günləri:</span>
+                          <p className="mt-1">{workplace.formatted_work_days}</p>
+                        </div>
+                      )}
+
+                      {workplace.notes && (
+                        <div className="mt-2 text-sm">
+                          <span className="text-muted-foreground">Qeydlər:</span>
+                          <p className="mt-1 text-muted-foreground italic">{workplace.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Building className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>Hələ əlavə iş yeri yoxdur</p>
+                  <Button onClick={handleAddWorkplace} variant="outline" className="mt-4">
+                    <Plus className="h-4 w-4 mr-2" />
+                    İlk iş yerini əlavə et
+                  </Button>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* Workplace Management Modal */}
+      <WorkplaceManagementModal
+        open={workplaceModalOpen}
+        onClose={() => {
+          setWorkplaceModalOpen(false);
+          setSelectedWorkplace(null);
+        }}
+        teacherId={teacher.id}
+        workplace={selectedWorkplace}
+        onSuccess={refetchWorkplaces}
+      />
+    </>
   );
 };
