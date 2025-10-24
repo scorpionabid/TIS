@@ -6,6 +6,7 @@ use App\Http\Controllers\RegionAdmin\RegionAdminInstitutionController;
 use App\Http\Controllers\RegionAdmin\RegionAdminUserController;
 use App\Http\Controllers\RegionAdmin\RegionAdminReportsController;
 use App\Http\Controllers\RegionAdmin\RegionAdminTaskController;
+use App\Http\Controllers\RegionAdmin\RegionTeacherController;
 use App\Http\Controllers\SurveyController;
 use App\Http\Controllers\RegionOperator\RegionOperatorDashboardController;
 use App\Http\Controllers\SektorAdmin\SektorAdminDashboardController;
@@ -105,6 +106,16 @@ Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|supera
     Route::delete('tasks/{task}', [RegionAdminTaskController::class, 'deleteTask']);
     Route::get('tasks/{task}/progress', [RegionAdminTaskController::class, 'getTaskProgress']);
     Route::post('tasks/{task}/assign', [RegionAdminTaskController::class, 'assignTask']);
+
+    // Teacher management endpoints (RegionAdmin multi-institution view)
+    Route::get('teachers', [RegionTeacherController::class, 'index']);
+    Route::post('teachers/bulk-update-status', [RegionTeacherController::class, 'bulkUpdateStatus']);
+    Route::post('teachers/bulk-delete', [RegionTeacherController::class, 'bulkDelete']);
+    Route::get('teachers/export', [RegionTeacherController::class, 'export']);
+
+    // Helper endpoints for teacher filters
+    Route::get('teachers/sectors', [RegionTeacherController::class, 'getSectors']);
+    Route::get('teachers/schools', [RegionTeacherController::class, 'getSchools']);
 });
 
 // RegionOperator Dashboard Routes

@@ -1,0 +1,227 @@
+/**
+ * useRegionTeacherManager Hook
+ * Manages state and operations for RegionAdmin teacher management
+ */
+
+import { useState, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import {
+  regionAdminTeacherService,
+  type RegionTeacherFilters,
+  type RegionTeacherStatistics,
+  type Institution,
+} from '@/services/regionAdminTeachers';
+import type { EnhancedTeacherProfile } from '@/types/teacher';
+import type { PaginationMeta } from '@/types/api';
+
+export const useRegionTeacherManager = () => {
+  const { user } = useAuthContext();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  // State
+  const [filters, setFilters] = useState<RegionTeacherFilters>({
+    page: 1,
+    per_page: 20,
+  });
+
+  const [selectedSectorIds, setSelectedSectorIds] = useState<number[]>([]);
+  const [selectedTeachers, setSelectedTeachers] = useState<EnhancedTeacherProfile[]>([]);
+
+  // Fetch sectors
+  const sectorsQuery = useQuery({
+    queryKey: ['regionadmin-sectors', user?.institution_id],
+    queryFn: () => regionAdminTeacherService.getSectors(),
+    enabled: !!user && user.role === 'regionadmin',
+    staleTime: 1000 * 60 * 10, // 10 minutes
+  });
+
+  // Fetch schools (dependent on selected sectors)
+  const schoolsQuery = useQuery({
+    queryKey: ['regionadmin-schools', selectedSectorIds],
+    queryFn: () => regionAdminTeacherService.getSchools(
+      selectedSectorIds.length > 0 ? selectedSectorIds : undefined
+    ),
+    enabled: !!user && user.role === 'regionadmin',
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  // Fetch teachers with filters
+  const teachersQuery = useQuery({
+    queryKey: ['regionadmin-teachers', filters],
+    queryFn: () => regionAdminTeacherService.getTeachers(filters),
+    enabled: !!user && user.role === 'regionadmin',
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+
+  // Bulk update status mutation
+  const bulkUpdateStatusMutation = useMutation({
+    mutationFn: ({ teacherIds, isActive }: { teacherIds: number[]; isActive: boolean }) =>
+      regionAdminTeacherService.bulkUpdateStatus(teacherIds, isActive),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['regionadmin-teachers'] });
+      toast({
+        title: 'Uğurlu',
+        description: data.message || 'Status yeniləndi',
+      });
+      setSelectedTeachers([]); // Clear selection
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Xəta',
+        description: error.message || 'Statusu yeniləyərkən xəta baş verdi',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Bulk delete mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (teacherIds: number[]) =>
+      regionAdminTeacherService.bulkDelete(teacherIds),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['regionadmin-teachers'] });
+      toast({
+        title: 'Uğurlu',
+        description: data.message || 'Müəllimlər silindi',
+      });
+      setSelectedTeachers([]); // Clear selection
+    },
+    onError: (error: any) {
+      toast({
+        title: 'Xəta',
+        description: error.message || 'Müəllimləri silərkən xəta baş verdi',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Export mutation
+  const exportMutation = useMutation({
+    mutationFn: () => regionAdminTeacherService.exportTeachers(filters),
+    onSuccess: (data) => {
+      // Convert data to CSV and download
+      const csvContent = convertToCSV(data);
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `muellimler_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: 'Uğurlu',
+        description: 'Məlumatlar export edildi',
+      });
+    },
+    onError: (error: any) {
+      toast({
+        title: 'Xəta',
+        description: error.message || 'Export zamanı xəta baş verdi',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Helper: Update filters
+  const updateFilters = useCallback((newFilters: Partial<RegionTeacherFilters>) => {
+    setFilters(prev => ({ ...prev, ...newFilters, page: 1 })); // Reset to page 1 on filter change
+  }, []);
+
+  // Helper: Update sector selection and reload schools
+  const updateSectorSelection = useCallback((sectorIds: number[]) => {
+    setSelectedSectorIds(sectorIds);
+    updateFilters({ sector_ids: sectorIds, school_ids: [] }); // Clear school filter when sector changes
+  }, [updateFilters]);
+
+  // Helper: Select/deselect teacher
+  const toggleTeacherSelection = useCallback((teacher: EnhancedTeacherProfile) => {
+    setSelectedTeachers(prev => {
+      const isSelected = prev.some(t => t.id === teacher.id);
+      if (isSelected) {
+        return prev.filter(t => t.id !== teacher.id);
+      } else {
+        return [...prev, teacher];
+      }
+    });
+  }, []);
+
+  // Helper: Select all/none
+  const toggleSelectAll = useCallback((checked: boolean) => {
+    if (checked && teachersQuery.data?.data) {
+      setSelectedTeachers(teachersQuery.data.data);
+    } else {
+      setSelectedTeachers([]);
+    }
+  }, [teachersQuery.data]);
+
+  // Helper: Clear selection
+  const clearSelection = useCallback(() => {
+    setSelectedTeachers([]);
+  }, []);
+
+  // Helper: Convert to CSV
+  const convertToCSV = (data: any[]): string => {
+    if (!data || data.length === 0) return '';
+
+    const headers = Object.keys(data[0]);
+    const csvRows = [
+      headers.join(','), // Header row
+      ...data.map(row =>
+        headers.map(header => {
+          const value = row[header];
+          // Escape values containing commas or quotes
+          if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+            return `"${value.replace(/"/g, '""')}"`;
+          }
+          return value ?? '';
+        }).join(',')
+      ),
+    ];
+
+    return csvRows.join('\n');
+  };
+
+  return {
+    // User
+    user,
+
+    // Data
+    sectors: sectorsQuery.data || [],
+    schools: schoolsQuery.data || [],
+    teachers: teachersQuery.data?.data || [],
+    statistics: teachersQuery.data?.statistics,
+    pagination: teachersQuery.data?.pagination,
+
+    // Loading states
+    isLoadingSectors: sectorsQuery.isLoading,
+    isLoadingSchools: schoolsQuery.isLoading,
+    isLoadingTeachers: teachersQuery.isLoading,
+    isError: teachersQuery.isError,
+
+    // Filters
+    filters,
+    updateFilters,
+    selectedSectorIds,
+    updateSectorSelection,
+
+    // Selection
+    selectedTeachers,
+    toggleTeacherSelection,
+    toggleSelectAll,
+    clearSelection,
+
+    // Actions
+    bulkUpdateStatus: bulkUpdateStatusMutation.mutate,
+    bulkDelete: bulkDeleteMutation.mutate,
+    exportTeachers: exportMutation.mutate,
+
+    // Action loading states
+    isUpdatingStatus: bulkUpdateStatusMutation.isPending,
+    isDeleting: bulkDeleteMutation.isPending,
+    isExporting: exportMutation.isPending,
+  };
+};
