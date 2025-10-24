@@ -3,7 +3,7 @@
  * Handles teacher operations across multiple institutions (sectors/schools)
  */
 
-import { BaseService } from './base';
+import { BaseService } from './BaseService';
 import type { PaginationParams, PaginationMeta } from '../types/api';
 import type { EnhancedTeacherProfile } from '../types/teacher';
 
@@ -54,12 +54,15 @@ export interface BulkOperationResponse {
 }
 
 class RegionAdminTeacherService extends BaseService {
+  constructor() {
+    super('/regionadmin/teachers');
+  }
   /**
    * Get all teachers in region with filters and statistics
    */
   async getTeachers(filters: RegionTeacherFilters): Promise<RegionTeacherResult> {
     try {
-      const response = await this.apiClient.get('/regionadmin/teachers', {
+      const response = await this.apiClient.get(this.baseUrl, {
         params: filters,
       });
 
@@ -86,7 +89,7 @@ class RegionAdminTeacherService extends BaseService {
     isActive: boolean
   ): Promise<BulkOperationResponse> {
     try {
-      const response = await this.apiClient.post('/regionadmin/teachers/bulk-update-status', {
+      const response = await this.apiClient.post(`${this.baseUrl}/bulk-update-status`, {
         teacher_ids: teacherIds,
         is_active: isActive,
       });
@@ -107,7 +110,7 @@ class RegionAdminTeacherService extends BaseService {
    */
   async bulkDelete(teacherIds: number[]): Promise<BulkOperationResponse> {
     try {
-      const response = await this.apiClient.post('/regionadmin/teachers/bulk-delete', {
+      const response = await this.apiClient.post(`${this.baseUrl}/bulk-delete`, {
         teacher_ids: teacherIds,
       });
 
@@ -127,7 +130,7 @@ class RegionAdminTeacherService extends BaseService {
    */
   async exportTeachers(filters: RegionTeacherFilters): Promise<any[]> {
     try {
-      const response = await this.apiClient.get('/regionadmin/teachers/export', {
+      const response = await this.apiClient.get(`${this.baseUrl}/export`, {
         params: filters,
       });
 
@@ -147,7 +150,7 @@ class RegionAdminTeacherService extends BaseService {
    */
   async getSectors(): Promise<Institution[]> {
     try {
-      const response = await this.apiClient.get('/regionadmin/teachers/sectors');
+      const response = await this.apiClient.get(`${this.baseUrl}/sectors`);
 
       if (!response.success) {
         throw new Error(response.message || 'Failed to fetch sectors');
@@ -165,7 +168,7 @@ class RegionAdminTeacherService extends BaseService {
    */
   async getSchools(sectorIds?: number[]): Promise<Institution[]> {
     try {
-      const response = await this.apiClient.get('/regionadmin/teachers/schools', {
+      const response = await this.apiClient.get(`${this.baseUrl}/schools`, {
         params: sectorIds && sectorIds.length > 0 ? { sector_ids: sectorIds } : {},
       });
 
