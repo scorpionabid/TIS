@@ -40,13 +40,17 @@ export function transformTeacherDataToBackend(formData: any) {
     contract_end_date: formData.contract_end_date || null,
 
     // Professional
-    subjects: formData.subjects || [],
+    subjects: formData.subjects || [], // Optional - managed in curriculum tab
     specialty: formData.specialty || '',
     specialty_score: formData.specialty_score ? parseFloat(formData.specialty_score) : null,
     specialty_level: formData.specialty_level || null,
     experience_years: formData.experience_years ? parseInt(formData.experience_years) : null,
 
-    // Certification
+    // Assessment fields (NEW - REQUIRED)
+    assessment_type: formData.assessment_type || null,
+    assessment_score: formData.assessment_score ? parseFloat(formData.assessment_score) : null,
+
+    // Certification (old - optional)
     miq_score: formData.miq_score ? parseFloat(formData.miq_score) : null,
     certification_score: formData.certification_score ? parseFloat(formData.certification_score) : null,
     last_certification_date: formData.last_certification_date || null,
@@ -116,7 +120,11 @@ export function transformBackendDataToForm(teacher: any | null): Record<string, 
     if (p.specialty_level) formValues.specialty_level = p.specialty_level;
     if (p.experience_years) formValues.experience_years = p.experience_years;
 
-    // Certification
+    // Assessment fields (NEW)
+    if (p.assessment_type) formValues.assessment_type = p.assessment_type;
+    if (p.assessment_score) formValues.assessment_score = p.assessment_score;
+
+    // Certification (old)
     if (p.miq_score) formValues.miq_score = p.miq_score;
     if (p.certification_score) formValues.certification_score = p.certification_score;
     if (p.last_certification_date) formValues.last_certification_date = p.last_certification_date;

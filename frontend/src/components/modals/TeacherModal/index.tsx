@@ -24,6 +24,7 @@ import {
   EMPLOYMENT_STATUS,
   WORKPLACE_TYPES,
   SPECIALTY_LEVELS,
+  ASSESSMENT_TYPES,
   GENDER_OPTIONS,
   IS_ACTIVE_OPTIONS,
   ERROR_MESSAGES,
@@ -105,7 +106,7 @@ export function TeacherModal({
     // === BASIC INFO ===
     { name: 'first_name', label: 'Ad', type: 'text', required: true },
     { name: 'last_name', label: 'Soyad', type: 'text', required: true },
-    { name: 'patronymic', label: 'Ata adı', type: 'text' },
+    { name: 'patronymic', label: 'Ata adı', type: 'text', required: true },
     { name: 'email', label: 'Email', type: 'email', required: true, onChange: checkEmailUnique },
     { name: 'username', label: 'İstifadəçi adı', type: 'text', required: true },
     { name: 'password', label: 'Şifrə', type: 'password', required: !teacher, placeholder: 'Minimum 8 simvol' },
@@ -116,20 +117,22 @@ export function TeacherModal({
     { name: 'national_id', label: 'Şəxsiyyət vəsiqəsi', type: 'text' },
 
     // === POSITION & EMPLOYMENT ===
-    { name: 'position_type', label: 'Vəzifə', type: 'select', options: POSITION_TYPES },
-    { name: 'employment_status', label: 'İş statusu', type: 'select', options: EMPLOYMENT_STATUS },
-    { name: 'workplace_type', label: 'İş yeri növü', type: 'select', options: WORKPLACE_TYPES, defaultValue: 'primary' },
+    { name: 'position_type', label: 'Vəzifə', type: 'select', options: POSITION_TYPES, required: true },
+    { name: 'workplace_type', label: 'İş yeri növü', type: 'select', options: WORKPLACE_TYPES, defaultValue: 'primary', required: true },
     { name: 'contract_start_date', label: 'Müqavilə başlanğıc tarixi', type: 'date' },
     { name: 'contract_end_date', label: 'Müqavilə bitmə tarixi', type: 'date' },
 
     // === PROFESSIONAL ===
-    { name: 'subjects', label: 'Dərs verdiyi fənlər', type: 'multiselect', options: subjects, required: true, defaultValue: [] },
-    { name: 'specialty', label: 'İxtisas', type: 'text' },
+    { name: 'specialty', label: 'İxtisas', type: 'text', required: true },
     { name: 'specialty_level', label: 'Təhsil səviyyəsi', type: 'select', options: SPECIALTY_LEVELS },
     { name: 'specialty_score', label: 'İxtisas balı', type: 'number' },
     { name: 'experience_years', label: 'İş təcrübəsi (il)', type: 'number' },
 
-    // === CERTIFICATION ===
+    // === ASSESSMENT (NEW - REQUIRED) ===
+    { name: 'assessment_type', label: 'Qiymətləndirmə növü', type: 'select', options: ASSESSMENT_TYPES, required: true },
+    { name: 'assessment_score', label: 'Qiymətləndirmə balı', type: 'number', required: true, placeholder: '0-100' },
+
+    // === CERTIFICATION (old - optional) ===
     { name: 'miq_score', label: 'MİQ balı', type: 'number' },
     { name: 'certification_score', label: 'Sertifikat balı', type: 'number' },
     { name: 'last_certification_date', label: 'Son sertifikat tarixi', type: 'date' },
@@ -147,7 +150,7 @@ export function TeacherModal({
     { name: 'notes', label: 'Qeydlər', type: 'textarea' },
 
     { name: 'is_active', label: 'Status', type: 'select', options: IS_ACTIVE_OPTIONS, defaultValue: 'true', required: true },
-  ], [subjects, teacher, checkEmailUnique]);
+  ], [teacher, checkEmailUnique]);
 
   // Default values
   const defaultValues = useMemo(() => {
@@ -240,7 +243,7 @@ export function TeacherModal({
             Müəllim Məlumatları
           </div>
           <p className="text-sm text-blue-600 mt-1">
-            Bütün məlumatları doldurub təsdiq edin. Fənlər mütləq seçilməlidir.
+            Məcburi sahələr: Ad, Soyad, Ata adı, Email, İstifadəçi adı, Vəzifə, İş yeri növü, İxtisas, Qiymətləndirmə növü və balı. Fənlər kurikulum tabında əlavə ediləcək.
           </p>
         </div>
 

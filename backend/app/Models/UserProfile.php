@@ -44,6 +44,9 @@ class UserProfile extends Model
         'miq_score',
         'certification_score',
         'last_certification_date',
+        // Assessment fields
+        'assessment_type',
+        'assessment_score',
         'qualifications',
         'training_courses',
         'degree_level',
@@ -99,6 +102,7 @@ class UserProfile extends Model
             // Numeric fields
             'miq_score' => 'decimal:2',
             'certification_score' => 'decimal:2',
+            'assessment_score' => 'decimal:2',
             'university_gpa' => 'decimal:2',
             'student_miq_score' => 'decimal:2',
             'family_income' => 'decimal:2',

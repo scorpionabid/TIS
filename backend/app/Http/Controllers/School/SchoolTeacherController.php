@@ -197,31 +197,41 @@ class SchoolTeacherController extends Controller
                 'role' => 'required|string|in:müəllim,muavin,ubr,psixoloq,tesarrufat',
                 'department_id' => 'nullable|exists:departments,id',
                 'profile' => 'nullable|array',
-                'profile.first_name' => 'nullable|string|max:100',
-                'profile.last_name' => 'nullable|string|max:100',
+
+                // Basic info - REQUIRED fields
+                'profile.first_name' => 'required|string|max:100',
+                'profile.last_name' => 'required|string|max:100',
+                'profile.patronymic' => 'required|string|max:100',
+
                 'profile.contact_phone' => 'nullable|string|max:20',
                 'profile.birth_date' => 'nullable|date',
                 'profile.hire_date' => 'nullable|date',
                 'profile.address' => 'nullable|string|max:500',
                 'profile.emergency_contact' => 'nullable|string|max:255',
                 'profile.qualifications' => 'nullable', // Can be array or JSON string
-                'profile.subjects' => 'nullable', // Can be array or JSON string
+                'profile.subjects' => 'nullable', // Optional - will be managed in curriculum tab
                 'profile.salary' => 'nullable|numeric|min:0',
                 'profile.notes' => 'nullable|string',
 
-                // New teacher fields
-                'profile.position_type' => 'nullable|string|in:direktor,direktor_muavini_tedris,direktor_muavini_inzibati,terbiye_isi_uzre_direktor_muavini,metodik_birlesme_rəhbəri,muəllim_sinif_rəhbəri,muəllim,psixoloq,kitabxanaçı,laborant,tibb_işçisi,təsərrüfat_işçisi',
+                // Position & Employment - REQUIRED fields
+                'profile.position_type' => 'required|string|in:direktor,direktor_muavini_tedris,direktor_muavini_inzibati,terbiye_isi_uzre_direktor_muavini,metodik_birlesme_rəhbəri,muəllim_sinif_rəhbəri,muəllim,psixoloq,kitabxanaçı,laborant,tibb_işçisi,təsərrüfat_işçisi',
                 'profile.employment_status' => 'nullable|string|in:full_time,part_time,contract,temporary,substitute',
-                'profile.workplace_type' => 'nullable|string|in:primary,secondary',
+                'profile.workplace_type' => 'required|string|in:primary,secondary',
                 'profile.contract_start_date' => 'nullable|date',
                 'profile.contract_end_date' => 'nullable|date|after:profile.contract_start_date',
                 'profile.specialty_score' => 'nullable|numeric|min:0|max:100',
                 'profile.has_additional_workplaces' => 'nullable|boolean',
 
-                // Professional development fields
-                'profile.specialty' => 'nullable|string|max:255',
+                // Professional development fields - REQUIRED specialty
+                'profile.specialty' => 'required|string|max:255',
                 'profile.specialty_level' => 'nullable|string|in:bakalavr,magistr,doktorantura,elmi_ishci',
                 'profile.experience_years' => 'nullable|integer|min:0',
+
+                // Assessment fields - REQUIRED
+                'profile.assessment_type' => 'required|string|in:sertifikasiya,miq_100,miq_60,diaqnostik',
+                'profile.assessment_score' => 'required_with:profile.assessment_type|nullable|numeric|min:0|max:100',
+
+                // Old certification fields (optional)
                 'profile.miq_score' => 'nullable|numeric|min:0|max:100',
                 'profile.certification_score' => 'nullable|numeric|min:0|max:100',
                 'profile.performance_rating' => 'nullable|numeric|min:0|max:5',

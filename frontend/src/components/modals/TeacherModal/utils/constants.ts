@@ -26,13 +26,17 @@ export const DEFAULT_TEACHER_VALUES = {
   contract_end_date: '',
 
   // Professional
-  subjects: [],
+  subjects: [], // Optional - managed in curriculum tab
   specialty: '',
   specialty_score: '',
   specialty_level: '',
   experience_years: '',
 
-  // Certification & Evaluation
+  // Assessment (NEW - REQUIRED)
+  assessment_type: '',
+  assessment_score: '',
+
+  // Certification & Evaluation (old - optional)
   miq_score: '',
   certification_score: '',
   last_certification_date: '',
@@ -91,6 +95,14 @@ export const SPECIALTY_LEVELS = [
   { label: 'Elmi işçi', value: 'elmi_ishci' },
 ];
 
+// Assessment types (NEW - REQUIRED)
+export const ASSESSMENT_TYPES = [
+  { label: 'Sertifikasiya', value: 'sertifikasiya' },
+  { label: 'MİQ-100', value: 'miq_100' },
+  { label: 'MİQ-60', value: 'miq_60' },
+  { label: 'Diaqnostik', value: 'diaqnostik' },
+];
+
 // Gender options
 export const GENDER_OPTIONS = [
   { label: 'Kişi', value: 'male' },
@@ -110,7 +122,10 @@ export const ERROR_MESSAGES = {
   EMAIL_IN_USE: 'Bu email artıq istifadə olunur',
   PASSWORD_TOO_SHORT: 'Şifrə minimum 8 simvol olmalıdır',
   PASSWORD_MISMATCH: 'Şifrə və şifrə təkrarı uyğun gəlmir',
-  SUBJECTS_REQUIRED: 'Ən azı bir fən seçilməlidir',
+  SUBJECTS_REQUIRED: 'Ən azı bir fən seçilməlidir', // No longer enforced
+  ASSESSMENT_TYPE_REQUIRED: 'Qiymətləndirmə növü seçilməlidir',
+  ASSESSMENT_SCORE_REQUIRED: 'Qiymətləndirmə balı daxil edilməlidir',
+  ASSESSMENT_SCORE_INVALID: 'Qiymətləndirmə balı 0-100 arasında olmalıdır',
   VALIDATION_ERROR: 'Məlumat Xətası',
   OPERATION_FAILED: 'Əməliyyat zamanı xəta baş verdi',
 };
@@ -139,6 +154,8 @@ export const FIELD_NAME_MAP: Record<string, string> = {
   'birth_date': 'Doğum tarixi',
   'gender': 'Cins',
   'national_id': 'Şəxsiyyət vəsiqəsi',
+  'assessment_type': 'Qiymətləndirmə növü',
+  'assessment_score': 'Qiymətləndirmə balı',
 };
 
 // Section titles
