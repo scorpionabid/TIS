@@ -3,7 +3,7 @@
  * Multi-institution teacher management for RegionAdmin
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useRegionTeacherManager } from './hooks/useRegionTeacherManager';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,7 +34,20 @@ import {
   Trash2,
   Users,
   Loader2,
+  Upload,
+  Plus,
+  MoreVertical,
+  Eye,
+  Edit,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { RegionTeacherImportModal } from './RegionTeacherImportModal';
+import type { EnhancedTeacherProfile } from '@/types/teacher';
 
 // Position type labels
 const POSITION_TYPE_LABELS: Record<string, string> = {
@@ -55,6 +68,12 @@ const EMPLOYMENT_STATUS_LABELS: Record<string, string> = {
 };
 
 export const RegionTeacherManager: React.FC = () => {
+  // Modal state
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [editingTeacher, setEditingTeacher] = useState<EnhancedTeacherProfile | null>(null);
+  const [viewingTeacher, setViewingTeacher] = useState<EnhancedTeacherProfile | null>(null);
+
   const {
     user,
     sectors,
@@ -125,6 +144,13 @@ export const RegionTeacherManager: React.FC = () => {
         <div className="flex gap-2">
           <Button
             variant="outline"
+            onClick={() => setImportModalOpen(true)}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            İdxal/İxrac
+          </Button>
+          <Button
+            variant="outline"
             onClick={() => exportTeachers()}
             disabled={isExporting}
           >
@@ -134,6 +160,12 @@ export const RegionTeacherManager: React.FC = () => {
               <Download className="h-4 w-4 mr-2" />
             )}
             Export
+          </Button>
+          <Button
+            onClick={() => setCreateModalOpen(true)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Yeni Müəllim
           </Button>
         </div>
       </div>
@@ -359,6 +391,7 @@ export const RegionTeacherManager: React.FC = () => {
                   <TableHead>Vəzifə</TableHead>
                   <TableHead>İş Statusu</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -401,6 +434,39 @@ export const RegionTeacherManager: React.FC = () => {
                           {teacher.is_active ? 'Aktiv' : 'Qeyri-aktiv'}
                         </Badge>
                       </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setViewingTeacher(teacher)}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              Bax
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              setEditingTeacher(teacher);
+                              setCreateModalOpen(true);
+                            }}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Düzəliş et
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={() => {
+                                if (confirm(`${teacher.profile?.first_name} ${teacher.profile?.last_name} müəllimini silmək istədiyinizə əminsiniz?`)) {
+                                  // TODO: Implement single delete
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Sil
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -422,6 +488,12 @@ export const RegionTeacherManager: React.FC = () => {
           <div>Selected: {selectedTeachers.length}</div>
         </CardContent>
       </Card>
+
+      {/* Import Modal */}
+      <RegionTeacherImportModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+      />
     </div>
   );
 };

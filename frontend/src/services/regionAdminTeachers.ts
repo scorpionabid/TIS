@@ -182,6 +182,171 @@ class RegionAdminTeacherService extends BaseService {
       throw error;
     }
   }
+
+  /**
+   * Get single teacher details
+   */
+  async getTeacher(id: number): Promise<EnhancedTeacherProfile> {
+    try {
+      const response = await this.apiClient.get(`${this.baseUrl}/${id}`);
+
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to fetch teacher');
+      }
+
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ RegionAdminTeacherService - getTeacher error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create new teacher
+   */
+  async createTeacher(data: Partial<EnhancedTeacherProfile>): Promise<EnhancedTeacherProfile> {
+    try {
+      const response = await this.apiClient.post(this.baseUrl, data);
+
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to create teacher');
+      }
+
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ RegionAdminTeacherService - createTeacher error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update teacher
+   */
+  async updateTeacher(id: number, data: Partial<EnhancedTeacherProfile>): Promise<EnhancedTeacherProfile> {
+    try {
+      const response = await this.apiClient.put(`${this.baseUrl}/${id}`, data);
+
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to update teacher');
+      }
+
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ RegionAdminTeacherService - updateTeacher error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Soft delete teacher
+   */
+  async softDeleteTeacher(id: number): Promise<void> {
+    try {
+      const response = await this.apiClient.delete(`${this.baseUrl}/${id}/soft`);
+
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to delete teacher');
+      }
+    } catch (error: any) {
+      console.error('❌ RegionAdminTeacherService - softDeleteTeacher error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Hard delete teacher
+   */
+  async hardDeleteTeacher(id: number): Promise<void> {
+    try {
+      const response = await this.apiClient.delete(`${this.baseUrl}/${id}/hard`);
+
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to hard delete teacher');
+      }
+    } catch (error: any) {
+      console.error('❌ RegionAdminTeacherService - hardDeleteTeacher error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Import teachers from CSV/Excel file (🔥 KEY FEATURE)
+   */
+  async importTeachers(
+    file: File,
+    options?: {
+      skip_duplicates?: boolean;
+      update_existing?: boolean;
+    }
+  ): Promise<ImportResult> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      if (options?.skip_duplicates) {
+        formData.append('skip_duplicates', '1');
+      }
+      if (options?.update_existing) {
+        formData.append('update_existing', '1');
+      }
+
+      const response = await this.apiClient.post(`${this.baseUrl}/import`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to import teachers');
+      }
+
+      return {
+        success: response.success,
+        imported: response.imported || 0,
+        errors: response.errors || 0,
+        details: response.details || { success: [], errors: [] },
+      };
+    } catch (error: any) {
+      console.error('❌ RegionAdminTeacherService - importTeachers error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Download import template CSV
+   */
+  async downloadImportTemplate(): Promise<void> {
+    try {
+      const response = await this.apiClient.get(`${this.baseUrl}/import-template`, {
+        responseType: 'blob',
+      });
+
+      // Create blob and download
+      const blob = new Blob([response.data || response], { type: 'text/csv; charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'teacher_import_template.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      console.error('❌ RegionAdminTeacherService - downloadImportTemplate error:', error);
+      throw error;
+    }
+  }
+}
+
+// Import result interface
+export interface ImportResult {
+  success: boolean;
+  imported: number;
+  errors: number;
+  details: {
+    success: string[];
+    errors: string[];
+  };
 }
 
 // Export singleton instance

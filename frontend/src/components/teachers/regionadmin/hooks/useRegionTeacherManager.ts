@@ -5,7 +5,7 @@
 
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
   regionAdminTeacherService,
@@ -17,7 +17,7 @@ import type { EnhancedTeacherProfile } from '@/types/teacher';
 import type { PaginationMeta } from '@/types/api';
 
 export const useRegionTeacherManager = () => {
-  const { user } = useAuthContext();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -68,7 +68,7 @@ export const useRegionTeacherManager = () => {
       });
       setSelectedTeachers([]); // Clear selection
     },
-    onError: (error: any) => {
+    onError: (error) => {
       toast({
         title: 'Xəta',
         description: error.message || 'Statusu yeniləyərkən xəta baş verdi',
@@ -89,7 +89,7 @@ export const useRegionTeacherManager = () => {
       });
       setSelectedTeachers([]); // Clear selection
     },
-    onError: (error: any) {
+    onError: (error) => {
       toast({
         title: 'Xəta',
         description: error.message || 'Müəllimləri silərkən xəta baş verdi',
@@ -117,7 +117,7 @@ export const useRegionTeacherManager = () => {
         description: 'Məlumatlar export edildi',
       });
     },
-    onError: (error: any) {
+    onError: (error) => {
       toast({
         title: 'Xəta',
         description: error.message || 'Export zamanı xəta baş verdi',
