@@ -336,4 +336,425 @@ class RegionTeacherController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Show single teacher details
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function show(int $id): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+
+            // Authorization check
+            if (!$user->can('teachers.read')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized - Missing teachers.read permission'
+                ], 403);
+            }
+
+            $region = $user->institution;
+            if (!$region || $region->level !== 2) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid region'
+                ], 400);
+            }
+
+            // Get teacher with full details
+            $teacher = $this->teacherService->getTeacherDetails($id, $region);
+
+            if (!$teacher) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Müəllim tapılmadı və ya sizin regionunuzda deyil'
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $teacher,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('RegionTeacherController - Error getting teacher details', [
+                'teacher_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Müəllim məlumatlarını əldə edərkən xəta baş verdi'
+            ], 500);
+        }
+    }
+
+    /**
+     * Create new teacher
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function store(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+
+            // Authorization check
+            if (!$user->can('teachers.create')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized - Missing teachers.create permission'
+                ], 403);
+            }
+
+            $region = $user->institution;
+            if (!$region || $region->level !== 2) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid region'
+                ], 400);
+            }
+
+            // Validation
+            $validated = $request->validate([
+                'email' => 'required|email|unique:users,email',
+                'first_name' => 'required|string|max:255',
+                'last_name' => 'required|string|max:255',
+                'institution_id' => 'required|exists:institutions,id',
+                'position_type' => 'nullable|string|max:255',
+                'employment_status' => 'nullable|string|max:255',
+                'phone' => 'nullable|string|max:20',
+                'password' => 'nullable|string|min:6',
+            ]);
+
+            Log::info('RegionTeacherController - Creating teacher', [
+                'email' => $validated['email'],
+                'institution_id' => $validated['institution_id'],
+            ]);
+
+            // Create teacher
+            $teacher = $this->teacherService->createTeacher($validated, $region);
+
+            return response()->json([
+                'success' => true,
+                'data' => $teacher,
+                'message' => 'Müəllim uğurla yaradıldı',
+            ], 201);
+
+        } catch (\Exception $e) {
+            Log::error('RegionTeacherController - Error creating teacher', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Müəllim yaradılarkən xəta baş verdi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update teacher
+     *
+     * @param Request $request
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function update(Request $request, int $id): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+
+            // Authorization check
+            if (!$user->can('teachers.update')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized - Missing teachers.update permission'
+                ], 403);
+            }
+
+            $region = $user->institution;
+            if (!$region || $region->level !== 2) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid region'
+                ], 400);
+            }
+
+            // Validation
+            $validated = $request->validate([
+                'email' => 'sometimes|email|unique:users,email,' . $id,
+                'first_name' => 'sometimes|string|max:255',
+                'last_name' => 'sometimes|string|max:255',
+                'institution_id' => 'sometimes|exists:institutions,id',
+                'position_type' => 'nullable|string|max:255',
+                'employment_status' => 'nullable|string|max:255',
+                'phone' => 'nullable|string|max:20',
+                'is_active' => 'sometimes|boolean',
+            ]);
+
+            Log::info('RegionTeacherController - Updating teacher', [
+                'teacher_id' => $id,
+                'fields' => array_keys($validated),
+            ]);
+
+            // Update teacher
+            $teacher = $this->teacherService->updateTeacher($id, $validated, $region);
+
+            if (!$teacher) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Müəllim tapılmadı və ya sizin regionunuzda deyil'
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $teacher,
+                'message' => 'Müəllim uğurla yeniləndi',
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('RegionTeacherController - Error updating teacher', [
+                'teacher_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Müəllim yenilənərkən xəta baş verdi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Soft delete teacher
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function softDelete(int $id): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+
+            // Authorization check
+            if (!$user->can('teachers.delete')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized - Missing teachers.delete permission'
+                ], 403);
+            }
+
+            $region = $user->institution;
+            if (!$region || $region->level !== 2) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid region'
+                ], 400);
+            }
+
+            Log::info('RegionTeacherController - Soft deleting teacher', [
+                'teacher_id' => $id,
+            ]);
+
+            $deleted = $this->teacherService->softDeleteTeacher($id, $region);
+
+            if (!$deleted) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Müəllim tapılmadı və ya sizin regionunuzda deyil'
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Müəllim deaktiv edildi',
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('RegionTeacherController - Error soft deleting teacher', [
+                'teacher_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Müəllim silinərkən xəta baş verdi'
+            ], 500);
+        }
+    }
+
+    /**
+     * Hard delete teacher
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function hardDelete(int $id): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+
+            // Authorization check
+            if (!$user->can('teachers.delete')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized - Missing teachers.delete permission'
+                ], 403);
+            }
+
+            $region = $user->institution;
+            if (!$region || $region->level !== 2) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid region'
+                ], 400);
+            }
+
+            Log::info('RegionTeacherController - Hard deleting teacher', [
+                'teacher_id' => $id,
+            ]);
+
+            $deleted = $this->teacherService->hardDeleteTeacher($id, $region);
+
+            if (!$deleted) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Müəllim tapılmadı və ya sizin regionunuzda deyil'
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Müəllim tam silindi',
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('RegionTeacherController - Error hard deleting teacher', [
+                'teacher_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Müəllim silinərkən xəta baş verdi'
+            ], 500);
+        }
+    }
+
+    /**
+     * Import teachers from CSV/Excel
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function import(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+
+            // Authorization check
+            if (!$user->can('teachers.create')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized - Missing teachers.create permission'
+                ], 403);
+            }
+
+            $region = $user->institution;
+            if (!$region || $region->level !== 2) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid region'
+                ], 400);
+            }
+
+            // Validation
+            $validated = $request->validate([
+                'file' => 'required|file|mimes:csv,txt,xlsx,xls|max:10240', // 10MB max
+                'skip_duplicates' => 'nullable|boolean',
+                'update_existing' => 'nullable|boolean',
+            ]);
+
+            Log::info('RegionTeacherController - Importing teachers', [
+                'file_name' => $request->file('file')->getClientOriginalName(),
+                'file_size' => $request->file('file')->getSize(),
+                'skip_duplicates' => $request->boolean('skip_duplicates'),
+                'update_existing' => $request->boolean('update_existing'),
+            ]);
+
+            $result = $this->teacherService->importTeachers(
+                $request->file('file'),
+                $region,
+                $request->boolean('skip_duplicates'),
+                $request->boolean('update_existing')
+            );
+
+            return response()->json([
+                'success' => true,
+                'imported' => $result['success_count'],
+                'errors' => $result['error_count'],
+                'details' => $result['details'],
+                'message' => "{$result['success_count']} müəllim import edildi, {$result['error_count']} xəta",
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('RegionTeacherController - Error importing teachers', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'İmport zamanı xəta baş verdi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Download import template
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function downloadImportTemplate()
+    {
+        try {
+            $user = Auth::user();
+            $region = $user->institution;
+
+            if (!$region || $region->level !== 2) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid region'
+                ], 400);
+            }
+
+            Log::info('RegionTeacherController - Downloading import template', [
+                'region_id' => $region->id,
+            ]);
+
+            $csv = $this->teacherService->generateImportTemplate($region);
+
+            return response($csv, 200, [
+                'Content-Type' => 'text/csv; charset=UTF-8',
+                'Content-Disposition' => 'attachment; filename="teacher_import_template.csv"',
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('RegionTeacherController - Error downloading template', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Şablon yüklənərkən xəta baş verdi'
+            ], 500);
+        }
+    }
 }

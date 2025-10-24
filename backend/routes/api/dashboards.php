@@ -109,13 +109,18 @@ Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|supera
 
     // Teacher management endpoints (RegionAdmin multi-institution view)
     Route::get('teachers', [RegionTeacherController::class, 'index']);
-    Route::post('teachers/bulk-update-status', [RegionTeacherController::class, 'bulkUpdateStatus']);
-    Route::post('teachers/bulk-delete', [RegionTeacherController::class, 'bulkDelete']);
-    Route::get('teachers/export', [RegionTeacherController::class, 'export']);
-
-    // Helper endpoints for teacher filters
-    Route::get('teachers/sectors', [RegionTeacherController::class, 'getSectors']);
-    Route::get('teachers/schools', [RegionTeacherController::class, 'getSchools']);
+    Route::post('teachers', [RegionTeacherController::class, 'store']); // Create teacher
+    Route::get('teachers/sectors', [RegionTeacherController::class, 'getSectors']); // Helper
+    Route::get('teachers/schools', [RegionTeacherController::class, 'getSchools']); // Helper
+    Route::get('teachers/export', [RegionTeacherController::class, 'export']); // Export
+    Route::get('teachers/import-template', [RegionTeacherController::class, 'downloadImportTemplate']); // Template
+    Route::post('teachers/import', [RegionTeacherController::class, 'import']); // Bulk import
+    Route::post('teachers/bulk-update-status', [RegionTeacherController::class, 'bulkUpdateStatus']); // Bulk
+    Route::post('teachers/bulk-delete', [RegionTeacherController::class, 'bulkDelete']); // Bulk
+    Route::get('teachers/{id}', [RegionTeacherController::class, 'show']); // View details
+    Route::put('teachers/{id}', [RegionTeacherController::class, 'update']); // Update
+    Route::delete('teachers/{id}/soft', [RegionTeacherController::class, 'softDelete']); // Soft delete
+    Route::delete('teachers/{id}/hard', [RegionTeacherController::class, 'hardDelete']); // Hard delete
 });
 
 // RegionOperator Dashboard Routes

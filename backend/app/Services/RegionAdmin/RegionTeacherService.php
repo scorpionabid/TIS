@@ -318,4 +318,361 @@ class RegionTeacherService
             ->orderBy('name')
             ->get();
     }
+
+    /**
+     * Get teacher details with full relationships
+     *
+     * @param int $id
+     * @param Institution $region
+     * @return User|null
+     */
+    public function getTeacherDetails(int $id, Institution $region): ?User
+    {
+        $institutionIds = $region->getAllChildrenIds();
+
+        return User::whereIn('institution_id', $institutionIds)
+            ->whereHas('roles', function($q) {
+                $q->where('name', 'müəllim');
+            })
+            ->with([
+                'roles',
+                'profile',
+                'institution:id,name,level,parent_id',
+                'institution.parent:id,name',
+                'department:id,name',
+            ])
+            ->find($id);
+    }
+
+    /**
+     * Create new teacher
+     *
+     * @param array $data
+     * @param Institution $region
+     * @return User
+     */
+    public function createTeacher(array $data, Institution $region): User
+    {
+        // Validate institution belongs to region
+        $institutionIds = $region->getAllChildrenIds();
+
+        if (!in_array($data['institution_id'], $institutionIds)) {
+            throw new \Exception('Müəssisə sizin regionunuzda deyil');
+        }
+
+        DB::beginTransaction();
+        try {
+            // Create user
+            $user = User::create([
+                'email' => $data['email'],
+                'password' => bcrypt($data['password'] ?? 'teacher123'), // Default password
+                'institution_id' => $data['institution_id'],
+                'is_active' => true,
+            ]);
+
+            // Assign müəllim role
+            $user->assignRole('müəllim');
+
+            // Create teacher profile if data provided
+            if (isset($data['first_name']) || isset($data['last_name'])) {
+                $profileData = [
+                    'user_id' => $user->id,
+                    'first_name' => $data['first_name'] ?? null,
+                    'last_name' => $data['last_name'] ?? null,
+                    'phone' => $data['phone'] ?? null,
+                ];
+
+                // Check if teacher_profiles table exists and create profile
+                if (\Schema::hasTable('teacher_profiles')) {
+                    \DB::table('teacher_profiles')->insert($profileData);
+                }
+            }
+
+            DB::commit();
+            return $user->load(['profile', 'institution', 'roles']);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Update teacher
+     *
+     * @param int $id
+     * @param array $data
+     * @param Institution $region
+     * @return User|null
+     */
+    public function updateTeacher(int $id, array $data, Institution $region): ?User
+    {
+        $institutionIds = $region->getAllChildrenIds();
+
+        $user = User::whereIn('institution_id', $institutionIds)
+            ->whereHas('roles', function($q) {
+                $q->where('name', 'müəllim');
+            })
+            ->find($id);
+
+        if (!$user) {
+            return null;
+        }
+
+        // If changing institution, validate new institution belongs to region
+        if (isset($data['institution_id']) && $data['institution_id'] != $user->institution_id) {
+            if (!in_array($data['institution_id'], $institutionIds)) {
+                throw new \Exception('Yeni müəssisə sizin regionunuzda deyil');
+            }
+        }
+
+        DB::beginTransaction();
+        try {
+            // Update user
+            $userFields = array_intersect_key($data, array_flip(['email', 'institution_id', 'is_active']));
+            if (!empty($userFields)) {
+                $user->update($userFields);
+            }
+
+            // Update profile if exists
+            if ($user->profile) {
+                $profileFields = array_intersect_key($data, array_flip(['first_name', 'last_name', 'phone', 'position_type', 'employment_status']));
+                if (!empty($profileFields)) {
+                    $user->profile->update($profileFields);
+                }
+            }
+
+            DB::commit();
+            return $user->load(['profile', 'institution', 'roles']);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Soft delete teacher (set is_active = false)
+     *
+     * @param int $id
+     * @param Institution $region
+     * @return bool
+     */
+    public function softDeleteTeacher(int $id, Institution $region): bool
+    {
+        $institutionIds = $region->getAllChildrenIds();
+
+        $user = User::whereIn('institution_id', $institutionIds)
+            ->whereHas('roles', function($q) {
+                $q->where('name', 'müəllim');
+            })
+            ->find($id);
+
+        if (!$user) {
+            return false;
+        }
+
+        return $user->update(['is_active' => false]);
+    }
+
+    /**
+     * Hard delete teacher (permanent deletion)
+     *
+     * @param int $id
+     * @param Institution $region
+     * @return bool
+     */
+    public function hardDeleteTeacher(int $id, Institution $region): bool
+    {
+        $institutionIds = $region->getAllChildrenIds();
+
+        $user = User::whereIn('institution_id', $institutionIds)
+            ->whereHas('roles', function($q) {
+                $q->where('name', 'müəllim');
+            })
+            ->find($id);
+
+        if (!$user) {
+            return false;
+        }
+
+        return $user->delete();
+    }
+
+    /**
+     * Import teachers from CSV file (🔥 KEY FEATURE)
+     *
+     * @param \Illuminate\Http\UploadedFile $file
+     * @param Institution $region
+     * @param bool $skipDuplicates
+     * @param bool $updateExisting
+     * @return array
+     */
+    public function importTeachers($file, Institution $region, bool $skipDuplicates = false, bool $updateExisting = false): array
+    {
+        $institutionIds = $region->getAllChildrenIds();
+
+        // Parse CSV file
+        $rows = $this->parseCsvFile($file);
+
+        $successCount = 0;
+        $errorCount = 0;
+        $details = [
+            'success' => [],
+            'errors' => [],
+        ];
+
+        foreach ($rows as $rowIndex => $row) {
+            $rowNumber = $rowIndex + 2; // +2 because index starts at 0 and header is row 1
+
+            try {
+                // Validate required fields
+                if (empty($row['email'])) {
+                    $details['errors'][] = "Sətir {$rowNumber}: Email tələb olunur";
+                    $errorCount++;
+                    continue;
+                }
+
+                if (empty($row['institution_id'])) {
+                    $details['errors'][] = "Sətir {$rowNumber}: Müəssisə ID tələb olunur";
+                    $errorCount++;
+                    continue;
+                }
+
+                // Validate institution belongs to region
+                if (!in_array((int)$row['institution_id'], $institutionIds)) {
+                    $details['errors'][] = "Sətir {$rowNumber}: Müəssisə {$row['institution_id']} sizin regionunuzda deyil";
+                    $errorCount++;
+                    continue;
+                }
+
+                // Check if teacher exists
+                $existingTeacher = User::where('email', $row['email'])->first();
+
+                if ($existingTeacher) {
+                    if ($skipDuplicates) {
+                        continue; // Skip this row
+                    } elseif ($updateExisting) {
+                        // Update existing teacher
+                        $this->updateTeacher($existingTeacher->id, $row, $region);
+                        $details['success'][] = "Yeniləndi: {$row['email']}";
+                        $successCount++;
+                    } else {
+                        $details['errors'][] = "Sətir {$rowNumber}: {$row['email']} artıq mövcuddur";
+                        $errorCount++;
+                    }
+                    continue;
+                }
+
+                // Create new teacher
+                $this->createTeacher($row, $region);
+                $details['success'][] = "Yaradıldı: {$row['email']}";
+                $successCount++;
+
+            } catch (\Exception $e) {
+                $details['errors'][] = "Sətir {$rowNumber}: {$e->getMessage()}";
+                $errorCount++;
+            }
+        }
+
+        return [
+            'success_count' => $successCount,
+            'error_count' => $errorCount,
+            'details' => $details,
+        ];
+    }
+
+    /**
+     * Parse CSV file to array
+     *
+     * @param \Illuminate\Http\UploadedFile $file
+     * @return array
+     */
+    private function parseCsvFile($file): array
+    {
+        $rows = [];
+        $handle = fopen($file->getRealPath(), 'r');
+
+        // Read header row
+        $headers = fgetcsv($handle);
+
+        if (!$headers) {
+            fclose($handle);
+            throw new \Exception('CSV faylı boşdur və ya oxuna bilmir');
+        }
+
+        // Trim and normalize headers
+        $headers = array_map('trim', $headers);
+
+        // Read data rows
+        while (($data = fgetcsv($handle)) !== false) {
+            // Skip empty rows
+            if (empty(array_filter($data))) {
+                continue;
+            }
+
+            // Skip comment rows (starting with #)
+            if (isset($data[0]) && strpos(trim($data[0]), '#') === 0) {
+                continue;
+            }
+
+            if (count($data) === count($headers)) {
+                $row = array_combine($headers, $data);
+
+                // Trim all values
+                $row = array_map(function($value) {
+                    return is_string($value) ? trim($value) : $value;
+                }, $row);
+
+                $rows[] = $row;
+            }
+        }
+
+        fclose($handle);
+        return $rows;
+    }
+
+    /**
+     * Generate CSV import template
+     *
+     * @param Institution $region
+     * @return string
+     */
+    public function generateImportTemplate(Institution $region): string
+    {
+        $institutionIds = $region->getAllChildrenIds();
+        $institutions = Institution::whereIn('id', $institutionIds)
+            ->where('level', '>=', 3) // Sectors and schools only
+            ->orderBy('level')
+            ->orderBy('name')
+            ->get(['id', 'name', 'level']);
+
+        // CSV header
+        $csv = "email,first_name,last_name,phone,institution_id,position_type,employment_status,password\n";
+
+        // Sample row with first institution
+        if ($institutions->isNotEmpty()) {
+            $firstInstitution = $institutions->first();
+            $csv .= "ali.mammadov@example.com,Əli,Məmmədov,+994501234567,{$firstInstitution->id},müəllim,full_time,teacher123\n";
+        }
+
+        // Add empty line
+        $csv .= "\n";
+
+        // Add institution reference (as comments)
+        $csv .= "# MÖVCUD MÜƏSSİSƏLƏR (institution_id-ni aşağıdakılardan seçin):\n";
+        $csv .= "# ID | Ad | Səviyyə\n";
+        $csv .= "# ----\n";
+
+        foreach ($institutions as $inst) {
+            $level = $inst->level == 3 ? 'Sektor' : 'Məktəb';
+            $csv .= "# {$inst->id} | {$inst->name} | {$level}\n";
+        }
+
+        $csv .= "\n";
+        $csv .= "# VƏZİFƏ NÖVLƏRİ (position_type): müəllim, direktor, direktor_muavini_tedris, direktor_muavini_inzibati, psixoloq, kitabxanaçı\n";
+        $csv .= "# İŞ STATUSU (employment_status): full_time, part_time, contract, temporary\n";
+
+        return $csv;
+    }
 }
