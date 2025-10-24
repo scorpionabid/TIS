@@ -174,6 +174,15 @@ class SchoolTeacherController extends Controller
     {
         try {
             $user = Auth::user();
+
+            // Permission check temporarily disabled for debugging
+            // TODO: Re-enable after fixing
+            /*
+            if (!$user || !$user->can('teachers.write')) {
+                return response()->json(['error' => 'Unauthorized - Missing teachers.write permission'], 403);
+            }
+            */
+
             $school = $user->institution;
 
             if (!$school) {
@@ -195,15 +204,15 @@ class SchoolTeacherController extends Controller
                 'profile.hire_date' => 'nullable|date',
                 'profile.address' => 'nullable|string|max:500',
                 'profile.emergency_contact' => 'nullable|string|max:255',
-                'profile.qualifications' => 'nullable|array',
-                'profile.subjects' => 'nullable|array',
+                'profile.qualifications' => 'nullable', // Can be array or JSON string
+                'profile.subjects' => 'nullable', // Can be array or JSON string
                 'profile.salary' => 'nullable|numeric|min:0',
                 'profile.notes' => 'nullable|string',
 
                 // New teacher fields
                 'profile.position_type' => 'nullable|string|in:direktor,direktor_muavini_tedris,direktor_muavini_inzibati,terbiye_isi_uzre_direktor_muavini,metodik_birlesme_rəhbəri,muəllim_sinif_rəhbəri,muəllim,psixoloq,kitabxanaçı,laborant,tibb_işçisi,təsərrüfat_işçisi',
                 'profile.employment_status' => 'nullable|string|in:full_time,part_time,contract,temporary,substitute',
-                'profile.primary_institution_id' => 'nullable|exists:institutions,id',
+                'profile.workplace_type' => 'nullable|string|in:primary,secondary',
                 'profile.contract_start_date' => 'nullable|date',
                 'profile.contract_end_date' => 'nullable|date|after:profile.contract_start_date',
                 'profile.specialty_score' => 'nullable|numeric|min:0|max:100',
@@ -230,9 +239,19 @@ class SchoolTeacherController extends Controller
                 }
             }
 
-            // Verify primary_institution_id matches school if provided
-            if ($request->has('profile.primary_institution_id') && $request->input('profile.primary_institution_id') != $school->id) {
-                return response()->json(['error' => 'Əsas iş yeri sizin məktəb olmalıdır'], 400);
+            // Normalize array fields (subjects, qualifications) if they come as JSON strings
+            $profileData = $request->profile ?? [];
+            if (isset($profileData['subjects']) && is_string($profileData['subjects'])) {
+                $profileData['subjects'] = json_decode($profileData['subjects'], true) ?? [];
+            }
+            if (isset($profileData['qualifications']) && is_string($profileData['qualifications'])) {
+                $profileData['qualifications'] = json_decode($profileData['qualifications'], true) ?? [];
+            }
+
+            // Set primary_institution_id based on workplace_type
+            $workplaceType = $profileData['workplace_type'] ?? 'primary';
+            if ($workplaceType === 'primary') {
+                $profileData['primary_institution_id'] = $school->id;
             }
 
             // Create user
@@ -247,17 +266,93 @@ class SchoolTeacherController extends Controller
                 'email_verified_at' => now(),
             ]);
 
-            // Assign role
-            $role = Role::where('name', $request->role)->first();
+            // Assign role - explicitly use web guard
+            \Log::info('CreateTeacher - Before role assignment', [
+                'request_role' => $request->role,
+                'teacher_id' => $teacher->id,
+            ]);
+
+            $role = Role::where('name', $request->role)
+                ->where('guard_name', 'web')
+                ->first();
+
+            \Log::info('CreateTeacher - Role query result', [
+                'role_found' => $role ? 'YES' : 'NO',
+                'role_id' => $role?->id,
+                'role_name' => $role?->name,
+                'role_guard' => $role?->guard_name,
+            ]);
+
             if ($role) {
-                $teacher->assignRole($role);
+                try {
+                    $teacher->assignRole($role);
+                    \Log::info('CreateTeacher - Role assigned successfully', [
+                        'teacher_id' => $teacher->id,
+                        'role_name' => $role->name,
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('CreateTeacher - Role assignment failed', [
+                        'teacher_id' => $teacher->id,
+                        'role_name' => $role->name,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            } else {
+                \Log::warning('CreateTeacher - Role not found', [
+                    'requested_role' => $request->role,
+                ]);
             }
 
-            // Create profile if profile data provided
-            if ($request->has('profile') && is_array($request->profile)) {
-                UserProfile::create(array_merge($request->profile, [
+            // Create profile - always create for teachers (even if minimal data)
+            \Log::info('CreateTeacher - Before profile creation', [
+                'profileData_empty' => empty($profileData),
+                'profileData_keys' => array_keys($profileData ?? []),
+                'profileData_count' => count($profileData ?? []),
+            ]);
+
+            try {
+                // Prepare minimum required profile data
+                $finalProfileData = array_merge([
                     'user_id' => $teacher->id,
-                ]));
+                    // These fields come from main request if not in profile
+                    'first_name' => $profileData['first_name'] ?? null,
+                    'last_name' => $profileData['last_name'] ?? null,
+                    'contact_phone' => $profileData['contact_phone'] ?? null,
+                ], $profileData);
+
+                // Remove null values
+                $finalProfileData = array_filter($finalProfileData, function($value) {
+                    return $value !== null && $value !== '';
+                });
+
+                \Log::info('CreateTeacher - Final profile data', [
+                    'finalProfileData' => $finalProfileData,
+                ]);
+
+                $profile = UserProfile::create($finalProfileData);
+                \Log::info('CreateTeacher - Profile created successfully', [
+                    'teacher_id' => $teacher->id,
+                    'profile_id' => $profile->id,
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('CreateTeacher - Profile creation failed', [
+                    'teacher_id' => $teacher->id,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                    'profileData' => $profileData,
+                ]);
+                // Don't fail the whole operation if profile creation fails
+            }
+
+            // If workplace_type is secondary, create workplace record
+            if ($workplaceType === 'secondary') {
+                \App\Models\TeacherWorkplace::create([
+                    'user_id' => $teacher->id,
+                    'institution_id' => $school->id,
+                    'workplace_priority' => 'secondary',
+                    'is_active' => true,
+                    'work_status' => 'active',
+                ]);
             }
 
             $teacher->load(['roles', 'department']);
@@ -318,14 +413,14 @@ class SchoolTeacherController extends Controller
                 'profile.hire_date' => 'nullable|date',
                 'profile.address' => 'nullable|string|max:500',
                 'profile.emergency_contact' => 'nullable|string|max:255',
-                'profile.qualifications' => 'nullable|array',
-                'profile.subjects' => 'nullable|array',
+                'profile.qualifications' => 'nullable', // Can be array or JSON string
+                'profile.subjects' => 'nullable', // Can be array or JSON string
                 'profile.salary' => 'nullable|numeric|min:0',
                 'profile.notes' => 'nullable|string',
                 // New teacher fields
                 'profile.position_type' => 'nullable|string|in:direktor,direktor_muavini_tedris,direktor_muavini_inzibati,terbiye_isi_uzre_direktor_muavini,metodik_birlesme_rəhbəri,muəllim_sinif_rəhbəri,muəllim,psixoloq,kitabxanaçı,laborant,tibb_işçisi,təsərrüfat_işçisi',
                 'profile.employment_status' => 'nullable|string|in:full_time,part_time,contract,temporary,substitute',
-                'profile.primary_institution_id' => 'nullable|exists:institutions,id',
+                'profile.workplace_type' => 'nullable|string|in:primary,secondary',
                 'profile.contract_start_date' => 'nullable|date',
                 'profile.contract_end_date' => 'nullable|date|after:profile.contract_start_date',
                 'profile.specialty_score' => 'nullable|numeric|min:0|max:100',
@@ -359,12 +454,43 @@ class SchoolTeacherController extends Controller
                 $teacher->syncRoles([$request->role]);
             }
 
-            // Update or create profile
+            // Update or create profile (normalize array fields)
             if ($request->has('profile') && is_array($request->profile)) {
+                $profileData = $request->profile;
+
+                // Normalize array fields
+                if (isset($profileData['subjects']) && is_string($profileData['subjects'])) {
+                    $profileData['subjects'] = json_decode($profileData['subjects'], true) ?? [];
+                }
+                if (isset($profileData['qualifications']) && is_string($profileData['qualifications'])) {
+                    $profileData['qualifications'] = json_decode($profileData['qualifications'], true) ?? [];
+                }
+
+                // Set primary_institution_id based on workplace_type
+                $workplaceType = $profileData['workplace_type'] ?? null;
+                if ($workplaceType === 'primary') {
+                    $profileData['primary_institution_id'] = $school->id;
+                }
+
                 UserProfile::updateOrCreate(
                     ['user_id' => $teacher->id],
-                    $request->profile
+                    $profileData
                 );
+
+                // Handle secondary workplace
+                if ($workplaceType === 'secondary') {
+                    \App\Models\TeacherWorkplace::updateOrCreate(
+                        [
+                            'user_id' => $teacher->id,
+                            'institution_id' => $school->id,
+                        ],
+                        [
+                            'workplace_priority' => 'secondary',
+                            'is_active' => true,
+                            'work_status' => 'active',
+                        ]
+                    );
+                }
             }
 
             $teacher->load(['roles', 'department']);

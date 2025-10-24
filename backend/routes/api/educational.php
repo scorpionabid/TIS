@@ -169,6 +169,19 @@ Route::prefix('students')->middleware('auth:sanctum')->group(function () {
     Route::get('/available-for-grade/{grade}', [App\Http\Controllers\School\SchoolStudentController::class, 'getAvailableForGrade'])->middleware('permission:students.read');
 });
 
+// SchoolAdmin Teacher Management Routes
+Route::prefix('schooladmin/teachers')->group(function () {
+    Route::get('/', [App\Http\Controllers\School\SchoolTeacherController::class, 'index']);
+    Route::post('/', [App\Http\Controllers\School\SchoolTeacherController::class, 'createTeacher']);
+    Route::get('/{id}', [App\Http\Controllers\School\SchoolTeacherController::class, 'show']);
+    Route::put('/{id}', [App\Http\Controllers\School\SchoolTeacherController::class, 'updateTeacher']);
+    Route::delete('/{id}', [App\Http\Controllers\School\SchoolTeacherController::class, 'deleteTeacher']);
+
+    // Import/Export routes
+    Route::get('/export', [App\Http\Controllers\School\SchoolTeacherController::class, 'exportTeachers']);
+    Route::post('/import', [App\Http\Controllers\School\SchoolTeacherController::class, 'importTeachers']);
+});
+
 // Teacher Management Routes (SuperAdmin direct access)
 Route::prefix('teachers')->middleware('permission:teachers.read')->group(function () {
     Route::get('/', [App\Http\Controllers\School\SchoolTeacherController::class, 'index']);

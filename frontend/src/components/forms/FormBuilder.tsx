@@ -66,23 +66,29 @@ export interface FormField {
 export interface FormBuilderProps {
   fields: FormField[];
   onSubmit: (data: any) => void;
+  onChange?: (data: any) => void; // Callback when any field changes
   submitLabel?: string;
   loading?: boolean;
   defaultValues?: Record<string, any>;
   className?: string;
   layout?: 'vertical' | 'horizontal';
   columns?: 1 | 2 | 3;
+  preserveValues?: boolean; // Keep values when fields change
+  autoFocus?: boolean; // Auto focus first field
 }
 
 export function FormBuilder({
   fields,
   onSubmit,
+  onChange,
   submitLabel = 'Yadda saxla',
   loading = false,
   defaultValues = {},
   className,
   layout = 'vertical',
   columns = 1,
+  preserveValues = false,
+  autoFocus = true,
 }: FormBuilderProps) {
   const { isMobile } = useLayout();
   // Create dynamic schema from fields
@@ -110,6 +116,9 @@ export function FormBuilder({
           case 'date':
             fieldSchema = z.string().refine((date) => !isNaN(Date.parse(date)), 'Düzgün tarix formatı daxil edin');
             break;
+          case 'multiselect':
+            fieldSchema = z.array(z.string());
+            break;
           default:
             fieldSchema = z.string();
         }
@@ -133,16 +142,30 @@ export function FormBuilder({
 
   const formDefaultValues = useMemo(() => {
     const fieldDefaults = fields.reduce((acc, field) => {
-      acc[field.name] = field.defaultValue || '';
+      // Set appropriate default value based on field type
+      if (field.type === 'multiselect') {
+        acc[field.name] = field.defaultValue || [];
+      } else if (field.type === 'checkbox' || field.type === 'switch') {
+        acc[field.name] = field.defaultValue ?? false;
+      } else {
+        acc[field.name] = field.defaultValue ?? '';
+      }
       return acc;
     }, {} as Record<string, any>);
-    
+
     // Ensure all values are defined (no undefined values)
     const cleanedDefaults = { ...fieldDefaults };
     Object.keys(defaultValues || {}).forEach(key => {
-      cleanedDefaults[key] = defaultValues[key] ?? '';
+      const value = defaultValues[key];
+      // For multiselect fields, ensure array type
+      const matchingField = fields.find(f => f.name === key);
+      if (matchingField?.type === 'multiselect') {
+        cleanedDefaults[key] = value ?? [];
+      } else {
+        cleanedDefaults[key] = value ?? '';
+      }
     });
-    
+
     return cleanedDefaults;
   }, [fields, defaultValues]);
   
@@ -151,6 +174,17 @@ export function FormBuilder({
     resolver: zodResolver(schema),
     defaultValues: formDefaultValues,
   });
+
+  // Watch all form values and call onChange when any field changes
+  React.useEffect(() => {
+    if (!onChange) return;
+
+    const subscription = form.watch((values) => {
+      onChange(values);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [form, onChange]);
 
   // Remove the problematic useEffect that causes controlled/uncontrolled warnings
   // The form will use the initial defaultValues and won't reset during renders

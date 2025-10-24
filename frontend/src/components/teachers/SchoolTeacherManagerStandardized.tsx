@@ -4,7 +4,7 @@ import { GenericFilters } from '@/components/generic/GenericFilters';
 import { SchoolTeacher } from '@/services/schoolAdmin';
 import { TeacherFilters } from './hooks/useSchoolTeacherManagerGeneric';
 import { teacherEntityConfig, teacherCustomLogic } from './configurations/teacherConfig';
-import { UserModal } from '@/components/modals/UserModal';
+import { TeacherModal } from '@/components/modals/TeacherModal';
 import { TeacherDetailsDialog } from './TeacherDetailsDialog';
 import { TeacherImportExportModal } from '@/components/modals/TeacherImportExportModal';
 import { DeleteModal } from '@/components/modals/DeleteModal';
@@ -34,7 +34,7 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
   className 
 }) => {
   // Local modal state
-  const [userModalOpen, setUserModalOpen] = React.useState(false);
+  const [teacherModalOpen, setTeacherModalOpen] = React.useState(false);
   const [editingUser, setEditingUser] = React.useState<SchoolTeacher | null>(null);
   const [selectedTeacher, setSelectedTeacher] = React.useState<SchoolTeacher | null>(null);
   const [importExportModalOpen, setImportExportModalOpen] = React.useState(false);
@@ -106,7 +106,7 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
             break;
           case 'edit':
             setEditingUser(teacher);
-            setUserModalOpen(true);
+            setTeacherModalOpen(true);
             break;
           case 'delete':
             setTeacherToDelete(teacher);
@@ -164,7 +164,7 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
         action: 'openCreateModal'
       });
       setEditingUser(null);
-      setUserModalOpen(true);
+      setTeacherModalOpen(true);
     },
     
   }), [teacherCustomLogic]);
@@ -187,7 +187,7 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
       }
       
       // Close modal on success
-      setUserModalOpen(false);
+      setTeacherModalOpen(false);
       setEditingUser(null);
       
     } catch (error) {
@@ -288,20 +288,18 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
       />
       
       {/* Teacher-specific Modals */}
-      <UserModal
-        open={userModalOpen}
+      <TeacherModal
+        open={teacherModalOpen}
         onClose={() => {
-          logger.debug('Closing user modal', {
+          logger.debug('Closing teacher modal', {
             component: 'SchoolTeacherManagerStandardized',
-            action: 'closeUserModal'
+            action: 'closeTeacherModal'
           });
-          setUserModalOpen(false);
+          setTeacherModalOpen(false);
           setEditingUser(null);
         }}
         onSave={handleUserSave}
-        user={editingUser}
-        mode="teacher"
-        defaultRole="müəllim"
+        teacher={editingUser}
       />
 
       <TeacherDetailsDialog
@@ -316,7 +314,7 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
         }}
         onEdit={(teacher) => {
           setEditingUser(teacher);
-          setUserModalOpen(true);
+          setTeacherModalOpen(true);
           setSelectedTeacher(null);
         }}
         {...utilityFunctions}
