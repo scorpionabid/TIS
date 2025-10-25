@@ -52,23 +52,22 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
   const [skipDuplicates, setSkipDuplicates] = useState(true);
   const [updateExisting, setUpdateExisting] = useState(false);
 
-  // Download template mutation
-  const templateMutation = useMutation({
-    mutationFn: () => regionAdminTeacherService.downloadImportTemplate(),
-    onSuccess: () => {
+  // Download template handler - Direct backend call
+  const handleDownloadTemplate = async () => {
+    try {
+      await regionAdminTeacherService.downloadImportTemplate();
       toast({
         title: 'Uğurlu',
         description: 'Şablon yükləndi',
       });
-    },
-    onError: (error: any) => {
+    } catch (error: any) {
       toast({
         title: 'Xəta',
         description: error.message || 'Şablonu yükləyərkən xəta baş verdi',
         variant: 'destructive',
       });
-    },
-  });
+    }
+  };
 
   // Import mutation
   const importMutation = useMutation({
@@ -199,15 +198,10 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
               <CardContent>
                 <Button
                   variant="outline"
-                  onClick={() => templateMutation.mutate()}
-                  disabled={templateMutation.isPending}
+                  onClick={handleDownloadTemplate}
                   className="w-full"
                 >
-                  {templateMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4 mr-2" />
-                  )}
+                  <Download className="h-4 w-4 mr-2" />
                   Excel Şablon Yüklə (.xlsx)
                 </Button>
                 <p className="text-xs text-gray-500 mt-2">
