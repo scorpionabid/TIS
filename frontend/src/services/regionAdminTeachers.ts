@@ -319,7 +319,13 @@ class RegionAdminTeacherService extends BaseService {
     try {
       // Get API base URL from environment
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-      const token = localStorage.getItem('token');
+
+      // Get token from localStorage (ATIS uses 'atis_auth_token' key)
+      const token = localStorage.getItem('atis_auth_token');
+
+      if (!token) {
+        throw new Error('Authentication token tapılmadı. Zəhmət olmasa yenidən daxil olun.');
+      }
 
       // Use fetch API directly for blob download
       const response = await fetch(`${apiBaseUrl}${this.baseUrl}/import-template`, {
@@ -332,8 +338,13 @@ class RegionAdminTeacherService extends BaseService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Excel template download failed:', errorText);
-        throw new Error('Excel şablon yüklənmədi');
+        console.error('Excel template download failed:', response.status, errorText.substring(0, 200));
+
+        if (response.status === 401 || response.status === 403) {
+          throw new Error('İcazə yoxdur. Zəhmət olmasa yenidən daxil olun.');
+        }
+
+        throw new Error(`Excel şablon yüklənmədi (${response.status})`);
       }
 
       // Get blob from response
