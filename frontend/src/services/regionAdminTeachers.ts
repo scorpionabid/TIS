@@ -327,14 +327,20 @@ class RegionAdminTeacherService extends BaseService {
         throw new Error('Authentication token tapılmadı. Zəhmət olmasa yenidən daxil olun.');
       }
 
+      // Build download URL
+      const downloadUrl = `${apiBaseUrl}${this.baseUrl}/import-template`;
+      console.log('📥 Downloading template from:', downloadUrl);
+
       // Use fetch API directly for blob download
-      const response = await fetch(`${apiBaseUrl}${this.baseUrl}/import-template`, {
+      const response = await fetch(downloadUrl, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         },
       });
+
+      console.log('📥 Response:', response.status, response.statusText);
 
       if (!response.ok) {
         const errorText = await response.text();
