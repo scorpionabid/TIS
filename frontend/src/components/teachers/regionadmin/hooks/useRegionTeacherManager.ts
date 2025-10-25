@@ -17,9 +17,20 @@ import type { EnhancedTeacherProfile } from '@/types/teacher';
 import type { PaginationMeta } from '@/types/api';
 
 export const useRegionTeacherManager = () => {
-  const { user } = useAuth();
+  const { currentUser } = useAuth(); // Fixed: AuthContext returns currentUser, not user
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // DEBUG: Log user info
+  console.log('🔑 useRegionTeacherManager - User check:', {
+    hasUser: !!currentUser,
+    userId: currentUser?.id,
+    userEmail: currentUser?.email,
+    userRole: currentUser?.role,
+    userRoles: currentUser?.roles,
+    isRegionAdmin: currentUser?.role === 'regionadmin',
+    fullUser: currentUser,
+  });
 
   // State
   const [filters, setFilters] = useState<RegionTeacherFilters>({
@@ -30,11 +41,19 @@ export const useRegionTeacherManager = () => {
   const [selectedSectorIds, setSelectedSectorIds] = useState<number[]>([]);
   const [selectedTeachers, setSelectedTeachers] = useState<EnhancedTeacherProfile[]>([]);
 
+  // Helper: Check if user is regionadmin (supports both role string and roles array)
+  const isRegionAdmin = !!currentUser && (
+    currentUser.role === 'regionadmin' ||
+    (Array.isArray(currentUser.roles) && currentUser.roles.some((r: any) => r.name === 'regionadmin' || r === 'regionadmin'))
+  );
+
+  console.log('✅ isRegionAdmin check result:', isRegionAdmin);
+
   // Fetch sectors
   const sectorsQuery = useQuery({
-    queryKey: ['regionadmin-sectors', user?.institution_id],
+    queryKey: ['regionadmin-sectors', currentUser?.institution_id],
     queryFn: () => regionAdminTeacherService.getSectors(),
-    enabled: !!user && user.role === 'regionadmin',
+    enabled: isRegionAdmin,
     staleTime: 1000 * 60 * 10, // 10 minutes
   });
 
@@ -44,15 +63,34 @@ export const useRegionTeacherManager = () => {
     queryFn: () => regionAdminTeacherService.getSchools(
       selectedSectorIds.length > 0 ? selectedSectorIds : undefined
     ),
-    enabled: !!user && user.role === 'regionadmin',
+    enabled: isRegionAdmin,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   // Fetch teachers with filters
   const teachersQuery = useQuery({
     queryKey: ['regionadmin-teachers', filters],
-    queryFn: () => regionAdminTeacherService.getTeachers(filters),
-    enabled: !!user && user.role === 'regionadmin',
+    queryFn: async () => {
+      console.log('🔍 useRegionTeacherManager - Fetching teachers');
+      console.log('  User:', currentUser);
+      console.log('  User role:', currentUser?.role);
+      console.log('  Filters:', filters);
+
+      const result = await regionAdminTeacherService.getTeachers(filters);
+
+      console.log('📊 useRegionTeacherManager - Query result:', {
+        success: !!result,
+        dataCount: result.data?.length || 0,
+        hasData: !!result.data,
+        dataIsArray: Array.isArray(result.data),
+        hasPagination: !!result.pagination,
+        hasStatistics: !!result.statistics,
+        firstTeacher: result.data?.[0],
+      });
+
+      return result;
+    },
+    enabled: isRegionAdmin,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 
@@ -187,7 +225,7 @@ export const useRegionTeacherManager = () => {
 
   return {
     // User
-    user,
+    currentUser,
 
     // Data
     sectors: sectorsQuery.data || [],

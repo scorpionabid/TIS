@@ -61,7 +61,29 @@ class RegionTeachersImport implements ToCollection, WithHeadingRow, WithBatchIns
                     continue;
                 }
 
-                // Validate row data
+                // STEP 1: HYBRID INSTITUTION LOOKUP (NEW)
+                $institution = $this->findInstitution($data);
+                if (!$institution) {
+                    $utisCode = $data['institution_utis_code'];
+                    $instCode = $data['institution_code'];
+                    $instId = $data['institution_id'];
+                    $identifier = $utisCode ?: ($instCode ?: $instId);
+                    $this->details['errors'][] = "Sətir {$rowNumber}: Müəssisə tapılmadı (kod/ID: {$identifier})";
+                    $this->errorCount++;
+                    continue;
+                }
+
+                // STEP 2: Verify institution belongs to region
+                if (!$this->isInstitutionInRegion($institution)) {
+                    $this->details['errors'][] = "Sətir {$rowNumber}: Müəssisə (ID:{$institution->id}, Kod:{$institution->institution_code}) sizin regionunuza aid deyil";
+                    $this->errorCount++;
+                    continue;
+                }
+
+                // STEP 3: Set resolved institution_id for validation
+                $data['institution_id'] = $institution->id;
+
+                // STEP 4: Validate row data
                 $validator = $this->validateRow($data);
 
                 if ($validator->fails()) {
@@ -71,7 +93,7 @@ class RegionTeachersImport implements ToCollection, WithHeadingRow, WithBatchIns
                     continue;
                 }
 
-                // Check for duplicates
+                // STEP 5: Check for duplicates
                 $existingTeacher = User::where('email', $data['email'])->first();
 
                 if ($existingTeacher) {
@@ -88,14 +110,6 @@ class RegionTeachersImport implements ToCollection, WithHeadingRow, WithBatchIns
                         $this->errorCount++;
                         continue;
                     }
-                }
-
-                // Verify institution belongs to region
-                $institution = Institution::find($data['institution_id']);
-                if (!$institution || !$this->isInstitutionInRegion($institution)) {
-                    $this->details['errors'][] = "Sətir {$rowNumber}: Müəssisə ID {$data['institution_id']} regionunuzda deyil";
-                    $this->errorCount++;
-                    continue;
                 }
 
                 // Create new teacher
@@ -122,12 +136,16 @@ class RegionTeachersImport implements ToCollection, WithHeadingRow, WithBatchIns
     private function prepareRowData($row): array
     {
         return [
+            // Institution lookup fields (NEW)
+            'institution_utis_code' => trim($row['institution_utis_code'] ?? ''),
+            'institution_code' => trim($row['institution_code'] ?? ''),
+            'institution_id' => trim($row['institution_id'] ?? ''),
+
             'email' => trim($row['email'] ?? ''),
             'username' => trim($row['username'] ?? ''),
             'first_name' => trim($row['first_name'] ?? ''),
             'last_name' => trim($row['last_name'] ?? ''),
             'patronymic' => trim($row['patronymic'] ?? ''),
-            'institution_id' => trim($row['institution_id'] ?? ''),
             'position_type' => trim($row['position_type'] ?? ''),
             'workplace_type' => trim($row['workplace_type'] ?? ''),
             'specialty' => trim($row['specialty'] ?? ''),
@@ -189,6 +207,67 @@ class RegionTeachersImport implements ToCollection, WithHeadingRow, WithBatchIns
             'graduation_year' => 'nullable|integer|min:1950|max:' . date('Y'),
             'notes' => 'nullable|string|max:1000',
         ]);
+    }
+
+    /**
+     * Hybrid Institution Lookup (NEW)
+     * Priority: UTİS code → institution_code → ID
+     *
+     * @param array $data Row data with possible institution identifiers
+     * @return Institution|null Found institution or null
+     */
+    private function findInstitution(array $data): ?Institution
+    {
+        $utisCode = $data['institution_utis_code'] ?? '';
+        $instCode = $data['institution_code'] ?? '';
+        $instId = $data['institution_id'] ?? '';
+
+        // Priority 1: UTİS Code (most reliable, government standard)
+        if (!empty($utisCode)) {
+            $institution = Institution::where('utis_code', $utisCode)->first();
+            if ($institution) {
+                Log::info('RegionTeachersImport - Institution found by UTIS code', [
+                    'utis_code' => $utisCode,
+                    'institution_id' => $institution->id,
+                    'name' => $institution->name
+                ]);
+                return $institution;
+            }
+        }
+
+        // Priority 2: Institution Code (human-readable, unique)
+        if (!empty($instCode)) {
+            $institution = Institution::where('institution_code', $instCode)->first();
+            if ($institution) {
+                Log::info('RegionTeachersImport - Institution found by institution_code', [
+                    'institution_code' => $instCode,
+                    'institution_id' => $institution->id,
+                    'name' => $institution->name
+                ]);
+                return $institution;
+            }
+        }
+
+        // Priority 3: Direct ID (backward compatibility)
+        if (!empty($instId) && is_numeric($instId)) {
+            $institution = Institution::find((int)$instId);
+            if ($institution) {
+                Log::info('RegionTeachersImport - Institution found by ID', [
+                    'institution_id' => $instId,
+                    'name' => $institution->name
+                ]);
+                return $institution;
+            }
+        }
+
+        // Not found with any method
+        Log::warning('RegionTeachersImport - Institution not found', [
+            'utis_code' => $utisCode,
+            'institution_code' => $instCode,
+            'institution_id' => $instId,
+        ]);
+
+        return null;
     }
 
     /**

@@ -127,14 +127,14 @@ class RegionTeacherService
         $sortBy = $request->input('sort_by', 'created_at');
         $sortOrder = $request->input('sort_order', 'desc');
 
-        // Map frontend column names to database columns
+        // Map frontend column names to database columns with table prefix
         $sortMapping = [
-            'name' => 'name',
-            'email' => 'email',
-            'created_at' => 'created_at',
+            'name' => 'users.name',
+            'email' => 'users.email',
+            'created_at' => 'users.created_at',
         ];
 
-        $sortColumn = $sortMapping[$sortBy] ?? 'created_at';
+        $sortColumn = $sortMapping[$sortBy] ?? 'users.created_at';
         $query->orderBy($sortColumn, $sortOrder);
     }
 

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use App\Models\Institution;
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 
 class RegionalDataAccessMiddleware
 {
@@ -20,27 +21,66 @@ class RegionalDataAccessMiddleware
      */
     public function handle(Request $request, Closure $next, string $resourceType = null)
     {
+        // DEBUG: Log middleware entry
+        Log::info('🔍 RegionalDataAccessMiddleware - ENTRY', [
+            'url' => $request->url(),
+            'method' => $request->method(),
+            'resource_type' => $resourceType,
+            'has_authorization_header' => $request->hasHeader('Authorization'),
+        ]);
+
         $user = $request->user();
-        
+
         if (!$user) {
+            Log::warning('❌ RegionalDataAccessMiddleware - No authenticated user', [
+                'url' => $request->url(),
+            ]);
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
+        Log::info('✅ RegionalDataAccessMiddleware - User authenticated', [
+            'user_id' => $user->id,
+            'user_email' => $user->email,
+            'institution_id' => $user->institution_id,
+        ]);
+
         // SuperAdmin has access to everything
         if ($user->hasRole('superadmin')) {
+            Log::info('🔑 RegionalDataAccessMiddleware - SuperAdmin bypass');
             return $next($request);
         }
 
         // Get user's primary role
         $primaryRole = $user->roles->first();
         if (!$primaryRole) {
+            Log::warning('❌ RegionalDataAccessMiddleware - No role assigned', [
+                'user_id' => $user->id,
+            ]);
             return response()->json(['message' => 'İstifadəçinin rolu müəyyən edilməyib'], 403);
         }
 
+        Log::info('🎭 RegionalDataAccessMiddleware - Role check', [
+            'user_id' => $user->id,
+            'primary_role' => $primaryRole->name,
+            'all_roles' => $user->roles->pluck('name'),
+        ]);
+
         // Validate access based on role and resource type
         $accessValidation = $this->validateRegionalAccess($user, $primaryRole->name, $resourceType, $request);
-        
+
+        Log::info('🔐 RegionalDataAccessMiddleware - Access validation result', [
+            'user_id' => $user->id,
+            'allowed' => $accessValidation['allowed'],
+            'message' => $accessValidation['message'] ?? 'Access granted',
+            'scope' => $accessValidation['scope'] ?? null,
+        ]);
+
         if (!$accessValidation['allowed']) {
+            Log::warning('❌ RegionalDataAccessMiddleware - Access DENIED', [
+                'user_id' => $user->id,
+                'role' => $primaryRole->name,
+                'message' => $accessValidation['message'],
+            ]);
             return response()->json([
                 'message' => $accessValidation['message'],
                 'error_code' => 'REGIONAL_ACCESS_DENIED'
@@ -53,6 +93,8 @@ class RegionalDataAccessMiddleware
             'allowed_institutions' => $accessValidation['allowed_institutions'] ?? [],
             'allowed_departments' => $accessValidation['allowed_departments'] ?? []
         ]);
+
+        Log::info('✅ RegionalDataAccessMiddleware - Access GRANTED, proceeding to controller');
 
         return $next($request);
     }
@@ -91,9 +133,30 @@ class RegionalDataAccessMiddleware
      */
     private function validateRegionAdminAccess($user, $resourceType, $request): array
     {
+        Log::info('🔍 validateRegionAdminAccess - START', [
+            'user_id' => $user->id,
+            'user_email' => $user->email,
+            'resource_type' => $resourceType,
+        ]);
+
         $userRegion = $user->institution;
-        
+
+        Log::info('🏢 validateRegionAdminAccess - Institution check', [
+            'user_id' => $user->id,
+            'has_institution' => $userRegion !== null,
+            'institution_id' => $userRegion?->id,
+            'institution_name' => $userRegion?->name,
+            'institution_level' => $userRegion?->level,
+            'level_is_2' => $userRegion?->level === 2,
+        ]);
+
         if (!$userRegion || $userRegion->level !== 2) {
+            Log::warning('❌ validateRegionAdminAccess - Institution validation FAILED', [
+                'user_id' => $user->id,
+                'has_institution' => $userRegion !== null,
+                'level' => $userRegion?->level ?? 'NULL',
+                'expected_level' => 2,
+            ]);
             return [
                 'allowed' => false,
                 'message' => 'RegionAdmin regional idarəyə təyin edilməlidir'
@@ -109,16 +172,42 @@ class RegionalDataAccessMiddleware
                   });
         })->pluck('id')->toArray();
 
+        Log::info('🏫 validateRegionAdminAccess - Allowed institutions loaded', [
+            'user_id' => $user->id,
+            'region_id' => $userRegion->id,
+            'allowed_count' => count($allowedInstitutions),
+            'allowed_ids' => $allowedInstitutions,
+        ]);
+
         // Check if requested resource is within regional scope
-        if ($this->hasInstitutionIdInRequest($request)) {
-            $requestedInstitutionId = $this->getInstitutionIdFromRequest($request);
+        $hasInstitutionId = $this->hasInstitutionIdInRequest($request);
+        $requestedInstitutionId = $hasInstitutionId ? $this->getInstitutionIdFromRequest($request) : null;
+
+        Log::info('🔍 validateRegionAdminAccess - Request institution check', [
+            'user_id' => $user->id,
+            'has_institution_id_in_request' => $hasInstitutionId,
+            'requested_institution_id' => $requestedInstitutionId,
+        ]);
+
+        if ($hasInstitutionId) {
             if (!in_array($requestedInstitutionId, $allowedInstitutions)) {
+                Log::warning('❌ validateRegionAdminAccess - Institution access DENIED', [
+                    'user_id' => $user->id,
+                    'requested_id' => $requestedInstitutionId,
+                    'allowed_ids' => $allowedInstitutions,
+                ]);
                 return [
                     'allowed' => false,
                     'message' => 'Bu təşkilata giriş səlahiyyətiniz yoxdur'
                 ];
             }
         }
+
+        Log::info('✅ validateRegionAdminAccess - Access GRANTED', [
+            'user_id' => $user->id,
+            'region_id' => $userRegion->id,
+            'allowed_institutions_count' => count($allowedInstitutions),
+        ]);
 
         return [
             'allowed' => true,

@@ -4,6 +4,7 @@
  */
 
 import { BaseService } from './BaseService';
+import { apiClient } from './api';
 import type { PaginationParams, PaginationMeta } from '../types/api';
 import type { EnhancedTeacherProfile } from '../types/teacher';
 
@@ -62,19 +63,43 @@ class RegionAdminTeacherService extends BaseService {
    */
   async getTeachers(filters: RegionTeacherFilters): Promise<RegionTeacherResult> {
     try {
-      const response = await this.apiClient.get(this.baseUrl, {
+      console.log('🌐 RegionAdminTeacherService - API call starting', {
+        url: this.baseUrl,
+        filters: filters,
+      });
+
+      const response = await apiClient.get(this.baseUrl, {
         params: filters,
       });
 
+      console.log('📡 RegionAdminTeacherService - API response received:', {
+        success: response.success,
+        hasData: !!response.data,
+        dataType: typeof response.data,
+        dataIsArray: Array.isArray(response.data),
+        dataLength: response.data?.length,
+        hasPagination: !!response.pagination,
+        hasStatistics: !!response.statistics,
+        rawResponse: response,
+      });
+
       if (!response.success) {
+        console.error('❌ API returned success: false', response);
         throw new Error(response.message || 'Failed to fetch teachers');
       }
 
-      return {
+      const result = {
         data: response.data,
         pagination: response.pagination,
         statistics: response.statistics,
       };
+
+      console.log('✅ RegionAdminTeacherService - Returning result:', {
+        dataCount: result.data?.length,
+        firstTeacher: result.data?.[0],
+      });
+
+      return result;
     } catch (error: any) {
       console.error('❌ RegionAdminTeacherService - getTeachers error:', error);
       throw error;
@@ -89,7 +114,7 @@ class RegionAdminTeacherService extends BaseService {
     isActive: boolean
   ): Promise<BulkOperationResponse> {
     try {
-      const response = await this.apiClient.post(`${this.baseUrl}/bulk-update-status`, {
+      const response = await apiClient.post(`${this.baseUrl}/bulk-update-status`, {
         teacher_ids: teacherIds,
         is_active: isActive,
       });
@@ -110,7 +135,7 @@ class RegionAdminTeacherService extends BaseService {
    */
   async bulkDelete(teacherIds: number[]): Promise<BulkOperationResponse> {
     try {
-      const response = await this.apiClient.post(`${this.baseUrl}/bulk-delete`, {
+      const response = await apiClient.post(`${this.baseUrl}/bulk-delete`, {
         teacher_ids: teacherIds,
       });
 
@@ -126,22 +151,93 @@ class RegionAdminTeacherService extends BaseService {
   }
 
   /**
-   * Export teachers to Excel/CSV
+   * Export teachers to Excel (Optimized for large datasets)
+   * Supports 10000+ teachers with streaming response
    */
-  async exportTeachers(filters: RegionTeacherFilters): Promise<any[]> {
-    try {
-      const response = await this.apiClient.get(`${this.baseUrl}/export`, {
-        params: filters,
-      });
+  async exportTeachers(filters: RegionTeacherFilters): Promise<Blob> {
+    console.log('🎯 Starting teacher export', { filters });
 
-      if (!response.success) {
-        throw new Error(response.message || 'Failed to export teachers');
+    try {
+      // Get token from apiClient
+      const token = apiClient.getToken();
+      if (!token) {
+        throw new Error('Authentication token tapılmadı');
       }
 
-      return response.data;
+      // Get baseURL from apiClient
+      const baseURL = (apiClient as any).baseURL || 'http://localhost:8000/api';
+      const fullURL = `${baseURL}/regionadmin/teachers/export`;
+
+      console.log('🌐 Export request:', {
+        url: fullURL,
+        filters,
+        hasToken: !!token
+      });
+
+      // Use fetch for blob response (better for large files)
+      const response = await fetch(fullURL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Authorization': `Bearer ${token}`,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ filters }),
+      });
+
+      console.log('📥 Export response:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type'),
+        contentLength: response.headers.get('content-length'),
+        ok: response.ok
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Export error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorText
+        });
+
+        // Try to parse JSON error
+        let errorDetails = errorText;
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorDetails = errorJson.message || errorJson.error || errorText;
+
+          if (errorJson.errors) {
+            console.error('🔍 Validation errors:', errorJson.errors);
+          }
+        } catch (e) {
+          // Not JSON, use as-is
+        }
+
+        if (response.status === 401 || response.status === 403) {
+          throw new Error('İcazə yoxdur. Zəhmət olmasa yenidən daxil olun.');
+        }
+
+        throw new Error(`Export uğursuz oldu (${response.status}): ${errorDetails}`);
+      }
+
+      const blob = await response.blob();
+      console.log('📦 Export blob received:', {
+        size: blob.size,
+        type: blob.type,
+        sizeMB: (blob.size / 1024 / 1024).toFixed(2) + ' MB'
+      });
+
+      return blob;
     } catch (error: any) {
-      console.error('❌ RegionAdminTeacherService - exportTeachers error:', error);
-      throw error;
+      console.error('💥 Export error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+      throw new Error(`Export xətası: ${error.message}`);
     }
   }
 
@@ -150,7 +246,7 @@ class RegionAdminTeacherService extends BaseService {
    */
   async getSectors(): Promise<Institution[]> {
     try {
-      const response = await this.apiClient.get(`${this.baseUrl}/sectors`);
+      const response = await apiClient.get(`${this.baseUrl}/sectors`);
 
       if (!response.success) {
         throw new Error(response.message || 'Failed to fetch sectors');
@@ -168,7 +264,7 @@ class RegionAdminTeacherService extends BaseService {
    */
   async getSchools(sectorIds?: number[]): Promise<Institution[]> {
     try {
-      const response = await this.apiClient.get(`${this.baseUrl}/schools`, {
+      const response = await apiClient.get(`${this.baseUrl}/schools`, {
         params: sectorIds && sectorIds.length > 0 ? { sector_ids: sectorIds } : {},
       });
 
@@ -188,7 +284,7 @@ class RegionAdminTeacherService extends BaseService {
    */
   async getTeacher(id: number): Promise<EnhancedTeacherProfile> {
     try {
-      const response = await this.apiClient.get(`${this.baseUrl}/${id}`);
+      const response = await apiClient.get(`${this.baseUrl}/${id}`);
 
       if (!response.success) {
         throw new Error(response.message || 'Failed to fetch teacher');
@@ -206,7 +302,7 @@ class RegionAdminTeacherService extends BaseService {
    */
   async createTeacher(data: Partial<EnhancedTeacherProfile>): Promise<EnhancedTeacherProfile> {
     try {
-      const response = await this.apiClient.post(this.baseUrl, data);
+      const response = await apiClient.post(this.baseUrl, data);
 
       if (!response.success) {
         throw new Error(response.message || 'Failed to create teacher');
@@ -224,7 +320,7 @@ class RegionAdminTeacherService extends BaseService {
    */
   async updateTeacher(id: number, data: Partial<EnhancedTeacherProfile>): Promise<EnhancedTeacherProfile> {
     try {
-      const response = await this.apiClient.put(`${this.baseUrl}/${id}`, data);
+      const response = await apiClient.put(`${this.baseUrl}/${id}`, data);
 
       if (!response.success) {
         throw new Error(response.message || 'Failed to update teacher');
@@ -242,7 +338,7 @@ class RegionAdminTeacherService extends BaseService {
    */
   async softDeleteTeacher(id: number): Promise<void> {
     try {
-      const response = await this.apiClient.delete(`${this.baseUrl}/${id}/soft`);
+      const response = await apiClient.delete(`${this.baseUrl}/${id}/soft`);
 
       if (!response.success) {
         throw new Error(response.message || 'Failed to delete teacher');
@@ -258,7 +354,7 @@ class RegionAdminTeacherService extends BaseService {
    */
   async hardDeleteTeacher(id: number): Promise<void> {
     try {
-      const response = await this.apiClient.delete(`${this.baseUrl}/${id}/hard`);
+      const response = await apiClient.delete(`${this.baseUrl}/${id}/hard`);
 
       if (!response.success) {
         throw new Error(response.message || 'Failed to hard delete teacher');
@@ -270,7 +366,7 @@ class RegionAdminTeacherService extends BaseService {
   }
 
   /**
-   * Import teachers from CSV/Excel file (🔥 KEY FEATURE)
+   * Import teachers from Excel file (Enhanced with detailed error reporting)
    */
   async importTeachers(
     file: File,
@@ -279,7 +375,42 @@ class RegionAdminTeacherService extends BaseService {
       update_existing?: boolean;
     }
   ): Promise<ImportResult> {
+    console.log('🎯 Starting teacher import', {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      options
+    });
+
     try {
+      // Validate file
+      if (!file) {
+        throw new Error('Fayl seçilməyib');
+      }
+
+      // Check file type
+      const allowedTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.ms-excel', // .xls
+      ];
+
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error('Yalnız Excel faylları (.xlsx, .xls) yüklənə bilər');
+      }
+
+      // Check file size (10MB limit)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        throw new Error('Fayl ölçüsü 10MB-dan çox ola bilməz');
+      }
+
+      // Get token
+      const token = apiClient.getToken();
+      if (!token) {
+        throw new Error('Authentication token tapılmadı');
+      }
+
+      // Prepare FormData
       const formData = new FormData();
       formData.append('file', file);
 
@@ -290,95 +421,172 @@ class RegionAdminTeacherService extends BaseService {
         formData.append('update_existing', '1');
       }
 
-      const response = await this.apiClient.post(`${this.baseUrl}/import`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+      console.log('📤 FormData prepared:', {
+        fileName: file.name,
+        skipDuplicates: options?.skip_duplicates,
+        updateExisting: options?.update_existing
       });
 
-      if (!response.success) {
-        throw new Error(response.message || 'Failed to import teachers');
+      // Get baseURL from apiClient
+      const baseURL = (apiClient as any).baseURL || 'http://localhost:8000/api';
+      const fullURL = `${baseURL}/regionadmin/teachers/import`;
+
+      // Use fetch for better error handling
+      const response = await fetch(fullURL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Requested-With': 'XMLHttpRequest',
+          // Don't set Content-Type for FormData, let browser set it with boundary
+        },
+        credentials: 'include',
+        body: formData,
+      });
+
+      console.log('📥 Import response:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type'),
+        ok: response.ok
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('❌ Import failed:', {
+          status: response.status,
+          result
+        });
+
+        // Handle different error types
+        if (response.status === 422) {
+          // Validation errors
+          const errorMessage = result.errors ? result.errors.join(', ') : result.message;
+          throw new Error(errorMessage || 'Doğrulama xətası');
+        } else if (response.status === 404) {
+          throw new Error(result.message || 'API endpoint tapılmadı');
+        } else if (response.status === 400) {
+          throw new Error(result.message || 'Fayl məlumatları düzgün deyil');
+        } else if (response.status === 401 || response.status === 403) {
+          throw new Error('İcazə yoxdur. Zəhmət olmasa yenidən daxil olun.');
+        } else {
+          throw new Error(result.message || 'İdxal xətası baş verdi');
+        }
       }
 
+      console.log('✅ Import successful:', result);
+
       return {
-        success: response.success,
-        imported: response.imported || 0,
-        errors: response.errors || 0,
-        details: response.details || { success: [], errors: [] },
+        success: result.success || false,
+        imported: result.success_count || result.imported || 0,
+        errors: result.error_count || result.errors || 0,
+        details: result.details || { success: [], errors: [] },
       };
     } catch (error: any) {
-      console.error('❌ RegionAdminTeacherService - importTeachers error:', error);
-      throw error;
+      console.error('💥 Import error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+      throw new Error(`İdxal xətası: ${error.message}`);
     }
   }
 
   /**
    * Download Excel import template
-   * Direct backend URL bypass Vite proxy completely
+   * Using same working pattern as institutions.ts
    */
-  async downloadImportTemplate(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      try {
-        // Get token from localStorage (ATIS uses 'atis_auth_token' key)
-        const token = localStorage.getItem('atis_auth_token');
+  async downloadImportTemplate(): Promise<Blob> {
+    console.log('🎯 Starting template download for RegionAdmin teachers');
 
-        if (!token) {
-          reject(new Error('Authentication token tapılmadı. Zəhmət olmasa yenidən daxil olun.'));
-          return;
+    try {
+      // Get token from apiClient (same as institutions service)
+      const token = apiClient.getToken();
+      console.log('🔑 Token check:', { hasToken: !!token, tokenLength: token?.length });
+
+      if (!token) {
+        throw new Error('Authentication token tapılmadı. Zəhmət olmasa yenidən daxil olun.');
+      }
+
+      // Get baseURL from apiClient (same as institutions service)
+      const baseURL = (apiClient as any).baseURL || 'http://localhost:8000/api';
+      const fullURL = `${baseURL}/regionadmin/teachers/import-template`;
+
+      console.log('🌐 Request details:', {
+        baseURL,
+        fullURL,
+        hasToken: !!token
+      });
+
+      const headers = {
+        'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Authorization': `Bearer ${token}`,
+        'X-Requested-With': 'XMLHttpRequest',
+      };
+
+      console.log('📋 Request headers:', headers);
+
+      const response = await fetch(fullURL, {
+        method: 'GET',
+        headers,
+        credentials: 'include',
+      });
+
+      console.log('📥 Template download response:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type'),
+        contentLength: response.headers.get('content-length'),
+        url: response.url,
+        ok: response.ok
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Template download error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorText,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+
+        // Try to parse JSON error response
+        let errorDetails = errorText;
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorDetails = errorJson.message || errorJson.error || errorText;
+
+          // Log detailed validation errors if available
+          if (errorJson.errors) {
+            console.error('🔍 Validation errors:', errorJson.errors);
+          }
+        } catch (e) {
+          // Not JSON, use as-is
         }
 
-        // BYPASS VITE PROXY - Direct backend URL (port 8000)
-        const downloadUrl = 'http://localhost:8000/api/regionadmin/teachers/import-template';
-        console.log('📥 Downloading template from DIRECT URL:', downloadUrl);
+        if (response.status === 401 || response.status === 403) {
+          throw new Error('İcazə yoxdur. Zəhmət olmasa yenidən daxil olun.');
+        }
 
-        // Use XMLHttpRequest for better control over download
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', downloadUrl, true);
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-        xhr.setRequestHeader('Accept', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        xhr.responseType = 'blob';
-
-        xhr.onload = function () {
-          console.log('📥 XHR Response:', xhr.status, xhr.statusText);
-
-          if (xhr.status === 200) {
-            // Get blob from response
-            const blob = xhr.response;
-
-            // Create download link
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'teacher_import_template.xlsx';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-
-            console.log('✅ Excel template downloaded successfully');
-            resolve();
-          } else {
-            console.error('Excel template download failed:', xhr.status, xhr.statusText);
-
-            if (xhr.status === 401 || xhr.status === 403) {
-              reject(new Error('İcazə yoxdur. Zəhmət olmasa yenidən daxil olun.'));
-            } else {
-              reject(new Error(`Excel şablon yüklənmədi (${xhr.status})`));
-            }
-          }
-        };
-
-        xhr.onerror = function () {
-          console.error('❌ XHR Error');
-          reject(new Error('Excel şablon yüklənərkən şəbəkə xətası baş verdi'));
-        };
-
-        xhr.send();
-      } catch (error: any) {
-        console.error('❌ RegionAdminTeacherService - downloadImportTemplate error:', error);
-        reject(error);
+        throw new Error(`Template download failed (${response.status}): ${errorDetails}`);
       }
-    });
+
+      const blob = await response.blob();
+      console.log('📦 Template blob received:', {
+        size: blob.size,
+        type: blob.type
+      });
+
+      return blob;
+    } catch (error: any) {
+      console.error('💥 Template download error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        cause: error.cause
+      });
+      throw new Error(`Template download failed: ${error.message}`);
+    }
   }
 }
 

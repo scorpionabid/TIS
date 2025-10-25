@@ -52,10 +52,22 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
   const [skipDuplicates, setSkipDuplicates] = useState(true);
   const [updateExisting, setUpdateExisting] = useState(false);
 
-  // Download template handler - Direct backend call
+  // Download template handler - Matches institutions.ts pattern
   const handleDownloadTemplate = async () => {
     try {
-      await regionAdminTeacherService.downloadImportTemplate();
+      // Get blob from service (same as institutions)
+      const templateBlob = await regionAdminTeacherService.downloadImportTemplate();
+
+      // Create download link (same pattern as institutions)
+      const url = window.URL.createObjectURL(templateBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `teacher_import_template_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
       toast({
         title: 'Uğurlu',
         description: 'Şablon yükləndi',

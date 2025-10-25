@@ -54,7 +54,8 @@ const POSITION_TYPE_LABELS: Record<string, string> = {
   direktor: 'Direktor',
   direktor_muavini_tedris: 'Dir. Müavini (Tədris)',
   direktor_muavini_inzibati: 'Dir. Müavini (İnzibati)',
-  muəllim: 'Müəllim',
+  müəllim: 'Müəllim',
+  'muəllim': 'Müəllim', // Alternative spelling
   psixoloq: 'Psixoloq',
   kitabxanaçı: 'Kitabxanaçı',
 };
@@ -75,7 +76,7 @@ export const RegionTeacherManager: React.FC = () => {
   const [viewingTeacher, setViewingTeacher] = useState<EnhancedTeacherProfile | null>(null);
 
   const {
-    user,
+    currentUser,
     sectors,
     schools,
     teachers,
@@ -96,6 +97,14 @@ export const RegionTeacherManager: React.FC = () => {
     isDeleting,
     isExporting,
   } = useRegionTeacherManager();
+
+  // Debug log
+  console.log('🎯 RegionTeacherManager render:', {
+    teachersCount: teachers.length,
+    isLoading: isLoadingTeachers,
+    hasTeachers: teachers.length > 0,
+    teachers: teachers,
+  });
 
   // Handle bulk activate
   const handleBulkActivate = () => {
@@ -137,7 +146,7 @@ export const RegionTeacherManager: React.FC = () => {
             Müəllim İdarəetməsi
           </h1>
           <p className="text-gray-600 mt-1">
-            {user?.institution?.name} - Bütün sektorlar və məktəblər
+            {currentUser?.institution?.name} - Bütün sektorlar və məktəblər
           </p>
         </div>
 
@@ -415,18 +424,18 @@ export const RegionTeacherManager: React.FC = () => {
                       <TableCell>
                         <div className="flex flex-col">
                           <span className="font-medium">
-                            {teacher.primary_institution?.name || 'N/A'}
+                            {teacher.institution?.name || 'N/A'}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {POSITION_TYPE_LABELS[teacher.position_type || ''] || teacher.position_type || 'N/A'}
+                          {POSITION_TYPE_LABELS[teacher.profile?.position_type || ''] || teacher.profile?.position_type || 'N/A'}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary">
-                          {EMPLOYMENT_STATUS_LABELS[teacher.employment_status || ''] || teacher.employment_status || 'N/A'}
+                          {EMPLOYMENT_STATUS_LABELS[teacher.profile?.employment_status || ''] || teacher.profile?.employment_status || 'N/A'}
                         </Badge>
                       </TableCell>
                       <TableCell>

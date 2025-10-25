@@ -31,11 +31,25 @@ class RegionTeacherController extends Controller
         try {
             $user = Auth::user();
 
-            // Authorization check
-            if (!$user->can('teachers.read')) {
+            // Authorization check - DB-based (supports both web and sanctum guards)
+            $allRoles = \DB::table('model_has_roles')
+                ->where('model_type', 'App\\Models\\User')
+                ->where('model_id', $user->id)
+                ->pluck('role_id');
+
+            $hasPermission = \DB::table('role_has_permissions')
+                ->whereIn('role_id', $allRoles)
+                ->whereIn('permission_id', function($query) {
+                    $query->select('id')
+                        ->from('permissions')
+                        ->where('name', 'teachers.read');
+                })
+                ->exists();
+
+            if (!$hasPermission) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized - Missing teachers.read permission'
+                    'message' => 'Müəllim məlumatlarını oxumaq səlahiyyətiniz yoxdur'
                 ], 403);
             }
 
@@ -659,11 +673,25 @@ class RegionTeacherController extends Controller
         try {
             $user = Auth::user();
 
-            // Authorization check
-            if (!$user->can('teachers.create')) {
+            // Authorization check - check permissions via role (supports both web and sanctum guards)
+            $allRoles = \DB::table('model_has_roles')
+                ->where('model_type', 'App\\Models\\User')
+                ->where('model_id', $user->id)
+                ->pluck('role_id');
+
+            $hasPermission = \DB::table('role_has_permissions')
+                ->whereIn('role_id', $allRoles)
+                ->whereIn('permission_id', function($query) {
+                    $query->select('id')
+                        ->from('permissions')
+                        ->where('name', 'teachers.create');
+                })
+                ->exists();
+
+            if (!$hasPermission) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized - Missing teachers.create permission'
+                    'message' => 'Müəllim yaratmaq səlahiyyətiniz yoxdur'
                 ], 403);
             }
 
@@ -726,6 +754,29 @@ class RegionTeacherController extends Controller
     {
         try {
             $user = Auth::user();
+
+            // Authorization check - same as import
+            $allRoles = \DB::table('model_has_roles')
+                ->where('model_type', 'App\\Models\\User')
+                ->where('model_id', $user->id)
+                ->pluck('role_id');
+
+            $hasPermission = \DB::table('role_has_permissions')
+                ->whereIn('role_id', $allRoles)
+                ->whereIn('permission_id', function($query) {
+                    $query->select('id')
+                        ->from('permissions')
+                        ->where('name', 'teachers.read'); // Template download requires read permission
+                })
+                ->exists();
+
+            if (!$hasPermission) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Müəllim məlumatlarını oxumaq səlahiyyətiniz yoxdur'
+                ], 403);
+            }
+
             $region = $user->institution;
 
             if (!$region || $region->level !== 2) {

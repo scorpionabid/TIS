@@ -58,16 +58,20 @@ class RegionTeacherTemplateSheet implements FromArray, WithHeadings, WithStyles,
             ->orderBy('name')
             ->first();
 
-        $institutionId = $firstInstitution ? $firstInstitution->id : 'XXX';
+        $institutionId = $firstInstitution ? $firstInstitution->id : '';
+        $utisCode = $firstInstitution?->utis_code ?? '';
+        $instCode = $firstInstitution?->institution_code ?? '';
 
         return [
             [
+                $utisCode, // NEW: institution_utis_code
+                $instCode, // NEW: institution_code
+                $institutionId, // Keep for backward compatibility
                 'ali.mammadov@example.com',
                 'ali.mammadov',
                 'Əli',
                 'Məmmədov',
                 'Rəşid',
-                $institutionId,
                 'müəllim',
                 'secondary',
                 'Riyaziyyat',
@@ -83,12 +87,14 @@ class RegionTeacherTemplateSheet implements FromArray, WithHeadings, WithStyles,
                 '', // Optional: notes
             ],
             [
+                '', // Different institution example (empty codes)
+                $instCode,
+                $institutionId,
                 'leyla.hasanova@example.com',
                 'leyla.hasanova',
                 'Leyla',
                 'Həsənova',
                 'Vaqif',
-                $institutionId,
                 'direktor_muavini_tedris',
                 'primary',
                 'Pedaqogika',
@@ -109,13 +115,17 @@ class RegionTeacherTemplateSheet implements FromArray, WithHeadings, WithStyles,
     public function headings(): array
     {
         return [
+            // YENİ: INSTITUTION LOOKUP SAHƏLƏR (ən azı biri tələb olunur)
+            'institution_utis_code',
+            'institution_code',
+            'institution_id',
+
             // MƏCBURI SAHƏLƏR
             'email *',
             'username *',
             'first_name *',
             'last_name *',
             'patronymic *',
-            'institution_id *',
             'position_type *',
             'workplace_type *',
             'specialty *',
@@ -136,14 +146,20 @@ class RegionTeacherTemplateSheet implements FromArray, WithHeadings, WithStyles,
 
     public function styles(Worksheet $sheet)
     {
-        // Header row styling
-        $sheet->getStyle('A1:L1')->applyFromArray([
+        // Institution lookup fields (blue background)
+        $sheet->getStyle('A1:C1')->applyFromArray([
+            'font' => ['bold' => true, 'size' => 11, 'color' => ['argb' => 'FFFFFFFF']],
+            'fill' => ['fillType' => 'solid', 'startColor' => ['argb' => 'FF2196F3']], // Blue background for lookup fields
+        ]);
+
+        // Required fields (green background)
+        $sheet->getStyle('D1:N1')->applyFromArray([
             'font' => ['bold' => true, 'size' => 11, 'color' => ['argb' => 'FFFFFFFF']],
             'fill' => ['fillType' => 'solid', 'startColor' => ['argb' => 'FF4CAF50']], // Green background for required
         ]);
 
-        // Optional fields styling
-        $sheet->getStyle('M1:S1')->applyFromArray([
+        // Optional fields (gray background)
+        $sheet->getStyle('O1:U1')->applyFromArray([
             'font' => ['bold' => true, 'size' => 11, 'color' => ['argb' => 'FF000000']],
             'fill' => ['fillType' => 'solid', 'startColor' => ['argb' => 'FFE0E0E0']], // Gray background for optional
         ]);
@@ -156,25 +172,27 @@ class RegionTeacherTemplateSheet implements FromArray, WithHeadings, WithStyles,
     public function columnWidths(): array
     {
         return [
-            'A' => 30, // email
-            'B' => 20, // username
-            'C' => 15, // first_name
-            'D' => 15, // last_name
-            'E' => 15, // patronymic
-            'F' => 15, // institution_id
-            'G' => 25, // position_type
-            'H' => 20, // workplace_type
-            'I' => 25, // specialty
-            'J' => 20, // assessment_type
-            'K' => 20, // assessment_score
-            'L' => 15, // password
-            'M' => 18, // contact_phone
-            'N' => 20, // contract_start_date
-            'O' => 20, // contract_end_date
-            'P' => 20, // education_level
-            'Q' => 30, // graduation_university
-            'R' => 18, // graduation_year
-            'S' => 40, // notes
+            'A' => 18, // institution_utis_code
+            'B' => 18, // institution_code
+            'C' => 15, // institution_id
+            'D' => 30, // email
+            'E' => 20, // username
+            'F' => 15, // first_name
+            'G' => 15, // last_name
+            'H' => 15, // patronymic
+            'I' => 25, // position_type
+            'J' => 20, // workplace_type
+            'K' => 25, // specialty
+            'L' => 20, // assessment_type
+            'M' => 20, // assessment_score
+            'N' => 15, // password
+            'O' => 18, // contact_phone
+            'P' => 20, // contract_start_date
+            'Q' => 20, // contract_end_date
+            'R' => 20, // education_level
+            'S' => 30, // graduation_university
+            'T' => 18, // graduation_year
+            'U' => 40, // notes
         ];
     }
 }
@@ -198,12 +216,18 @@ class InstitutionReferenceSheet implements FromArray, WithHeadings, WithStyles
             ->where('level', '>=', 3) // Sectors and schools
             ->orderBy('level')
             ->orderBy('name')
-            ->get(['id', 'name', 'level']);
+            ->get(['id', 'utis_code', 'institution_code', 'name', 'level']);
 
         $data = [];
         foreach ($institutions as $inst) {
             $level = $inst->level == 3 ? 'Sektor' : 'Məktəb';
-            $data[] = [$inst->id, $inst->name, $level];
+            $data[] = [
+                $inst->id,
+                $inst->utis_code ?? '',
+                $inst->institution_code ?? '',
+                $inst->name,
+                $level
+            ];
         }
 
         return $data;
@@ -213,6 +237,8 @@ class InstitutionReferenceSheet implements FromArray, WithHeadings, WithStyles
     {
         return [
             'ID',
+            'UTİS Kod',
+            'Institution Kod',
             'Müəssisə Adı',
             'Səviyyə',
         ];
@@ -237,21 +263,34 @@ class FieldReferenceSheet implements FromArray, WithHeadings, WithStyles, WithCo
     public function array(): array
     {
         return [
+            // Institution lookup fields (at least one required)
+            ['== MÜƏSSİSƏ AXTARIŞI (ən azı biri tələb olunur) =='],
+            ['institution_utis_code', 'AXTARIŞ', 'UTİS kodu (məktəblər üçün)', '118863433'],
+            ['institution_code', 'AXTARIŞ', 'Institution kodu (bütün müəssisələr)', 'SHZRT-001'],
+            ['institution_id', 'AXTARIŞ', 'Müəssisə ID (köhnə üsul)', '123'],
+            [],
+            ['⚠️ QEYDİN: institution_utis_code, institution_code və ya institution_id-dən ən azı BİRİ doldurulmalıdır!'],
+            ['✓ Prioritet: UTİS kod → Institution kod → ID'],
+            ['✓ 2-ci vərəqdə (Institutions) müəssisə siyahısı və kodları var'],
+            [],
+
             // Required fields
+            ['== MƏCBURI SAHƏLƏR =='],
             ['email', 'MƏCBURI', 'Email ünvanı (unikal)', 'ali.mammadov@example.com'],
             ['username', 'MƏCBURI', 'İstifadəçi adı (unikal)', 'ali.mammadov'],
             ['first_name', 'MƏCBURI', 'Ad', 'Əli'],
             ['last_name', 'MƏCBURI', 'Soyad', 'Məmmədov'],
             ['patronymic', 'MƏCBURI', 'Ata adı', 'Rəşid'],
-            ['institution_id', 'MƏCBURI', 'Müəssisə ID (2-ci vərəqdən götürün)', '123'],
             ['position_type', 'MƏCBURI', 'Vəzifə növü (aşağıdakı siyahıdan)', 'müəllim'],
             ['workplace_type', 'MƏCBURI', 'İş yeri növü (primary və ya secondary)', 'secondary'],
             ['specialty', 'MƏCBURI', 'İxtisas', 'Riyaziyyat'],
             ['assessment_type', 'MƏCBURI', 'Qiymətləndirmə növü (aşağıdakı siyahıdan)', 'miq_100'],
             ['assessment_score', 'MƏCBURI', 'Qiymətləndirmə balı (0-100)', '85.50'],
             ['password', 'MƏCBURI', 'Şifrə (minimum 8 simvol)', 'teacher123'],
+            [],
 
             // Optional fields
+            ['== KÖNÜLLÜ SAHƏLƏR =='],
             ['contact_phone', 'KÖNÜLLÜ', 'Əlaqə telefonu', '+994501234567'],
             ['contract_start_date', 'KÖNÜLLÜ', 'Müqavilə başlanğıc tarixi (YYYY-MM-DD)', '2024-09-01'],
             ['contract_end_date', 'KÖNÜLLÜ', 'Müqavilə bitmə tarixi (YYYY-MM-DD)', '2025-06-30'],
