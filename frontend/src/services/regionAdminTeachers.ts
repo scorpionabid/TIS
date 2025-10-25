@@ -314,63 +314,74 @@ class RegionAdminTeacherService extends BaseService {
 
   /**
    * Download Excel import template
+   * Uses XMLHttpRequest to bypass Vite proxy issues with fetch
    */
   async downloadImportTemplate(): Promise<void> {
-    try {
-      // Get API base URL from environment
-      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+    return new Promise((resolve, reject) => {
+      try {
+        // Get API base URL from environment
+        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
-      // Get token from localStorage (ATIS uses 'atis_auth_token' key)
-      const token = localStorage.getItem('atis_auth_token');
+        // Get token from localStorage (ATIS uses 'atis_auth_token' key)
+        const token = localStorage.getItem('atis_auth_token');
 
-      if (!token) {
-        throw new Error('Authentication token tapılmadı. Zəhmət olmasa yenidən daxil olun.');
-      }
-
-      // Build download URL
-      const downloadUrl = `${apiBaseUrl}${this.baseUrl}/import-template`;
-      console.log('📥 Downloading template from:', downloadUrl);
-
-      // Use fetch API directly for blob download
-      const response = await fetch(downloadUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        },
-      });
-
-      console.log('📥 Response:', response.status, response.statusText);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Excel template download failed:', response.status, errorText.substring(0, 200));
-
-        if (response.status === 401 || response.status === 403) {
-          throw new Error('İcazə yoxdur. Zəhmət olmasa yenidən daxil olun.');
+        if (!token) {
+          reject(new Error('Authentication token tapılmadı. Zəhmət olmasa yenidən daxil olun.'));
+          return;
         }
 
-        throw new Error(`Excel şablon yüklənmədi (${response.status})`);
+        // Build download URL
+        const downloadUrl = `${apiBaseUrl}${this.baseUrl}/import-template`;
+        console.log('📥 Downloading template from:', downloadUrl);
+
+        // Use XMLHttpRequest for better control over download
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', downloadUrl, true);
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.setRequestHeader('Accept', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        xhr.responseType = 'blob';
+
+        xhr.onload = function () {
+          console.log('📥 XHR Response:', xhr.status, xhr.statusText);
+
+          if (xhr.status === 200) {
+            // Get blob from response
+            const blob = xhr.response;
+
+            // Create download link
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'teacher_import_template.xlsx';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            console.log('✅ Excel template downloaded successfully');
+            resolve();
+          } else {
+            console.error('Excel template download failed:', xhr.status, xhr.statusText);
+
+            if (xhr.status === 401 || xhr.status === 403) {
+              reject(new Error('İcazə yoxdur. Zəhmət olmasa yenidən daxil olun.'));
+            } else {
+              reject(new Error(`Excel şablon yüklənmədi (${xhr.status})`));
+            }
+          }
+        };
+
+        xhr.onerror = function () {
+          console.error('❌ XHR Error');
+          reject(new Error('Excel şablon yüklənərkən şəbəkə xətası baş verdi'));
+        };
+
+        xhr.send();
+      } catch (error: any) {
+        console.error('❌ RegionAdminTeacherService - downloadImportTemplate error:', error);
+        reject(error);
       }
-
-      // Get blob from response
-      const blob = await response.blob();
-
-      // Create download link
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'teacher_import_template.xlsx';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      console.log('✅ Excel template downloaded successfully');
-    } catch (error: any) {
-      console.error('❌ RegionAdminTeacherService - downloadImportTemplate error:', error);
-      throw error;
-    }
+    });
   }
 }
 
