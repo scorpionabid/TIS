@@ -313,24 +313,43 @@ class RegionAdminTeacherService extends BaseService {
   }
 
   /**
-   * Download import template CSV
+   * Download Excel import template
    */
   async downloadImportTemplate(): Promise<void> {
     try {
-      const response = await this.apiClient.get(`${this.baseUrl}/import-template`, {
-        responseType: 'blob',
+      // Get API base URL from environment
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+      const token = localStorage.getItem('token');
+
+      // Use fetch API directly for blob download
+      const response = await fetch(`${apiBaseUrl}${this.baseUrl}/import-template`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        },
       });
 
-      // Create blob and download
-      const blob = new Blob([response.data || response], { type: 'text/csv; charset=utf-8' });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Excel template download failed:', errorText);
+        throw new Error('Excel şablon yüklənmədi');
+      }
+
+      // Get blob from response
+      const blob = await response.blob();
+
+      // Create download link
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'teacher_import_template.csv';
+      link.download = 'teacher_import_template.xlsx';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
+
+      console.log('✅ Excel template downloaded successfully');
     } catch (error: any) {
       console.error('❌ RegionAdminTeacherService - downloadImportTemplate error:', error);
       throw error;
