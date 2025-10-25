@@ -32,7 +32,13 @@ export default defineConfig(({ mode }) => ({
       server.middlewares.use(
         history({
           disableDotRule: true,
-          htmlAcceptHeaders: ['text/html', 'application/xhtml+xml']
+          htmlAcceptHeaders: ['text/html', 'application/xhtml+xml'],
+          rewrites: [
+            // Don't rewrite API requests
+            { from: /^\/api\/.*$/, to: (context) => context.parsedUrl.path },
+            // Don't rewrite Sanctum requests
+            { from: /^\/sanctum\/.*$/, to: (context) => context.parsedUrl.path },
+          ]
         })
       );
     }
