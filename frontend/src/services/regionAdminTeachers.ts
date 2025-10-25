@@ -314,14 +314,11 @@ class RegionAdminTeacherService extends BaseService {
 
   /**
    * Download Excel import template
-   * Uses XMLHttpRequest to bypass Vite proxy issues with fetch
+   * Direct backend URL bypass Vite proxy completely
    */
   async downloadImportTemplate(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        // Get API base URL from environment
-        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-
         // Get token from localStorage (ATIS uses 'atis_auth_token' key)
         const token = localStorage.getItem('atis_auth_token');
 
@@ -330,9 +327,9 @@ class RegionAdminTeacherService extends BaseService {
           return;
         }
 
-        // Build download URL
-        const downloadUrl = `${apiBaseUrl}${this.baseUrl}/import-template`;
-        console.log('📥 Downloading template from:', downloadUrl);
+        // BYPASS VITE PROXY - Direct backend URL (port 8000)
+        const downloadUrl = 'http://localhost:8000/api/regionadmin/teachers/import-template';
+        console.log('📥 Downloading template from DIRECT URL:', downloadUrl);
 
         // Use XMLHttpRequest for better control over download
         const xhr = new XMLHttpRequest();
