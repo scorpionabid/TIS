@@ -170,10 +170,20 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
                 <div className="space-y-2">
                   <p className="font-medium">İdxal addımları:</p>
                   <ol className="list-decimal list-inside space-y-1 text-sm">
-                    <li>Şablon faylı yükləyin</li>
-                    <li>Müəllim məlumatlarını doldurun</li>
-                    <li>Faylı yükləyin və idxal edin</li>
+                    <li>Excel şablon faylını yükləyin (.xlsx)</li>
+                    <li>
+                      Şablondakı məcburi sahələri doldurun:
+                      <ul className="list-disc list-inside ml-4 mt-1 text-xs">
+                        <li>email, username, ad, soyad, ata adı</li>
+                        <li>müəssisə ID, vəzifə, iş yeri növü, ixtisas</li>
+                        <li>qiymətləndirmə növü və balı, şifrə</li>
+                      </ul>
+                    </li>
+                    <li>Doldurulmuş faylı yükləyin və idxal edin</li>
                   </ol>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    📝 Şablonda 3 vərəq var: 1) Əsas məlumatlar, 2) Müəssisələr, 3) Sahə izahları
+                  </p>
                 </div>
               </AlertDescription>
             </Alert>
@@ -181,9 +191,9 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
             {/* Download Template */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">1. Şablon Faylı</CardTitle>
+                <CardTitle className="text-base">1. Excel Şablon Faylı</CardTitle>
                 <CardDescription>
-                  CSV şablon faylını yükləyin və müəllim məlumatlarını doldurun
+                  Excel şablon faylını yükləyin və müəllim məlumatlarını doldurun
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -198,10 +208,10 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
                   ) : (
                     <Download className="h-4 w-4 mr-2" />
                   )}
-                  Şablon Faylı Yüklə
+                  Excel Şablon Yüklə (.xlsx)
                 </Button>
                 <p className="text-xs text-gray-500 mt-2">
-                  Şablon faylında mövcud müəssisələrin siyahısı daxildir
+                  ✅ Şablon faylında mövcud müəssisələrin siyahısı və sahə izahları daxildir
                 </p>
               </CardContent>
             </Card>
@@ -242,9 +252,9 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
             {/* File Upload */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">3. Fayl Yüklə</CardTitle>
+                <CardTitle className="text-base">3. Excel Fayl Yüklə</CardTitle>
                 <CardDescription>
-                  Doldurulmuş CSV faylını seçin və idxal edin
+                  Doldurulmuş Excel faylını seçin və idxal edin
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -252,7 +262,7 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".csv,.xlsx,.xls"
+                    accept=".xlsx,.xls"
                     onChange={handleFileSelect}
                     className="flex-1 text-sm"
                   />

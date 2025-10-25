@@ -718,9 +718,9 @@ class RegionTeacherController extends Controller
     }
 
     /**
-     * Download import template
+     * Download Excel import template
      *
-     * @return \Illuminate\Http\Response
+     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
      */
     public function downloadImportTemplate()
     {
@@ -735,25 +735,22 @@ class RegionTeacherController extends Controller
                 ], 400);
             }
 
-            Log::info('RegionTeacherController - Downloading import template', [
+            Log::info('RegionTeacherController - Downloading Excel import template', [
                 'region_id' => $region->id,
+                'region_name' => $region->name,
             ]);
 
-            $csv = $this->teacherService->generateImportTemplate($region);
-
-            return response($csv, 200, [
-                'Content-Type' => 'text/csv; charset=UTF-8',
-                'Content-Disposition' => 'attachment; filename="teacher_import_template.csv"',
-            ]);
+            return $this->teacherService->generateImportTemplate($region);
 
         } catch (\Exception $e) {
             Log::error('RegionTeacherController - Error downloading template', [
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Şablon yüklənərkən xəta baş verdi'
+                'message' => 'Şablon yüklənərkən xəta baş verdi: ' . $e->getMessage()
             ], 500);
         }
     }
