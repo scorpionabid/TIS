@@ -81,16 +81,16 @@ export const DashboardHeader = ({
         setLoading(true);
         console.log('🔍 DashboardHeader: Loading survey notifications...');
 
-        const [notificationsResponse, unreadResponse] = await Promise.all([
+        const [notificationsResponse, unreadCount] = await Promise.all([
           surveyService.getSurveyNotifications({ limit: 10 }),
           surveyService.getUnreadSurveyCount()
         ]);
 
         console.log('📊 DashboardHeader: Notifications response:', notificationsResponse);
-        console.log('📊 DashboardHeader: Unread response:', unreadResponse);
+        console.log('📊 DashboardHeader: Unread count:', unreadCount);
 
-        setSurveyNotifications(notificationsResponse || []);
-        setUnreadCount(unreadResponse?.unread_count || 0);
+        setSurveyNotifications(Array.isArray(notificationsResponse) ? notificationsResponse : []);
+        setUnreadCount(typeof unreadCount === 'number' ? unreadCount : 0);
 
         console.log('✅ DashboardHeader: Survey notifications loaded:', notificationsResponse?.length || 0);
       } catch (error) {
@@ -246,15 +246,22 @@ export const DashboardHeader = ({
         </div>
 
         {/* Notifications */}
-        <NotificationDropdown
-          enableRealTime={false}
-          notifications={notifications}
-          unreadCount={unreadCount}
-          onMarkAsRead={handleMarkAsRead}
-          onMarkAllAsRead={handleMarkAllAsRead}
-          onDelete={handleDeleteNotification}
-          onNotificationClick={handleNotificationClick}
-        />
+        <div className="relative">
+          <NotificationDropdown
+            enableRealTime={false}
+            notifications={notifications}
+            unreadCount={unreadCount}
+            onMarkAsRead={handleMarkAsRead}
+            onMarkAllAsRead={handleMarkAllAsRead}
+            onDelete={handleDeleteNotification}
+            onNotificationClick={handleNotificationClick}
+          />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 h-4 w-4 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center text-[10px] font-medium z-10">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
+        </div>
 
         {/* User Profile */}
         {currentUser && onLogout && (
