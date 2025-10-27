@@ -19,10 +19,10 @@ import {
   FileText,
   Clock,
   BarChart3,
-  Plus,
   RefreshCw,
   Eye,
   Edit,
+  Plus,
   ArrowRight,
   FolderOpen
 } from 'lucide-react';
@@ -31,7 +31,6 @@ import { PriorityAlertBar } from './PriorityAlertBar';
 import { TodayPriorityPanel } from './TodayPriorityPanel';
 import { QuickResponsePanel } from './QuickResponsePanel';
 import { RecentDocumentsWidget } from './RecentDocumentsWidget';
-import { NotificationDropdown } from '@/components/layout/components/Header/NotificationDropdown';
 import { SurveyAnalyticsDashboard } from '@/components/analytics/SurveyAnalyticsDashboard';
 import { SurveyDashboardWidget } from './SurveyDashboardWidget';
 import { schoolAdminService, schoolAdminKeys } from '@/services/schoolAdmin';
@@ -236,7 +235,6 @@ export const SchoolAdminDashboard: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <NotificationDropdown className="mr-2" />
           <Button
             variant="outline"
             onClick={handleRefresh}
@@ -244,10 +242,6 @@ export const SchoolAdminDashboard: React.FC = () => {
           >
             <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
             Yenilə
-          </Button>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Yeni Tapşırıq
           </Button>
         </div>
       </div>
