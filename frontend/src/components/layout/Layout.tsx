@@ -108,7 +108,7 @@ const MainLayout = () => {
           </HeaderContainer>
           
           <main className="flex-1 overflow-y-auto bg-surface pb-16 md:pb-0">
-            <PageContainer padding="none" className="px-2 sm:px-3 lg:px-4 pt-3 lg:pt-4">
+            <PageContainer padding="none" className="px-2 sm:px-3 lg:px-4 pt-1 lg:pt-2">
               <Outlet />
             </PageContainer>
           </main>

@@ -210,7 +210,7 @@ const SchoolAssessments: React.FC = () => {
   // Loading state for dashboard
   if (dashboardLoading) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
@@ -224,7 +224,7 @@ const SchoolAssessments: React.FC = () => {
   // Error state for dashboard
   if (dashboardError) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <FileText className="h-16 w-16 text-destructive mx-auto mb-4" />
@@ -248,7 +248,7 @@ const SchoolAssessments: React.FC = () => {
   const rawData = overviewData || null;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>

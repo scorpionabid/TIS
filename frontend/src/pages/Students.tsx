@@ -45,8 +45,8 @@ export default function Students() {
 
   // Main content using unified StudentManagerV2
   return (
-    <div className="p-6">
-      <StudentManagerV2 />
+    <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4">
+      <StudentManagerV2 className="space-y-4" />
     </div>
   );
 }

@@ -137,7 +137,7 @@ export const RegionTeacherManager: React.FC = () => {
   const isSomeSelected = selectedTeachers.length > 0 && selectedTeachers.length < teachers.length;
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

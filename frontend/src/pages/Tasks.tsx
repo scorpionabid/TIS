@@ -328,7 +328,7 @@ export default function Tasks() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Tapşırıq İdarəetməsi</h1>
@@ -376,7 +376,7 @@ export default function Tasks() {
 
   if (error) {
     return (
-      <div className="p-6 text-center">
+      <div className="p-4">
         <h1 className="text-2xl font-bold text-destructive mb-2">Xəta baş verdi</h1>
         <p className="text-muted-foreground">Tapşırıqlar yüklənərkən problem yarandı.</p>
       </div>
@@ -384,7 +384,7 @@ export default function Tasks() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Tapşırıq İdarəetməsi</h1>

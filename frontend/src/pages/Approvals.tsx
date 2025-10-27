@@ -29,7 +29,7 @@ const Approvals: React.FC = () => {
 
   if (!hasApprovalPermissions()) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4">
         <Card>
           <CardContent className="p-8 text-center">
             <Shield className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -52,7 +52,7 @@ const Approvals: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="container mx-auto px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4">
 
       <Tabs defaultValue="survey-responses" className="space-y-2">
         <TabsList className="grid w-full grid-cols-3">

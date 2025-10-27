@@ -147,7 +147,7 @@ const IndexOptimized = () => {
   // Navigation tracking removed for speed
 
   return (
-    <div className="p-2 sm:p-3 lg:p-4">
+    <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4">
       <Suspense fallback={<DashboardLoader />}>
         <ErrorBoundary fallback={DashboardError}>
           <DashboardComponent />

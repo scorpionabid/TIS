@@ -249,9 +249,20 @@ export default function Resources() {
     setEditingResource(null);
   };
 
+  if (isLoading) {
+    return (
+      <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Yüklənir...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (error) {
     return (
-      <div className="p-6">
+      <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold mb-2">Resurslər yüklənə bilmədi</h2>
@@ -266,7 +277,7 @@ export default function Resources() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>

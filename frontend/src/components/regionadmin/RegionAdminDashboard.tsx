@@ -145,7 +145,7 @@ export const RegionAdminDashboard = () => {
 
   if (statsLoading) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
         <div className="animate-pulse">
           <div className="h-8 bg-gray-200 rounded w-64 mb-4"></div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -161,7 +161,7 @@ export const RegionAdminDashboard = () => {
   // Check if user has no institution assignment
   if (!currentUser?.institution?.id) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
         <Card className="border-amber-200 bg-amber-50">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 text-amber-600">
@@ -192,7 +192,7 @@ export const RegionAdminDashboard = () => {
   // Show error state if there are errors
   if (statsError || activitiesError) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
         <Card className="border-red-200">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 text-red-600">
@@ -220,7 +220,7 @@ export const RegionAdminDashboard = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-foreground">Regional İdarəetmə Dashboard</h1>

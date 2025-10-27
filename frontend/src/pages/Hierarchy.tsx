@@ -236,7 +236,7 @@ export default function Hierarchy() {
 
   if (hierarchyError) {
     return (
-      <div className="p-6">
+      <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4">
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
             <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
@@ -255,7 +255,7 @@ export default function Hierarchy() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
