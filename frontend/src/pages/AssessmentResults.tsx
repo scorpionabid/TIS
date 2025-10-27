@@ -187,7 +187,7 @@ export default function AssessmentResults() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
         <div className="flex justify-center items-center min-h-[400px]">
           <div className="flex flex-col items-center space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -201,7 +201,7 @@ export default function AssessmentResults() {
   if (error) {
     console.error('Assessment results fetch error:', error);
     return (
-      <div className="p-6 space-y-6">
+      <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
         <div className="flex justify-center items-center min-h-[400px]">
           <div className="text-center space-y-4">
             <AlertTriangle className="h-12 w-12 text-destructive mx-auto" />
@@ -220,7 +220,7 @@ export default function AssessmentResults() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
       <QuickAuth />
       
       <div className="flex justify-between items-center">

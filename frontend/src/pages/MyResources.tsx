@@ -227,7 +227,7 @@ export default function MyResources() {
 
   if (error) {
     return (
-      <div className="p-6">
+      <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold mb-2">Resurslər yüklənə bilmədi</h2>
@@ -242,7 +242,7 @@ export default function MyResources() {
   const unviewedResourcesCount = resourcesData.filter(r => !r.viewed_at).length;
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-6">
       {/* Page Header */}
       <div className="flex justify-end">
         <div className="flex items-center gap-2">
@@ -496,7 +496,7 @@ export default function MyResources() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[...Array(6)].map((_, i) => (
             <Card key={i}>
-              <CardContent className="p-6">
+              <CardContent className="px-4 py-6">
                 <div className="animate-pulse">
                   <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
                   <div className="h-3 bg-gray-200 rounded w-1/2 mb-4"></div>

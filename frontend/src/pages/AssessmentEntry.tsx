@@ -345,7 +345,7 @@ export default function AssessmentEntry() {
   }));
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
       
       <div className="flex justify-between items-center">
         <div>
@@ -704,7 +704,7 @@ export default function AssessmentEntry() {
       {/* Instructions */}
       {!selectedInstitution || !selectedAssessmentType ? (
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="px-4 py-6">
             <div className="text-center">
               <PlusCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">Qiymətləndirmə daxil etməyə başlayın</h3>
