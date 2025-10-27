@@ -281,7 +281,7 @@ export default function Resources() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Resurslər</h1>
+          <h1 className="text-3xl font-bold text-foreground">Resurslar</h1>
           <p className="text-muted-foreground">Linklər və sənədlərin vahid idarə edilməsi</p>
         </div>
         {canCreateResources && (
