@@ -280,12 +280,12 @@ const PendingSurveys: React.FC = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredSurveys.map((survey: SurveyWithStatus) => (
-            <Card key={survey.id} className={`transition-shadow hover:shadow-sm ${
+            <Card key={survey.id} className={`h-full flex flex-col transition-shadow hover:shadow-sm ${
               survey.response_status === 'overdue' ? 'border-l-2 border-l-red-500' : ''
             }`}>
-              <CardHeader>
+              <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
                   <div className="space-y-2">
                     <CardTitle className="text-lg font-semibold">
@@ -327,8 +327,8 @@ const PendingSurveys: React.FC = () => {
                 </div>
               </CardHeader>
 
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <CardContent className="flex-1 flex flex-col justify-between">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                   <div className="flex flex-col space-y-1">
                     <div className="flex items-center space-x-2">
                       <Calendar className="h-5 w-5 text-blue-600" />
@@ -375,16 +375,17 @@ const PendingSurveys: React.FC = () => {
                   )}
                 </div>
 
-                {survey.end_date && isOverdue(survey.end_date) && (
-                  <div className="mb-3 p-2 rounded-md bg-red-50 border border-red-100 text-sm text-red-700">
-                    <div className="flex items-center space-x-2">
-                      <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                      <span>Sorğunun müddəti bitib!</span>
-                    </div>
-                  </div>
-                )}
 
-                <div className="flex justify-end">
+                <div className="mt-4 flex flex-col sm:flex-row justify-between items-center gap-3">
+                  {survey.end_date && isOverdue(survey.end_date) && (
+                    <div className="w-full sm:w-auto p-2 rounded-md bg-red-50 border border-red-100 text-sm text-red-700">
+                      <div className="flex items-center justify-center sm:justify-start space-x-2">
+                        <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                        <span>Sorğunun müddəti bitib!</span>
+                      </div>
+                    </div>
+                  )}
+                  <div className="w-full sm:w-auto">
                   <Button
                     onClick={() => handleStartSurvey(survey.id)}
                     size="sm"
@@ -396,6 +397,7 @@ const PendingSurveys: React.FC = () => {
                   >
                     {survey.response_status === 'overdue' ? 'Təcili başla' : 'Başla'}
                   </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
