@@ -226,7 +226,7 @@ export const SchoolAdminDashboard: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-2 sm:p-3 lg:p-4 space-y-4 lg:space-y-4">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
