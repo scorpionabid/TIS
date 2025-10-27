@@ -36,6 +36,16 @@ const MainLayout = () => {
     });
   };
 
+  const getRegionName = () => {
+    if (!currentUser?.region) return undefined;
+
+    if (typeof currentUser.region === "string") {
+      return currentUser.region;
+    }
+
+    return currentUser.region.name;
+  };
+
   const getDashboardTitle = () => {
     if (!currentUser) return "Dashboard";
 
@@ -46,8 +56,10 @@ const MainLayout = () => {
     switch (normalizedRole) {
       case USER_ROLES.SUPERADMIN:
         return "Sistem İdarəetməsi";
-      case USER_ROLES.REGIONADMIN:
-        return `${currentUser.region} Regional İdarəetmə`;
+      case USER_ROLES.REGIONADMIN: {
+        const regionName = getRegionName();
+        return regionName ? `${regionName} Regional İdarəetmə` : "Regional İdarəetmə";
+      }
       default:
         return "İdarəetmə Paneli";
     }
@@ -63,8 +75,12 @@ const MainLayout = () => {
     switch (normalizedRole) {
       case USER_ROLES.SUPERADMIN:
         return "Azərbaycan Təhsil İdarəetmə Sistemi - Ana Panel";
-      case USER_ROLES.REGIONADMIN:
-        return `${currentUser.region} regional təhsil idarəsi məlumat sistemi`;
+      case USER_ROLES.REGIONADMIN: {
+        const regionName = getRegionName();
+        return regionName 
+          ? `${regionName} regional təhsil idarəsi məlumat sistemi` 
+          : "Regional təhsil idarəsi məlumat sistemi";
+      }
       default:
         return "Azərbaycan Təhsil İdarəetmə Sistemi";
     }
