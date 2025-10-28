@@ -25,6 +25,11 @@ import { TaskModalStandardized } from "@/components/modals/TaskModalStandardized
 import { DeleteConfirmationModal } from "@/components/modals/DeleteConfirmationModal";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  categoryLabels,
+  priorityLabels,
+  statusLabels,
+} from "@/components/tasks/config/taskFormFields";
 
 type SortField = 'title' | 'category' | 'priority' | 'status' | 'deadline' | 'assignee';
 type SortDirection = 'asc' | 'desc';
@@ -36,30 +41,6 @@ const categoryIcons: Record<string, React.ElementType> = {
   audit: Shield,
   instruction: BookOpen,
   other: MoreHorizontal,
-};
-
-const categoryLabels: Record<string, string> = {
-  report: 'Hesabat',
-  maintenance: 'Təmir',
-  event: 'Tədbir',
-  audit: 'Audit',
-  instruction: 'Təlimat',
-  other: 'Digər',
-};
-
-const priorityLabels: Record<string, string> = {
-  low: 'Aşağı',
-  medium: 'Orta', 
-  high: 'Yüksək',
-  urgent: 'Təcili',
-};
-
-const statusLabels: Record<string, string> = {
-  pending: 'Gözləyir',
-  in_progress: 'İcradadır',
-  review: 'Yoxlanılır',
-  completed: 'Tamamlandı',
-  cancelled: 'Ləğv edildi',
 };
 
 export default function Tasks() {
@@ -226,14 +207,28 @@ export default function Tasks() {
       ? data.assigned_user_ids.map((value: number | string) => Number(value)).filter((value) => !Number.isNaN(value))
       : [];
 
+    const assignedInstitutionId = data.assigned_institution_id != null
+      ? Number(data.assigned_institution_id)
+      : null;
+
+    const targetInstitutionIdFromSelection = Array.isArray(data.target_institutions) && data.target_institutions.length > 0
+      ? Number(data.target_institutions[0])
+      : null;
+
     return {
       ...data,
-      assigned_to: assignedUserIds.length > 0 ? assignedUserIds[0] : data.assigned_to ?? null,
-      assigned_institution_id: data.assigned_institution_id ?? null,
-      target_institution_id: data.target_institution_id ?? data.assigned_institution_id ?? null,
-      target_institutions: Array.isArray(data.target_institutions) ? data.target_institutions : [],
-      target_departments: Array.isArray(data.target_departments) ? data.target_departments : [],
-      target_roles: Array.isArray(data.target_roles) ? data.target_roles : [],
+      assigned_to: assignedUserIds.length > 0
+        ? assignedUserIds[0]
+        : (data.assigned_to != null ? Number(data.assigned_to) : null),
+      assigned_institution_id: assignedInstitutionId,
+      target_institution_id: targetInstitutionIdFromSelection ?? assignedInstitutionId,
+      target_institutions: Array.isArray(data.target_institutions)
+        ? data.target_institutions.map((value: number | string) => Number(value)).filter((value) => !Number.isNaN(value))
+        : [],
+      target_departments: Array.isArray(data.target_departments)
+        ? data.target_departments.map((value: number | string) => Number(value)).filter((value) => !Number.isNaN(value))
+        : [],
+      target_roles: [],
       assignment_notes: data.assignment_notes ?? undefined,
       assigned_user_ids: assignedUserIds,
       requires_approval: Boolean(data.requires_approval),

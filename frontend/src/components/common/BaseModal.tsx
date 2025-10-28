@@ -12,6 +12,11 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { logger } from '@/utils/logger';
 import { accessibilityChecker } from '@/utils/accessibility-checker';
+import { BaseModalTabsContext } from './BaseModal.context';
+import { TabProgressIndicator } from './TabProgressIndicator';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 
 export interface BaseModalTab {
   id: string;
@@ -79,6 +84,69 @@ export const BaseModal: React.FC<BaseModalProps> = ({
   );
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
+  // Create unified schema from all fields (tabs + single form)
+  const allFields = React.useMemo(() => {
+    if (tabs.length > 0) {
+      return tabs.flatMap(tab => tab.fields);
+    }
+    return fields;
+  }, [tabs, fields]);
+
+  // Build unified schema for all form fields
+  const schema = React.useMemo(() => {
+    return z.object(
+      allFields.reduce((acc, field) => {
+        let fieldSchema = field.validation;
+
+        if (!fieldSchema) {
+          switch (field.type) {
+            case 'email':
+              fieldSchema = z.string().email('Düzgün email daxil edin');
+              break;
+            case 'number':
+              fieldSchema = z.number().or(z.string().regex(/^\d+$/, 'Düzgün nömrə daxil edin').transform(Number));
+              break;
+            case 'password':
+              fieldSchema = z.string().min(6, 'Parol ən azı 6 simvol olmalıdır');
+              break;
+            case 'checkbox':
+            case 'switch':
+              fieldSchema = z.boolean();
+              break;
+            case 'date':
+              fieldSchema = z.string().optional();
+              break;
+            case 'multiselect':
+              fieldSchema = z.array(z.string());
+              break;
+            case 'custom':
+              fieldSchema = z.any().optional();
+              break;
+            default:
+              fieldSchema = z.string();
+          }
+        }
+
+        if (!field.required) {
+          if (fieldSchema && typeof fieldSchema.optional === 'function') {
+            fieldSchema = fieldSchema.optional();
+          } else {
+            fieldSchema = z.optional(fieldSchema);
+          }
+        }
+
+        acc[field.name] = fieldSchema;
+        return acc;
+      }, {} as Record<string, z.ZodType<any>>)
+    );
+  }, [allFields]);
+
+  // Create unified form instance for all tabs
+  const sharedForm = useForm({
+    resolver: zodResolver(schema),
+    defaultValues: defaultValues,
+  });
+
   // Reset tab when modal opens
   React.useEffect(() => {
     if (open && tabs.length > 0) {
@@ -140,42 +208,59 @@ export const BaseModal: React.FC<BaseModalProps> = ({
     return widthClasses[maxWidth];
   };
 
-  const renderTabContent = (tab: BaseModalTab) => (
-    <TabsContent key={tab.id} value={tab.id} className="mt-6">
-      {tab.description && (
-        <div 
-          className={cn(
-            'mb-4 p-4 rounded-lg border',
-            colorClasses[tab.color || 'blue']
-          )}
-          id={`tab-${tab.id}-description`}
-          role="region"
-          aria-label={`${tab.label} məlumatları`}
-        >
-          <div className="flex items-center gap-2 font-medium">
-            {tab.icon}
-            {tab.label}
-            {tab.badge && (
-              <Badge variant="secondary" className="text-xs">
-                {tab.badge}
-              </Badge>
+  // Get error count for a specific tab
+  const getTabErrorCount = React.useCallback((tab: BaseModalTab) => {
+    if (!sharedForm?.formState?.errors) return 0;
+
+    const tabFieldNames = tab.fields.map(f => f.name);
+    const errorKeys = Object.keys(sharedForm.formState.errors);
+
+    return errorKeys.filter(key => tabFieldNames.includes(key)).length;
+  }, [sharedForm?.formState?.errors]);
+
+  const renderTabContent = (tab: BaseModalTab, index: number) => {
+    // Only show submit button on the last tab
+    const isLastTab = index === tabs.length - 1;
+
+    return (
+      <TabsContent key={tab.id} value={tab.id} className="mt-6">
+        {tab.description && (
+          <div
+            className={cn(
+              'mb-4 p-4 rounded-lg border',
+              colorClasses[tab.color || 'blue']
             )}
+            id={`tab-${tab.id}-description`}
+            role="region"
+            aria-label={`${tab.label} məlumatları`}
+          >
+            <div className="flex items-center gap-2 font-medium">
+              {tab.icon}
+              {tab.label}
+              {tab.badge && (
+                <Badge variant="secondary" className="text-xs">
+                  {tab.badge}
+                </Badge>
+              )}
+            </div>
+            <p className="text-sm mt-1 opacity-90">
+              {tab.description}
+            </p>
           </div>
-          <p className="text-sm mt-1 opacity-90">
-            {tab.description}
-          </p>
-        </div>
-      )}
-      <FormBuilder
-        fields={tab.fields}
-        onSubmit={handleSubmit}
-        submitLabel={submitLabel || (entity ? 'Yenilə' : 'Əlavə et')}
-        loading={isSubmitting || loading}
-        defaultValues={defaultValues}
-        columns={columns}
-      />
-    </TabsContent>
-  );
+        )}
+        <FormBuilder
+          fields={tab.fields}
+          onSubmit={handleSubmit}
+          submitLabel={submitLabel || (entity ? 'Yenilə' : 'Əlavə et')}
+          loading={isSubmitting || loading}
+          defaultValues={defaultValues}
+          columns={columns}
+          hideSubmit={!isLastTab}
+          externalForm={sharedForm}
+        />
+      </TabsContent>
+    );
+  };
 
   const renderSingleForm = () => (
     <FormBuilder
@@ -186,6 +271,7 @@ export const BaseModal: React.FC<BaseModalProps> = ({
       defaultValues={defaultValues}
       columns={columns}
       className="mt-6"
+      externalForm={sharedForm}
     />
   );
 
@@ -275,54 +361,73 @@ export const BaseModal: React.FC<BaseModalProps> = ({
         )}
 
         {tabs.length > 0 ? (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className={cn(
-              "grid w-full",
-              `grid-cols-${Math.min(tabs.length, 4)}`
-            )}>
-              {tabs.map((tab) => (
-                <TabsTrigger
-                  key={tab.id}
-                  value={tab.id}
-                  className="flex items-center gap-2"
-                  disabled={tab.disabled}
-                  onFocus={containsSelectComponents ? (e) => {
-                    // For modals with Select components, disable tab focus management entirely
-                    console.log('🚫 Tab focus disabled due to Select components in modal');
-                  } : (e) => {
-                    // Enhanced modal focus management for tabs (non-Select modals only)
-                    const modalContent = e.currentTarget.closest('[role="dialog"]');
-                    if (modalContent) {
-                      // Ensure modal is properly visible before allowing focus
-                      const isModalVisible = modalContent.getAttribute('data-state') === 'open' || 
-                                           !modalContent.hasAttribute('aria-hidden') ||
-                                           modalContent.getAttribute('aria-hidden') === 'false';
-                      
-                      if (!isModalVisible) {
-                        e.preventDefault();
-                        e.currentTarget.blur();
-                        return;
-                      }
-                      
-                      // Set appropriate ARIA labels for better accessibility
-                      if (!e.currentTarget.hasAttribute('aria-describedby')) {
-                        e.currentTarget.setAttribute('aria-describedby', `tab-${tab.id}-description`);
-                      }
-                    }
-                  }}
-                >
-                  {tab.icon}
-                  {tab.label}
-                  {tab.badge && (
-                    <Badge variant="secondary" className="text-xs">
-                      {tab.badge}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            {tabs.map(renderTabContent)}
-          </Tabs>
+          <BaseModalTabsContext.Provider value={{ activeTab, setActiveTab, tabs }}>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              {/* Progress Indicator */}
+              {tabs.length > 1 && (
+                <TabProgressIndicator
+                  currentStep={tabs.findIndex(t => t.id === activeTab) + 1}
+                  totalSteps={tabs.length}
+                  className="mb-4"
+                />
+              )}
+
+              <TabsList className={cn(
+                "grid w-full",
+                `grid-cols-${Math.min(tabs.length, 4)}`
+              )}>
+                {tabs.map((tab) => {
+                  const errorCount = getTabErrorCount(tab);
+                  return (
+                    <TabsTrigger
+                      key={tab.id}
+                      value={tab.id}
+                      className="flex items-center gap-2"
+                      disabled={tab.disabled}
+                      onFocus={containsSelectComponents ? (e) => {
+                        // For modals with Select components, disable tab focus management entirely
+                        console.log('🚫 Tab focus disabled due to Select components in modal');
+                      } : (e) => {
+                        // Enhanced modal focus management for tabs (non-Select modals only)
+                        const modalContent = e.currentTarget.closest('[role="dialog"]');
+                        if (modalContent) {
+                          // Ensure modal is properly visible before allowing focus
+                          const isModalVisible = modalContent.getAttribute('data-state') === 'open' ||
+                                               !modalContent.hasAttribute('aria-hidden') ||
+                                               modalContent.getAttribute('aria-hidden') === 'false';
+
+                          if (!isModalVisible) {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                            return;
+                          }
+
+                          // Set appropriate ARIA labels for better accessibility
+                          if (!e.currentTarget.hasAttribute('aria-describedby')) {
+                            e.currentTarget.setAttribute('aria-describedby', `tab-${tab.id}-description`);
+                          }
+                        }
+                      }}
+                    >
+                      {tab.icon}
+                      {tab.label}
+                      {tab.badge && (
+                        <Badge variant="secondary" className="text-xs">
+                          {tab.badge}
+                        </Badge>
+                      )}
+                      {errorCount > 0 && (
+                        <Badge variant="destructive" className="ml-1 text-xs">
+                          {errorCount}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+              {tabs.map((tab, index) => renderTabContent(tab, index))}
+            </Tabs>
+          </BaseModalTabsContext.Provider>
         ) : (
           renderSingleForm()
         )}

@@ -77,10 +77,11 @@ export interface CreateTaskData {
   assigned_institution_id?: number | null;
   target_institution_id?: number | null;
   target_institutions?: number[];
+  specific_institutions?: number[]; // Backend expects this field for hierarchical tasks
   target_departments?: number[];
   target_roles?: string[];
   assigned_user_ids?: number[];
-  target_scope: Task['target_scope'];
+  target_scope?: Task['target_scope'];
   notes?: string;
   assignment_notes?: string;
   requires_approval?: boolean;

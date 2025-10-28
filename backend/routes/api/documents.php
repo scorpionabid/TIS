@@ -88,7 +88,7 @@ Route::middleware('permission:tasks.read')->group(function () {
     Route::get('tasks/institution/{institution}', [TaskController::class, 'getInstitutionTasks']);
 });
 
-Route::middleware('permission:tasks.write')->group(function () {
+Route::middleware('role_or_permission:superadmin|regionadmin|sektoradmin|tasks.write')->group(function () {
     Route::post('tasks', [TaskController::class, 'store']);
     Route::put('tasks/{task}', [TaskController::class, 'update']);
     Route::delete('tasks/{task}', [TaskController::class, 'destroy']);

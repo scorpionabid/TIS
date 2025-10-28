@@ -77,6 +77,8 @@ export interface FormBuilderProps {
   columns?: 1 | 2 | 3;
   preserveValues?: boolean; // Keep values when fields change
   autoFocus?: boolean; // Auto focus first field
+  hideSubmit?: boolean; // Hide submit button (useful for multi-step forms)
+  externalForm?: any; // External form instance (for multi-tab forms)
 }
 
 export function FormBuilder({
@@ -91,6 +93,8 @@ export function FormBuilder({
   columns = 1,
   preserveValues = false,
   autoFocus = true,
+  hideSubmit = false,
+  externalForm,
 }: FormBuilderProps) {
   const { isMobile } = useLayout();
   // Create dynamic schema from fields
@@ -98,7 +102,7 @@ export function FormBuilder({
     fields.reduce((acc, field) => {
       // Ensure we have a proper Zod schema
       let fieldSchema = field.validation;
-      
+
       // If no validation provided, create appropriate default schema based on field type
       if (!fieldSchema) {
         switch (field.type) {
@@ -125,7 +129,7 @@ export function FormBuilder({
             fieldSchema = z.string();
         }
       }
-      
+
       // Apply optional modifier if field is not required
       if (!field.required) {
         // Check if the schema has optional method (some custom validations might not have it)
@@ -136,7 +140,7 @@ export function FormBuilder({
           fieldSchema = z.optional(fieldSchema);
         }
       }
-      
+
       acc[field.name] = fieldSchema;
       return acc;
     }, {} as Record<string, z.ZodType<any>>)
@@ -170,12 +174,15 @@ export function FormBuilder({
 
     return cleanedDefaults;
   }, [fields, defaultValues]);
-  
 
-  const form = useForm({
+
+  const internalForm = useForm({
     resolver: zodResolver(schema),
     defaultValues: formDefaultValues,
   });
+
+  // Use external form if provided, otherwise use internal form
+  const form = externalForm || internalForm;
 
   // Watch all form values and call onChange when any field changes
   React.useEffect(() => {
@@ -199,10 +206,12 @@ export function FormBuilder({
         name={field.name}
         render={({ field: formField }) => (
           <FormItem className={cn(field.className, controlClass)}>
-            <FormLabel className="text-foreground" htmlFor={field.name} id={`${field.name}-label`}>
-              {field.label}
-              {field.required && <span className="text-destructive ml-1">*</span>}
-            </FormLabel>
+            {field.label && (
+              <FormLabel className="text-foreground" htmlFor={field.name} id={`${field.name}-label`}>
+                {field.label}
+                {field.required && <span className="text-destructive ml-1">*</span>}
+              </FormLabel>
+            )}
             <FormControl>
               {(() => {
                 switch (field.type) {
@@ -278,7 +287,7 @@ export function FormBuilder({
                       >
                         <SelectTrigger
                           id={field.name}
-                          aria-labelledby={`${field.name}-label`}
+                          aria-labelledby={field.label ? `${field.name}-label` : undefined}
                         >
                           <SelectValue
                             placeholder={field.placeholder}
@@ -395,15 +404,17 @@ export function FormBuilder({
           )}>
             {fields.map((field) => renderField(field, formControlClass))}
           </div>
-          
-          <div className="flex justify-end pt-4">
-            <Button type="submit" disabled={loading}>
-              {loading && (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2" />
-              )}
-              {submitLabel}
-            </Button>
-          </div>
+
+          {!hideSubmit && (
+            <div className="flex justify-end pt-4">
+              <Button type="submit" disabled={loading}>
+                {loading && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2" />
+                )}
+                {submitLabel}
+              </Button>
+            </div>
+          )}
         </form>
       </Form>
     </div>
@@ -449,7 +460,7 @@ const MultiSelectField: React.FC<MultiSelectFieldProps> = ({ field, formField, l
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          aria-labelledby={`${field.name}-label`}
+          aria-labelledby={field.label ? `${field.name}-label` : undefined}
           className="w-full justify-between"
           disabled={field.disabled || loading}
         >
