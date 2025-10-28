@@ -48,6 +48,7 @@ const MyResponses: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'all');
   const [periodFilter, setPeriodFilter] = useState<string>('all');
   const [approvalFilter, setApprovalFilter] = useState<string>('all');
+  const [reopeningId, setReopeningId] = useState<number | null>(null);
 
   const { data: responses = [], isLoading, error } = useQuery<ResponseWithSurvey[]>({
     queryKey: ['my-survey-responses'],
@@ -170,6 +171,18 @@ const MyResponses: React.FC = () => {
 
   const handleViewResponse = (responseId: number, surveyId: number) => {
     navigate(`/survey-response/${surveyId}/${responseId}`);
+  };
+
+  const handleReopenResponse = async (responseId: number, surveyId: number) => {
+    try {
+      setReopeningId(responseId);
+      await surveyService.reopenAsDraft(responseId);
+      navigate(`/survey-response/${surveyId}/${responseId}`);
+    } catch (error) {
+      console.error('Error reopening response:', error);
+    } finally {
+      setReopeningId(null);
+    }
   };
 
   const handleDeleteDraft = async (responseId: number) => {
@@ -513,7 +526,25 @@ const MyResponses: React.FC = () => {
                   </div>
 
                   {/* Continue button only for editable statuses */}
-                  {['draft', 'in_progress'].includes(response.status) ? (
+                  {response.status === 'rejected' ? (
+                    <Button
+                      onClick={() => handleReopenResponse(response.id, response.survey.id)}
+                      className="bg-blue-600 hover:bg-blue-700"
+                      disabled={reopeningId === response.id}
+                    >
+                      {reopeningId === response.id ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Açılır...
+                        </>
+                      ) : (
+                        <>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Yenidən redaktə et
+                        </>
+                      )}
+                    </Button>
+                  ) : ['draft', 'in_progress'].includes(response.status) ? (
                     <Button
                       onClick={() => handleContinueResponse(response.id, response.survey.id)}
                       className="bg-blue-600 hover:bg-blue-700"

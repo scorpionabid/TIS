@@ -267,6 +267,70 @@ class SurveyResponseService extends BaseService
         });
     }
 
+    public function reopenResponse(SurveyResponse $response): SurveyResponse
+    {
+        $user = Auth::user();
+
+        if ($response->respondent_id !== $user->id) {
+            throw new \InvalidArgumentException('You can only reopen your own responses');
+        }
+
+        if (!in_array($response->status, ['submitted', 'rejected', 'returned'])) {
+            throw new \InvalidArgumentException('Only submitted, rejected or returned responses can be reopened');
+        }
+
+        return DB::transaction(function () use ($response, $user) {
+            $previousStatus = $response->status;
+            $response->loadMissing(['survey.questions', 'approvalRequest']);
+            $resubmittedAt = now();
+
+            // Recalculate current progress so draft shows up-to-date completion state
+            $response->updateProgress();
+
+            $response->status = 'draft';
+            $response->submitted_at = null;
+            $response->approved_at = null;
+            $response->approved_by = null;
+            $response->save();
+
+            if ($approvalRequest = $response->approvalRequest) {
+                $metadata = $approvalRequest->request_metadata ?? [];
+                $metadata['resubmission_count'] = ($metadata['resubmission_count'] ?? 0) + 1;
+                $metadata['last_resubmitted_at'] = $resubmittedAt->toISOString();
+
+                $deadline = $approvalRequest->deadline;
+                if (!$deadline || $deadline->isPast()) {
+                    $deadline = $resubmittedAt->copy()->addDays(7);
+                }
+
+                $approvalRequest->update([
+                    'current_status' => 'pending',
+                    'current_approval_level' => 1,
+                    'completed_at' => null,
+                    'submitted_at' => $resubmittedAt,
+                    'submitted_by' => $user->id,
+                    'request_metadata' => $metadata,
+                    'deadline' => $deadline,
+                ]);
+            }
+
+            $this->logActivity('survey_response_reopen', [
+                'entity_type' => 'SurveyResponse',
+                'entity_id' => $response->id,
+                'description' => "Reopened survey response for: {$response->survey->title}",
+                'previous_status' => $previousStatus
+            ]);
+
+            $this->logAudit($response->survey_id, $response->id, 'reopened', [
+                'previous_status' => $previousStatus,
+                'resubmitted_at' => $resubmittedAt,
+                'resubmitted_by' => $user->id
+            ]);
+
+            return $response->fresh();
+        });
+    }
+
     private function validateResponsesAgainstSurvey(Survey $survey, array $responses, bool $enforceRequired = false): void
     {
         $errors = [];

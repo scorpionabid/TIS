@@ -127,6 +127,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     mutationFn: (responseId: number) => surveyService.reopenAsDraft(responseId),
     onSuccess: (data) => {
       setCurrentResponse(data.response);
+      setResponses(data.response.responses ?? {});
       queryClient.invalidateQueries({ queryKey: ['survey-response', responseId] });
       toast.success('Survey yenidən redaktə üçün açıldı');
       setHasUnsavedChanges(false);
@@ -742,12 +743,32 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
       )}
 
       {currentResponse?.status === 'rejected' && (
-        <Alert variant="destructive">
-          <XCircle className="h-4 w-4" />
-          <AlertDescription>
-            Survey rədd edildi: {currentResponse.rejection_reason}
-          </AlertDescription>
-        </Alert>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <Alert variant="destructive" className="flex-1">
+                <XCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Survey rədd edildi: {currentResponse.rejection_reason || 'Dəyişiklik tələb olunur.'}
+                </AlertDescription>
+              </Alert>
+              <Button
+                variant="outline"
+                onClick={() => currentResponse && reopenDraftMutation.mutate(currentResponse.id)}
+                disabled={reopenDraftMutation.isPending}
+              >
+                {reopenDraftMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                    Açılır...
+                  </>
+                ) : (
+                  'Yenidən redaktə et'
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

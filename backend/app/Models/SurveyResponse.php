@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Auth;
 
 class SurveyResponse extends Model
 {
@@ -221,7 +222,34 @@ class SurveyResponse extends Model
     public function ensureApprovalRequestExists(): void
     {
         // Check if approval request already exists
-        if ($this->approvalRequest) {
+        $approvalRequest = $this->approvalRequest;
+
+        if ($approvalRequest) {
+            if (
+                in_array($this->status, ['submitted', 'pending_approval']) &&
+                in_array($approvalRequest->current_status, ['rejected', 'returned', 'cancelled'])
+            ) {
+                $resubmittedAt = now();
+                $metadata = $approvalRequest->request_metadata ?? [];
+                $metadata['resubmission_count'] = ($metadata['resubmission_count'] ?? 0) + 1;
+                $metadata['last_resubmitted_at'] = $resubmittedAt->toISOString();
+
+                $deadline = $approvalRequest->deadline;
+                if (!$deadline || $deadline->isPast()) {
+                    $deadline = $resubmittedAt->copy()->addDays(7);
+                }
+
+                $approvalRequest->update([
+                    'current_status' => 'pending',
+                    'current_approval_level' => 1,
+                    'completed_at' => null,
+                    'submitted_at' => $resubmittedAt,
+                    'submitted_by' => Auth::id(),
+                    'request_metadata' => $metadata,
+                    'deadline' => $deadline,
+                ]);
+            }
+
             return;
         }
 

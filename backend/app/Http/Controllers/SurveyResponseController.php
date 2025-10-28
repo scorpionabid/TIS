@@ -127,29 +127,15 @@ class SurveyResponseController extends BaseController
     public function reopen(Request $request, SurveyResponse $response): JsonResponse
     {
         try {
-            $user = auth()->user();
-            
-            // Check if user can reopen this response
-            if ($response->respondent_id !== $user->id) {
-                return $this->errorResponse('You can only reopen your own responses', 403);
-            }
-            
-            // Check if response can be reopened
-            if ($response->status !== 'submitted') {
-                return $this->errorResponse('Only submitted responses can be reopened', 422);
-            }
-            
-            // Reopen as draft
-            $response->update([
-                'status' => 'draft',
-                'submitted_at' => null,
-                'is_complete' => false
-            ]);
+            $reopenedResponse = $this->responseService->reopenResponse($response);
 
             return $this->successResponse(
-                ['response' => $response->fresh()],
+                ['response' => $reopenedResponse],
                 'Survey response reopened as draft'
             );
+        } catch (\InvalidArgumentException $e) {
+            $status = $e->getMessage() === 'You can only reopen your own responses' ? 403 : 422;
+            return $this->errorResponse($e->getMessage(), $status);
         } catch (\Exception $e) {
             return $this->errorResponse('Failed to reopen survey response: ' . $e->getMessage());
         }
