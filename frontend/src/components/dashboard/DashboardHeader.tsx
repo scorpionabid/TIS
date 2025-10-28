@@ -49,6 +49,19 @@ export const DashboardHeader = ({
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  const toBoolean = (value: unknown) => {
+    if (value === null || typeof value === 'undefined') return false;
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value !== 0;
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      if (['1', 'true', 'yes', 'read'].includes(normalized)) return true;
+      if (['0', 'false', 'no', 'unread'].includes(normalized)) return false;
+      return normalized.length > 0;
+    }
+    return Boolean(value);
+  };
+
   // Convert survey notifications to NotificationDropdown format
   const convertToNotificationFormat = (surveyNotification: SurveyNotification) => ({
     id: typeof surveyNotification.id === 'string' && surveyNotification.id.startsWith('survey_')
@@ -61,11 +74,13 @@ export const DashboardHeader = ({
     type: surveyNotification.priority === 'overdue' ? 'error' as const :
           surveyNotification.priority === 'high' ? 'warning' as const :
           'info' as const,
-    isRead: surveyNotification.is_read,
+    isRead: toBoolean(surveyNotification.is_read ?? surveyNotification.read_at),
     createdAt: surveyNotification.created_at
   });
 
   const notifications = surveyNotifications.map(convertToNotificationFormat);
+  const computedUnreadCount = notifications.filter(notification => !notification.isRead).length;
+  const effectiveUnreadCount = Math.max(computedUnreadCount, unreadCount);
 
   // Debug: Log converted notifications
   useEffect(() => {
@@ -89,8 +104,24 @@ export const DashboardHeader = ({
         console.log('📊 DashboardHeader: Notifications response:', notificationsResponse);
         console.log('📊 DashboardHeader: Unread count:', unreadCount);
 
-        setSurveyNotifications(Array.isArray(notificationsResponse) ? notificationsResponse : []);
-        setUnreadCount(typeof unreadCount === 'number' ? unreadCount : 0);
+        const rawNotifications = Array.isArray(notificationsResponse)
+          ? notificationsResponse
+          : Array.isArray((notificationsResponse as any)?.data)
+            ? (notificationsResponse as any).data
+            : [];
+
+        setSurveyNotifications(rawNotifications as SurveyNotification[]);
+
+        const derivedUnreadFromPayload = (rawNotifications as SurveyNotification[]).filter(notification =>
+          !toBoolean(notification.is_read ?? notification.read_at)
+        ).length;
+
+        const normalizedCount = Number(unreadCount);
+        setUnreadCount(
+          Number.isFinite(normalizedCount)
+            ? normalizedCount
+            : derivedUnreadFromPayload
+        );
 
         console.log('✅ DashboardHeader: Survey notifications loaded:', notificationsResponse?.length || 0);
       } catch (error) {
@@ -250,15 +281,15 @@ export const DashboardHeader = ({
           <NotificationDropdown
             enableRealTime={false}
             notifications={notifications}
-            unreadCount={unreadCount}
+            unreadCount={effectiveUnreadCount}
             onMarkAsRead={handleMarkAsRead}
             onMarkAllAsRead={handleMarkAllAsRead}
             onDelete={handleDeleteNotification}
             onNotificationClick={handleNotificationClick}
           />
-          {unreadCount > 0 && (
+          {effectiveUnreadCount > 0 && (
             <span className="absolute -top-1 -right-1 h-4 w-4 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center text-[10px] font-medium z-10">
-              {unreadCount > 9 ? "9+" : unreadCount}
+              {effectiveUnreadCount > 9 ? "9+" : effectiveUnreadCount}
             </span>
           )}
         </div>

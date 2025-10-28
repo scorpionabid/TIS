@@ -207,10 +207,40 @@ export const NOTIFICATION_TYPE_MAPPINGS: Record<string, { ui_type: NotificationU
 export function normalizeNotification(notification: any): UnifiedNotification {
   const mapping = NOTIFICATION_TYPE_MAPPINGS[notification.type];
 
+  const resolveBoolean = (value: any): boolean | undefined => {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value !== 0;
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      if (['1', 'true', 'yes', 'read', 'archived'].includes(normalized)) return true;
+      if (['0', 'false', 'no', 'unread'].includes(normalized)) return false;
+    }
+    return undefined;
+  };
+
+  const readAt = notification.read_at ?? notification.readAt ?? null;
+  const resolvedIsRead =
+    resolveBoolean(notification.is_read) ??
+    resolveBoolean(notification.isRead) ??
+    resolveBoolean(notification.status);
+  const isRead = resolvedIsRead ?? (readAt ? true : false);
+
+  const actionUrl =
+    notification.action_url ||
+    notification.data?.action_url ||
+    notification.metadata?.action_url;
+
+  const createdAt = notification.created_at ?? notification.createdAt;
+
   return {
     ...notification,
-    is_read: notification.is_read ?? (notification.read_at ? true : false),
-    action_url: notification.action_url || notification.data?.action_url,
+    is_read: isRead,
+    isRead,
+    read_at: readAt,
+    readAt,
+    action_url: actionUrl,
+    created_at: createdAt,
+    createdAt,
     ui_type: mapping?.ui_type || 'system',
     display_type: mapping?.display_type || 'info',
   };

@@ -268,10 +268,18 @@ export const useRealTimeNotifications = (
         await notificationService.markAsRead(notificationId);
       }
 
+      const readTimestamp = new Date().toISOString();
+
       setNotifications(prev =>
         prev.map(notification =>
           notification.id === notificationId
-            ? { ...notification, is_read: true }
+            ? {
+                ...notification,
+                is_read: true,
+                isRead: true,
+                read_at: notification.read_at ?? readTimestamp,
+                readAt: notification.readAt ?? readTimestamp,
+              }
             : notification
         )
       );
@@ -308,8 +316,16 @@ export const useRealTimeNotifications = (
         await notificationService.markAllAsRead();
       }
 
+      const readTimestamp = new Date().toISOString();
+
       setNotifications(prev =>
-        prev.map(notification => ({ ...notification, is_read: true }))
+        prev.map(notification => ({
+          ...notification,
+          is_read: true,
+          isRead: true,
+          read_at: notification.read_at ?? readTimestamp,
+          readAt: notification.readAt ?? readTimestamp,
+        }))
       );
 
       // Invalidate unified notifications query
@@ -330,7 +346,11 @@ export const useRealTimeNotifications = (
     logger.debug('Cleared all notifications from state');
   }, []);
 
-  const unreadCount = notifications.filter(n => !n.is_read && !n.read_at).length;
+  const unreadCount = notifications.filter((notification) => {
+    const readFlag = notification.is_read ?? notification.isRead;
+    const readTimestamp = notification.read_at ?? notification.readAt;
+    return !readFlag && !readTimestamp;
+  }).length;
 
   return {
     notifications,
