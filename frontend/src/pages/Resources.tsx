@@ -41,6 +41,7 @@ import { resourceService } from "@/services/resources";
 import { Resource } from "@/types/resources";
 import { InstitutionalResourcesTable } from "@/components/resources/InstitutionalResourcesTable";
 import RegionalFolderManager from "@/components/documents/RegionalFolderManager";
+import { hasAnyRole } from "@/utils/permissions";
 
 export default function Resources() {
   const { currentUser } = useAuth();
@@ -70,16 +71,12 @@ export default function Resources() {
   const isAuthenticated = !!currentUser;
   // PERMISSION EXPANSION: schooladmin can now create and view resources
   // This allows school administrators to upload documents visible to their superiors
-  const canCreateResources = currentUser &&
-    ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'schooladmin'].includes(currentUser.role);
-  const canViewResources = currentUser &&
-    ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'schooladmin'].includes(currentUser.role);
+  const canCreateResources = hasAnyRole(currentUser, ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'schooladmin']);
+  const canViewResources = hasAnyRole(currentUser, ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'schooladmin']);
   // Only hierarchical admins can see sub-institution documents
-  const canViewSubInstitutions = currentUser &&
-    ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin'].includes(currentUser.role);
+  const canViewSubInstitutions = hasAnyRole(currentUser, ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin']);
   // Only regional admins can manage folders
-  const canManageFolders = currentUser &&
-    ['superadmin', 'regionadmin'].includes(currentUser.role);
+  const canManageFolders = hasAnyRole(currentUser, ['superadmin', 'regionadmin']);
 
   // Fetch resources
   const { data: resources, isLoading, error, refetch } = useQuery({

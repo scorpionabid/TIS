@@ -2,9 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import documentCollectionService from '../../services/documentCollectionService';
 import type { DocumentCollection, Document } from '../../types/documentCollection';
-import { X, FileText, Download, Building2, User, Calendar, Upload, Trash2, Archive, Search, ChevronDown, ChevronRight, SlidersHorizontal, Loader2, Layers } from 'lucide-react';
+import { X, FileText, Download, Building2, User, Upload, Trash2, Archive, Search, ChevronDown, ChevronRight, SlidersHorizontal, Loader2, Layers } from 'lucide-react';
 import { FileUploadZone } from './FileUploadZone';
 import { formatFileSize as utilFormatFileSize, getFileIcon } from '../../utils/fileValidation';
+import { getFolderUploadPermission, isUserSchoolAdmin } from '@/utils/permissions';
+import { useToast } from '@/hooks/use-toast';
 
 interface FolderDocumentsViewOptimizedV2Props {
   folder: DocumentCollection;
@@ -64,6 +66,7 @@ function useDebounce<T>(value: T, delay: number): T {
 
 const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Props> = ({ folder, onClose }) => {
   const { currentUser: user } = useAuth();
+  const { toast } = useToast();
   const [institutions, setInstitutions] = useState<InstitutionGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,9 +89,21 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
   // Debounce search query
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
+  const uploadPermission = useMemo(
+    () => getFolderUploadPermission(user, folder),
+    [user, folder]
+  );
+  const canUpload = uploadPermission.allowed;
+
   useEffect(() => {
     loadDocuments();
   }, [folder.id, debouncedSearchQuery, fileTypeFilter, sortBy, sortDirection, currentPage]);
+
+  useEffect(() => {
+    if (!canUpload && showUploadZone) {
+      setShowUploadZone(false);
+    }
+  }, [canUpload, showUploadZone]);
 
   const loadDocuments = async () => {
     try {
@@ -175,7 +190,11 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
     } catch (err: any) {
       console.error('Error downloading document:', err);
       const errorMessage = err.response?.data?.message || err.message || 'Sənəd yüklənərkən xəta baş verdi';
-      alert(errorMessage);
+      toast({
+        title: 'Sənəd yüklənmədi',
+        description: errorMessage,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -185,7 +204,11 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
       await loadDocuments();
     } catch (error: any) {
       console.error('File upload failed:', error);
-      alert(`Fayl yüklənə bilmədi: ${error.message}`);
+      toast({
+        title: 'Fayl yüklənmədi',
+        description: error.response?.data?.message || error.message || 'Fayl yüklənərkən xəta baş verdi',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -197,16 +220,26 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
     try {
       await documentCollectionService.deleteDocument(documentId);
       await loadDocuments();
-      alert('Sənəd uğurla silindi');
+      toast({
+        title: 'Sənəd silindi',
+        description: 'Fayl siyahısı yeniləndi.',
+      });
     } catch (err: any) {
       console.error('Error deleting document:', err);
-      alert(err.response?.data?.message || 'Sənəd silinərkən xəta baş verdi');
+      toast({
+        title: 'Silmə əməliyyatı alınmadı',
+        description: err.response?.data?.message || 'Sənəd silinərkən xəta baş verdi',
+        variant: 'destructive',
+      });
     }
   };
 
   const handleBulkDownload = async () => {
     if (!meta || meta.total_documents === 0) {
-      alert('Yükləmək üçün sənəd yoxdur');
+      toast({
+        title: 'Yükləmə mümkün deyil',
+        description: 'Yükləmək üçün sənəd tapılmadı.',
+      });
       return;
     }
 
@@ -217,7 +250,11 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
       documentCollectionService.downloadFile(blob, fileName);
     } catch (err: any) {
       console.error('Error bulk downloading:', err);
-      alert(err.response?.data?.message || 'ZIP faylı yaradılarkən xəta baş verdi');
+      toast({
+        title: 'ZIP fayl hazırlanmadı',
+        description: err.response?.data?.message || 'ZIP faylı yaradılarkən xəta baş verdi',
+        variant: 'destructive',
+      });
     } finally {
       setBulkDownloading(false);
     }
@@ -243,23 +280,12 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
     setExpandedInstitutions(newExpanded);
   };
 
-  const canUpload = () => {
-    if (!user || !folder) return false;
-    const userInstitutionId = (user as any)?.institution?.id || (user as any)?.institution_id;
-    if (!userInstitutionId) return false;
-    const targetInstitutions = (folder as any)?.target_institutions || (folder as any)?.targetInstitutions || [];
-    return targetInstitutions.some((inst: any) => inst.id === userInstitutionId);
-  };
-
   const canDelete = (document: Document) => {
     if (!user) return false;
     return document.user_id === user.id;
   };
 
-  const userRoles = (user as any)?.roles || [];
-  const userRole = (user as any)?.role;
-  const isSchoolAdmin = userRole === 'schooladmin' ||
-    (Array.isArray(userRoles) && userRoles.some((r: any) => r.name === 'schooladmin'));
+  const isSchoolAdmin = isUserSchoolAdmin(user);
 
   const handlePreviousPage = () => {
     if (currentPage > 1) {
@@ -385,10 +411,19 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
             </div>
 
             <div className="flex items-center gap-3">
-              {canUpload() && (
+              {user && (
                 <button
-                  onClick={() => setShowUploadZone(!showUploadZone)}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  onClick={() => {
+                    if (!canUpload) return;
+                    setShowUploadZone(!showUploadZone);
+                  }}
+                  disabled={!canUpload}
+                  title={!canUpload ? uploadPermission.reason : undefined}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                    canUpload
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                  }`}
                 >
                   <Upload size={20} />
                   {showUploadZone ? 'Gizlət' : 'Yüklə'}
@@ -501,7 +536,7 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6">
           {/* Upload Zone */}
-          {showUploadZone && canUpload() && (
+          {showUploadZone && canUpload && (
             <div className="mb-6">
               <FileUploadZone onUpload={handleUpload} />
             </div>

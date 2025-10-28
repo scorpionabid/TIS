@@ -1,20 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import documentCollectionService from '../../services/documentCollectionService';
 import type { DocumentCollection } from '../../types/documentCollection';
-import { Folder, Plus, Edit, Trash2, Download, History, FileText } from 'lucide-react';
+import { Folder, Plus, Edit, Trash2, Download, History, FileText, Search, Clock, Users } from 'lucide-react';
 import CreateFolderDialog from './CreateFolderDialog';
 import RenameFolderDialog from './RenameFolderDialog';
 import DeleteFolderDialog from './DeleteFolderDialog';
 import FolderDocumentsViewOptimizedV2 from './FolderDocumentsViewOptimizedV2';
 import AuditLogViewer from './AuditLogViewer';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { canUserCreateRegionalFolder, canUserManageFolder } from '@/utils/permissions';
+import { useToast } from '@/hooks/use-toast';
 
 const RegionalFolderManager: React.FC = () => {
   const { currentUser: user } = useAuth();
-  const [folders, setFolders] = useState<DocumentCollection[]>([]);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [selectedFolder, setSelectedFolder] = useState<DocumentCollection | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
 
   // Dialog states
@@ -24,88 +26,90 @@ const RegionalFolderManager: React.FC = () => {
   const [showDocumentsView, setShowDocumentsView] = useState(false);
   const [showAuditLogs, setShowAuditLogs] = useState(false);
 
-  const canManageFolder = (folder: DocumentCollection): boolean => {
-    if (!user) {
-      console.log('🔒 canManageFolder: No user');
-      return false;
-    }
+  const [folderSearch, setFolderSearch] = useState('');
 
-    const userRoles = (user as any)?.roles || [];
-    const userRole = (user as any)?.role;
-    // Access institution ID from nested institution object (user.institution.id)
-    const userInstitutionId = (user as any)?.institution?.id || (user as any)?.institution_id;
-
-    console.log('🔒 canManageFolder:', {
-      folderName: folder.name,
-      folderOwnerId: folder.owner_institution_id,
-      userRole,
-      userRoles: userRoles.map((r: any) => r.name),
-      userInstitutionId,
-      userInstitution: (user as any)?.institution,
-      match: folder.owner_institution_id === userInstitutionId
-    });
-
-    // SuperAdmin can manage all
-    if (userRole === 'superadmin' || (Array.isArray(userRoles) && userRoles.some((r: any) => r.name === 'superadmin'))) {
-      console.log('✅ SuperAdmin access granted');
-      return true;
-    }
-
-    // RegionAdmin can manage their region's folders
-    if (userRole === 'regionadmin' || (Array.isArray(userRoles) && userRoles.some((r: any) => r.name === 'regionadmin'))) {
-      const canManage = folder.owner_institution_id === userInstitutionId;
-      console.log(canManage ? '✅ RegionAdmin access granted' : '❌ RegionAdmin: institution mismatch');
-      return canManage;
-    }
-
-    console.log('❌ No permission');
-    return false;
-  };
-
-  const loadFolders = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  const {
+    data: folders = [],
+    isLoading,
+    isFetching,
+    error: queryError
+  } = useQuery({
+    queryKey: ['document-collections'],
+    queryFn: async () => {
       const data = await documentCollectionService.getAll();
-      setFolders(Array.isArray(data) ? data : []);
-    } catch (err: any) {
-      console.error('❌ [RegionalFolderManager] Error loading folders:', err);
-      setFolders([]); // Set empty array on error
+      return Array.isArray(data) ? data : [];
+    },
+    refetchOnWindowFocus: false,
+    retry: 1
+  });
 
-      // Detailed error message
-      if (err.message?.includes('Failed to fetch')) {
-        setError('Backend-ə bağlantı uğursuz oldu. Backend işləyirmi yoxlayın.');
-      } else if (err.response?.status === 401) {
-        setError('İcazə rədd edildi. Zəhmət olmasa yenidən login olun.');
-      } else if (err.response?.data?.message) {
-        setError(err.response.data.message);
-      } else {
-        setError('Folderlər yüklənərkən xəta baş verdi');
-      }
-    } finally {
-      setLoading(false);
+  const queryErrorMessage = useMemo(() => {
+    if (!queryError) return null;
+    if (queryError instanceof Error) {
+      return queryError.message;
     }
+    return 'Folderlər yüklənərkən xəta baş verdi';
+  }, [queryError]);
+
+  const filteredFolders = useMemo(() => {
+    if (!folderSearch.trim()) {
+      return folders;
+    }
+
+    const term = folderSearch.toLowerCase();
+
+    return folders.filter((folder) => {
+      const nameMatch = folder.name?.toLowerCase().includes(term);
+      const ownerMatch = folder.ownerInstitution?.name?.toLowerCase().includes(term);
+      return Boolean(nameMatch || ownerMatch);
+    });
+  }, [folders, folderSearch]);
+
+  const hasFolders = folders.length > 0;
+  const hasFilteredFolders = filteredFolders.length > 0;
+
+  const formatDate = (value?: string) => {
+    if (!value) return '—';
+    return new Date(value).toLocaleString('az-AZ', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
-  useEffect(() => {
-    loadFolders();
-  }, []);
+  const invalidateFolders = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['document-collections'] });
+  };
 
-  const handleFolderCreated = () => {
-    loadFolders();
+  const handleFolderCreated = async () => {
+    await invalidateFolders();
     setShowCreateDialog(false);
+    toast({
+      title: 'Folder yaradıldı',
+      description: 'Yeni folder siyahıya əlavə olundu.'
+    });
   };
 
-  const handleFolderRenamed = () => {
-    loadFolders();
+  const handleFolderRenamed = async () => {
+    await invalidateFolders();
     setShowRenameDialog(false);
     setSelectedFolder(null);
+    toast({
+      title: 'Folder yeniləndi',
+      description: 'Folder məlumatları uğurla saxlanıldı.'
+    });
   };
 
-  const handleFolderDeleted = () => {
-    loadFolders();
+  const handleFolderDeleted = async () => {
+    await invalidateFolders();
     setShowDeleteDialog(false);
     setSelectedFolder(null);
+    toast({
+      title: 'Folder silindi',
+      description: 'Folder və əlaqəli sənədlər silindi.'
+    });
   };
 
   const handleBulkDownload = async (folder: DocumentCollection) => {
@@ -115,7 +119,11 @@ const RegionalFolderManager: React.FC = () => {
       documentCollectionService.downloadFile(blob, fileName);
     } catch (err) {
       console.error('Error downloading folder:', err);
-      alert('Yükləmə zamanı xəta baş verdi');
+      toast({
+        title: 'Yükləmə alınmadı',
+        description: 'ZIP faylını hazırlamaq mümkün olmadı. Yenidən cəhd edin.',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -149,7 +157,7 @@ const RegionalFolderManager: React.FC = () => {
     );
   }
 
-  if (loading) {
+  if (isLoading && folders.length === 0) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -157,132 +165,192 @@ const RegionalFolderManager: React.FC = () => {
     );
   }
 
-  if (error) {
+  if (queryErrorMessage) {
     return (
       <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-        {error}
+        {queryErrorMessage}
       </div>
     );
   }
 
-  // Debug button visibility - support both role (string) and roles (array)
-  const userRoles = (user as any)?.roles || [];
-  const userRole = (user as any)?.role;
-
-  const showCreateButton = user && (
-    // Check if user has roles array (from backend)
-    (Array.isArray(userRoles) && userRoles.length > 0 && userRoles.some((r: any) => ['superadmin', 'regionadmin'].includes(r.name))) ||
-    // Or check single role field (from User type)
-    (userRole && ['superadmin', 'regionadmin'].includes(userRole))
-  );
-
+  const showCreateButton = canUserCreateRegionalFolder(user);
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Regional Folderlər</h2>
           <p className="text-gray-600 mt-1">Regionun məktəbləri üçün paylaşılan folderlər</p>
+          {isFetching && (
+            <p className="mt-2 text-sm text-blue-600">Yenilənir...</p>
+          )}
         </div>
 
-        {showCreateButton && (
-          <button
-            onClick={() => setShowCreateDialog(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
-          >
-            <Plus size={20} />
-            Yeni Folder Yarat
-          </button>
-        )}
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <input
+              type="text"
+              value={folderSearch}
+              onChange={(e) => setFolderSearch(e.target.value)}
+              placeholder="Folder və ya sahib institusiya axtarın..."
+              className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent min-w-[260px]"
+            />
+          </div>
+
+          {showCreateButton && (
+            <button
+              onClick={() => setShowCreateDialog(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+            >
+              <Plus size={20} />
+              Yeni Folder Yarat
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Folders Grid */}
-      {folders.length === 0 ? (
+      {!hasFolders ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg">
           <Folder size={48} className="mx-auto text-gray-400 mb-4" />
-          <p className="text-gray-600">Hələ folder yaradılmayıb</p>
+          <p className="text-gray-600 mb-4">Hələ folder yaradılmayıb</p>
+          {showCreateButton && (
+            <button
+              onClick={() => setShowCreateDialog(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+            >
+              <Plus size={18} />
+              İlk folderi yarat
+            </button>
+          )}
+        </div>
+      ) : !hasFilteredFolders ? (
+        <div className="text-center py-12 bg-gray-50 rounded-lg">
+          <Search size={40} className="mx-auto text-gray-400 mb-4" />
+          <p className="text-gray-600">Axtarışınıza uyğun folder tapılmadı</p>
+          <button
+            onClick={() => setFolderSearch('')}
+            className="mt-4 text-sm text-blue-600 hover:text-blue-700 underline"
+          >
+            Axtarışı sıfırla
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {folders.map((folder) => (
-            <div
-              key={folder.id}
-              className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-blue-100 rounded-lg">
-                    <Folder className="text-blue-600" size={24} />
+          {filteredFolders.map((folder) => {
+            const documentCount = folder.documents_count ?? folder.documents?.length ?? 0;
+            const targetInstitutions =
+              Array.isArray((folder as any)?.target_institutions)
+                ? (folder as any)?.target_institutions
+                : Array.isArray((folder as any)?.targetInstitutions)
+                ? (folder as any)?.targetInstitutions
+                : [];
+            const targetCount = Array.isArray(targetInstitutions) ? targetInstitutions.length : 0;
+            const lastUpload = (folder as any)?.last_document_uploaded_at
+              ? formatDate((folder as any).last_document_uploaded_at)
+              : null;
+
+            return (
+              <div
+                key={folder.id}
+                className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-blue-100 rounded-lg">
+                      <Folder className="text-blue-600" size={24} />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">{folder.name}</h3>
+                      {folder.description && (
+                        <p className="text-sm text-gray-500">{folder.description}</p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{folder.name}</h3>
-                    {folder.description && (
-                      <p className="text-sm text-gray-500">{folder.description}</p>
+
+                  {folder.is_system_folder && (
+                    <span className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded">
+                      Sistem
+                    </span>
+                  )}
+                </div>
+
+                <div className="text-sm text-gray-600 mb-4">
+                  <p>Sahibi: {folder.ownerInstitution?.name || 'N/A'}</p>
+                  <p>Yüklənmə: {folder.allow_school_upload ? 'Aktiv' : 'Deaktiv'}</p>
+                  <div className="mt-3 space-y-1 text-xs text-gray-500">
+                    <div className="flex items-center gap-2">
+                      <FileText size={14} />
+                      <span>Sənəd sayı: {documentCount}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock size={14} />
+                      <span>Son yenilənmə: {formatDate(folder.updated_at)}</span>
+                    </div>
+                    {lastUpload && (
+                      <div className="flex items-center gap-2">
+                        <Clock size={14} />
+                        <span>Son yükləmə: {lastUpload}</span>
+                      </div>
                     )}
+                    <div className="flex items-center gap-2">
+                      <Users size={14} />
+                      <span>Hədəf müəssisə: {targetCount}</span>
+                    </div>
                   </div>
                 </div>
 
-                {folder.is_system_folder && (
-                  <span className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded">
-                    Sistem
-                  </span>
-                )}
+                {/* Actions */}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => openDocumentsView(folder)}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                  >
+                    <FileText size={16} />
+                    Sənədlər
+                  </button>
+
+                  <button
+                    onClick={() => handleBulkDownload(folder)}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-green-100 hover:bg-green-200 text-green-700 rounded transition-colors"
+                  >
+                    <Download size={16} />
+                    Yüklə
+                  </button>
+
+                  {canUserManageFolder(user, folder) && (
+                    <>
+                      <button
+                        onClick={() => openRenameDialog(folder)}
+                        className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded transition-colors"
+                      >
+                        <Edit size={16} />
+                        Dəyişdir
+                      </button>
+
+                      <button
+                        onClick={() => openDeleteDialog(folder)}
+                        className="flex items-center gap-1 px-3 py-1.5 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors"
+                      >
+                        <Trash2 size={16} />
+                        Sil
+                      </button>
+
+                      <button
+                        onClick={() => openAuditLogs(folder)}
+                        className="flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                      >
+                        <History size={16} />
+                        Tarixçə
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
-
-              <div className="text-sm text-gray-600 mb-4">
-                <p>Sahibi: {folder.ownerInstitution?.name || 'N/A'}</p>
-                <p>Yüklənmə: {folder.allow_school_upload ? 'Aktiv' : 'Deaktiv'}</p>
-              </div>
-
-              {/* Actions */}
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => openDocumentsView(folder)}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-                >
-                  <FileText size={16} />
-                  Sənədlər
-                </button>
-
-                <button
-                  onClick={() => handleBulkDownload(folder)}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-green-100 hover:bg-green-200 text-green-700 rounded transition-colors"
-                >
-                  <Download size={16} />
-                  Yüklə
-                </button>
-
-                {canManageFolder(folder) && (
-                  <>
-                    <button
-                      onClick={() => openRenameDialog(folder)}
-                      className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded transition-colors"
-                    >
-                      <Edit size={16} />
-                      Dəyişdir
-                    </button>
-
-                    <button
-                      onClick={() => openDeleteDialog(folder)}
-                      className="flex items-center gap-1 px-3 py-1.5 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors"
-                    >
-                      <Trash2 size={16} />
-                      Sil
-                    </button>
-
-                    <button
-                      onClick={() => openAuditLogs(folder)}
-                      className="flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-                    >
-                      <History size={16} />
-                      Tarixçə
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import documentCollectionService from '../../services/documentCollectionService';
 import type { DocumentCollection, FolderAuditLog } from '../../types/documentCollection';
-import { X, History, User, Calendar, FileText, Edit, Trash2, Download } from 'lucide-react';
+import { X, History, User, Calendar, FileText, Edit, Trash2, Download, FileText as FileIcon } from 'lucide-react';
 
 interface AuditLogViewerProps {
   folder: DocumentCollection;
@@ -88,25 +88,90 @@ const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ folder, onClose }) => {
     }
   };
 
+  const formatKey = (key: string): string => {
+    return key
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  };
+
+  const formatFileSize = (bytes: unknown): string => {
+    if (typeof bytes !== 'number') {
+      return String(bytes ?? '—');
+    }
+    if (bytes === 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    const size = bytes / Math.pow(1024, i);
+    return `${size % 1 === 0 ? size : size.toFixed(2)} ${units[i]}`;
+  };
+
+  const formatValue = (key: string, value: unknown): string => {
+    if (value === null || value === undefined || value === '') {
+      return '—';
+    }
+
+    if (typeof value === 'object') {
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    }
+
+    if (key.includes('size')) {
+      return formatFileSize(value);
+    }
+
+    if (key.includes('date') || key.includes('time') || key.includes('at')) {
+      const date = new Date(String(value));
+      if (!isNaN(date.getTime())) {
+        return formatDate(date.toISOString());
+      }
+    }
+
+    return String(value);
+  };
+
+  const renderDataList = (data: Record<string, unknown>) => {
+    const entries = Object.entries(data);
+    if (entries.length === 0) {
+      return <p className="text-xs text-gray-500">Məlumat yoxdur</p>;
+    }
+
+    return (
+      <ul className="space-y-1">
+        {entries.map(([key, value]) => (
+          <li key={key} className="text-xs text-gray-600 flex items-start gap-2">
+            <span className="min-w-[140px] text-gray-500">{formatKey(key)}:</span>
+            <span className="font-medium text-gray-800 break-all">{formatValue(key, value)}</span>
+          </li>
+        ))}
+      </ul>
+    );
+  };
+
   const renderDataChanges = (log: FolderAuditLog) => {
     if (!log.old_data && !log.new_data) return null;
 
     return (
-      <div className="mt-3 p-3 bg-gray-50 rounded border border-gray-200 text-sm">
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
         {log.old_data && (
-          <div className="mb-2">
-            <span className="font-semibold text-gray-700">Əvvəlki məlumat:</span>
-            <pre className="mt-1 text-xs text-gray-600 overflow-x-auto">
-              {JSON.stringify(log.old_data, null, 2)}
-            </pre>
+          <div className="p-3 bg-red-50 border border-red-100 rounded">
+            <div className="flex items-center gap-2 text-sm font-semibold text-red-700 mb-2">
+              <FileIcon size={16} />
+              Əvvəlki məlumat
+            </div>
+            {renderDataList(log.old_data)}
           </div>
         )}
+
         {log.new_data && (
-          <div>
-            <span className="font-semibold text-gray-700">Yeni məlumat:</span>
-            <pre className="mt-1 text-xs text-gray-600 overflow-x-auto">
-              {JSON.stringify(log.new_data, null, 2)}
-            </pre>
+          <div className="p-3 bg-green-50 border border-green-100 rounded">
+            <div className="flex items-center gap-2 text-sm font-semibold text-green-700 mb-2">
+              <FileIcon size={16} />
+              Yeni məlumat
+            </div>
+            {renderDataList(log.new_data)}
           </div>
         )}
       </div>

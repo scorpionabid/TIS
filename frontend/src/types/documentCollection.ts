@@ -16,6 +16,8 @@ export interface DocumentCollection {
   created_at: string;
   updated_at: string;
   deleted_at?: string;
+  documents_count?: number;
+  last_document_uploaded_at?: string;
 
   // Relationships
   ownerInstitution?: Institution;

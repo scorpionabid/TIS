@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import documentCollectionService from '../../services/documentCollectionService';
 import { institutionService } from '../../services/institutions';
-import { REGIONAL_FOLDER_TEMPLATES } from '../../types/documentCollection';
 import { X, Folder, Building2, Users, Target, Search } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { getUserInstitutionId, hasRole } from '@/utils/permissions';
 
 interface CreateFolderDialogProps {
   onClose: () => void;
@@ -49,19 +49,14 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSucc
   );
 
   useEffect(() => {
-    loadOwnerInstitution();
-  }, [user]);
-
-  const loadOwnerInstitution = () => {
-    const userRoles = (user as any)?.roles || [];
-    const userRole = (user as any)?.role;
-    const isSuperAdmin = userRole === 'superadmin' || (Array.isArray(userRoles) && userRoles.some((r: any) => r.name === 'superadmin'));
-
-    // Auto-select institution for RegionAdmin
-    if (!isSuperAdmin && (user as any)?.institution?.id) {
-      setSelectedInstitution((user as any).institution.id);
+    const isSuperAdmin = hasRole(user, 'superadmin');
+    if (!isSuperAdmin) {
+      const institutionId = getUserInstitutionId(user);
+      if (institutionId) {
+        setSelectedInstitution(institutionId);
+      }
     }
-  };
+  }, [user]);
 
   // Helper functions for bulk selection
   const selectInstitutionsByLevel = (level: number) => {
@@ -149,12 +144,7 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({ onClose, onSucc
           )}
 
           {/* Owner Institution Selection (SuperAdmin only) */}
-          {(() => {
-            const userRoles = (user as any)?.roles || [];
-            const userRole = (user as any)?.role;
-            const isSuperAdmin = userRole === 'superadmin' || (Array.isArray(userRoles) && userRoles.some((r: any) => r.name === 'superadmin'));
-            return isSuperAdmin;
-          })() && (
+          {hasRole(user, 'superadmin') && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Sahib İnstitusiya (Regional Ofis)
