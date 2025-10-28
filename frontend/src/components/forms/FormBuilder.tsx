@@ -15,6 +15,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Form,
   FormControl,
@@ -26,6 +27,7 @@ import {
 } from '@/components/ui/form';
 import { cn } from '@/lib/utils';
 import { useLayout } from '@/contexts/LayoutContext';
+import { ChevronDown } from 'lucide-react';
 
 export type FieldType = 
   | 'text' 
@@ -197,7 +199,7 @@ export function FormBuilder({
         name={field.name}
         render={({ field: formField }) => (
           <FormItem className={cn(field.className, controlClass)}>
-            <FormLabel className="text-foreground">
+            <FormLabel className="text-foreground" htmlFor={field.name} id={`${field.name}-label`}>
               {field.label}
               {field.required && <span className="text-destructive ml-1">*</span>}
             </FormLabel>
@@ -209,6 +211,7 @@ export function FormBuilder({
                   case 'password':
                     return (
                       <Input
+                        id={field.name}
                         type={field.type}
                         placeholder={field.placeholder}
                         disabled={field.disabled || loading}
@@ -223,6 +226,7 @@ export function FormBuilder({
                   case 'number':
                     return (
                       <Input
+                        id={field.name}
                         type="number"
                         placeholder={field.placeholder}
                         disabled={field.disabled || loading}
@@ -240,6 +244,7 @@ export function FormBuilder({
                   case 'date':
                     return (
                       <Input
+                        id={field.name}
                         type="date"
                         disabled={field.disabled || loading}
                         {...formField}
@@ -249,6 +254,7 @@ export function FormBuilder({
                   case 'textarea':
                     return (
                       <Textarea
+                        id={field.name}
                         placeholder={field.placeholder}
                         disabled={field.disabled || loading}
                         rows={field.rows}
@@ -270,8 +276,13 @@ export function FormBuilder({
                         }}
                         disabled={field.disabled || loading}
                       >
-                        <SelectTrigger>
-                          <SelectValue placeholder={field.placeholder} />
+                        <SelectTrigger
+                          id={field.name}
+                          aria-labelledby={`${field.name}-label`}
+                        >
+                          <SelectValue
+                            placeholder={field.placeholder}
+                          />
                         </SelectTrigger>
                         <SelectContent>
                           {field.options?.map((option) => (
@@ -285,49 +296,25 @@ export function FormBuilder({
 
                   case 'multiselect':
                     return (
-                      <div className="space-y-2">
-                        <div className="max-h-32 overflow-y-auto border rounded-md p-2">
-                          {field.options?.map((option) => (
-                            <div key={option.value} className="flex items-center space-x-2 py-1">
-                              <Checkbox
-                                checked={formField.value?.includes(option.value) || false}
-                                onCheckedChange={(checked) => {
-                                  const currentValues = formField.value || [];
-                                  const newValues = checked
-                                    ? [...currentValues, option.value]
-                                    : currentValues.filter((v: string) => v !== option.value);
-                                  formField.onChange(newValues);
-                                  field.onChange?.(newValues);
-                                }}
-                                disabled={field.disabled || loading}
-                              />
-                              <span className="text-sm">{option.label}</span>
-                              {option.category && (
-                                <span className="text-xs text-muted-foreground">
-                                  ({option.category})
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                        {formField.value?.length > 0 && (
-                          <div className="text-sm text-muted-foreground">
-                            {formField.value.length} seçilmiş
-                          </div>
-                        )}
-                      </div>
+                      <MultiSelectField
+                        field={field}
+                        formField={formField}
+                        loading={loading}
+                        form={form}
+                      />
                     );
                   
                   case 'checkbox':
                     return (
-                      <div className="flex items-center space-x-2">
+                      <label className="flex items-center space-x-2 cursor-pointer" htmlFor={field.name}>
                         <Checkbox
+                          id={field.name}
                           checked={formField.value}
                           onCheckedChange={formField.onChange}
                           disabled={field.disabled || loading}
                         />
                         <span className="text-sm">{field.placeholder}</span>
-                      </div>
+                      </label>
                     );
                   
                   case 'radio':
@@ -339,24 +326,29 @@ export function FormBuilder({
                         className="flex flex-col space-y-2"
                       >
                         {field.options?.map((option) => (
-                          <div key={option.value} className="flex items-center space-x-2">
-                            <RadioGroupItem value={option.value} />
+                          <label
+                            key={option.value}
+                            htmlFor={`${field.name}-${option.value}`}
+                            className="flex items-center space-x-2 cursor-pointer"
+                          >
+                            <RadioGroupItem id={`${field.name}-${option.value}`} value={option.value} />
                             <span className="text-sm">{option.label}</span>
-                          </div>
+                          </label>
                         ))}
                       </RadioGroup>
                     );
                   
                   case 'switch':
                     return (
-                      <div className="flex items-center space-x-2">
+                      <label className="flex items-center space-x-2 cursor-pointer" htmlFor={field.name}>
                         <Switch
+                          id={field.name}
                           checked={formField.value}
                           onCheckedChange={formField.onChange}
                           disabled={field.disabled || loading}
                         />
                         <span className="text-sm">{field.placeholder}</span>
-                      </div>
+                      </label>
                     );
                   
                   case 'custom':
@@ -417,3 +409,93 @@ export function FormBuilder({
     </div>
   );
 }
+
+interface MultiSelectFieldProps {
+  field: FormField;
+  formField: any;
+  loading: boolean;
+  form: any;
+}
+
+const MultiSelectField: React.FC<MultiSelectFieldProps> = ({ field, formField, loading, form }) => {
+  const [open, setOpen] = React.useState(false);
+  const selectedValues: string[] = Array.isArray(formField.value) ? formField.value : [];
+
+  const selectedLabels = React.useMemo(() => {
+    if (!field.options) return [];
+    return field.options.filter(option => selectedValues.includes(option.value)).map(option => option.label);
+  }, [field.options, selectedValues]);
+
+  const handleToggle = (checked: boolean, optionValue: string) => {
+    const currentValues = Array.isArray(formField.value) ? [...formField.value] : [];
+    const nextValues = checked
+      ? Array.from(new Set([...currentValues, optionValue]))
+      : currentValues.filter((value: string) => value !== optionValue);
+
+    formField.onChange(nextValues);
+    field.onChange?.(nextValues, form);
+  };
+
+  const displayText = selectedLabels.length > 0
+    ? selectedLabels.join(', ')
+    : field.placeholder || 'Seçim edin';
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          id={field.name}
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          aria-labelledby={`${field.name}-label`}
+          className="w-full justify-between"
+          disabled={field.disabled || loading}
+        >
+          <span className="truncate text-left">
+            {displayText}
+          </span>
+          <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[260px] p-2" align="start">
+        <div className="max-h-60 overflow-y-auto">
+          {field.options?.map((option) => {
+            const checked = selectedValues.includes(option.value);
+            const roleLabel = (option as any)?.meta?.role;
+
+            return (
+              <label
+                key={option.value}
+                htmlFor={`${field.name}-${option.value}`}
+                className="flex items-center space-x-2 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-muted"
+              >
+                <Checkbox
+                  id={`${field.name}-${option.value}`}
+                  checked={checked}
+                  onCheckedChange={(state) => handleToggle(Boolean(state), option.value)}
+                  disabled={field.disabled || loading}
+                />
+                <span className="flex-1">
+                  {option.label}
+                  {roleLabel && (
+                    <span className="ml-1 text-xs text-muted-foreground">({roleLabel})</span>
+                  )}
+                </span>
+              </label>
+            );
+          })}
+          {(!field.options || field.options.length === 0) && (
+            <p className="px-2 py-2 text-sm text-muted-foreground">Seçim tapılmadı</p>
+          )}
+        </div>
+        {selectedValues.length > 0 && (
+          <div className="pt-1 text-xs text-muted-foreground">
+            {selectedValues.length} nəfər seçildi
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+};

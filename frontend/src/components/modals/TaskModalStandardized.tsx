@@ -49,6 +49,17 @@ const targetScopeOptions = [
   { label: 'Bütün Sistem', value: 'all' },
 ];
 
+const targetRoleOptions = [
+  { label: 'Super Admin', value: 'superadmin' },
+  { label: 'Regional Admin', value: 'regionadmin' },
+  { label: 'Regional Operator', value: 'regionoperator' },
+  { label: 'Sektor Admin', value: 'sektoradmin' },
+  { label: 'Sektor Operator', value: 'sektoroperator' },
+  { label: 'Məktəb Admini', value: 'schooladmin' },
+  { label: 'Məktəb Müdir Müavini', value: 'deputy' },
+  { label: 'Müəllim', value: 'teacher' },
+];
+
 export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
   open,
   onClose,
@@ -61,7 +72,7 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
   // Load available users for assignment
   const { data: usersResponse, isLoading: usersLoading } = useQuery({
     queryKey: ['users-for-assignment'],
-    queryFn: () => userService.getUsers(),
+    queryFn: () => userService.getUsers({ per_page: 200 }),
     staleTime: 1000 * 60 * 5,
     enabled: open,
   });
@@ -82,13 +93,62 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
     enabled: open,
   });
 
-  const availableUsers = React.useMemo(() => {
+  const responsibleUserOptions = React.useMemo(() => {
     if (!usersResponse?.data) return [];
-    return usersResponse.data.map((user: any) => ({
-      label: `${user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'İsimsiz İstifadəçi'} (${user.email})`,
-      value: user.id.toString()
-    }));
+
+    const rawUsers = Array.isArray(usersResponse.data) ? usersResponse.data : [];
+    const normalizeRole = (value?: string | null) => (value || '').trim().toLowerCase();
+    const allowedRoles = new Set(['regionadmin', 'regionoperator', 'sektoradmin']);
+
+    const filtered = rawUsers.filter((user: any) => {
+      const directRole = normalizeRole(typeof user.role === 'string' ? user.role : user.role?.name);
+      if (allowedRoles.has(directRole)) {
+        return true;
+      }
+
+      if (Array.isArray(user.roles)) {
+        return user.roles.some((role: any) => allowedRoles.has(normalizeRole(role?.name || role?.slug || role?.role)));
+      }
+
+      if (Array.isArray(user.role_names)) {
+        return user.role_names.some((role: string) => allowedRoles.has(normalizeRole(role)));
+      }
+
+      return false;
+    });
+
+    return filtered.map((user: any) => {
+      const displayName = user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'İsimsiz İstifadəçi';
+
+      const primaryRole = (() => {
+        if (typeof user.role === 'string') return user.role;
+        if (user.role?.name) return user.role.name;
+        if (Array.isArray(user.roles) && user.roles.length > 0) {
+          return user.roles[0].name || user.roles[0].slug || user.roles[0].role;
+        }
+        if (Array.isArray(user.role_names) && user.role_names.length > 0) {
+          return user.role_names[0];
+        }
+        return null;
+      })();
+
+      return {
+        label: `${displayName}${primaryRole ? ` (${primaryRole})` : ''}`,
+        value: user.id.toString(),
+        meta: {
+          email: user.email,
+          role: primaryRole,
+        },
+      };
+    });
   }, [usersResponse]);
+
+  React.useEffect(() => {
+    if (open) {
+      console.log('[TaskModal] Users response', usersResponse);
+      console.log('[TaskModal] Məsul şəxs seçimləri yükləndi', responsibleUserOptions);
+    }
+  }, [open, responsibleUserOptions, usersResponse]);
 
   const availableInstitutions = React.useMemo(() => {
     let institutions = [];
@@ -122,6 +182,15 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
 
   const isLoading = usersLoading || institutionsLoading || departmentsLoading;
 
+  React.useEffect(() => {
+    if (open) {
+      logger.debug('[TaskModal] Modal açıldı', {
+        isEditMode,
+        taskId: task?.id,
+      });
+    }
+  }, [open, isEditMode, task?.id]);
+
   // Basic task information fields
   const basicFields: FormField[] = [
     createField('title', 'Tapşırıq başlığı', 'text', {
@@ -145,12 +214,13 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
     createField('deadline', 'Son tarix', 'date', {
       placeholder: 'Tarix seçin',
     }),
-    createField('assigned_to', 'Məsul şəxs', 'select', {
+    createField('assigned_user_ids', 'Məsul şəxslər', 'multiselect', {
       required: true,
-      options: availableUsers,
-      placeholder: usersLoading ? 'İstifadəçilər yüklənir...' : 'İstifadəçi seçin',
+      options: responsibleUserOptions,
+      placeholder: usersLoading ? 'İstifadəçilər yüklənir...' : 'Məsul şəxsləri seçin',
       disabled: usersLoading,
-      validation: commonValidations.required,
+      description: 'Region admin, region operator və ya sektor adminlərindən birini və ya bir neçəsini seçə bilərsiniz.',
+      className: 'md:col-span-2'
     }),
     createField('description', 'Tapşırıq təsviri', 'textarea', {
       required: true,
@@ -170,14 +240,29 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
       validation: commonValidations.required,
     }),
     createField('assigned_institution_id', 'Hədəf müəssisə', 'select', {
+      required: true,
       options: availableInstitutions,
-      placeholder: institutionsLoading ? 'Yüklənir...' : 'Müəssisə seçin (isteğe bağlı)',
+      placeholder: institutionsLoading ? 'Yüklənir...' : 'Müəssisə seçin',
       disabled: institutionsLoading,
+      validation: commonValidations.required,
+      helperText: 'Tapşırığın əsas ünvanlandığı müəssisəni seçin.'
+    }),
+    createField('target_institutions', 'Əlavə hədəf müəssisələr', 'multiselect', {
+      options: availableInstitutions,
+      placeholder: institutionsLoading ? 'Yüklənir...' : 'Digər müəssisələri seçin (vacib deyil)',
+      disabled: institutionsLoading,
+      description: 'Əlavə müəssisələr seçsəniz tapşırıq həmin qurumlara da yönəldiləcək.',
+      className: 'md:col-span-2'
     }),
     createField('target_departments', 'Hədəf departamentlər', 'multiselect', {
       options: availableDepartments,
       placeholder: departmentsLoading ? 'Yüklənir...' : 'Departament seçin (isteğe bağlı)',
       disabled: departmentsLoading,
+      className: 'md:col-span-2'
+    }),
+    createField('target_roles', 'Hədəf rollar', 'multiselect', {
+      options: targetRoleOptions,
+      placeholder: 'Tapşırığın icrasında iştirak edəcək rolları seçin (vacib deyil)',
       className: 'md:col-span-2'
     }),
   ];
@@ -192,6 +277,11 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
     createField('requires_approval', 'Təsdiq tələb olunur', 'checkbox', {
       placeholder: 'Bu tapşırıq tamamlandıqdan sonra təsdiq tələb olunur',
       defaultValue: false,
+      className: 'md:col-span-2'
+    }),
+    createField('assignment_notes', 'Tapşırıq üzrə qeyd', 'textarea', {
+      placeholder: 'Tapşırığı təhkim olunanlara xüsusi tapşırıq və ya qeydlər əlavə edin...',
+      rows: 3,
       className: 'md:col-span-2'
     }),
   ];
@@ -231,15 +321,26 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
         category: 'other',
         priority: 'medium',
         target_scope: 'specific',
-        assigned_to: '0',
+        assigned_to: '',
         requires_approval: false,
         target_departments: [],
         target_institutions: [],
+        target_roles: [],
+        target_institution_id: '',
         deadline: undefined,
         notes: '',
         assigned_institution_id: undefined,
+        assignment_notes: '',
+        assigned_user_ids: [],
       };
     }
+
+    const assignedInstitutionString = task.assigned_institution_id != null
+      ? String(task.assigned_institution_id)
+      : '';
+    const primaryTargetInstitution = task.target_institution_id != null
+      ? String(task.target_institution_id)
+      : assignedInstitutionString;
 
     return {
       title: task.title,
@@ -247,29 +348,60 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
       category: task.category,
       priority: task.priority || 'medium',
       deadline: task.deadline ? task.deadline.split('T')[0] : undefined,
-      assigned_to: task.assigned_to?.toString() || '0',
-      assigned_institution_id: task.assigned_institution_id?.toString() || '',
+      assigned_to: task.assigned_to != null ? task.assigned_to.toString() : '',
+      assigned_institution_id: assignedInstitutionString,
+      target_institution_id: primaryTargetInstitution,
       target_institutions: task.target_institutions || [],
       target_departments: task.target_departments || [],
+      target_roles: task.target_roles || [],
       target_scope: task.target_scope,
       notes: task.notes || '',
       requires_approval: task.requires_approval || false,
+      assignment_notes: task.assignment_notes || '',
+      assigned_user_ids: Array.isArray(task.assignments)
+        ? task.assignments
+            .map((assignment) => assignment.assigned_user_id)
+            .filter((value): value is number => typeof value === 'number')
+            .map((value) => value.toString())
+        : [],
     };
   }, [task]);
 
   const handleSubmit = React.useCallback(async (data: any) => {
     try {
       // Transform data for API
+      const assignedToNumeric = parseInt(data.assigned_to, 10);
+      const assignedInstitutionNumeric = data.assigned_institution_id
+        ? parseInt(data.assigned_institution_id, 10)
+        : null;
+
       const transformedData = {
         ...data,
-        assigned_to: parseInt(data.assigned_to) || 0,
-        assigned_institution_id: data.assigned_institution_id 
-          ? parseInt(data.assigned_institution_id) 
-          : undefined,
+        assigned_to: Number.isNaN(assignedToNumeric) ? null : assignedToNumeric,
+        assigned_institution_id: assignedInstitutionNumeric,
+        target_institution_id: assignedInstitutionNumeric,
         target_departments: Array.isArray(data.target_departments) 
-          ? data.target_departments.map((id: string) => parseInt(id))
+          ? data.target_departments.map((id: string) => parseInt(id, 10))
           : [],
+        target_institutions: Array.isArray(data.target_institutions)
+          ? data.target_institutions.map((id: string | number) => typeof id === 'string' ? parseInt(id, 10) : id)
+          : [],
+        target_roles: Array.isArray(data.target_roles) ? data.target_roles : [],
+        assigned_user_ids: Array.isArray(data.assigned_user_ids)
+          ? data.assigned_user_ids.map((id: string | number) => parseInt(id as string, 10)).filter(id => !Number.isNaN(id))
+          : [],
+        assignment_notes: data.assignment_notes ?? undefined,
+        requires_approval: Boolean(data.requires_approval),
       };
+
+      if (Array.isArray(transformedData.assigned_user_ids) && transformedData.assigned_user_ids.length > 0) {
+        transformedData.assigned_to = transformedData.assigned_user_ids[0];
+      }
+
+      console.log('[TaskModal] Tapşırıq forması göndərilir', {
+        mode: isEditMode ? 'update' : 'create',
+        payload: transformedData,
+      });
 
       logger.info('TaskModal submitting data', {
         component: 'TaskModalStandardized',

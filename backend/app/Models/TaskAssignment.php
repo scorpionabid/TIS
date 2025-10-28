@@ -15,19 +15,28 @@ class TaskAssignment extends Model
         'institution_id',
         'department_id',
         'assigned_role',
+        'priority',
         'assigned_user_id',
         'assignment_status',
+        'progress',
+        'due_date',
         'assignment_notes',
         'assigned_at',
         'accepted_at',
         'completed_at',
+        'completion_notes',
         'completion_data',
+        'assignment_metadata',
+        'updated_by',
     ];
 
     protected $casts = [
         'assigned_at' => 'datetime',
         'accepted_at' => 'datetime',
         'completed_at' => 'datetime',
+        'due_date' => 'datetime',
+        'progress' => 'integer',
+        'assignment_metadata' => 'array',
         'completion_data' => 'array',
     ];
 

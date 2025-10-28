@@ -136,7 +136,7 @@ export interface SectorTask {
   created_by: number;
   assigned_to?: number;
   assigned_institution_id: number;
-  target_scope: 'specific' | 'regional' | 'sectoral' | 'all';
+  target_scope: 'specific' | 'regional' | 'sector' | 'institutional' | 'all';
   target_institutions?: number[];
   target_roles?: string[];
   notes?: string;
@@ -176,7 +176,7 @@ export interface SectorTaskCreateData {
   category: 'report' | 'maintenance' | 'event' | 'audit' | 'instruction' | 'other';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   deadline?: string;
-  target_scope: 'specific' | 'regional' | 'sectoral' | 'all';
+  target_scope: 'specific' | 'regional' | 'sector' | 'institutional' | 'all';
   target_institutions?: number[];
   target_roles?: string[];
   assigned_to?: number;

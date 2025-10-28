@@ -78,7 +78,8 @@ class Task extends Model
     const TARGET_SCOPES = [
         'specific' => 'Xüsusi seçim',
         'regional' => 'Regional',
-        'sectoral' => 'Sektoral',
+        'sector' => 'Sektor',
+        'institutional' => 'Müəssisə',
         'all' => 'Hamısı',
     ];
 

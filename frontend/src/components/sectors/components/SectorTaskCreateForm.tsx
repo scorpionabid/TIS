@@ -104,7 +104,7 @@ export function SectorTaskCreateForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="sectoral">Bu sektor</SelectItem>
+                <SelectItem value="sector">Bu sektor</SelectItem>
                 <SelectItem value="specific">Xüsusi seçim</SelectItem>
                 <SelectItem value="regional">Regional</SelectItem>
                 <SelectItem value="all">Hamısı</SelectItem>

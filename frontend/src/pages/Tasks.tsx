@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Task, CreateTaskData, TaskFilters, taskService } from "@/services/tasks";
+import { Task, CreateTaskData, TaskFilters, UpdateTaskData, taskService } from "@/services/tasks";
 import { TaskModalStandardized } from "@/components/modals/TaskModalStandardized";
 import { DeleteConfirmationModal } from "@/components/modals/DeleteConfirmationModal";
 import { useToast } from "@/hooks/use-toast";
@@ -221,16 +221,58 @@ export default function Tasks() {
     setSelectedTask(null);
   };
 
-  const handleSave = async (data: CreateTaskData) => {
+  const normalizeCreatePayload = (data: CreateTaskData): CreateTaskData => {
+    const assignedUserIds = Array.isArray(data.assigned_user_ids)
+      ? data.assigned_user_ids.map((value: number | string) => Number(value)).filter((value) => !Number.isNaN(value))
+      : [];
+
+    return {
+      ...data,
+      assigned_to: assignedUserIds.length > 0 ? assignedUserIds[0] : data.assigned_to ?? null,
+      assigned_institution_id: data.assigned_institution_id ?? null,
+      target_institution_id: data.target_institution_id ?? data.assigned_institution_id ?? null,
+      target_institutions: Array.isArray(data.target_institutions) ? data.target_institutions : [],
+      target_departments: Array.isArray(data.target_departments) ? data.target_departments : [],
+      target_roles: Array.isArray(data.target_roles) ? data.target_roles : [],
+      assignment_notes: data.assignment_notes ?? undefined,
+      assigned_user_ids: assignedUserIds,
+      requires_approval: Boolean(data.requires_approval),
+    };
+  };
+
+  const handleSave = async (formData: CreateTaskData) => {
+    const payload = normalizeCreatePayload(formData);
+    const isUpdate = Boolean(selectedTask);
+
+    console.log("[Tasks] Save əməliyyatı başladı", {
+      mode: isUpdate ? "update" : "create",
+      payload,
+    });
+
     try {
-      if (selectedTask) {
-        await taskService.update(selectedTask.id, data);
+      if (isUpdate && selectedTask) {
+        const updatePayload: UpdateTaskData = {
+          title: payload.title,
+          description: payload.description,
+          category: payload.category,
+          priority: payload.priority,
+          deadline: payload.deadline,
+          notes: payload.notes,
+        };
+
+        console.log("[Tasks] Update sorğusu göndərilir", {
+          taskId: selectedTask.id,
+          updatePayload,
+        });
+
+        await taskService.update(selectedTask.id, updatePayload);
         toast({
           title: "Tapşırıq yeniləndi",
           description: "Tapşırıq məlumatları uğurla yeniləndi.",
         });
       } else {
-        await taskService.create(data);
+        console.log("[Tasks] Create sorğusu göndərilir", payload);
+        await taskService.create(payload);
         toast({
           title: "Tapşırıq əlavə edildi",
           description: "Yeni tapşırıq uğurla yaradıldı.",
@@ -241,6 +283,7 @@ export default function Tasks() {
       await queryClient.invalidateQueries({ queryKey: ['task-stats'] });
       handleCloseModal();
     } catch (error) {
+      console.error("[Tasks] Save əməliyyatı alınmadı", error);
       toast({
         title: "Xəta baş verdi",
         description: error instanceof Error ? error.message : "Əməliyyat zamanı problem yarandı.",
@@ -256,17 +299,27 @@ export default function Tasks() {
   };
 
   const handleDeleteConfirm = async (task: Task, deleteType: 'soft' | 'hard') => {
+    console.log("[Tasks] Silmə əməliyyatı başladı", {
+      taskId: task.id,
+      deleteType,
+    });
+
     try {
       await taskService.delete(task.id);
       
       toast({
         title: "Tapşırıq silindi",
-        description: "Tapşırıq uğurla silindi.",
+        description: deleteType === 'hard'
+          ? "Tapşırıq sistemdən tam silindi."
+          : "Tapşırıq uğurla silindi.",
       });
       
       await queryClient.invalidateQueries({ queryKey: ['tasks'] });
       await queryClient.invalidateQueries({ queryKey: ['task-stats'] });
+
+      console.log("[Tasks] Silmə əməliyyatı tamamlandı", { taskId: task.id });
     } catch (error) {
+      console.error("[Tasks] Silmə əməliyyatında xəta", error);
       toast({
         title: "Silinə bilmədi",
         description: error instanceof Error ? error.message : "Tapşırıq silinərkən xəta baş verdi.",

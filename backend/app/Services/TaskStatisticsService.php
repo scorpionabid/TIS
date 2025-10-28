@@ -113,7 +113,7 @@ class TaskStatisticsService extends BaseService
         }
 
         // Add overdue tasks (not a real status, but calculated)
-        $overdueCount = Task::where('due_date', '<', now())
+        $overdueCount = Task::where('deadline', '<', now())
             ->whereNotIn('status', ['completed', 'cancelled']);
         $this->permissionService->applyTaskAccessControl($overdueCount, $user);
         $overdueCount = $overdueCount->count();
@@ -226,7 +226,7 @@ class TaskStatisticsService extends BaseService
             COUNT(*) as total_tasks,
             SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed_tasks,
             SUM(CASE WHEN status = "in_progress" THEN 1 ELSE 0 END) as in_progress_tasks,
-            SUM(CASE WHEN due_date < NOW() AND status NOT IN ("completed", "cancelled") THEN 1 ELSE 0 END) as overdue_tasks,
+            SUM(CASE WHEN deadline < NOW() AND status NOT IN ("completed", "cancelled") THEN 1 ELSE 0 END) as overdue_tasks,
             AVG(progress) as avg_progress
         ')
         ->groupBy('assigned_institution_id')
@@ -273,7 +273,7 @@ class TaskStatisticsService extends BaseService
         $query = TaskAssignment::whereHas('task', function($q) use ($scopeIds) {
             $q->whereIn('assigned_institution_id', $scopeIds);
         })
-        ->whereNotNull('assigned_to');
+        ->whereNotNull('assigned_user_id');
 
         // Apply date filter
         if (!empty($filters['date_from'])) {
@@ -284,22 +284,22 @@ class TaskStatisticsService extends BaseService
         }
 
         $userStats = $query->selectRaw('
-            assigned_to,
+            assigned_user_id,
             COUNT(*) as total_assignments,
-            SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed_assignments,
-            SUM(CASE WHEN due_date < NOW() AND status NOT IN ("completed", "cancelled") THEN 1 ELSE 0 END) as overdue_assignments,
+            SUM(CASE WHEN assignment_status = "completed" THEN 1 ELSE 0 END) as completed_assignments,
+            SUM(CASE WHEN due_date < NOW() AND assignment_status NOT IN ("completed", "cancelled") THEN 1 ELSE 0 END) as overdue_assignments,
             AVG(progress) as avg_progress
         ')
-        ->groupBy('assigned_to')
+        ->groupBy('assigned_user_id')
         ->having('total_assignments', '>', 0)
         ->get();
 
         return $userStats->map(function ($stat) {
-            $assignedUser = User::find($stat->assigned_to);
+            $assignedUser = User::find($stat->assigned_user_id);
             
             return [
                 'user' => [
-                    'id' => $stat->assigned_to,
+                    'id' => $stat->assigned_user_id,
                     'name' => $assignedUser->name ?? 'N/A',
                     'email' => $assignedUser->email ?? 'N/A',
                     'institution' => $assignedUser->institution?->name ?? 'N/A'
@@ -326,7 +326,7 @@ class TaskStatisticsService extends BaseService
      */
     private function getOverdueAnalysis($user): array
     {
-        $overdueQuery = Task::where('due_date', '<', now())
+        $overdueQuery = Task::where('deadline', '<', now())
             ->whereNotIn('status', ['completed', 'cancelled']);
         $this->permissionService->applyTaskAccessControl($overdueQuery, $user);
 
@@ -339,9 +339,9 @@ class TaskStatisticsService extends BaseService
 
         $overdueByDays = $overdueQuery->selectRaw('
             CASE 
-                WHEN TIMESTAMPDIFF(DAY, due_date, NOW()) <= 7 THEN "1-7 days"
-                WHEN TIMESTAMPDIFF(DAY, due_date, NOW()) <= 30 THEN "8-30 days"
-                WHEN TIMESTAMPDIFF(DAY, due_date, NOW()) <= 90 THEN "31-90 days"
+                WHEN TIMESTAMPDIFF(DAY, deadline, NOW()) <= 7 THEN "1-7 days"
+                WHEN TIMESTAMPDIFF(DAY, deadline, NOW()) <= 30 THEN "8-30 days"
+                WHEN TIMESTAMPDIFF(DAY, deadline, NOW()) <= 90 THEN "31-90 days"
                 ELSE "90+ days"
             END as overdue_period,
             COUNT(*) as count
@@ -367,16 +367,16 @@ class TaskStatisticsService extends BaseService
         $this->permissionService->applyTaskAccessControl($baseQuery, $user);
 
         return $baseQuery->selectRaw('
-            type,
+            category,
             COUNT(*) as count,
             SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed,
             AVG(progress) as avg_progress
         ')
-        ->groupBy('type')
+        ->groupBy('category')
         ->get()
         ->map(function ($item) {
             return [
-                'type' => $item->type,
+                'type' => $item->category,
                 'count' => $item->count,
                 'completed' => $item->completed,
                 'completion_rate' => $item->count > 0 ? round(($item->completed / $item->count) * 100, 2) : 0,
@@ -395,10 +395,10 @@ class TaskStatisticsService extends BaseService
         $assignmentQuery = TaskAssignment::whereBetween('created_at', [$dateFrom, $dateTo]);
         $this->permissionService->applyAssignmentAccessControl($assignmentQuery, $user);
 
-        $totalAssignments = $assignmentQuery->count();
-        $completedAssignments = $assignmentQuery->where('status', 'completed')->count();
-        $overdueAssignments = $assignmentQuery->where('due_date', '<', now())
-            ->whereNotIn('status', ['completed', 'cancelled'])
+        $totalAssignments = (clone $assignmentQuery)->count();
+        $completedAssignments = (clone $assignmentQuery)->where('assignment_status', 'completed')->count();
+        $overdueAssignments = (clone $assignmentQuery)->where('due_date', '<', now())
+            ->whereNotIn('assignment_status', ['completed', 'cancelled'])
             ->count();
 
         return [

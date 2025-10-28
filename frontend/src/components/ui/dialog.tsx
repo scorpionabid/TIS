@@ -140,36 +140,30 @@ const DialogContent = React.forwardRef<
           }
         }}
         onOpenAutoFocus={(e) => {
-          // CRITICAL: Disable automatic focus to prevent infinite loops with Select components
+          // Maintain manual control but always allow interactions
           e.preventDefault();
-          
+
           const dialogContent = e.currentTarget;
-          
-          // Check if modal contains Select components that could cause focus loops
+          dialogContent.removeAttribute('aria-hidden');
+
           const hasSelectTriggers = dialogContent.querySelector('[data-radix-select-trigger]');
-          
           if (hasSelectTriggers) {
-            // For modals with Select components, disable auto focus entirely
-            // Users can manually click to focus elements
-            console.log('🔒 Modal contains Select components - disabling auto focus to prevent infinite loops');
+            // Skip forcing focus, but leave the content interactive
             return;
           }
-          
-          // Only apply focus management for modals without Select components
-          dialogContent.removeAttribute('aria-hidden');
-          
+
           setTimeout(() => {
             const firstTab = dialogContent.querySelector('[role="tab"]:not([disabled])') as HTMLElement;
             if (firstTab) {
               firstTab.focus();
               return;
             }
-            
+
             const firstFocusable = getFirstFocusableElement(dialogContent);
             if (firstFocusable && !firstFocusable.hasAttribute('data-radix-select-trigger')) {
               firstFocusable.focus();
             }
-          }, 50); // Reduced delay
+          }, 50);
         }}
         onCloseAutoFocus={(e) => {
           // CRITICAL: Completely disable auto focus return to prevent loops

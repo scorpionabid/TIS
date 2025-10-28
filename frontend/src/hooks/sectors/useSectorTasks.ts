@@ -10,7 +10,7 @@ export const useSectorTasks = (selectedSector: Sector | null, activeTab: string)
     description: '',
     category: 'other',
     priority: 'medium',
-    target_scope: 'sectoral',
+    target_scope: 'sector',
     requires_approval: false
   });
 
@@ -46,7 +46,7 @@ export const useSectorTasks = (selectedSector: Sector | null, activeTab: string)
         description: '',
         category: 'other',
         priority: 'medium',
-        target_scope: 'sectoral',
+        target_scope: 'sector',
         requires_approval: false
       });
       toast({

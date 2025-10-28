@@ -12,8 +12,9 @@ export interface Task extends BaseEntity {
   started_at?: string;
   completed_at?: string;
   created_by: number;
-  assigned_to: number;
-  assigned_institution_id?: number;
+  assigned_to: number | null;
+  assigned_institution_id?: number | null;
+  target_institution_id?: number | null;
   target_institutions?: number[];
   target_departments?: number[];
   target_roles?: string[];
@@ -45,6 +46,16 @@ export interface Task extends BaseEntity {
     id: number;
     name: string;
   };
+  assignments?: Array<{
+    id: number;
+    assigned_user_id: number | null;
+    assigned_role?: string | null;
+    assignedUser?: {
+      id: number;
+      name: string;
+      email?: string;
+    } | null;
+  }>;
 }
 
 export interface TaskAttachment {
@@ -62,12 +73,16 @@ export interface CreateTaskData {
   category: Task['category'];
   priority: Task['priority'];
   deadline?: string;
-  assigned_to: number;
-  assigned_institution_id?: number;
+  assigned_to?: number | null;
+  assigned_institution_id?: number | null;
+  target_institution_id?: number | null;
   target_institutions?: number[];
   target_departments?: number[];
+  target_roles?: string[];
+  assigned_user_ids?: number[];
   target_scope: Task['target_scope'];
   notes?: string;
+  assignment_notes?: string;
   requires_approval?: boolean;
 }
 
@@ -76,7 +91,7 @@ export interface UpdateTaskData {
   description?: string;
   status?: Task['status'];
   priority?: Task['priority'];
-  due_date?: string;
+  deadline?: string;
   progress?: number;
   notes?: string;
 }

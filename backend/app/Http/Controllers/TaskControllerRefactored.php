@@ -109,8 +109,19 @@ class TaskControllerRefactored extends Controller
                 'required',
                 Rule::in(array_keys(Task::PRIORITIES))
             ],
-            'due_date' => 'nullable|date|after:now',
+            'deadline' => 'nullable|date|after:now',
             'target_institution_id' => 'required|integer|exists:institutions,id',
+            'target_scope' => [
+                'nullable',
+                Rule::in(array_keys(Task::TARGET_SCOPES))
+            ],
+            'target_departments' => 'nullable|array',
+            'target_departments.*' => 'integer|exists:departments,id',
+            'target_roles' => 'nullable|array',
+            'target_roles.*' => 'string',
+            'assignment_notes' => 'nullable|string',
+            'assigned_user_ids' => 'nullable|array|min:1',
+            'assigned_user_ids.*' => 'integer|exists:users,id',
             'target_role' => 'nullable|string',
             'specific_institutions' => 'nullable|array',
             'specific_institutions.*' => 'integer|exists:institutions,id',
@@ -193,14 +204,14 @@ class TaskControllerRefactored extends Controller
                 Rule::in(array_keys(Task::STATUSES))
             ],
             'progress' => 'sometimes|integer|min:0|max:100',
-            'due_date' => 'nullable|date|after:now',
+            'deadline' => 'nullable|date|after:now',
             'notes' => 'nullable|string',
         ]);
 
         try {
             $task->update($request->only([
-                'title', 'description', 'category', 'priority', 
-                'status', 'progress', 'due_date', 'notes'
+                'title', 'description', 'category', 'priority',
+                'status', 'progress', 'deadline', 'notes'
             ]));
 
             $task->load(['creator', 'assignee', 'assignedInstitution']);
@@ -550,7 +561,7 @@ class TaskControllerRefactored extends Controller
                     'task_category' => $task->category ?? 'other',
                     'task_priority' => $task->priority ?? 'normal',
                     'description' => $task->description ?? '',
-                    'due_date' => $task->due_date ? date('d.m.Y H:i', strtotime($task->due_date)) : null,
+                    'due_date' => $task->deadline ? date('d.m.Y H:i', strtotime($task->deadline)) : null,
                     'target_institution' => $task->assignedInstitution?->name ?? '',
                     'action_url' => "/tasks/{$task->id}",
                 ];

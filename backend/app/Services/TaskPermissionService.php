@@ -48,7 +48,7 @@ class TaskPermissionService extends BaseService
 
         // Check if task is directly assigned to user
         $assignment = TaskAssignment::where('task_id', $task->id)
-            ->where('assigned_to', $user->id)
+            ->where('assigned_user_id', $user->id)
             ->first();
 
         return $assignment !== null;
@@ -130,7 +130,7 @@ class TaskPermissionService extends BaseService
         }
 
         // User can update their own assignments
-        if ($assignment->assigned_to === $user->id) {
+        if ($assignment->assigned_user_id === $user->id) {
             return true;
         }
 
@@ -178,7 +178,7 @@ class TaskPermissionService extends BaseService
         if (!$userInstitution) {
             // User without institution can only see tasks assigned directly to them
             return $query->whereHas('assignments', function($q) use ($user) {
-                $q->where('assigned_to', $user->id);
+                $q->where('assigned_user_id', $user->id);
             });
         }
 
@@ -198,7 +198,7 @@ class TaskPermissionService extends BaseService
 
             // Tasks directly assigned to user
             $q->orWhereHas('assignments', function($subQ) use ($user) {
-                $subQ->where('assigned_to', $user->id);
+                $subQ->where('assigned_user_id', $user->id);
             });
         });
 
@@ -389,12 +389,12 @@ class TaskPermissionService extends BaseService
         $userInstitution = $user->institution;
         
         if (!$userInstitution) {
-            return $query->where('assigned_to', $user->id);
+            return $query->where('assigned_user_id', $user->id);
         }
 
         $query->where(function($q) use ($user, $userInstitution) {
             // Assignments to the user
-            $q->where('assigned_to', $user->id);
+            $q->where('assigned_user_id', $user->id);
 
             // Assignments in user's institutional scope
             if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
