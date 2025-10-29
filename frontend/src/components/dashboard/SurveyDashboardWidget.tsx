@@ -42,7 +42,15 @@ export const SurveyDashboardWidget: React.FC<SurveyDashboardWidgetProps> = ({
     queryKey: ['survey-dashboard-stats'],
     queryFn: async () => {
       const response = await surveyService.getDashboardStats();
-      return response.data as SurveyStats;
+      // Ensure we always return a valid object, never undefined
+      return (response.data || {
+        total: 0,
+        pending: 0,
+        in_progress: 0,
+        completed: 0,
+        overdue: 0,
+        completion_rate: 0
+      }) as SurveyStats;
     },
     refetchInterval: 30000, // Refresh every 30 seconds
     staleTime: 15000, // Consider data stale after 15 seconds

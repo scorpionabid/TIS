@@ -326,15 +326,19 @@ class SchoolAdminService {
 
   // Task management methods
   async getSchoolTasks(filters?: SchoolTaskFilters): Promise<SchoolTask[]> {
-    const response = await apiClient.get<{tasks: SchoolTask[], summary: any}>(`${this.baseEndpoint}/tasks`, filters);
-    return response.data?.tasks || response.tasks || [] as any;
+    // Backend has /schooladmin/tasks/assigned endpoint (see dashboards.php:231)
+    // Backend returns: { success: true, data: [...tasks], message: string }
+    const response = await apiClient.get<SchoolTask[]>(`${this.baseEndpoint}/tasks/assigned`, filters);
+    // apiClient already extracts response.data, so we get tasks array directly
+    return (response.data || response || []) as SchoolTask[];
   }
 
   async updateTaskStatus(taskId: number, status: Task['status'], notes?: string, progress?: number): Promise<SchoolTask> {
+    // Backend expects: comment (required), progress_percentage (required)
+    // Map frontend params to backend contract
     const response = await apiClient.put<SchoolTask>(`${this.baseEndpoint}/tasks/${taskId}/progress`, {
-      status,
-      notes,
-      progress
+      comment: notes || 'Status yeniləndi',  // Backend requires comment
+      progress_percentage: progress ?? 0     // Backend requires progress_percentage
     });
     return response.data || response as any;
   }
@@ -345,15 +349,17 @@ class SchoolAdminService {
   }
 
   async addTaskProgress(taskId: number, progress: number, notes?: string): Promise<void> {
+    // Backend expects: comment (required), progress_percentage (required)
     await apiClient.put(`${this.baseEndpoint}/tasks/${taskId}/progress`, {
-      progress,
-      notes
+      comment: notes || 'İrəliləmə qeydə alındı',
+      progress_percentage: progress
     });
   }
 
   async submitTaskForApproval(taskId: number, notes: string): Promise<SchoolTask> {
+    // Backend expects: final_comment (optional), deliverables (optional)
     const response = await apiClient.post<SchoolTask>(`${this.baseEndpoint}/tasks/${taskId}/submit`, {
-      notes
+      final_comment: notes
     });
     return response.data || response as any;
   }

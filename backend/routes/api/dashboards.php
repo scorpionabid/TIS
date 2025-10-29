@@ -229,8 +229,9 @@ Route::prefix('schooladmin')->middleware(['auth:sanctum', 'role_or_permission:su
     
     // Task management routes
     Route::get('tasks/assigned', [App\Http\Controllers\School\SchoolTaskController::class, 'getAssignedTasks']);
-    Route::post('tasks/{task}/complete', [App\Http\Controllers\School\SchoolTaskController::class, 'completeTask']);
     Route::get('tasks/{task}/details', [App\Http\Controllers\School\SchoolTaskController::class, 'getTaskDetails']);
+    Route::put('tasks/{task}/progress', [App\Http\Controllers\School\SchoolTaskController::class, 'updateTaskProgress']);
+    Route::post('tasks/{task}/submit', [App\Http\Controllers\School\SchoolTaskController::class, 'submitTaskForApproval']);
     
     // Grade management routes - Updated to use GradeUnifiedController
     Route::get('grades', [GradeUnifiedController::class, 'index']);

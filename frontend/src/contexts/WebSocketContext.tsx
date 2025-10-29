@@ -118,18 +118,11 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
 
       throw new Error('Failed to get WebSocket config from backend');
     } catch (error) {
-      logger.warn('Using fallback WebSocket configuration');
+      logger.info('WebSocket not configured - using polling for updates');
 
-      // Fallback configuration
-      return {
-        key: 'atis-key',
-        host: '127.0.0.1',
-        port: 8080,
-        scheme: 'http',
-        encrypted: false,
-        forceTLS: false,
-        enableLogging: process.env.NODE_ENV === 'development',
-      };
+      // Return null config to disable WebSocket connections
+      // This prevents failed connection attempts to non-existent WebSocket server
+      throw error; // Re-throw to prevent connection attempt
     }
   }, []);
 
