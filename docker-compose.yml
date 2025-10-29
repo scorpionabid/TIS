@@ -25,6 +25,7 @@ services:
       - ./backend/app:/var/www/html/app
       - ./backend/routes:/var/www/html/routes
       - ./backend/config:/var/www/html/config
+      - ./backend/tests:/var/www/html/tests
     depends_on:
       redis:
         condition: service_healthy

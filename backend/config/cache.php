@@ -2,6 +2,12 @@
 
 use Illuminate\Support\Str;
 
+$preferredStore = env('CACHE_STORE');
+
+if ($preferredStore === 'redis' && ! extension_loaded('redis') && ! class_exists(\Predis\Client::class)) {
+    $preferredStore = 'file';
+}
+
 return [
 
     /*
@@ -15,7 +21,7 @@ return [
     |
     */
 
-    'default' => env('CACHE_STORE', 'database'),
+    'default' => $preferredStore ?? (env('APP_ENV') === 'production' ? 'redis' : 'file'),
 
     /*
     |--------------------------------------------------------------------------

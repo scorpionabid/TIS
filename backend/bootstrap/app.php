@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'institution.access' => \App\Http\Middleware\InstitutionAccessMiddleware::class,
             'regional.access' => \App\Http\Middleware\RegionalDataAccessMiddleware::class,
             'audit.logging' => \App\Http\Middleware\AuditLoggingMiddleware::class,
+            'performance.monitoring' => \App\Http\Middleware\QueryPerformanceMonitoring::class,
             
             // Inventory Management Middleware
             'inventory.rate_limit' => \App\Http\Middleware\InventoryRateLimiter::class,
