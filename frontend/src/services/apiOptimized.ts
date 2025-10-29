@@ -92,6 +92,7 @@ const TOKEN_STORAGE_KEY = 'atis_auth_token';
 class ApiClientOptimized {
   private baseURL: string;
   private token: string | null = null;
+  private useBearerAuth: boolean;
   
   // Request deduplication - prevent duplicate requests
   private pendingRequests = new Map<string, PendingRequest<any>>();
@@ -109,6 +110,9 @@ class ApiClientOptimized {
 
   constructor(baseURL?: string) {
     const fallbackURL = 'http://localhost:8000/api';
+    const bearerFlag = import.meta.env.VITE_ENABLE_BEARER_AUTH;
+    // Default to bearer auth enabled unless explicitly set to 'false'
+    this.useBearerAuth = bearerFlag === undefined ? true : bearerFlag !== 'false';
     
     if (baseURL) {
       this.baseURL = baseURL;
@@ -303,8 +307,9 @@ class ApiClientOptimized {
       'X-Requested-With': 'XMLHttpRequest',
     };
 
-    if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`;
+    const authorization = this.getAuthorizationHeader();
+    if (authorization) {
+      headers.Authorization = authorization;
     }
 
     const csrfToken = this.getCsrfToken();
@@ -702,6 +707,46 @@ class ApiClientOptimized {
 
   getToken(): string | null {
     return this.token;
+  }
+
+  enableBearerAuth(): void {
+    this.useBearerAuth = true;
+  }
+
+  disableBearerAuth(): void {
+    this.useBearerAuth = false;
+  }
+
+  isBearerAuthEnabled(): boolean {
+    return this.useBearerAuth;
+  }
+
+  getAuthorizationHeader(): string | null {
+    if (!this.useBearerAuth || !this.token) {
+      return null;
+    }
+    return `Bearer ${this.token}`;
+  }
+
+  getAuthHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {};
+
+    // Authorization header (Bearer token)
+    const authorization = this.getAuthorizationHeader();
+    if (authorization) {
+      headers.Authorization = authorization;
+    }
+
+    // CSRF token (session-based auth üçün kritik)
+    // Yalnız session-based auth istifadə edildikdə əlavə et
+    if (!this.useBearerAuth) {
+      const csrfToken = this.getCsrfToken();
+      if (csrfToken) {
+        headers['X-XSRF-TOKEN'] = csrfToken;
+      }
+    }
+
+    return headers;
   }
 
   isAuthenticated(): boolean {
