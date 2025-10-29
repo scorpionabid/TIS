@@ -14,11 +14,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { GraduationCapIcon, Plus, Edit, Eye, BookOpen, Clock, Users, Calculator, Loader2 } from "lucide-react";
+import { GraduationCapIcon, Plus, Edit, Eye, BookOpen, Clock, Users, Calculator, Loader2, UserPlus } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { workloadService, TeachingLoad } from "@/services/workload";
 import { subjectService } from "@/services/subjects";
+import { teacherService, Teacher } from "@/services/teachers";
 import { useToast } from "@/hooks/use-toast";
+import AddWorkloadModal from "@/components/workload/AddWorkloadModal";
 
 export default function SchoolWorkload() {
   const [selectedClass, setSelectedClass] = useState<string>('all');
@@ -29,7 +31,11 @@ export default function SchoolWorkload() {
   const [selectedWorkloadId, setSelectedWorkloadId] = useState<number | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  
+
+  // Add Workload Modal state
+  const [selectedTeacherForWorkload, setSelectedTeacherForWorkload] = useState<Teacher | null>(null);
+  const [isAddWorkloadModalOpen, setIsAddWorkloadModalOpen] = useState<boolean>(false);
+
   // Form state
   const [formData, setFormData] = useState({
     teacher_id: '',
@@ -138,10 +144,23 @@ export default function SchoolWorkload() {
     } else if (teacherName) {
       setIsCreateModalOpen(true);
       toast({
-        title: "Redaktə et", 
+        title: "Redaktə et",
         description: `${teacherName} müəlliminin dərs yükü redaktə edilir`
       });
     }
+  };
+
+  // Handle add workload for teacher
+  const handleAddWorkloadForTeacher = (teacher: Teacher) => {
+    setSelectedTeacherForWorkload(teacher);
+    setIsAddWorkloadModalOpen(true);
+  };
+
+  // Calculate teacher's total workload
+  const calculateTeacherWorkload = (teacherId: number): number => {
+    return teachingLoads
+      .filter((load: TeachingLoad) => load.teacher_id === teacherId)
+      .reduce((sum: number, load: TeachingLoad) => sum + load.weekly_hours, 0);
   };
 
   // Load teaching loads
@@ -158,10 +177,14 @@ export default function SchoolWorkload() {
     staleTime: 1000 * 60 * 10, // Cache for 10 minutes
   });
 
-  // Load dropdown data for form (simple mock data for now)
-  const teachersData = [
-    { id: 3, name: 'teacher1' }
-  ];
+  // Load school teachers
+  const { data: teachersResponse, isLoading: teachersLoading, error: teachersError } = useQuery({
+    queryKey: ['school-teachers'],
+    queryFn: () => teacherService.getSchoolTeachers(),
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+  });
+
+  const teachers = teachersResponse || [];
   
   // Load subjects dynamically
   const { data: subjectsResponse } = useQuery({
@@ -403,6 +426,110 @@ export default function SchoolWorkload() {
         </CardContent>
       </Card>
 
+      {/* Teachers List with Add Workload Button */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Müəllimlər
+          </CardTitle>
+          <CardDescription>
+            Məktəbin müəllimləri və dərs yükü əlavə etmə
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {teachersLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2">Müəllimlər yüklənir...</span>
+            </div>
+          ) : teachersError ? (
+            <div className="text-center py-8 text-destructive">
+              Müəllimləri yükləyərkən xəta baş verdi
+            </div>
+          ) : teachers.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Heç bir müəllim tapılmadı
+            </div>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Müəllim</TableHead>
+                    <TableHead>Fənn</TableHead>
+                    <TableHead>Departament</TableHead>
+                    <TableHead className="text-center">Mövcud Yük</TableHead>
+                    <TableHead className="text-center">Əməliyyat</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {teachers.map((teacher: Teacher) => {
+                    const totalWorkload = calculateTeacherWorkload(teacher.id);
+                    const isOverloaded = totalWorkload > 24;
+                    const isNearLimit = totalWorkload > 20 && totalWorkload <= 24;
+
+                    return (
+                      <TableRow key={teacher.id}>
+                        <TableCell className="font-medium">
+                          <div>
+                            <div>{teacher.name}</div>
+                            <div className="text-xs text-muted-foreground">{teacher.email}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {teacher.subjects && teacher.subjects.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {teacher.subjects.slice(0, 2).map((subject: any, idx: number) => (
+                                <Badge key={idx} variant="outline" className="text-xs">
+                                  {subject.name || subject}
+                                </Badge>
+                              ))}
+                              {teacher.subjects.length > 2 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{teacher.subjects.length - 2}
+                                </Badge>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Fənn təyin edilməyib</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm">{teacher.department || '-'}</span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge
+                            variant={
+                              isOverloaded ? "destructive" :
+                              isNearLimit ? "default" :
+                              totalWorkload > 0 ? "secondary" : "outline"
+                            }
+                          >
+                            {totalWorkload} saat/həftə
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            onClick={() => handleAddWorkloadForTeacher(teacher)}
+                            size="sm"
+                            variant="default"
+                            className="gap-2"
+                          >
+                            <UserPlus className="h-4 w-4" />
+                            Dərs Yükü Əlavə Et
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Teacher Workload List */}
       <Card>
         <CardHeader>
@@ -531,7 +658,7 @@ export default function SchoolWorkload() {
                   <SelectValue placeholder="Müəllim seçin" />
                 </SelectTrigger>
                 <SelectContent>
-                  {teachersData.map((teacher) => (
+                  {teachers.map((teacher: Teacher) => (
                     <SelectItem key={teacher.id} value={teacher.id.toString()}>
                       {teacher.name}
                     </SelectItem>
@@ -619,6 +746,24 @@ export default function SchoolWorkload() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Add Workload Modal */}
+      {selectedTeacherForWorkload && (
+        <AddWorkloadModal
+          teacherId={selectedTeacherForWorkload.id}
+          teacherName={selectedTeacherForWorkload.name}
+          isOpen={isAddWorkloadModalOpen}
+          onClose={() => {
+            setIsAddWorkloadModalOpen(false);
+            setSelectedTeacherForWorkload(null);
+          }}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['teaching-loads'] });
+            queryClient.invalidateQueries({ queryKey: ['workload-statistics'] });
+            queryClient.invalidateQueries({ queryKey: ['school-teachers'] });
+          }}
+        />
+      )}
     </div>
   );
 }

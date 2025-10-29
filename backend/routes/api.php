@@ -18,7 +18,59 @@ require __DIR__ . '/api/public.php';
 
 // Load authenticated routes
 Route::middleware('auth:sanctum')->group(function () {
-    
+
+    // DEBUG ENDPOINT - Check current user permissions (Development Only)
+    if (app()->environment('local', 'development', 'testing')) {
+        Route::get('/debug/my-permissions', function (Illuminate\Http\Request $request) {
+        $user = $request->user();
+
+        // Check if user model has permission trait methods
+        $hasTrait = in_array('Spatie\\Permission\\Traits\\HasRoles', class_uses_recursive($user));
+
+        // Try different permission check methods
+        $hasPermissionTo = false;
+        $canAccess = false;
+        $checkPermissionTo = false;
+
+        try {
+            $hasPermissionTo = $user->hasPermissionTo('teaching_loads.read');
+        } catch (\Exception $e) {
+            $hasPermissionTo = 'ERROR: ' . $e->getMessage();
+        }
+
+        try {
+            $canAccess = $user->can('teaching_loads.read');
+        } catch (\Exception $e) {
+            $canAccess = 'ERROR: ' . $e->getMessage();
+        }
+
+        try {
+            $checkPermissionTo = method_exists($user, 'checkPermissionTo') ? $user->checkPermissionTo('teaching_loads.read') : 'method not exists';
+        } catch (\Exception $e) {
+            $checkPermissionTo = 'ERROR: ' . $e->getMessage();
+        }
+
+        return response()->json([
+            'user_id' => $user->id,
+            'username' => $user->username,
+            'email' => $user->email,
+            'institution_id' => $user->institution_id,
+            'user_class' => get_class($user),
+            'has_permission_trait' => $hasTrait,
+            'roles' => $user->getRoleNames(),
+            'all_permissions' => $user->getAllPermissions()->pluck('name'),
+            'teaching_loads_permissions' => $user->getAllPermissions()
+                ->filter(fn($p) => str_starts_with($p->name, 'teaching_loads'))
+                ->pluck('name'),
+            'permission_checks' => [
+                'hasPermissionTo' => $hasPermissionTo,
+                'can' => $canAccess,
+                'checkPermissionTo' => $checkPermissionTo,
+            ],
+        ]);
+        });
+    }
+
     // Authentication & Profile Routes
     require __DIR__ . '/api/auth.php';
     

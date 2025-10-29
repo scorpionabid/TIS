@@ -252,4 +252,31 @@ class TeachingLoadApiController extends Controller
             ]
         ]);
     }
+
+    /**
+     * Get teacher's assigned subjects with details
+     */
+    public function getTeacherSubjects(string $teacherId): JsonResponse
+    {
+        $teacherSubjects = DB::table('teacher_subjects')
+            ->join('subjects', 'teacher_subjects.subject_id', '=', 'subjects.id')
+            ->where('teacher_subjects.teacher_id', $teacherId)
+            ->where('teacher_subjects.is_active', true)
+            ->select([
+                'teacher_subjects.id',
+                'teacher_subjects.subject_id',
+                'subjects.name as subject_name',
+                'subjects.code as subject_code',
+                'teacher_subjects.grade_levels',
+                'teacher_subjects.specialization_level',
+                'teacher_subjects.is_primary_subject',
+                'teacher_subjects.max_hours_per_week'
+            ])
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $teacherSubjects
+        ]);
+    }
 }

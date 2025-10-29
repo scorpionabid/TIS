@@ -33,6 +33,17 @@ export interface Subject {
   name: string;
 }
 
+export interface TeacherSubject {
+  id: number;
+  subject_id: number;
+  subject_name: string;
+  subject_code: string;
+  grade_levels: number[];
+  specialization_level: string;
+  is_primary_subject: boolean;
+  max_hours_per_week: number;
+}
+
 class TeacherService {
   private baseURL = '/teachers';
 
@@ -192,6 +203,33 @@ class TeacherService {
    */
   async deleteTeacher(id: number): Promise<void> {
     return schoolAdminService.deleteTeacher(id);
+  }
+
+  /**
+   * Get teacher's assigned subjects with details
+   */
+  async getTeacherSubjects(teacherId: number): Promise<TeacherSubject[]> {
+    try {
+      const response = await apiClient.get(`/teaching-loads/teacher/${teacherId}/subjects`);
+      return response.data?.data || response.data || [];
+    } catch (error) {
+      console.error('❌ TeacherService.getTeacherSubjects failed:', error);
+      // Return empty array if teacher has no subjects
+      return [];
+    }
+  }
+
+  /**
+   * Get all school teachers (delegating to schoolAdminService)
+   */
+  async getSchoolTeachers(): Promise<Teacher[]> {
+    try {
+      const teachers = await schoolAdminService.getTeachers();
+      return teachers;
+    } catch (error) {
+      console.error('❌ TeacherService.getSchoolTeachers failed:', error);
+      throw error;
+    }
   }
 
   // ==================== WORKPLACE MANAGEMENT ====================

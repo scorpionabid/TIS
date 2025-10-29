@@ -19,8 +19,9 @@ class User extends Authenticatable
 
     /**
      * The guard name used for permissions
+     * Removed to allow Spatie Permission to work with multiple guards (web + sanctum API)
      */
-    protected $guard_name = 'web';
+    // protected $guard_name = 'api'; // REMOVED - causes issues with existing role assignments
 
     /**
      * The attributes that are mass assignable.

@@ -279,18 +279,19 @@ Route::prefix('academic-years')->middleware('permission:institutions.read')->gro
 // Subjects management  
 Route::prefix('subjects')->group(function () {
     // Read operations - available to all authorized roles
-    Route::get('/', [SubjectController::class, 'index'])->middleware('permission:subjects.read');
-    Route::get('/statistics', [SubjectController::class, 'statistics'])->middleware('permission:subjects.read');
-    Route::get('/by-category', [SubjectController::class, 'getByCategory'])->middleware('permission:subjects.read');
-    Route::get('/for-grade/{grade}', [SubjectController::class, 'getForGrade'])->middleware('permission:subjects.read');
-    Route::get('/{subject}', [SubjectController::class, 'show'])->middleware('permission:subjects.read');
-    
+    // Note: Using role-based access due to guard incompatibility with Sanctum API authentication
+    Route::get('/', [SubjectController::class, 'index'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
+    Route::get('/statistics', [SubjectController::class, 'statistics'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::get('/by-category', [SubjectController::class, 'getByCategory'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
+    Route::get('/for-grade/{grade}', [SubjectController::class, 'getForGrade'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
+    Route::get('/{subject}', [SubjectController::class, 'show'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
+
     // Write operations - restricted to SuperAdmin and RegionAdmin only
     Route::middleware(['role:superadmin|regionadmin'])->group(function () {
         Route::post('/', [SubjectController::class, 'store']);
         Route::put('/{subject}', [SubjectController::class, 'update']);
         Route::delete('/{subject}', [SubjectController::class, 'destroy']);
-        
+
         // Bulk operations
         Route::post('/bulk-create', [SubjectController::class, 'bulkCreate']);
         Route::post('/bulk-update', [SubjectController::class, 'bulkUpdate']);

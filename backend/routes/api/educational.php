@@ -55,17 +55,20 @@ Route::prefix('attendance-records')->group(function () {
 
 
 // Teaching Load API Routes
+// Note: Using role-based access instead of permission middleware due to guard incompatibility
+// schooladmin role has all necessary teaching_loads.* permissions
 Route::prefix('teaching-loads')->group(function () {
-    Route::get('/', [TeachingLoadApiController::class, 'index'])->middleware('permission:teaching_loads.read');
-    Route::post('/', [TeachingLoadApiController::class, 'store'])->middleware('permission:teaching_loads.write');
-    Route::get('/statistics', [TeachingLoadApiController::class, 'getAnalytics'])->middleware('permission:teaching_loads.analytics');
-    Route::get('/teacher/{teacher}', [TeachingLoadApiController::class, 'getByTeacher'])->middleware('permission:teaching_loads.read');
-    Route::get('/institution/{institution}', [TeachingLoadApiController::class, 'getByInstitution'])->middleware('permission:teaching_loads.read');
-    Route::post('/bulk-assign', [TeachingLoadApiController::class, 'bulkAssign'])->middleware('permission:teaching_loads.bulk');
-    Route::get('/analytics/overview', [TeachingLoadApiController::class, 'getAnalytics'])->middleware('permission:teaching_loads.analytics');
-    Route::get('/{teachingLoad}', [TeachingLoadApiController::class, 'show'])->middleware('permission:teaching_loads.read');
-    Route::put('/{teachingLoad}', [TeachingLoadApiController::class, 'update'])->middleware('permission:teaching_loads.write');
-    Route::delete('/{teachingLoad}', [TeachingLoadApiController::class, 'destroy'])->middleware('permission:teaching_loads.write');
+    Route::get('/', [TeachingLoadApiController::class, 'index'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::post('/', [TeachingLoadApiController::class, 'store'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::get('/statistics', [TeachingLoadApiController::class, 'getAnalytics'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::get('/teacher/{teacher}', [TeachingLoadApiController::class, 'getByTeacher'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::get('/teacher/{teacher}/subjects', [TeachingLoadApiController::class, 'getTeacherSubjects'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::get('/institution/{institution}', [TeachingLoadApiController::class, 'getByInstitution'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::post('/bulk-assign', [TeachingLoadApiController::class, 'bulkAssign'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::get('/analytics/overview', [TeachingLoadApiController::class, 'getAnalytics'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::get('/{teachingLoad}', [TeachingLoadApiController::class, 'show'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::put('/{teachingLoad}', [TeachingLoadApiController::class, 'update'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::delete('/{teachingLoad}', [TeachingLoadApiController::class, 'destroy'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
 });
 
 // Attendance Management Routes
@@ -217,44 +220,46 @@ Route::prefix('teacher-workplaces')->middleware('permission:teachers.read')->gro
     Route::post('/{workplace}/deactivate', [App\Http\Controllers\TeacherWorkplaceController::class, 'deactivate'])->middleware('permission:teachers.write');
 });
 
-// Class Management Routes (Legacy - for backward compatibility)
+// Class Management Routes
+// Note: Using role-based access for read operations due to guard incompatibility
 Route::prefix('classes')->group(function () {
-    Route::get('/', [App\Http\Controllers\ClassesControllerRefactored::class, 'index'])->middleware('permission:classes.read');
-    Route::post('/', [App\Http\Controllers\ClassesControllerRefactored::class, 'store'])->middleware('permission:classes.write');
-    Route::get('/{class}', [App\Http\Controllers\ClassesControllerRefactored::class, 'show'])->middleware('permission:classes.read');
-    Route::put('/{class}', [App\Http\Controllers\ClassesControllerRefactored::class, 'update'])->middleware('permission:classes.write');
-    Route::delete('/{class}', [App\Http\Controllers\ClassesControllerRefactored::class, 'destroy'])->middleware('permission:classes.write');
-    Route::get('/{class}/students', [App\Http\Controllers\ClassesControllerRefactored::class, 'getStudents'])->middleware('permission:classes.students');
-    Route::post('/{class}/students', [App\Http\Controllers\ClassesControllerRefactored::class, 'addStudents'])->middleware('permission:classes.manage_students');
-    Route::delete('/{class}/students/{student}', [App\Http\Controllers\ClassesControllerRefactored::class, 'removeStudent'])->middleware('permission:classes.manage_students');
-    Route::get('/{class}/teachers', [App\Http\Controllers\ClassesControllerRefactored::class, 'getTeachers'])->middleware('permission:classes.teachers');
-    Route::post('/{class}/teachers', [App\Http\Controllers\ClassesControllerRefactored::class, 'assignTeacher'])->middleware('permission:classes.manage_teachers');
-    Route::delete('/{class}/teachers/{teacher}', [App\Http\Controllers\ClassesControllerRefactored::class, 'unassignTeacher'])->middleware('permission:classes.manage_teachers');
-    Route::get('/{class}/schedule', [App\Http\Controllers\ClassesControllerRefactored::class, 'getSchedule'])->middleware('permission:classes.schedule');
-    Route::get('/{class}/attendance', [App\Http\Controllers\ClassesControllerRefactored::class, 'getAttendance'])->middleware('permission:classes.attendance');
-    Route::get('/{class}/grades', [App\Http\Controllers\ClassesControllerRefactored::class, 'getGrades'])->middleware('permission:classes.grades');
-    Route::post('/bulk-create', [App\Http\Controllers\ClassesControllerRefactored::class, 'bulkCreate'])->middleware('permission:classes.bulk');
-    Route::get('/analytics/overview', [App\Http\Controllers\ClassesControllerRefactored::class, 'getAnalytics'])->middleware('permission:classes.analytics');
+    Route::get('/', [App\Http\Controllers\ClassesControllerRefactored::class, 'index'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
+    Route::post('/', [App\Http\Controllers\ClassesControllerRefactored::class, 'store'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::get('/{class}', [App\Http\Controllers\ClassesControllerRefactored::class, 'show'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
+    Route::put('/{class}', [App\Http\Controllers\ClassesControllerRefactored::class, 'update'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::delete('/{class}', [App\Http\Controllers\ClassesControllerRefactored::class, 'destroy'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::get('/{class}/students', [App\Http\Controllers\ClassesControllerRefactored::class, 'getStudents'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
+    Route::post('/{class}/students', [App\Http\Controllers\ClassesControllerRefactored::class, 'addStudents'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::delete('/{class}/students/{student}', [App\Http\Controllers\ClassesControllerRefactored::class, 'removeStudent'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::get('/{class}/teachers', [App\Http\Controllers\ClassesControllerRefactored::class, 'getTeachers'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::post('/{class}/teachers', [App\Http\Controllers\ClassesControllerRefactored::class, 'assignTeacher'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::delete('/{class}/teachers/{teacher}', [App\Http\Controllers\ClassesControllerRefactored::class, 'unassignTeacher'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::get('/{class}/schedule', [App\Http\Controllers\ClassesControllerRefactored::class, 'getSchedule'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
+    Route::get('/{class}/attendance', [App\Http\Controllers\ClassesControllerRefactored::class, 'getAttendance'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
+    Route::get('/{class}/grades', [App\Http\Controllers\ClassesControllerRefactored::class, 'getGrades'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
+    Route::post('/bulk-create', [App\Http\Controllers\ClassesControllerRefactored::class, 'bulkCreate'])->middleware('role:superadmin|regionadmin');
+    Route::get('/analytics/overview', [App\Http\Controllers\ClassesControllerRefactored::class, 'getAnalytics'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
 });
 
 // Unified Grades Management Routes (New Implementation)
+// Note: Using role-based access for read operations due to guard incompatibility
 Route::prefix('grades')->group(function () {
     // Grade tag system routes (MUST BE BEFORE {grade} routes to avoid conflict)
-    Route::get('/tags', [GradeTagController::class, 'index'])->middleware('permission:grades.read');
-    Route::get('/tags/list', [GradeTagController::class, 'list'])->middleware('permission:grades.read');
-    Route::get('/tags/categories', [GradeTagController::class, 'categories'])->middleware('permission:grades.read');
+    Route::get('/tags', [GradeTagController::class, 'index'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::get('/tags/list', [GradeTagController::class, 'list'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::get('/tags/categories', [GradeTagController::class, 'categories'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
     // Education programs are static data - no permission required for authenticated users
     Route::get('/education-programs', [GradeTagController::class, 'educationPrograms']);
 
     // Core CRUD operations
-    Route::get('/', [GradeUnifiedController::class, 'index'])->middleware('permission:grades.read');
-    Route::post('/', [GradeUnifiedController::class, 'store'])->middleware('permission:grades.create');
-    Route::get('/{grade}', [GradeUnifiedController::class, 'show'])->middleware('permission:grades.read');
+    Route::get('/', [GradeUnifiedController::class, 'index'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::post('/', [GradeUnifiedController::class, 'store'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::get('/{grade}', [GradeUnifiedController::class, 'show'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
     Route::put('/{grade}', [GradeUnifiedController::class, 'update'])->middleware('permission:grades.edit');
     Route::delete('/{grade}', [GradeUnifiedController::class, 'destroy'])->middleware('permission:grades.delete');
     
     // Student management within grades
-    Route::get('/{grade}/students', [GradeUnifiedController::class, 'students'])->middleware('permission:grades.students');
+    Route::get('/{grade}/students', [GradeUnifiedController::class, 'students'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
     
     // Teacher assignment
     Route::post('/{grade}/assign-teacher', [GradeUnifiedController::class, 'assignTeacher'])->middleware('permission:grades.assign_teacher');
@@ -282,8 +287,8 @@ Route::prefix('grades')->group(function () {
     Route::get('/reports/capacity', [GradeUnifiedController::class, 'capacityReport'])->middleware('permission:grades.reports');
 
     // Curriculum management (grade subjects)
-    Route::get('/{grade}/subjects', [GradeSubjectController::class, 'index'])->middleware('permission:grades.read');
-    Route::get('/{grade}/subjects/available', [GradeSubjectController::class, 'availableSubjects'])->middleware('permission:grades.read');
+    Route::get('/{grade}/subjects', [GradeSubjectController::class, 'index'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
+    Route::get('/{grade}/subjects/available', [GradeSubjectController::class, 'availableSubjects'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
     Route::post('/{grade}/subjects', [GradeSubjectController::class, 'store'])->middleware('permission:grades.read');
     Route::put('/{grade}/subjects/{gradeSubject}', [GradeSubjectController::class, 'update'])->middleware('permission:grades.read');
     Route::delete('/{grade}/subjects/{gradeSubject}', [GradeSubjectController::class, 'destroy'])->middleware('permission:grades.read');
