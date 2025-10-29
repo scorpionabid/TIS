@@ -21,7 +21,7 @@ class UserTest extends TestCase
         \DB::table('roles')->insert([
             'id' => 1,
             'name' => 'test_role',
-            'guard_name' => 'web',
+            'guard_name' => 'sanctum',
             'created_at' => now(),
             'updated_at' => now(),
         ]);

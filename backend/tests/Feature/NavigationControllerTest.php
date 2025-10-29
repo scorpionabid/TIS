@@ -23,10 +23,10 @@ class NavigationControllerTest extends TestCase
         parent::setUp();
         
         // Create test roles
-        $superadminRole = \Spatie\Permission\Models\Role::create(['name' => 'superadmin', 'guard_name' => 'web']);
-        $regionadminRole = \Spatie\Permission\Models\Role::create(['name' => 'regionadmin', 'guard_name' => 'web']);
-        $teacherRole = \Spatie\Permission\Models\Role::create(['name' => 'müəllim', 'guard_name' => 'web']);
-        $studentRole = \Spatie\Permission\Models\Role::create(['name' => 'şagird', 'guard_name' => 'web']);
+        $superadminRole = \Spatie\Permission\Models\Role::create(['name' => 'superadmin', 'guard_name' => 'sanctum']);
+        $regionadminRole = \Spatie\Permission\Models\Role::create(['name' => 'regionadmin', 'guard_name' => 'sanctum']);
+        $teacherRole = \Spatie\Permission\Models\Role::create(['name' => 'müəllim', 'guard_name' => 'sanctum']);
+        $studentRole = \Spatie\Permission\Models\Role::create(['name' => 'şagird', 'guard_name' => 'sanctum']);
 
         // Create test permissions
         $this->createTestPermissions();
@@ -70,7 +70,7 @@ class NavigationControllerTest extends TestCase
         ];
 
         foreach ($permissions as $permission) {
-            \Spatie\Permission\Models\Permission::create(['name' => $permission, 'guard_name' => 'web']);
+            \Spatie\Permission\Models\Permission::create(['name' => $permission, 'guard_name' => 'sanctum']);
         }
     }
 
@@ -216,7 +216,7 @@ class NavigationControllerTest extends TestCase
     {
         // Create a user with specific permissions
         $limitedUser = User::factory()->create(['username' => 'limited']);
-        $limitedRole = Role::create(['name' => 'limited', 'guard_name' => 'web']);
+        $limitedRole = Role::create(['name' => 'limited', 'guard_name' => 'sanctum']);
         $limitedRole->givePermissionTo(['view_surveys', 'view_reports']);
         $limitedUser->assignRole($limitedRole);
 

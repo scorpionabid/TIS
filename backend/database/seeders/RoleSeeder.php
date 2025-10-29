@@ -81,24 +81,24 @@ class RoleSeeder extends Seeder
             ],
         ];
 
-        foreach (['web', 'api'] as $guard) {
-            foreach ($roles as $roleData) {
-                $attributes = [
-                    'display_name' => $roleData['display_name'],
-                    'description' => $roleData['description'],
-                    'level' => $roleData['level']
-                ];
-                
-                // Add parent_role if exists
-                if (isset($roleData['parent_role'])) {
-                    $attributes['parent_role'] = $roleData['parent_role'];
-                }
-                
-                Role::firstOrCreate([
-                    'name' => $roleData['name'],
-                    'guard_name' => $guard
-                ], $attributes);
+        $guard = 'sanctum';
+
+        foreach ($roles as $roleData) {
+            $attributes = [
+                'display_name' => $roleData['display_name'],
+                'description' => $roleData['description'],
+                'level' => $roleData['level']
+            ];
+            
+            // Add parent_role if exists
+            if (isset($roleData['parent_role'])) {
+                $attributes['parent_role'] = $roleData['parent_role'];
             }
+            
+            Role::firstOrCreate([
+                'name' => $roleData['name'],
+                'guard_name' => $guard
+            ], $attributes);
         }
     }
 }

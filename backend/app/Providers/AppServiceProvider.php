@@ -43,12 +43,12 @@ class AppServiceProvider extends ServiceProvider
     private function setupQueryPerformanceMonitoring(): void
     {
         static $queryCount = 0;
-        
+
         DB::listen(function ($query) use (&$queryCount) {
             $queryCount++;
-            
+
             $threshold = config('database.slow_query_threshold', 500);
-            
+
             if ($query->time > $threshold) {
                 Log::warning('Slow Query Detected', [
                     'sql' => $query->sql,
@@ -56,7 +56,7 @@ class AppServiceProvider extends ServiceProvider
                     'time' => $query->time . 'ms',
                     'connection' => $query->connectionName,
                     'url' => request()->fullUrl() ?? 'console',
-                    'user_id' => auth()->id(),
+                    'user_id' => $this->safeGetUserId(),
                     'timestamp' => now()->toISOString()
                 ]);
 
@@ -69,7 +69,7 @@ class AppServiceProvider extends ServiceProvider
                 Log::warning('High Query Count Detected', [
                     'count' => $queryCount,
                     'url' => request()->fullUrl() ?? 'console',
-                    'user_id' => auth()->id(),
+                    'user_id' => $this->safeGetUserId(),
                     'last_query' => $query->sql
                 ]);
             }
@@ -82,11 +82,32 @@ class AppServiceProvider extends ServiceProvider
                         'query_count' => $queryCount,
                         'url' => request()->fullUrl(),
                         'method' => request()->method(),
-                        'user_id' => auth()->id(),
+                        'user_id' => $this->safeGetUserId(),
                         'memory_usage' => round(memory_get_peak_usage(true) / 1024 / 1024, 2) . 'MB'
                     ]);
                 }
             });
+        }
+    }
+
+    /**
+     * Safely get authenticated user ID without triggering infinite recursion
+     */
+    private function safeGetUserId(): ?int
+    {
+        try {
+            // Prevent infinite recursion by checking if we're already in an auth query
+            if (app()->bound('auth.checking')) {
+                return null;
+            }
+
+            app()->instance('auth.checking', true);
+            $userId = auth()->check() ? auth()->id() : null;
+            app()->forgetInstance('auth.checking');
+
+            return $userId;
+        } catch (\Throwable $e) {
+            return null;
         }
     }
 }

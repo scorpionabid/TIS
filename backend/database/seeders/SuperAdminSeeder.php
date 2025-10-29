@@ -38,7 +38,7 @@ class SuperAdminSeeder extends Seeder
 
         // Assign superadmin role with the correct guard
         $superadminRole = Role::where('name', 'superadmin')
-            ->where('guard_name', 'web')
+            ->where('guard_name', 'sanctum')
             ->first();
             
         if ($superadminRole) {
@@ -46,15 +46,15 @@ class SuperAdminSeeder extends Seeder
             $superadmin->syncRoles([$superadminRole]);
             
             // Give SuperAdmin role ALL permissions
-            $allPermissions = Permission::where('guard_name', 'web')->get();
+            $allPermissions = Permission::where('guard_name', 'sanctum')->get();
             if ($allPermissions->count() > 0) {
                 $superadminRole->syncPermissions($allPermissions);
                 $this->command->info('✅ SuperAdmin role given ALL permissions (' . $allPermissions->count() . ' permissions)');
             }
             
-            $this->command->info('✅ Superadmin role assigned with WEB guard');
+            $this->command->info('✅ Superadmin role assigned with SANCTUM guard');
         } else {
-            $this->command->error('❌ Superadmin role not found with WEB guard');
+            $this->command->error('❌ Superadmin role not found with SANCTUM guard');
         }
 
         $this->command->info('✅ Superadmin user created/updated: superadmin (admin123)');

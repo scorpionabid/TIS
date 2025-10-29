@@ -38,7 +38,7 @@ class InventoryControllerTest extends TestCase
 
         $this->superadmin->assignRole('superadmin');
         $this->superadmin->givePermissionTo(
-            Permission::where('guard_name', 'web')->pluck('name')->all()
+            Permission::where('guard_name', 'sanctum')->pluck('name')->all()
         );
 
         Sanctum::actingAs($this->superadmin);

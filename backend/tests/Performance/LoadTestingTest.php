@@ -26,7 +26,7 @@ class LoadTestingTest extends TestCase
         parent::setUp();
         
         // Create test roles
-        $role = \Spatie\Permission\Models\Role::create(['name' => 'superadmin', 'guard_name' => 'web']);
+        $role = \Spatie\Permission\Models\Role::create(['name' => 'superadmin', 'guard_name' => 'sanctum']);
         
         // Create test institution
         $this->testInstitution = Institution::create([

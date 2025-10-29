@@ -30,7 +30,7 @@ class PermissionTest extends ModelTestCase
     {
         return [
             'name' => 'test-permission',
-            'guard_name' => 'web',
+            'guard_name' => 'sanctum',
         ];
     }
 
@@ -45,7 +45,7 @@ class PermissionTest extends ModelTestCase
             'name' => 'test-permission',
             'display_name' => 'Test Permission',
             'description' => 'A test permission',
-            'guard_name' => 'web',
+            'guard_name' => 'sanctum',
             'category' => 'test',
             'department' => 'test',
             'resource' => 'test-resource',

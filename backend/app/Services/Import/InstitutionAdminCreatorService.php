@@ -89,7 +89,7 @@ class InstitutionAdminCreatorService extends BaseService
         return DB::transaction(function () use ($adminData, $institution, $institutionTypeKey) {
             // Get appropriate role for institution type
             $roleName = $this->adminExtension->getAdminRoleForType($institutionTypeKey);
-            $role = Role::where('name', $roleName)->where('guard_name', 'web')->first();
+            $role = Role::where('name', $roleName)->where('guard_name', 'sanctum')->first();
             
             if (!$role) {
                 throw new Exception("Admin rolu tapılmadı: {$roleName}");

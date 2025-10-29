@@ -276,14 +276,14 @@ class SchoolTeacherController extends Controller
                 'email_verified_at' => now(),
             ]);
 
-            // Assign role - explicitly use web guard
+            // Assign role - explicitly use sanctum guard
             \Log::info('CreateTeacher - Before role assignment', [
                 'request_role' => $request->role,
                 'teacher_id' => $teacher->id,
             ]);
 
             $role = Role::where('name', $request->role)
-                ->where('guard_name', 'web')
+                ->where('guard_name', 'sanctum')
                 ->first();
 
             \Log::info('CreateTeacher - Role query result', [

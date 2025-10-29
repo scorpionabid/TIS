@@ -13,12 +13,13 @@ class RolePermissionTest extends TestCase
 {
     use RefreshDatabase;
 
-    use RefreshDatabase;
-
     protected function setUp(): void
     {
         parent::setUp();
-        
+
+        // Reset permission cache before creating roles and permissions
+        app()['cache']->forget('spatie.permission.cache');
+
         // Create necessary roles and permissions
         $this->createRolesAndPermissions();
     }
@@ -43,14 +44,14 @@ class RolePermissionTest extends TestCase
         ];
         
         foreach ($permissions as $permission) {
-            Permission::create(['name' => $permission, 'guard_name' => 'web']);
+            Permission::create(['name' => $permission, 'guard_name' => 'sanctum']);
         }
         
         // Create roles
-        $adminRole = Role::create(['name' => 'superadmin', 'guard_name' => 'web']);
-        $teacherRole = Role::create(['name' => 'müəllim', 'guard_name' => 'web']);
-        $schoolAdminRole = Role::create(['name' => 'schooladmin', 'guard_name' => 'web']);
-        $regionAdminRole = Role::create(['name' => 'regionadmin', 'guard_name' => 'web']);
+        $adminRole = Role::create(['name' => 'superadmin', 'guard_name' => 'sanctum']);
+        $teacherRole = Role::create(['name' => 'müəllim', 'guard_name' => 'sanctum']);
+        $schoolAdminRole = Role::create(['name' => 'schooladmin', 'guard_name' => 'sanctum']);
+        $regionAdminRole = Role::create(['name' => 'regionadmin', 'guard_name' => 'sanctum']);
         
         // Assign permissions to roles
         $schoolAdminRole->givePermissionTo(['users.view', 'users.create', 'institutions.view']);
@@ -86,38 +87,38 @@ class RolePermissionTest extends TestCase
         $user = User::factory()->create();
         $user->assignRole('schooladmin');
 
-        Sanctum::actingAs($user, ['web']);
+        Sanctum::actingAs($user);
 
         // Test accessing a route that requires users.view permission
         // Since we don't have actual routes set up, we'll test the permission directly
-        $this->assertTrue($user->hasPermissionTo('users.view', 'web'));
-        $this->assertTrue($user->hasRole('schooladmin', 'web'));
+        $this->assertTrue($user->hasPermissionTo('users.view'));
+        $this->assertTrue($user->hasRole('schooladmin'));
     }
 
     public function test_user_without_permission_cannot_access_protected_route()
     {
         // Create user without any special permissions
         $user = User::factory()->create();
-        Sanctum::actingAs($user, ['web']);
+        Sanctum::actingAs($user);
 
         // User should not have any permissions by default
-        $this->assertFalse($user->hasPermissionTo('users.view', 'web'));
-        $this->assertFalse($user->hasRole('schooladmin', 'web'));
+        $this->assertFalse($user->hasPermissionTo('users.view'));
+        $this->assertFalse($user->hasRole('schooladmin'));
     }
 
     public function test_super_admin_has_all_permissions()
     {
         $superAdmin = User::factory()->create();
         $superAdmin->assignRole('superadmin');
-        Sanctum::actingAs($superAdmin, ['web']);
+        Sanctum::actingAs($superAdmin);
 
         // Check if superadmin role has been assigned
-        $this->assertTrue($superAdmin->hasRole('superadmin', 'web'));
+        $this->assertTrue($superAdmin->hasRole('superadmin'));
         
         // Super admin should have all permissions
-        $this->assertTrue($superAdmin->hasPermissionTo('users.view', 'web'));
-        $this->assertTrue($superAdmin->hasPermissionTo('institutions.view', 'web'));
-        $this->assertTrue($superAdmin->hasPermissionTo('roles.view', 'web'));
+        $this->assertTrue($superAdmin->hasPermissionTo('users.view'));
+        $this->assertTrue($superAdmin->hasPermissionTo('institutions.view'));
+        $this->assertTrue($superAdmin->hasPermissionTo('roles.view'));
         
         // Check that super admin has all permissions we defined
         $permissions = [
@@ -129,7 +130,7 @@ class RolePermissionTest extends TestCase
         
         foreach ($permissions as $permission) {
             $this->assertTrue(
-                $superAdmin->hasPermissionTo($permission, 'web'),
+                $superAdmin->hasPermissionTo($permission),
                 "Super admin should have permission: {$permission}"
             );
         }

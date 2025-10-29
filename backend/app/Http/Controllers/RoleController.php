@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Auth;
 
 class RoleController extends Controller
 {
+    private const AUTH_GUARD = 'sanctum';
+
     private RoleHierarchyService $hierarchyService;
 
     public function __construct(RoleHierarchyService $hierarchyService)
@@ -24,7 +26,7 @@ class RoleController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = Auth::user();
-        $guard = $request->get('guard', 'api');
+        $guard = $this->resolveGuard($request);
         
         // Get roles user can manage based on hierarchy
         if ($user && !$user->hasRole('superadmin')) {
@@ -258,7 +260,7 @@ class RoleController extends Controller
     public function permissions(Request $request): JsonResponse
     {
         $user = Auth::user();
-        $guard = $request->get('guard', 'api');
+        $guard = $this->resolveGuard($request);
         $level = $request->get('level'); // Optional level filter
         
         if ($user && !$user->hasRole('superadmin')) {
@@ -347,6 +349,20 @@ class RoleController extends Controller
     }
 
     /**
+     * Resolve guard parameter, defaulting to Sanctum
+     */
+    private function resolveGuard(Request $request): string
+    {
+        $guard = $request->get('guard', self::AUTH_GUARD);
+
+        if ($guard !== self::AUTH_GUARD) {
+            return self::AUTH_GUARD;
+        }
+
+        return $guard;
+    }
+
+    /**
      * Determine permission scope based on name
      */
     private function getPermissionScope(string $permissionName): string
@@ -365,7 +381,7 @@ class RoleController extends Controller
     public function getAllPermissions(Request $request): JsonResponse
     {
         $user = Auth::user();
-        $guard = $request->get('guard', 'api');
+        $guard = $this->resolveGuard($request);
         
         // Get all permissions, filtered by user role if not SuperAdmin
         if ($user && $user->hasRole('superadmin')) {

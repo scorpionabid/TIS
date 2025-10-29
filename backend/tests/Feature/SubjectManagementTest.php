@@ -25,7 +25,7 @@ class SubjectManagementTest extends TestCase
         $registrar = app(PermissionRegistrar::class);
         $registrar->forgetCachedPermissions();
 
-        SpatieRole::firstOrCreate(['name' => 'superadmin', 'guard_name' => 'web']);
+        SpatieRole::firstOrCreate(['name' => 'superadmin', 'guard_name' => 'sanctum']);
     }
 
     public function test_superadmin_can_create_and_update_subject(): void

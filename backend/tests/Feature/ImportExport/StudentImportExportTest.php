@@ -174,7 +174,7 @@ class StudentImportExportTest extends TestCase
             [
                 'display_name' => 'Şagird',
                 'description' => 'Təhsil alan istifadəçilər',
-                'guard_name' => 'web',
+                'guard_name' => 'sanctum',
                 'level' => 1,
                 'department_access' => [],
                 'max_institutions' => 1,
@@ -182,7 +182,7 @@ class StudentImportExportTest extends TestCase
             ]
         );
 
-        SpatieRole::firstOrCreate(['name' => 'superadmin', 'guard_name' => 'web']);
+        SpatieRole::firstOrCreate(['name' => 'superadmin', 'guard_name' => 'sanctum']);
 
         $superAdmin = User::factory()->create([
             'institution_id' => $institution->id,

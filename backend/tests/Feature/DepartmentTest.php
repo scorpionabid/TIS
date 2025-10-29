@@ -31,13 +31,13 @@ class DepartmentTest extends TestCase
         foreach ($permissions as $permission) {
             Permission::firstOrCreate([
                 'name' => $permission,
-                'guard_name' => 'web',
+                'guard_name' => 'sanctum',
             ]);
         }
 
-        $superadmin = Role::firstOrCreate(['name' => 'superadmin', 'guard_name' => 'web']);
-        $regionadmin = Role::firstOrCreate(['name' => 'regionadmin', 'guard_name' => 'web']);
-        $teacher = Role::firstOrCreate(['name' => 'müəllim', 'guard_name' => 'web']);
+        $superadmin = Role::firstOrCreate(['name' => 'superadmin', 'guard_name' => 'sanctum']);
+        $regionadmin = Role::firstOrCreate(['name' => 'regionadmin', 'guard_name' => 'sanctum']);
+        $teacher = Role::firstOrCreate(['name' => 'müəllim', 'guard_name' => 'sanctum']);
 
         $superadmin->syncPermissions(Permission::pluck('name')->toArray());
         $regionadmin->syncPermissions(['departments.read', 'departments.write', 'institutions.read']);
@@ -308,7 +308,7 @@ class DepartmentTest extends TestCase
         // Create the missing permission for testing
         $deletePermission = Permission::firstOrCreate([
             'name' => 'institutions.delete',
-            'guard_name' => 'web'
+            'guard_name' => 'sanctum'
         ]);
         $superadmin->givePermissionTo($deletePermission);
 

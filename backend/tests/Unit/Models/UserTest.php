@@ -129,7 +129,7 @@ class UserTest extends ModelTestCase
     public function test_user_has_role_relationship()
     {
         $user = User::factory()->create();
-        $role = \Spatie\Permission\Models\Role::create(['name' => 'test-role', 'guard_name' => 'web']);
+        $role = \Spatie\Permission\Models\Role::create(['name' => 'test-role', 'guard_name' => 'sanctum']);
         $user->assignRole($role);
 
         $this->assertTrue($user->hasRole($role));
@@ -143,7 +143,7 @@ class UserTest extends ModelTestCase
     public function test_user_has_direct_permissions()
     {
         $user = User::factory()->create();
-        $permission = \Spatie\Permission\Models\Permission::create(['name' => 'test-permission', 'guard_name' => 'web']);
+        $permission = \Spatie\Permission\Models\Permission::create(['name' => 'test-permission', 'guard_name' => 'sanctum']);
         $user->givePermissionTo($permission);
 
         $this->assertTrue($user->hasPermissionTo($permission));

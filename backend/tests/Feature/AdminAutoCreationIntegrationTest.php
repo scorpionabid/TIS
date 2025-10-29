@@ -212,9 +212,9 @@ class AdminAutoCreationIntegrationTest extends TestCase
 
     private function setupTestRoles()
     {
-        Role::create(['name' => 'school_admin', 'guard_name' => 'web', 'display_name' => 'Məktəb Administratoru']);
-        Role::create(['name' => 'region_admin', 'guard_name' => 'web', 'display_name' => 'Region Administratoru']);
-        Role::create(['name' => 'sector_admin', 'guard_name' => 'web', 'display_name' => 'Sektor Administratoru']);
+        Role::create(['name' => 'school_admin', 'guard_name' => 'sanctum', 'display_name' => 'Məktəb Administratoru']);
+        Role::create(['name' => 'region_admin', 'guard_name' => 'sanctum', 'display_name' => 'Region Administratoru']);
+        Role::create(['name' => 'sector_admin', 'guard_name' => 'sanctum', 'display_name' => 'Sektor Administratoru']);
     }
 
     private function setupInstitutionTypes()

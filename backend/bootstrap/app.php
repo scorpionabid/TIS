@@ -27,8 +27,8 @@ return Application::configure(basePath: dirname(__DIR__))
             
             // Spatie Permission Middleware (keeping for compatibility)
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
-            'permission' => \App\Http\Middleware\MultiGuardPermissionMiddleware::class, // Custom multi-guard support
-            'permission.spatie' => \Spatie\Permission\Middleware\PermissionMiddleware::class, // Original Spatie
+            'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
+            'permission.spatie' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
         ]);
     })

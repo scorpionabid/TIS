@@ -18,10 +18,9 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable, HasRoles, SoftDeletes;
 
     /**
-     * The guard name used for permissions
-     * Removed to allow Spatie Permission to work with multiple guards (web + sanctum API)
+     * Default guard for role & permission resolution
      */
-    // protected $guard_name = 'api'; // REMOVED - causes issues with existing role assignments
+    protected $guard_name = 'sanctum';
 
     /**
      * The attributes that are mass assignable.

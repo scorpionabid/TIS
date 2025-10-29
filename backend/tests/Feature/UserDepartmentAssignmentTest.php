@@ -165,7 +165,7 @@ class UserDepartmentAssignmentTest extends TestCase
         $superadmin->assignRole('superadmin');
         $permission = \Spatie\Permission\Models\Permission::firstOrCreate([
             'name' => 'institutions.delete',
-            'guard_name' => 'api'
+            'guard_name' => 'sanctum'
         ]);
         $superadmin->givePermissionTo($permission);
 
@@ -204,7 +204,7 @@ class UserDepartmentAssignmentTest extends TestCase
         $superadmin->assignRole('superadmin');
         $permission = \Spatie\Permission\Models\Permission::firstOrCreate([
             'name' => 'institutions.delete',
-            'guard_name' => 'api'
+            'guard_name' => 'sanctum'
         ]);
         $superadmin->givePermissionTo($permission);
 

@@ -41,8 +41,8 @@ class GradeManagementServiceTest extends TestCase
             'is_active' => true,
         ]);
 
-        SpatieRole::firstOrCreate(['name' => 'superadmin', 'guard_name' => 'web']);
-        Permission::firstOrCreate(['name' => 'grades.update', 'guard_name' => 'web']);
+        SpatieRole::firstOrCreate(['name' => 'superadmin', 'guard_name' => 'sanctum']);
+        Permission::firstOrCreate(['name' => 'grades.update', 'guard_name' => 'sanctum']);
 
         $this->superAdmin = User::factory()->create([
             'institution_id' => $this->institution->id,

@@ -17,7 +17,9 @@ class PermissionSeeder extends Seeder
         // Reset cached roles and permissions
         app()['cache']->forget('spatie.permission.cache');
 
-        // Create permissions for both web and api guards
+        $guard = 'sanctum';
+
+        // Create permissions for sanctum guard
         $permissions = [
             // User Management
             'users.create',
@@ -282,20 +284,13 @@ class PermissionSeeder extends Seeder
         ];
 
         foreach ($permissions as $permissionName) {
-            // Create for web guard
             Permission::firstOrCreate([
                 'name' => $permissionName,
-                'guard_name' => 'web'
-            ]);
-            
-            // Create for api guard
-            Permission::firstOrCreate([
-                'name' => $permissionName,
-                'guard_name' => 'api'
+                'guard_name' => $guard
             ]);
         }
 
-        // Assign permissions to roles for both guards
+        // Assign permissions to roles for sanctum guard
         $rolePermissions = [
             'superadmin' => [
                 'users.create', 'users.read', 'users.update', 'users.delete', 'users.write', 'users.import', 'users.export', 'users.bulk', 'users.test',
@@ -466,15 +461,13 @@ class PermissionSeeder extends Seeder
             ],
         ];
 
-        foreach (['web', 'api'] as $guard) {
-            foreach ($rolePermissions as $roleName => $permissions) {
-                $role = Role::where('name', $roleName)->where('guard_name', $guard)->first();
-                if ($role) {
-                    $permissionObjects = Permission::whereIn('name', $permissions)
-                        ->where('guard_name', $guard)
-                        ->get();
-                    $role->syncPermissions($permissionObjects);
-                }
+        foreach ($rolePermissions as $roleName => $permissions) {
+            $role = Role::where('name', $roleName)->where('guard_name', $guard)->first();
+            if ($role) {
+                $permissionObjects = Permission::whereIn('name', $permissions)
+                    ->where('guard_name', $guard)
+                    ->get();
+                $role->syncPermissions($permissionObjects);
             }
         }
     }

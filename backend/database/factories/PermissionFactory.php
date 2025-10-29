@@ -27,7 +27,7 @@ class PermissionFactory extends Factory
             'name' => $name,
             'display_name' => ucfirst(str_replace('-', ' ', $name)),
             'description' => $this->faker->sentence,
-            'guard_name' => 'api',
+            'guard_name' => 'sanctum',
         ];
     }
 

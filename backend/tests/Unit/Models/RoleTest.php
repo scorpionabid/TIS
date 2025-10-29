@@ -76,13 +76,13 @@ class RoleTest extends ModelTestCase
         $role = Role::create([
             'name' => 'test-role',
             'display_name' => 'Test Role',
-            'guard_name' => 'api',
+            'guard_name' => 'sanctum',
         ]);
 
         $this->assertDatabaseHas('roles', [
             'name' => 'test-role',
             'display_name' => 'Test Role',
-            'guard_name' => 'api',
+            'guard_name' => 'sanctum',
         ]);
     }
 
@@ -97,7 +97,7 @@ class RoleTest extends ModelTestCase
         $permission = Permission::create([
             'name' => 'test-permission',
             'display_name' => 'Test Permission',
-            'guard_name' => 'api',
+            'guard_name' => 'sanctum',
         ]);
 
         $role->permissions()->attach($permission);
@@ -118,7 +118,7 @@ class RoleTest extends ModelTestCase
         $permission = Permission::create([
             'name' => 'test-permission',
             'display_name' => 'Test Permission',
-            'guard_name' => 'api',
+            'guard_name' => 'sanctum',
         ]);
 
         $role->permissions()->attach($permission);
@@ -138,7 +138,7 @@ class RoleTest extends ModelTestCase
         $permission = Permission::create([
             'name' => 'test-permission',
             'display_name' => 'Test Permission',
-            'guard_name' => 'api',
+            'guard_name' => 'sanctum',
         ]);
 
         // Test givePermissionTo
@@ -160,7 +160,7 @@ class RoleTest extends ModelTestCase
         $role = Role::create([
             'name' => 'test-role',
             'display_name' => 'Test Role',
-            'guard_name' => 'api',
+            'guard_name' => 'sanctum',
             'department_access' => ['it', 'hr'],
         ]);
 
@@ -195,7 +195,7 @@ class RoleTest extends ModelTestCase
         $role = new Role([
             'name' => 'test-role',
             'display_name' => 'Test Role',
-            'guard_name' => 'api',
+            'guard_name' => 'sanctum',
         ]);
 
         $this->assertNull($role->level);

@@ -207,7 +207,7 @@ class RegionAdminUserController extends Controller
             ]);
             
             // Assign role
-            $role = Role::where('name', $data['role_name'])->where('guard_name', 'web')->first();
+            $role = Role::where('name', $data['role_name'])->where('guard_name', 'sanctum')->first();
             if ($role) {
                 $newUser->assignRole($role);
             }
@@ -315,7 +315,7 @@ class RegionAdminUserController extends Controller
             
             // Update role if provided
             if (isset($data['role_name'])) {
-                $role = Role::where('name', $data['role_name'])->where('guard_name', 'web')->first();
+                $role = Role::where('name', $data['role_name'])->where('guard_name', 'sanctum')->first();
                 if ($role) {
                     $targetUser->syncRoles([$role]);
                 }

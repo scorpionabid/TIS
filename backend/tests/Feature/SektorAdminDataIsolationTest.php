@@ -18,16 +18,16 @@ class SektorAdminDataIsolationTest extends TestCase
         parent::setUp();
 
         // Create permissions
-        $institutionsRead = Permission::create(['name' => 'institutions.read', 'guard_name' => 'web']);
-        $institutionsWrite = Permission::create(['name' => 'institutions.write', 'guard_name' => 'web']);
-        $usersRead = Permission::create(['name' => 'users.read', 'guard_name' => 'web']);
-        $usersWrite = Permission::create(['name' => 'users.write', 'guard_name' => 'web']);
+        $institutionsRead = Permission::create(['name' => 'institutions.read', 'guard_name' => 'sanctum']);
+        $institutionsWrite = Permission::create(['name' => 'institutions.write', 'guard_name' => 'sanctum']);
+        $usersRead = Permission::create(['name' => 'users.read', 'guard_name' => 'sanctum']);
+        $usersWrite = Permission::create(['name' => 'users.write', 'guard_name' => 'sanctum']);
 
         // Create roles with guard_name
-        $superadmin = Role::create(['name' => 'superadmin', 'guard_name' => 'web', 'display_name' => 'SuperAdmin', 'level' => 1]);
-        $regionadmin = Role::create(['name' => 'regionadmin', 'guard_name' => 'web', 'display_name' => 'RegionAdmin', 'level' => 2]);
-        $sektoradmin = Role::create(['name' => 'sektoradmin', 'guard_name' => 'web', 'display_name' => 'SektorAdmin', 'level' => 3]);
-        $schooladmin = Role::create(['name' => 'schooladmin', 'guard_name' => 'web', 'display_name' => 'SchoolAdmin', 'level' => 4]);
+        $superadmin = Role::create(['name' => 'superadmin', 'guard_name' => 'sanctum', 'display_name' => 'SuperAdmin', 'level' => 1]);
+        $regionadmin = Role::create(['name' => 'regionadmin', 'guard_name' => 'sanctum', 'display_name' => 'RegionAdmin', 'level' => 2]);
+        $sektoradmin = Role::create(['name' => 'sektoradmin', 'guard_name' => 'sanctum', 'display_name' => 'SektorAdmin', 'level' => 3]);
+        $schooladmin = Role::create(['name' => 'schooladmin', 'guard_name' => 'sanctum', 'display_name' => 'SchoolAdmin', 'level' => 4]);
 
         // Assign permissions to roles
         $sektoradmin->givePermissionTo($institutionsRead);

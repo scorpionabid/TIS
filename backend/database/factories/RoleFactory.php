@@ -28,7 +28,7 @@ class RoleFactory extends Factory
             'name' => $name,
             'display_name' => ucfirst($name) . ' Role',
             'description' => $this->faker->sentence,
-            'guard_name' => 'api',
+            'guard_name' => 'sanctum',
             'level' => $this->faker->numberBetween(1, 10),
             'department_access' => $this->faker->randomElements(
                 ['it', 'hr', 'finance', 'operations', 'support'],

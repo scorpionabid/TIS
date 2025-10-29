@@ -82,15 +82,15 @@ class EndToEndWorkflowTest extends TestCase
         ];
 
         foreach ($permissions as $permission) {
-            Permission::create(['name' => $permission, 'guard_name' => 'web']);
+            Permission::create(['name' => $permission, 'guard_name' => 'sanctum']);
         }
     }
 
     private function createRoles(): void
     {
-        $superadmin = Role::create(['name' => 'superadmin', 'guard_name' => 'web']);
-        $schooladmin = Role::create(['name' => 'schooladmin', 'guard_name' => 'web']);
-        $teacher = Role::create(['name' => 'müəllim', 'guard_name' => 'web']);
+        $superadmin = Role::create(['name' => 'superadmin', 'guard_name' => 'sanctum']);
+        $schooladmin = Role::create(['name' => 'schooladmin', 'guard_name' => 'sanctum']);
+        $teacher = Role::create(['name' => 'müəllim', 'guard_name' => 'sanctum']);
 
         // Give all permissions to superadmin
         $superadmin->givePermissionTo(Permission::all());

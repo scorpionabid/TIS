@@ -42,13 +42,13 @@ class DashboardControllerTest extends TestCase
         ];
         
         foreach ($permissions as $permission) {
-            \Spatie\Permission\Models\Permission::create(['name' => $permission, 'guard_name' => 'web']);
+            \Spatie\Permission\Models\Permission::create(['name' => $permission, 'guard_name' => 'sanctum']);
         }
         
         // Create roles
-        $superadminRole = \Spatie\Permission\Models\Role::create(['name' => 'superadmin', 'guard_name' => 'web']);
-        $regionadminRole = \Spatie\Permission\Models\Role::create(['name' => 'regionadmin', 'guard_name' => 'web']);
-        $teacherRole = \Spatie\Permission\Models\Role::create(['name' => 'müəllim', 'guard_name' => 'web']);
+        $superadminRole = \Spatie\Permission\Models\Role::create(['name' => 'superadmin', 'guard_name' => 'sanctum']);
+        $regionadminRole = \Spatie\Permission\Models\Role::create(['name' => 'regionadmin', 'guard_name' => 'sanctum']);
+        $teacherRole = \Spatie\Permission\Models\Role::create(['name' => 'müəllim', 'guard_name' => 'sanctum']);
         
         // Assign permissions to roles
         $superadminRole->givePermissionTo($permissions);

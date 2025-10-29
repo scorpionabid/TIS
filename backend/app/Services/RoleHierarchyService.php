@@ -196,7 +196,7 @@ class RoleHierarchyService
                 'hierarchy_scope' => $hierarchyScope,
                 'can_create_roles_below_level' => $this->calculateCreationLevel($roleData['level']),
                 'max_institutions_scope' => $this->calculateInstitutionScope($roleData['level']),
-                'guard_name' => 'web'
+                'guard_name' => 'sanctum'
             ]);
 
             // Assign permissions

@@ -94,7 +94,7 @@ class NavigationController extends Controller
         $user = $request->user();
         
         // Get all permissions
-        $allPermissions = \Spatie\Permission\Models\Permission::where('guard_name', 'web')->count();
+        $allPermissions = \Spatie\Permission\Models\Permission::where('guard_name', 'sanctum')->count();
         $userPermissions = $user->getAllPermissions()->count();
         
         // Get role information

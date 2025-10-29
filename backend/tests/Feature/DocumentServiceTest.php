@@ -42,13 +42,13 @@ class DocumentServiceTest extends TestCase
         foreach ($permissions as $permission) {
             Permission::firstOrCreate([
                 'name' => $permission,
-                'guard_name' => 'web',
+                'guard_name' => 'sanctum',
             ]);
         }
 
-        $superadminRole = Role::firstOrCreate(['name' => 'superadmin', 'guard_name' => 'web']);
-        $regionadminRole = Role::firstOrCreate(['name' => 'regionadmin', 'guard_name' => 'web']);
-        $schooladminRole = Role::firstOrCreate(['name' => 'schooladmin', 'guard_name' => 'web']);
+        $superadminRole = Role::firstOrCreate(['name' => 'superadmin', 'guard_name' => 'sanctum']);
+        $regionadminRole = Role::firstOrCreate(['name' => 'regionadmin', 'guard_name' => 'sanctum']);
+        $schooladminRole = Role::firstOrCreate(['name' => 'schooladmin', 'guard_name' => 'sanctum']);
 
         $superadminRole->syncPermissions(Permission::pluck('name')->toArray());
         $regionadminRole->syncPermissions(['documents.read']);

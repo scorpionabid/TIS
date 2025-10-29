@@ -44,13 +44,13 @@ class InstitutionTest extends TestCase
         
         // Create permissions if they don't exist
         foreach ($permissions as $permission) {
-            Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
+            Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'sanctum']);
         }
         
         // Create roles if they don't exist
-        $adminRole = Role::firstOrCreate(['name' => 'superadmin', 'guard_name' => 'web']);
-        $regionAdminRole = Role::firstOrCreate(['name' => 'regionadmin', 'guard_name' => 'web']);
-        $schoolAdminRole = Role::firstOrCreate(['name' => 'schooladmin', 'guard_name' => 'web']);
+        $adminRole = Role::firstOrCreate(['name' => 'superadmin', 'guard_name' => 'sanctum']);
+        $regionAdminRole = Role::firstOrCreate(['name' => 'regionadmin', 'guard_name' => 'sanctum']);
+        $schoolAdminRole = Role::firstOrCreate(['name' => 'schooladmin', 'guard_name' => 'sanctum']);
         
         // Assign permissions to region admin
         $regionAdminRole->syncPermissions([

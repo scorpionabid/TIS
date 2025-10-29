@@ -31,11 +31,11 @@ class RegionalAccessControlTest extends TestCase
         parent::setUp();
         
         // Create roles
-        Role::create(['name' => 'superadmin', 'guard_name' => 'web']);
-        Role::create(['name' => 'regionadmin', 'guard_name' => 'web']);
-        Role::create(['name' => 'regionoperator', 'guard_name' => 'web']);
-        Role::create(['name' => 'sektoradmin', 'guard_name' => 'web']);
-        Role::create(['name' => 'məktəbadmin', 'guard_name' => 'web']);
+        Role::create(['name' => 'superadmin', 'guard_name' => 'sanctum']);
+        Role::create(['name' => 'regionadmin', 'guard_name' => 'sanctum']);
+        Role::create(['name' => 'regionoperator', 'guard_name' => 'sanctum']);
+        Role::create(['name' => 'sektoradmin', 'guard_name' => 'sanctum']);
+        Role::create(['name' => 'məktəbadmin', 'guard_name' => 'sanctum']);
         
         // Create institutional hierarchy
         $this->ministry = Institution::create([
