@@ -168,12 +168,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       try {
         const token = getTokenRef.current();
+        const requiresBearerAuth = typeof apiClient.isBearerAuthEnabled === 'function'
+          ? apiClient.isBearerAuthEnabled()
+          : true;
         log('info', `Checking authentication (attempt ${retryCount + 1})`, {
           hasToken: !!token,
-          tokenLength: token?.length || 0
+          tokenLength: token?.length || 0,
+          requiresBearerAuth
         });
 
-        if (!token) {
+        if (!token && requiresBearerAuth) {
           log('info', 'No token found - user not authenticated');
           if (isMountedRef.current) {
             setIsAuthenticated(false);
@@ -241,6 +245,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         const is401Error = error.message?.includes('401') || 
                           error.message?.includes('Unauthenticated');
+        const requiresBearerAuth = typeof apiClient.isBearerAuthEnabled === 'function'
+          ? apiClient.isBearerAuthEnabled()
+          : true;
 
         if (is401Error) {
           log('warn', 'Token is invalid/expired, clearing auth');
@@ -253,7 +260,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             }
           }, (retryCount + 1) * 2000);
           return;
-        } else if (!getTokenRef.current()) {
+        } else if (requiresBearerAuth && !getTokenRef.current()) {
           // No token exists, safe to set unauthenticated
           if (isMountedRef.current) {
             setIsAuthenticated(false);

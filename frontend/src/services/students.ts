@@ -385,9 +385,14 @@ class StudentService {
    * Download student import template
    */
   async downloadTemplate(): Promise<Blob> {
+    const headers: Record<string, string> = {
+      ...apiClient.getAuthHeaders(),
+    };
+
     const response = await fetch(`${apiClient['baseURL']}/students/bulk/download-template`, {
       method: 'GET',
-      headers: apiClient['getHeaders'](),
+      headers,
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -406,11 +411,9 @@ class StudentService {
 
     const response = await fetch(`${apiClient['baseURL']}/students/bulk/import`, {
       method: 'POST',
-      headers: {
-        Authorization: apiClient['getHeaders']().Authorization,
-        // Don't set Content-Type for FormData
-      },
+      headers: apiClient.getAuthHeaders(),
       body: formData,
+      credentials: 'include',
     });
 
     const result = await response.json();

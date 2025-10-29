@@ -39,13 +39,12 @@ export const useDeleteProgress = (): UseDeleteProgressResult => {
 
   const pollProgress = async (operationId: string) => {
     try {
-      const token = apiClient.getToken();
-
       const response = await fetch(`/api/institutions/delete-progress/${operationId}`, {
         headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
           'Accept': 'application/json',
+          ...apiClient.getAuthHeaders(),
         },
+        credentials: 'include',
       });
 
       if (!response.ok) {

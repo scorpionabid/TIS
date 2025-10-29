@@ -4,6 +4,7 @@ import Pusher from 'pusher-js';
 import { useAuth } from './AuthContext';
 import { WebSocketMessage, WebSocketEventHandler } from '@/types/events';
 import { logger } from '@/utils/logger';
+import { apiClient } from '@/services/api';
 
 // Configure Pusher
 window.Pusher = Pusher;
@@ -200,11 +201,18 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
         enableLogging: wsConfig.enableLogging || false,
         enabledTransports: ['ws', 'wss'],
         authEndpoint: wsConfig.authEndpoint || '/broadcasting/auth',
-        auth: authToken ? {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        } : undefined,
+        auth: (() => {
+          const bearerEnabled = typeof apiClient.isBearerAuthEnabled === 'function'
+            ? apiClient.isBearerAuthEnabled()
+            : true;
+          const headers: Record<string, string> = bearerEnabled ? apiClient.getAuthHeaders() : {};
+
+          if (bearerEnabled && !headers.Authorization && authToken) {
+            headers.Authorization = `Bearer ${authToken}`;
+          }
+
+          return Object.keys(headers).length > 0 ? { headers } : undefined;
+        })(),
       });
 
       setupEchoListeners(echoInstance);

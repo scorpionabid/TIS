@@ -1,4 +1,5 @@
 import { BaseService } from './baseService';
+import { apiClient } from './apiOptimized';
 
 export interface WorkloadData {
   institution: {
@@ -223,12 +224,15 @@ class WorkloadScheduleIntegrationService extends BaseService {
    * Export schedule data
    */
   async exportSchedule(scheduleId: number, format: 'excel' | 'pdf' | 'csv'): Promise<Blob> {
+    const headers: Record<string, string> = {
+      'Accept': 'application/octet-stream',
+      ...apiClient.getAuthHeaders(),
+    };
+
     const response = await fetch(`${this.getApiUrl()}/export/${scheduleId}?format=${format}`, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${this.getToken()}`,
-        'Accept': 'application/octet-stream',
-      },
+      headers,
+      credentials: 'include',
     });
 
     if (!response.ok) {

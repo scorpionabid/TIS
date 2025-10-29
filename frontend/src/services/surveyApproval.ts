@@ -574,17 +574,12 @@ class SurveyApprovalService {
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache',
         'Accept': format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'X-Requested-With': 'XMLHttpRequest' // Required for Laravel Sanctum
+        'X-Requested-With': 'XMLHttpRequest', // Required for Laravel Sanctum
+        ...apiClient.getAuthHeaders(),
       };
 
       if (csrfToken) {
         headers['X-XSRF-TOKEN'] = decodeURIComponent(csrfToken);
-      }
-
-      // Add Bearer token for authentication (same as apiClient)
-      const authToken = apiClient.getToken();
-      if (authToken) {
-        headers['Authorization'] = `Bearer ${authToken}`;
       }
 
       // Use absolute URL to ensure request goes to backend server (localhost:8000)

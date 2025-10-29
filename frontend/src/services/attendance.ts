@@ -1,4 +1,5 @@
 import { BaseService } from './BaseService';
+import { apiClient } from './apiOptimized';
 import { schoolAdminService } from './schoolAdmin';
 import { studentService } from './students';
 
@@ -266,12 +267,15 @@ class AttendanceService extends BaseService {
     const queryString = params.toString();
     const endpoint = queryString ? `${this.baseUrl}/export?${queryString}` : `${this.baseUrl}/export`;
     
+    const headers: Record<string, string> = {
+      'Accept': 'text/csv',
+      ...apiClient.getAuthHeaders(),
+    };
+
     const response = await fetch(endpoint, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${this.getAuthToken()}`,
-        'Accept': 'text/csv',
-      },
+      headers,
+      credentials: 'include',
     });
 
     if (!response.ok) {

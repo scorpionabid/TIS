@@ -158,20 +158,13 @@ class RegionAdminTeacherService extends BaseService {
     console.log('🎯 Starting teacher export', { filters });
 
     try {
-      // Get token from apiClient
-      const token = apiClient.getToken();
-      if (!token) {
-        throw new Error('Authentication token tapılmadı');
-      }
-
-      // Get baseURL from apiClient
       const baseURL = (apiClient as any).baseURL || 'http://localhost:8000/api';
       const fullURL = `${baseURL}/regionadmin/teachers/export`;
 
       console.log('🌐 Export request:', {
         url: fullURL,
         filters,
-        hasToken: !!token
+        hasAuthHeader: !!apiClient.getAuthorizationHeader()
       });
 
       // Use fetch for blob response (better for large files)
@@ -180,8 +173,8 @@ class RegionAdminTeacherService extends BaseService {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'Authorization': `Bearer ${token}`,
           'X-Requested-With': 'XMLHttpRequest',
+          ...apiClient.getAuthHeaders(),
         },
         credentials: 'include',
         body: JSON.stringify({ filters }),
@@ -404,12 +397,6 @@ class RegionAdminTeacherService extends BaseService {
         throw new Error('Fayl ölçüsü 10MB-dan çox ola bilməz');
       }
 
-      // Get token
-      const token = apiClient.getToken();
-      if (!token) {
-        throw new Error('Authentication token tapılmadı');
-      }
-
       // Prepare FormData
       const formData = new FormData();
       formData.append('file', file);
@@ -435,8 +422,8 @@ class RegionAdminTeacherService extends BaseService {
       const response = await fetch(fullURL, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'X-Requested-With': 'XMLHttpRequest',
+          ...apiClient.getAuthHeaders(),
           // Don't set Content-Type for FormData, let browser set it with boundary
         },
         credentials: 'include',
@@ -500,28 +487,19 @@ class RegionAdminTeacherService extends BaseService {
     console.log('🎯 Starting template download for RegionAdmin teachers');
 
     try {
-      // Get token from apiClient (same as institutions service)
-      const token = apiClient.getToken();
-      console.log('🔑 Token check:', { hasToken: !!token, tokenLength: token?.length });
-
-      if (!token) {
-        throw new Error('Authentication token tapılmadı. Zəhmət olmasa yenidən daxil olun.');
-      }
-
-      // Get baseURL from apiClient (same as institutions service)
       const baseURL = (apiClient as any).baseURL || 'http://localhost:8000/api';
       const fullURL = `${baseURL}/regionadmin/teachers/import-template`;
 
       console.log('🌐 Request details:', {
         baseURL,
         fullURL,
-        hasToken: !!token
+        hasAuthHeader: !!apiClient.getAuthorizationHeader()
       });
 
-      const headers = {
+      const headers: Record<string, string> = {
         'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Authorization': `Bearer ${token}`,
         'X-Requested-With': 'XMLHttpRequest',
+        ...apiClient.getAuthHeaders(),
       };
 
       console.log('📋 Request headers:', headers);

@@ -434,15 +434,6 @@ class InstitutionService extends BaseService<Institution> {
       });
     
     try {
-      // Get token from apiClient
-      const token = apiClient.getToken();
-      console.log('🔑 Token check:', { hasToken: !!token, tokenLength: token?.length, tokenStart: token?.substring(0, 20) });
-      
-      if (!token) {
-        throw new Error('No authentication token available');
-      }
-      
-      // Get baseURL from apiClient
       const baseURL = (apiClient as any).baseURL || 'http://localhost:8000/api';
       const fullURL = `${baseURL}/institutions/import/template-by-type`;
       
@@ -456,11 +447,11 @@ class InstitutionService extends BaseService<Institution> {
       const requestBody = JSON.stringify({ type: institutionType });
       console.log('📦 Request body:', requestBody);
       
-      const headers = {
+      const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Authorization': `Bearer ${token}`,
         'X-Requested-With': 'XMLHttpRequest',
+        ...apiClient.getAuthHeaders(),
       };
       
       console.log('📋 Request headers:', headers);
@@ -569,20 +560,13 @@ class InstitutionService extends BaseService<Institution> {
         }))
       });
 
-      // Get token from apiClient
-      const token = apiClient.getToken();
-      if (!token) {
-        throw new Error('No authentication token available');
-      }
-      
-      // Get baseURL from apiClient
       const baseURL = (apiClient as any).baseURL || 'http://localhost:8000/api';
 
       const response = await fetch(`${baseURL}/institutions/import-by-type`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'X-Requested-With': 'XMLHttpRequest',
+          ...apiClient.getAuthHeaders(),
           // Don't set Content-Type for FormData, let browser set it
         },
         credentials: 'include',
@@ -618,13 +602,6 @@ class InstitutionService extends BaseService<Institution> {
     console.log('Starting export for institution type:', institutionType);
     
     try {
-      // Get token from apiClient
-      const token = apiClient.getToken();
-      if (!token) {
-        throw new Error('No authentication token available');
-      }
-      
-      // Get baseURL from apiClient
       const baseURL = (apiClient as any).baseURL || 'http://localhost:8000/api';
       
       const response = await fetch(`${baseURL}/institutions/export-by-type`, {
@@ -632,8 +609,8 @@ class InstitutionService extends BaseService<Institution> {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Authorization': `Bearer ${token}`,
           'X-Requested-With': 'XMLHttpRequest',
+          ...apiClient.getAuthHeaders(),
         },
         credentials: 'include',
         body: JSON.stringify({ type: institutionType }),
