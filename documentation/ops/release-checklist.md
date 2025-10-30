@@ -21,6 +21,7 @@ Bu siyahı hər releasə öncəsi mütləq icra olunmalıdır.
 - [ ] `./scripts/schema-dump.sh pgsql staging` artefakt kimi saxlanıldı.
 - [ ] Schema bərpa proseduru `documentation/ops/schema-restore.md` üzrə yoxlandı.
 - [ ] `./scripts/check-config-drift.sh staging permission sanctum` icra olundu və fərqlər yoxlanıldı.
+- [ ] `php artisan config:clear` və `php artisan permission:cache-reset` əmrləri mühitdə icra olundu (deploy sonrası cache mismatch riskini bağlayır).
 
 ## Kommunikasiya
 - [ ] Release qeydləri hazırlanıb paylaşılmağa hazırdır.

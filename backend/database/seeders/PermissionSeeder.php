@@ -260,6 +260,10 @@ class PermissionSeeder extends Seeder
             'teaching_loads.bulk',
             'teaching_loads.analytics',
 
+            // Institution Types Management
+            'institution-types.read',
+            'institution-types.manage',
+
             // Link Share Management
             'links.create',
             'links.read',
@@ -319,6 +323,7 @@ class PermissionSeeder extends Seeder
                 'teaching_loads.create', 'teaching_loads.read', 'teaching_loads.update', 'teaching_loads.delete', 'teaching_loads.write', 'teaching_loads.bulk', 'teaching_loads.analytics',
                 'teachers.create', 'teachers.read', 'teachers.update', 'teachers.delete', 'teachers.write', 'teachers.manage', 'teachers.assign', 'teachers.bulk', 'teachers.analytics', 'teachers.performance',
                 'links.create', 'links.read', 'links.update', 'links.delete', 'links.share', 'links.bulk', 'links.analytics', 'links.tracking',
+                'institution-types.read', 'institution-types.manage',
                 'system.config', 'analytics.view'
             ],
             'regionadmin' => [
@@ -343,6 +348,7 @@ class PermissionSeeder extends Seeder
                 'approvals.create', 'approvals.read', 'approvals.approve', 'approvals.reject', 'approvals.return', 'approvals.bulk_approve', 'approvals.bulk_reject', 'approvals.analytics', 'approvals.delegate',
                 'tasks.approve', 'tasks.reject', 'events.approve', 'events.reject',
                 'links.create', 'links.read', 'links.update', 'links.delete', 'links.share', 'links.bulk', 'links.analytics', 'links.tracking',
+                'institution-types.read',
                 'analytics.view'
             ],
             'schooladmin' => [

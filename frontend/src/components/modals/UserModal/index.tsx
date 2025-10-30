@@ -184,6 +184,19 @@ export function UserModal({
       finalData.is_active = convertIsActiveToBoolean(finalData.is_active);
       finalData.birth_date = normalizeBirthDate(finalData.birth_date);
 
+      // Ensure role metadata is populated for backend validators (regionadmin endpoints require role_name)
+      const activeRoleId = finalData.role_id ?? state.selectedRole;
+      if (activeRoleId) {
+        const roleMeta = options.availableRoles.find(
+          (role) => String(role.id) === String(activeRoleId)
+        );
+        if (roleMeta) {
+          finalData.role_id = roleMeta.id?.toString?.() ?? activeRoleId;
+          finalData.role_name = roleMeta.name ?? roleMeta.slug ?? roleMeta.display_name ?? '';
+          finalData.role_display_name = roleMeta.display_name ?? roleMeta.name ?? '';
+        }
+      }
+
       // Determine institution_id
       let institutionIdToUse = finalData.institution_id ? parseInt(finalData.institution_id) : null;
       if (finalData.role_name === 'regionoperator' && finalData.department_id && !institutionIdToUse) {

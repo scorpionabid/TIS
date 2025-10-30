@@ -3,6 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use Database\Seeders\PermissionSeeder;
+use Database\Seeders\RoleSeeder;
+use Database\Seeders\SuperAdminSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -130,5 +133,31 @@ class AuthenticationGuardTest extends TestCase
 
         // Should not return 419 (CSRF token mismatch)
         $this->assertNotEquals(419, $response->status());
+    }
+
+    /**
+     * Ensure seeded superadmin has Sanctum access to institutions API.
+     */
+    public function test_superadmin_institutions_access_via_sanctum_token(): void
+    {
+        $this->seed([
+            RoleSeeder::class,
+            PermissionSeeder::class,
+            SuperAdminSeeder::class,
+        ]);
+
+        $superadmin = User::where('username', 'superadmin')->firstOrFail();
+        $token = $superadmin->createToken('integration-test')->plainTextToken;
+
+        $response = $this
+            ->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/institutions');
+
+        $response->assertOk()
+            ->assertJsonStructure([
+                'data',
+                'current_page',
+                'per_page',
+            ]);
     }
 }

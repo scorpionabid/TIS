@@ -282,6 +282,11 @@ docker exec atis_backend php artisan migrate:fresh --seed
 # Navigate to backend
 cd backend
 
+# Auth guard configuration
+grep -q "^AUTH_GUARD=" .env || echo "AUTH_GUARD=sanctum" >> .env
+php artisan config:clear
+php artisan permission:cache-reset
+
 # Start development server  
 php artisan serve --host=127.0.0.1 --port=8000
 

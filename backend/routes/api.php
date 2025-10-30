@@ -27,25 +27,30 @@ Route::middleware('auth:sanctum')->group(function () {
         // Check if user model has permission trait methods
         $hasTrait = in_array('Spatie\\Permission\\Traits\\HasRoles', class_uses_recursive($user));
 
+        $guard = config('auth.defaults.guard', 'sanctum');
+
         // Try different permission check methods
         $hasPermissionTo = false;
         $canAccess = false;
         $checkPermissionTo = false;
 
         try {
-            $hasPermissionTo = $user->hasPermissionTo('teaching_loads.read');
+            $hasPermissionTo = $user->hasPermissionTo('users.read', $guard);
         } catch (\Exception $e) {
             $hasPermissionTo = 'ERROR: ' . $e->getMessage();
         }
 
         try {
-            $canAccess = $user->can('teaching_loads.read');
+            \Illuminate\Support\Facades\Auth::shouldUse($guard);
+            $canAccess = $user->can('users.read');
         } catch (\Exception $e) {
             $canAccess = 'ERROR: ' . $e->getMessage();
         }
 
         try {
-            $checkPermissionTo = method_exists($user, 'checkPermissionTo') ? $user->checkPermissionTo('teaching_loads.read') : 'method not exists';
+            $checkPermissionTo = method_exists($user, 'checkPermissionTo')
+                ? $user->checkPermissionTo('users.read', $guard)
+                : 'method not exists';
         } catch (\Exception $e) {
             $checkPermissionTo = 'ERROR: ' . $e->getMessage();
         }

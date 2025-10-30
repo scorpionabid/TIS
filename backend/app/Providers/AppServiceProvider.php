@@ -25,6 +25,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Override permission middleware alias to ensure Sanctum guard is used
+        $this->app->make(\Illuminate\Routing\Router::class)
+            ->aliasMiddleware('permission', \App\Http\Middleware\PermissionMiddleware::class);
+
         // Register model observers
         \App\Models\Institution::observe(\App\Observers\InstitutionObserver::class);
 

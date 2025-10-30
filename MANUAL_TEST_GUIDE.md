@@ -8,6 +8,8 @@ Bu sənəd ATİS (Azərbaycan Təhsil İdarəetmə Sistemi) platformasının əs
 **URL:** http://localhost:3000
 **Backend API:** http://localhost:8000/api
 
+> **Qeyd:** Backend `auth:sanctum` guard-ı ilə işləyir. Girişdən sonra admin səhifələrində 403 görünsə, `docker exec atis_backend php artisan config:clear && php artisan permission:cache-reset` çalışdırıb tokenlə yenidən daxil olun.
+
 ---
 
 ## 🔐 Test İstifadəçiləri

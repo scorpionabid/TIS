@@ -435,6 +435,7 @@ class InstitutionService extends BaseService<Institution> {
     
     try {
       const baseURL = (apiClient as any).baseURL || 'http://localhost:8000/api';
+      const token = (apiClient as any).getToken ? (apiClient as any).getToken() : null;
       const fullURL = `${baseURL}/institutions/import/template-by-type`;
       
       console.log('🌐 Request details:', {

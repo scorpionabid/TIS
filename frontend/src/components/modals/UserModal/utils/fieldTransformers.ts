@@ -17,13 +17,18 @@ export function transformFormDataToBackend(
   isStudentRole: (roleId: string) => boolean
 ) {
   // Top-level user fields (match backend validation)
+  const parsedRoleId = data.role_id ? parseInt(data.role_id, 10) : null;
+
   const userData: any = {
     name: `${data.first_name || ''} ${data.last_name || ''}`.trim() || data.email,
     username: data.username,
     email: data.email,
     password: data.password,
     password_confirmation: data.password_confirmation,
-    role: data.role_name, // Backend expects 'role' not 'role_name'
+    role: data.role_name, // Keep for backward compatibility with older APIs
+    role_id: Number.isNaN(parsedRoleId) ? null : parsedRoleId,
+    role_name: data.role_name || null,
+    role_display_name: data.role_display_name || null,
     institution_id: institutionIdFromForm,
     department_id: data.department_id ? parseInt(data.department_id) : null,
     is_active: data.is_active !== false, // default to true

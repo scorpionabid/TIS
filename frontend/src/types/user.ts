@@ -19,7 +19,7 @@ export interface User {
   utis_code?: string;
   
   // Role and permissions
-  role_id?: string; // Backend role ID
+  role_id?: number | string; // Backend role ID
   role: string | UserRole; // Flexible to handle both string and UserRole
   permissions: string[];
   
@@ -83,7 +83,9 @@ export interface CreateUserData {
   email: string;
   username: string;
   password: string;
-  role_id: string;
+  role_id: number | string;
+  role_name?: string;
+  role_display_name?: string;
   institution_id?: number;
   department_id?: number;
   contact_phone?: string;
@@ -97,7 +99,9 @@ export interface UpdateUserData {
   last_name?: string;
   email?: string;
   username?: string;
-  role_id?: string;
+  role_id?: number | string;
+  role_name?: string;
+  role_display_name?: string;
   institution_id?: number;
   department_id?: number;
   departments?: number[];
