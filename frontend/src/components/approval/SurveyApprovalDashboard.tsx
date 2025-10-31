@@ -141,30 +141,48 @@ const SurveyApprovalDashboard: React.FC = () => {
 
   // Auto-select survey: prioritize localStorage, then first available
   useEffect(() => {
-    if (Array.isArray(publishedSurveys) && publishedSurveys.length > 0 && !selectedSurvey) {
-      // Try to restore from storage first
-      const saved = storageHelpers.get<PublishedSurvey>('approvals_selected_survey');
-      let surveyToSelect: PublishedSurvey | null = null;
-
-      if (saved) {
-        surveyToSelect = publishedSurveys.find((s: PublishedSurvey) => s.id === saved.id) || null;
-        if (surveyToSelect) {
-          console.log('🎯 [Dashboard] Restored saved survey from local storage:', surveyToSelect.title);
-        } else {
-          console.log('⚠️ [Dashboard] Saved survey no longer available, clearing local storage');
-          storageHelpers.remove('approvals_selected_survey');
-        }
-      }
-
-      // Fallback to first survey if no valid saved survey
-      if (!surveyToSelect) {
-        surveyToSelect = publishedSurveys[0];
-        console.log('🎯 [Dashboard] No saved survey, selecting first available:', surveyToSelect.title);
-      }
-
-      setSelectedSurvey(surveyToSelect);
+    if (!Array.isArray(publishedSurveys)) {
+      return;
     }
-  }, [publishedSurveys, selectedSurvey]);
+
+    if (publishedSurveys.length === 0) {
+      if (selectedSurvey) {
+        console.log('⚠️ [Dashboard] No published surveys available, clearing selected survey');
+        setSelectedSurvey(null);
+        storageHelpers.remove('approvals_selected_survey');
+      }
+      return;
+    }
+
+    const hasSelectedSurvey = selectedSurvey
+      ? publishedSurveys.some((s: PublishedSurvey) => s.id === selectedSurvey.id)
+      : false;
+
+    if (hasSelectedSurvey) {
+      return;
+    }
+
+    const saved = storageHelpers.get<PublishedSurvey>('approvals_selected_survey');
+    let surveyToSelect: PublishedSurvey | null = null;
+
+    if (saved) {
+      surveyToSelect = publishedSurveys.find((s: PublishedSurvey) => s.id === saved.id) || null;
+      if (surveyToSelect) {
+        console.log('🎯 [Dashboard] Restored saved survey from local storage:', surveyToSelect.title);
+      } else {
+        console.log('⚠️ [Dashboard] Saved survey no longer accessible, clearing local storage');
+        storageHelpers.remove('approvals_selected_survey');
+      }
+    }
+
+    if (!surveyToSelect) {
+      surveyToSelect = publishedSurveys[0];
+      console.log('🎯 [Dashboard] Selecting first available survey:', surveyToSelect.title);
+    }
+
+    storageHelpers.set('approvals_selected_survey', surveyToSelect);
+    setSelectedSurvey(surveyToSelect);
+  }, [publishedSurveys, selectedSurvey?.id]);
 
   // Handle search with debounce
   useEffect(() => {
