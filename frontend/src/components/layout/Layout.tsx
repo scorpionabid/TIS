@@ -78,9 +78,7 @@ const MainLayout = () => {
         return "Azərbaycan Təhsil İdarəetmə Sistemi - Ana Panel";
       case USER_ROLES.REGIONADMIN: {
         const regionName = getRegionName();
-        return regionName 
-          ? `${regionName} regional təhsil idarəsi məlumat sistemi` 
-          : "Regional təhsil idarəsi məlumat sistemi";
+        return regionName ? `${regionName}` : "";
       }
       default:
         return "Azərbaycan Təhsil İdarəetmə Sistemi";

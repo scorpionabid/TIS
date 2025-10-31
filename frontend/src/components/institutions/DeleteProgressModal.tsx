@@ -58,7 +58,7 @@ export const DeleteProgressModal: React.FC<DeleteProgressModalProps> = ({
     }
 
     return () => stopPolling();
-  }, [open, operationId]);
+  }, [open, operationId, startPolling, stopPolling]);
 
   useEffect(() => {
     if (isComplete && onComplete) {

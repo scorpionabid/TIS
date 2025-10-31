@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { ChevronDown, ChevronRight, Building2, School, MapPin, ArrowUpDown, Info, TrendingUp, TrendingDown } from 'lucide-react';
 import {
@@ -63,7 +63,7 @@ const HierarchicalInstitutionAnalysis: React.FC<HierarchicalInstitutionAnalysisP
     }
   };
 
-  const sortNodes = (nodes: InstitutionNode[]): InstitutionNode[] => {
+  const sortNodes = useCallback((nodes: InstitutionNode[]): InstitutionNode[] => {
     return [...nodes].sort((a, b) => {
       let comparison = 0;
 
@@ -87,7 +87,7 @@ const HierarchicalInstitutionAnalysis: React.FC<HierarchicalInstitutionAnalysisP
       ...node,
       children: node.children ? sortNodes(node.children) : undefined
     }));
-  };
+  }, [sortDirection, sortField]);
 
   const sortedData = useMemo(() => {
     if (!data || !data.nodes) return null;
@@ -95,7 +95,7 @@ const HierarchicalInstitutionAnalysis: React.FC<HierarchicalInstitutionAnalysisP
       ...data,
       nodes: sortNodes(data.nodes)
     };
-  }, [data, sortField, sortDirection]);
+  }, [data, sortNodes]);
 
   const getIcon = (level: number, type: string) => {
     if (level === 2 || type === 'region') return MapPin;

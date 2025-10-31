@@ -182,7 +182,7 @@ const SurveyApprovalDashboard: React.FC = () => {
 
     storageHelpers.set('approvals_selected_survey', surveyToSelect);
     setSelectedSurvey(surveyToSelect);
-  }, [publishedSurveys, selectedSurvey?.id]);
+  }, [publishedSurveys, selectedSurvey]);
 
   // Handle search with debounce
   useEffect(() => {

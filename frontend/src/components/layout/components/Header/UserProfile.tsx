@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -76,12 +76,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProf
   const [isPasswordChangeOpen, setIsPasswordChangeOpen] = useState(false);
   const { toast } = useToast();
 
-  // Load profile data on component mount
-  useEffect(() => {
-    loadProfileData();
-  }, []);
-
-  const loadProfileData = async () => {
+  const loadProfileData = useCallback(async () => {
     try {
       setIsLoading(true);
       const profile = await profileService.getProfile();
@@ -97,7 +92,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProf
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [onProfileUpdate, toast]);
+
+  // Load profile data on component mount
+  useEffect(() => {
+    loadProfileData();
+  }, [loadProfileData]);
 
   const handleEditProfile = () => {
     setIsProfileEditOpen(true);

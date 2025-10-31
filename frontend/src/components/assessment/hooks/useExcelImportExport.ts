@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { assessmentService } from '@/services/assessments';
 import { assessmentTypeService } from '@/services/assessmentTypes';
@@ -78,11 +78,7 @@ export const useExcelImportExport = (
   const [loadingData, setLoadingData] = useState(false);
 
   // Load dropdown data
-  useEffect(() => {
-    loadDropdownData();
-  }, []);
-
-  const loadDropdownData = async () => {
+  const loadDropdownData = useCallback(async () => {
     setLoadingData(true);
     try {
       const [institutionsResponse, typesResponse] = await Promise.all([
@@ -101,7 +97,11 @@ export const useExcelImportExport = (
     } finally {
       setLoadingData(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    loadDropdownData();
+  }, [loadDropdownData]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

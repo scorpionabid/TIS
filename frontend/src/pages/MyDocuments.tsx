@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Folder, FileText, Upload, AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import documentCollectionService from '../services/documentCollectionService';
@@ -12,13 +12,7 @@ const MyDocuments: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedFolder, setSelectedFolder] = useState<DocumentCollection | null>(null);
 
-  useEffect(() => {
-    if (currentUser) {
-      loadMyFolders();
-    }
-  }, [currentUser]);
-
-  const loadMyFolders = async () => {
+  const loadMyFolders = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -40,7 +34,13 @@ const MyDocuments: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      loadMyFolders();
+    }
+  }, [currentUser, loadMyFolders]);
 
   const handleFolderClick = (folder: DocumentCollection) => {
     setSelectedFolder(folder);

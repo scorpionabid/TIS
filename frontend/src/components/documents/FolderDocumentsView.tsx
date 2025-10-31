@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import documentCollectionService from '../../services/documentCollectionService';
 import type { DocumentCollection, Document, FolderWithDocuments } from '../../types/documentCollection';
@@ -21,11 +21,7 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
   const [expandedInstitutions, setExpandedInstitutions] = useState<Set<string>>(new Set());
   const [bulkDownloading, setBulkDownloading] = useState(false);
 
-  useEffect(() => {
-    loadDocuments();
-  }, [folder.id]);
-
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -37,7 +33,11 @@ const FolderDocumentsView: React.FC<FolderDocumentsViewProps> = ({ folder, onClo
     } finally {
       setLoading(false);
     }
-  };
+  }, [folder.id]);
+
+  useEffect(() => {
+    loadDocuments();
+  }, [loadDocuments]);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 B';

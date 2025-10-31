@@ -147,9 +147,6 @@ export const LoginForm = ({ onLogin, isLoading = false, error, loadingMessage, o
             <h1 className="text-2xl font-bold text-foreground font-heading">
               ATİS
             </h1>
-            <p className="text-sm text-muted-foreground">
-              Azərbaycan Təhsil İdarəetmə Sistemi
-            </p>
           </div>
         </div>
 

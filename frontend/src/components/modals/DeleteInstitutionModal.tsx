@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -34,13 +34,7 @@ export const DeleteInstitutionModal: React.FC<DeleteInstitutionModalProps> = ({
   const [deleteType, setDeleteType] = useState<DeleteType>('soft');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (open && institution?.id) {
-      void loadDeleteImpact();
-    }
-  }, [open, institution?.id]);
-
-  const loadDeleteImpact = async () => {
+  const loadDeleteImpact = useCallback(async () => {
     if (!institution?.id) return;
 
     setIsLoadingImpact(true);
@@ -53,7 +47,13 @@ export const DeleteInstitutionModal: React.FC<DeleteInstitutionModalProps> = ({
     } finally {
       setIsLoadingImpact(false);
     }
-  };
+  }, [institution?.id]);
+
+  useEffect(() => {
+    if (open && institution?.id) {
+      void loadDeleteImpact();
+    }
+  }, [open, institution?.id, loadDeleteImpact]);
 
   const handleConfirm = async () => {
     if (!institution) return;

@@ -350,7 +350,7 @@ if (process.env.NODE_ENV === 'development') {
 /**
  * React hook for cached API calls
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
 export function useCachedData<T>(
   key: string,
@@ -373,8 +373,16 @@ export function useCachedData<T>(
     enabled = true 
   } = options;
 
+  const dependenciesSignature = useMemo(() => JSON.stringify(dependencies), [dependencies]);
+  const tagsSignature = useMemo(() => JSON.stringify(tags), [tags]);
+  const hasDependencies = dependencies.length > 0;
+
   const fetchData = useCallback(async () => {
     if (!enabled) return;
+
+    // Touch signatures so exhaustive-deps keeps this callback in sync with dependency arrays
+    void dependenciesSignature;
+    void tagsSignature;
 
     setIsLoading(true);
     setError(null);
@@ -388,14 +396,14 @@ export function useCachedData<T>(
     } finally {
       setIsLoading(false);
     }
-  }, [key, ttl, JSON.stringify(tags), enabled, ...dependencies]);
+  }, [enabled, fetcher, key, tags, tagsSignature, ttl, dependenciesSignature]);
 
   // Invalidate cache when dependencies change
   useEffect(() => {
-    if (dependencies.length > 0) {
+    if (hasDependencies) {
       cacheService.delete(key);
     }
-  }, dependencies);
+  }, [hasDependencies, key, dependenciesSignature]);
 
   useEffect(() => {
     fetchData();

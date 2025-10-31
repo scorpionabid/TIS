@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import documentCollectionService from '../../services/documentCollectionService';
 import type { DocumentCollection, FolderWithDocuments } from '../../types/documentCollection';
 import { X, Trash2, AlertTriangle } from 'lucide-react';
@@ -19,11 +19,7 @@ const DeleteFolderDialog: React.FC<DeleteFolderDialogProps> = ({ folder, onClose
 
   const CONFIRM_PHRASE = 'SİL';
 
-  useEffect(() => {
-    loadDocumentsCount();
-  }, []);
-
-  const loadDocumentsCount = async () => {
+  const loadDocumentsCount = useCallback(async () => {
     try {
       setLoadingDocuments(true);
       const data: FolderWithDocuments = await documentCollectionService.getById(folder.id);
@@ -34,7 +30,11 @@ const DeleteFolderDialog: React.FC<DeleteFolderDialogProps> = ({ folder, onClose
     } finally {
       setLoadingDocuments(false);
     }
-  };
+  }, [folder.id]);
+
+  useEffect(() => {
+    loadDocumentsCount();
+  }, [loadDocumentsCount]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

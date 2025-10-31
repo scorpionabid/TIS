@@ -75,11 +75,7 @@ const FolderDocumentsViewOptimized: React.FC<FolderDocumentsViewOptimizedProps> 
   // Debounce search query
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  useEffect(() => {
-    loadDocuments();
-  }, [folder.id, debouncedSearchQuery, fileTypeFilter, sortBy, sortDirection, currentPage]);
-
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -109,7 +105,11 @@ const FolderDocumentsViewOptimized: React.FC<FolderDocumentsViewOptimizedProps> 
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, debouncedSearchQuery, fileTypeFilter, folder.id, sortBy, sortDirection]);
+
+  useEffect(() => {
+    loadDocuments();
+  }, [loadDocuments]);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 B';

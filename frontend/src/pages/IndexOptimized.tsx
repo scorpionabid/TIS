@@ -106,7 +106,7 @@ const IndexOptimized = () => {
         navigate('/regionadmin', { replace: true });
       }
     }
-  }, [currentUser?.role, location.pathname, navigate]);
+  }, [currentUser, location.pathname, navigate]);
 
   // Show loading state for auth
   if (loading) {

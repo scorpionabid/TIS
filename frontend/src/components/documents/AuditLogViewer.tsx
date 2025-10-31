@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import documentCollectionService from '../../services/documentCollectionService';
 import type { DocumentCollection, FolderAuditLog } from '../../types/documentCollection';
 import { X, History, User, Calendar, FileText, Edit, Trash2, Download, FileText as FileIcon } from 'lucide-react';
@@ -13,11 +13,7 @@ const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ folder, onClose }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadLogs();
-  }, [folder.id]);
-
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -29,7 +25,11 @@ const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ folder, onClose }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [folder.id]);
+
+  useEffect(() => {
+    loadLogs();
+  }, [loadLogs]);
 
   const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString('az-AZ', {

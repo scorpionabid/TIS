@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -50,24 +50,16 @@ export const EnhancedDeleteModal: React.FC<EnhancedDeleteModalProps> = ({
 
   const { toast } = useToast();
 
-  // Load delete impact when modal opens
-  useEffect(() => {
-    if (open && institution?.id) {
-      loadDeleteImpact();
-      resetForm();
-    }
-  }, [open, institution?.id]);
-
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setDeleteType('soft');
     setReason('');
     setConfirmation(false);
     setForce(false);
     setErrors([]);
     setIsSubmitting(false);
-  };
+  }, []);
 
-  const loadDeleteImpact = async () => {
+  const loadDeleteImpact = useCallback(async () => {
     if (!institution?.id) return;
 
     setIsLoadingImpact(true);
@@ -80,7 +72,15 @@ export const EnhancedDeleteModal: React.FC<EnhancedDeleteModalProps> = ({
     } finally {
       setIsLoadingImpact(false);
     }
-  };
+  }, [institution?.id]);
+
+  // Load delete impact when modal opens
+  useEffect(() => {
+    if (open && institution?.id) {
+      loadDeleteImpact();
+      resetForm();
+    }
+  }, [open, institution?.id, loadDeleteImpact, resetForm]);
 
   const validateForm = (): boolean => {
     const newErrors: string[] = [];

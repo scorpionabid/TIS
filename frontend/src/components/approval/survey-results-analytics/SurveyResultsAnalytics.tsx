@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '../../ui/alert';
 import { AlertTriangle, BarChart3 } from 'lucide-react';
@@ -44,7 +44,17 @@ const SurveyResultsAnalytics: React.FC = () => {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  const surveys = surveysData?.data?.data || surveysData?.data || [];
+  const surveys = useMemo(() => {
+    if (Array.isArray(surveysData?.data?.data)) {
+      return surveysData.data.data;
+    }
+
+    if (Array.isArray(surveysData?.data)) {
+      return surveysData.data;
+    }
+
+    return [];
+  }, [surveysData]);
 
   // Restore selected survey from localStorage or auto-select first
   useEffect(() => {

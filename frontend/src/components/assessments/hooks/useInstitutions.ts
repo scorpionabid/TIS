@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { institutionService } from '@/services/institutions';
 import { assessmentTypeService } from '@/services/assessmentTypes';
 import { useToast } from '@/hooks/use-toast';
@@ -28,20 +28,7 @@ export function useInstitutions({ isOpen, assessmentTypeId, mode }: UseInstituti
   const [loadingInstitutions, setLoadingInstitutions] = useState(false);
 
   // Load institutions when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      loadInstitutions();
-    }
-  }, [isOpen, institutionSearch]);
-
-  // Load assigned institutions for enhanced mode
-  useEffect(() => {
-    if (mode === 'enhanced' && assessmentTypeId) {
-      loadAssignedInstitutions(assessmentTypeId);
-    }
-  }, [assessmentTypeId, mode]);
-
-  const loadInstitutions = async () => {
+  const loadInstitutions = useCallback(async () => {
     setLoadingInstitutions(true);
     try {
       const response = await institutionService.getInstitutions({ 
@@ -59,16 +46,29 @@ export function useInstitutions({ isOpen, assessmentTypeId, mode }: UseInstituti
     } finally {
       setLoadingInstitutions(false);
     }
-  };
+  }, [institutionSearch, toast]);
 
-  const loadAssignedInstitutions = async (assessmentTypeId: number) => {
+  const loadAssignedInstitutions = useCallback(async (assessmentTypeId: number) => {
     try {
       const assigned = await assessmentTypeService.getAssignedInstitutions(assessmentTypeId);
       setSelectedInstitutions(assigned.map((inst: any) => inst.id));
     } catch (error) {
       console.error('Failed to load assigned institutions:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadInstitutions();
+    }
+  }, [isOpen, loadInstitutions]);
+
+  // Load assigned institutions for enhanced mode
+  useEffect(() => {
+    if (mode === 'enhanced' && assessmentTypeId) {
+      loadAssignedInstitutions(assessmentTypeId);
+    }
+  }, [assessmentTypeId, mode, loadAssignedInstitutions]);
 
   const toggleInstitution = (institutionId: number) => {
     setSelectedInstitutions(prev => 

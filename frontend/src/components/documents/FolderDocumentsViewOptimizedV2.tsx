@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import documentCollectionService from '../../services/documentCollectionService';
 import type { DocumentCollection, Document } from '../../types/documentCollection';
@@ -95,17 +95,7 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
   );
   const canUpload = uploadPermission.allowed;
 
-  useEffect(() => {
-    loadDocuments();
-  }, [folder.id, debouncedSearchQuery, fileTypeFilter, sortBy, sortDirection, currentPage]);
-
-  useEffect(() => {
-    if (!canUpload && showUploadZone) {
-      setShowUploadZone(false);
-    }
-  }, [canUpload, showUploadZone]);
-
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -135,7 +125,17 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, debouncedSearchQuery, fileTypeFilter, folder.id, sortBy, sortDirection]);
+
+  useEffect(() => {
+    loadDocuments();
+  }, [loadDocuments]);
+
+  useEffect(() => {
+    if (!canUpload && showUploadZone) {
+      setShowUploadZone(false);
+    }
+  }, [canUpload, showUploadZone]);
 
   // Group institutions by sector
   const sectorGroups = useMemo(() => {
