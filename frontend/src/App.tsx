@@ -56,6 +56,7 @@ const RegionAdminUsers = lazy(() => import("./pages/regionadmin/RegionAdminUsers
 const RegionAdminSectors = lazy(() => import("./pages/regionadmin/RegionAdminSectors"));
 const RegionSchedules = lazy(() => import("./pages/regionadmin/RegionSchedules"));
 const RegionTeacherManagement = lazy(() => import("./pages/regionadmin/RegionTeacherManagement").then(m => ({ default: m.RegionTeacherManagement })));
+const RegionClassManagement = lazy(() => import("./pages/regionadmin/RegionClassManagement"));
 
 // School pages  
 const SchoolTeachers = lazy(() => import("./pages/school/SchoolTeachers"));
@@ -428,6 +429,7 @@ const App = () => {
                 <Route path="regionadmin/users/teachers" element={<LazyWrapper><RegionAdminUsers /></LazyWrapper>} />
                 <Route path="regionadmin/sectors" element={<LazyWrapper><RegionAdminSectors /></LazyWrapper>} />
                 <Route path="regionadmin/teachers" element={<LazyWrapper><RegionTeacherManagement /></LazyWrapper>} />
+                <Route path="regionadmin/classes" element={<LazyWrapper><RegionClassManagement /></LazyWrapper>} />
                 <Route path="regionadmin/schools" element={<div className="p-6"><h1>Regional Schools</h1><p>Hazırlanmaqdadır...</p></div>} />
                 <Route path="regionadmin/hierarchy" element={<div className="p-6"><h1>Regional Hierarchy</h1><p>Hazırlanmaqdadır...</p></div>} />
                 <Route path="regionadmin/tasks/*" element={<div className="p-6"><h1>Regional Tasks</h1><p>Hazırlanmaqdadır...</p></div>} />

@@ -108,6 +108,13 @@ export const improvedNavigationConfig: MenuGroup[] = [
         roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN]
       },
       {
+        id: 'classes',
+        label: 'Siniflər',
+        path: '/regionadmin/classes',
+        icon: Users,
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN]
+      },
+      {
         id: 'regions',
         label: 'Regionlar',
         path: '/regions',
