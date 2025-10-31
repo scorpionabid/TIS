@@ -279,7 +279,7 @@ class SurveyResponseService extends BaseService
             throw new \InvalidArgumentException('Only submitted, rejected or returned responses can be reopened');
         }
 
-        return DB::transaction(function () use ($response, $user) {
+        $updatedResponse = DB::transaction(function () use ($response, $user) {
             $previousStatus = $response->status;
             $response->loadMissing(['survey.questions', 'approvalRequest']);
             $resubmittedAt = now();
@@ -291,6 +291,7 @@ class SurveyResponseService extends BaseService
             $response->submitted_at = null;
             $response->approved_at = null;
             $response->approved_by = null;
+            $response->rejection_reason = null;
             $response->save();
 
             if ($approvalRequest = $response->approvalRequest) {
@@ -314,11 +315,11 @@ class SurveyResponseService extends BaseService
                 ]);
             }
 
-            $this->logActivity('survey_response_reopen', [
-                'entity_type' => 'SurveyResponse',
-                'entity_id' => $response->id,
-                'description' => "Reopened survey response for: {$response->survey->title}",
-                'previous_status' => $previousStatus
+                $this->logActivity('survey_response_reopen', [
+                    'entity_type' => 'SurveyResponse',
+                    'entity_id' => $response->id,
+                    'description' => "Reopened survey response for: {$response->survey->title}",
+                    'previous_status' => $previousStatus
             ]);
 
             $this->logAudit($response->survey_id, $response->id, 'reopened', [
@@ -329,6 +330,10 @@ class SurveyResponseService extends BaseService
 
             return $response->fresh();
         });
+
+        SurveyApprovalService::refreshCacheForSurvey($updatedResponse->survey_id);
+
+        return $updatedResponse;
     }
 
     private function validateResponsesAgainstSurvey(Survey $survey, array $responses, bool $enforceRequired = false): void

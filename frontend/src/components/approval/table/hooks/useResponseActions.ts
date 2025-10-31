@@ -76,15 +76,20 @@ export const useResponseActions = ({ onUpdate, onResponseEdit }: UseResponseActi
 
       console.log(`✅ [INDIVIDUAL APPROVAL] ${action} completed for response ${responseId}:`, result);
 
-      const successMessages = {
-        approve: 'Cavab uğurla təsdiqləndi',
+      const status = (result as any)?.status;
+      const backendMessage = (result as any)?.message;
+
+      const successMessages: Record<typeof action, string> = {
+        approve: status === 'in_progress'
+          ? 'Cavab növbəti təsdiq səviyyəsinə göndərildi'
+          : 'Cavab uğurla təsdiqləndi',
         reject: 'Cavab rədd edildi',
         return: 'Cavab yenidən işləmə üçün qaytarıldı'
       };
 
       toast({
         title: "Uğurlu əməliyyat",
-        description: successMessages[action],
+        description: backendMessage || successMessages[action],
         variant: "default",
       });
 

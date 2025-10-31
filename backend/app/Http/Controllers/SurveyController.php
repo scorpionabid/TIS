@@ -611,7 +611,8 @@ class SurveyController extends BaseController
 
             $surveys = $this->getAssignedSurveysQuery($user)
                 ->with(['questions', 'responses' => function($q) use ($user) {
-                    $q->where('respondent_id', $user->id);
+                    $q->where('respondent_id', $user->id)
+                      ->with('approvalRequest');
                 }])
                 ->select('*')
                 ->paginate($perPage);
@@ -619,7 +620,25 @@ class SurveyController extends BaseController
             // Add response status to each survey
             $surveys->getCollection()->transform(function($survey) use ($user) {
                 $response = $survey->responses->first();
-                $survey->response_status = $response ? $response->status : 'not_started';
+                $originalStatus = $response?->status;
+
+                if ($response) {
+                    $normalizedStatus = $originalStatus ?? 'not_started';
+
+                    if (in_array($normalizedStatus, ['rejected', 'returned'], true)) {
+                        $survey->response_status = 'pending';
+                    } elseif (in_array($normalizedStatus, ['draft'], true)) {
+                        $survey->response_status = 'in_progress';
+                    } else {
+                        $survey->response_status = $normalizedStatus;
+                    }
+
+                    $survey->response_status_detail = $normalizedStatus;
+                    $survey->approval_status = $response->approvalRequest->current_status ?? null;
+                } else {
+                    $survey->response_status = 'not_started';
+                }
+
                 if (!$response && $survey->end_date && $survey->end_date < now()) {
                     $survey->response_status = 'overdue';
                 }

@@ -103,40 +103,41 @@ export const canApproveResponse = (response: SurveyResponseForApproval, user?: U
   if (!user) return false;
 
   // Only specific roles can approve
-  const canApproveRoles = ['sektoradmin', 'regionadmin', 'superadmin'];
-  // Check both role field and permissions array (for Spatie Laravel Permission compatibility)
-  const userRoles = user.permissions || [];
-  const hasApprovalRole = (user.role && canApproveRoles.includes(user.role)) ||
-                         canApproveRoles.some(role => userRoles.includes(role));
+  const approverRoleLevels: Record<string, number> = {
+    sektoradmin: 2,
+    regionadmin: 3,
+    superadmin: Infinity,
+  };
 
-  if (!hasApprovalRole) return false;
+  const userRoles = user.permissions || [];
+  const normalizedRole = user.role || userRoles.find((role) => role in approverRoleLevels);
+  if (!normalizedRole || !(normalizedRole in approverRoleLevels)) {
+    return false;
+  }
 
   // Must be submitted response
   if (response?.status !== 'submitted') return false;
 
-  // Check approval request exists
-  if (!response?.approvalRequest) return false;
+  const approvalRequest = response?.approvalRequest;
+  if (!approvalRequest) return false;
 
-  // SuperAdmin can approve any pending or in_progress approval
-  if (user.role === 'superadmin') {
-    return ['pending', 'in_progress'].includes(response.approvalRequest.current_status);
+  // SuperAdmin can approve any pending or in-progress approval stage
+  if (normalizedRole === 'superadmin') {
+    return ['pending', 'in_progress'].includes(approvalRequest.current_status || '');
   }
 
-  // For RegionAdmin and SektorAdmin, check if they can approve at current level
-  const currentLevel = response.approvalRequest.current_approval_level;
-  const currentStatus = response.approvalRequest.current_status;
+  const targetLevel = approverRoleLevels[normalizedRole];
+  const currentLevel = approvalRequest.current_approval_level || 0;
+  const currentStatus = approvalRequest.current_status;
 
-  // Can approve if:
-  // 1. Status is 'pending' (level 1 - awaiting first approval)
-  // 2. Status is 'in_progress' and current level matches user's role level
-  if (currentStatus === 'pending') return true;
+  if (currentStatus === 'pending') {
+    // Allow approvers to initiate the workflow if their level is at or above the current level
+    return targetLevel >= currentLevel;
+  }
 
   if (currentStatus === 'in_progress') {
-    // SektorAdmin approves at level 2
-    if (user.role === 'sektoradmin' && currentLevel === 2) return true;
-
-    // RegionAdmin approves at level 3
-    if (user.role === 'regionadmin' && currentLevel === 3) return true;
+    // While in-progress, only the level currently responsible can act
+    return currentLevel === targetLevel;
   }
 
   return false;
@@ -149,40 +150,38 @@ export const canRejectResponse = (response: SurveyResponseForApproval, user?: Us
   if (!user) return false;
 
   // Only specific roles can reject
-  const canRejectRoles = ['sektoradmin', 'regionadmin', 'superadmin'];
-  // Check both role field and permissions array (for Spatie Laravel Permission compatibility)
-  const userRoles = user.permissions || [];
-  const hasRejectRole = (user.role && canRejectRoles.includes(user.role)) ||
-                       canRejectRoles.some(role => userRoles.includes(role));
+  const approverRoleLevels: Record<string, number> = {
+    sektoradmin: 2,
+    regionadmin: 3,
+    superadmin: Infinity,
+  };
 
-  if (!hasRejectRole) return false;
+  const userRoles = user.permissions || [];
+  const normalizedRole = user.role || userRoles.find((role) => role in approverRoleLevels);
+  if (!normalizedRole || !(normalizedRole in approverRoleLevels)) {
+    return false;
+  }
 
   // Must be submitted response
   if (response?.status !== 'submitted') return false;
 
-  // Check approval request exists
-  if (!response?.approvalRequest) return false;
+  const approvalRequest = response?.approvalRequest;
+  if (!approvalRequest) return false;
 
-  // SuperAdmin can reject any pending or in_progress approval
-  if (user.role === 'superadmin') {
-    return ['pending', 'in_progress'].includes(response.approvalRequest.current_status);
+  if (normalizedRole === 'superadmin') {
+    return ['pending', 'in_progress'].includes(approvalRequest.current_status || '');
   }
 
-  // For RegionAdmin and SektorAdmin, check if they can reject at current level
-  const currentLevel = response.approvalRequest.current_approval_level;
-  const currentStatus = response.approvalRequest.current_status;
+  const targetLevel = approverRoleLevels[normalizedRole];
+  const currentLevel = approvalRequest.current_approval_level || 0;
+  const currentStatus = approvalRequest.current_status;
 
-  // Can reject if:
-  // 1. Status is 'pending' (level 1 - awaiting first approval)
-  // 2. Status is 'in_progress' and current level matches user's role level
-  if (currentStatus === 'pending') return true;
+  if (currentStatus === 'pending') {
+    return targetLevel >= currentLevel;
+  }
 
   if (currentStatus === 'in_progress') {
-    // SektorAdmin rejects at level 2
-    if (user.role === 'sektoradmin' && currentLevel === 2) return true;
-
-    // RegionAdmin rejects at level 3
-    if (user.role === 'regionadmin' && currentLevel === 3) return true;
+    return currentLevel === targetLevel;
   }
 
   return false;

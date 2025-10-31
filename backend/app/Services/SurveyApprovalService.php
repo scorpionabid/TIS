@@ -9,7 +9,10 @@ use App\Models\ApprovalWorkflow;
 use App\Models\ApprovalAction;
 use App\Models\User;
 use App\Jobs\BulkApprovalJob;
+use App\Notifications\SurveyApprovalNotification;
+use Illuminate\Support\Facades\Notification;
 use App\Services\LoggingService;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -126,6 +129,8 @@ class SurveyApprovalService extends BaseService
         }
 
         return DB::transaction(function () use ($response, $workflow, $data) {
+            $initialLevel = $this->getInitialApprovalLevel($workflow);
+
             $approvalRequest = DataApprovalRequest::create([
                 'workflow_id' => $workflow->id,
                 'institution_id' => $response->institution_id,
@@ -134,7 +139,7 @@ class SurveyApprovalService extends BaseService
                 'submitted_by' => Auth::id(),
                 'submitted_at' => now(),
                 'current_status' => 'pending',
-                'current_approval_level' => 1,
+                'current_approval_level' => $initialLevel,
                 'submission_notes' => $data['notes'] ?? null,
                 'request_metadata' => [
                     'survey_id' => $response->survey_id,
@@ -166,26 +171,29 @@ class SurveyApprovalService extends BaseService
                 throw new \Exception('No approval request found for this response');
             }
 
+            $workflow = $approvalRequest->workflow;
+            $currentLevel = (int) ($approvalRequest->current_approval_level ?? 1);
+            $targetLevel = $this->determineApprovalLevelForApprover($approvalRequest, $workflow, $approver);
+
             // Create approval action
-            $action = ApprovalAction::create([
+            ApprovalAction::create([
                 'approval_request_id' => $approvalRequest->id,
                 'approver_id' => $approver->id,
-                'approval_level' => $approvalRequest->current_approval_level,
+                'approval_level' => $targetLevel,
                 'action' => 'approved',
                 'comments' => $data['comments'] ?? null,
                 'action_metadata' => $data['metadata'] ?? null,
                 'action_taken_at' => now(),
             ]);
 
-            // Check if this completes the approval chain
-            $workflow = $approvalRequest->workflow;
-            $approvalChain = $workflow->approval_chain;
-            $currentLevel = $approvalRequest->current_approval_level;
+            $currentLevel = $targetLevel;
 
-            if ($currentLevel >= count($approvalChain)) {
+            // Check if this completes the approval chain
+            if ($workflow->isFullyApproved($currentLevel)) {
                 // Approval complete
                 $approvalRequest->update([
                     'current_status' => 'approved',
+                    'current_approval_level' => $currentLevel,
                     'completed_at' => now(),
                 ]);
 
@@ -200,9 +208,30 @@ class SurveyApprovalService extends BaseService
 
                 return ['status' => 'completed', 'message' => 'Response fully approved'];
             } else {
+                $nextLevel = $this->getNextRequiredApprovalLevel($workflow, $currentLevel);
+
+                if ($nextLevel === null) {
+                    // No further required levels, treat as fully approved
+                    $approvalRequest->update([
+                        'current_status' => 'approved',
+                        'current_approval_level' => $currentLevel,
+                        'completed_at' => now(),
+                    ]);
+
+                    $response->update([
+                        'status' => 'approved',
+                        'approved_by' => $approver->id,
+                        'approved_at' => now(),
+                    ]);
+
+                    $this->clearApprovalCache($response->survey_id);
+
+                    return ['status' => 'completed', 'message' => 'Response fully approved'];
+                }
+
                 // Move to next level
                 $approvalRequest->update([
-                    'current_approval_level' => $currentLevel + 1,
+                    'current_approval_level' => $nextLevel,
                     'current_status' => 'in_progress',
                 ]);
 
@@ -216,18 +245,21 @@ class SurveyApprovalService extends BaseService
      */
     public function rejectResponse(SurveyResponse $response, User $approver, array $data = []): array
     {
-        return DB::transaction(function () use ($response, $approver, $data) {
+        $transactionResult = DB::transaction(function () use ($response, $approver, $data) {
             $approvalRequest = $response->approvalRequest;
             
             if (!$approvalRequest) {
                 throw new \Exception('No approval request found for this response');
             }
 
+            $workflow = $approvalRequest->workflow;
+            $targetLevel = $this->determineApprovalLevelForApprover($approvalRequest, $workflow, $approver);
+
             // Create rejection action
             ApprovalAction::create([
                 'approval_request_id' => $approvalRequest->id,
                 'approver_id' => $approver->id,
-                'approval_level' => $approvalRequest->current_approval_level,
+                'approval_level' => $targetLevel,
                 'action' => 'rejected',
                 'comments' => $data['comments'] ?? null,
                 'action_metadata' => $data['metadata'] ?? null,
@@ -237,6 +269,7 @@ class SurveyApprovalService extends BaseService
             // Update request and response status
             $approvalRequest->update([
                 'current_status' => 'rejected',
+                'current_approval_level' => $targetLevel,
                 'completed_at' => now(),
             ]);
 
@@ -248,8 +281,31 @@ class SurveyApprovalService extends BaseService
             // Clear cache for approval stats
             $this->clearApprovalCache($response->survey_id);
 
-            return ['status' => 'rejected', 'message' => 'Response rejected'];
+            return [
+                'result' => ['status' => 'rejected', 'message' => 'Response rejected'],
+                'response' => $response->fresh([
+                    'institution',
+                    'respondent',
+                    'approvalRequest.submitter',
+                    'approvalRequest.institution',
+                    'approvalRequest.workflow'
+                ]),
+            ];
         });
+
+        /** @var SurveyResponse|null $freshResponse */
+        $freshResponse = $transactionResult['response'] ?? null;
+
+        if ($freshResponse && $freshResponse->approvalRequest) {
+            $this->notifySubmitterAboutRejection(
+                $freshResponse->approvalRequest,
+                $freshResponse,
+                $approver,
+                $data['comments'] ?? null
+            );
+        }
+
+        return $transactionResult['result'] ?? ['status' => 'rejected', 'message' => 'Response rejected'];
     }
 
     /**
@@ -264,11 +320,14 @@ class SurveyApprovalService extends BaseService
                 throw new \Exception('No approval request found for this response');
             }
 
+            $workflow = $approvalRequest->workflow;
+            $targetLevel = $this->determineApprovalLevelForApprover($approvalRequest, $workflow, $approver);
+
             // Create return action
             ApprovalAction::create([
                 'approval_request_id' => $approvalRequest->id,
                 'approver_id' => $approver->id,
-                'approval_level' => $approvalRequest->current_approval_level,
+                'approval_level' => $targetLevel,
                 'action' => 'returned',
                 'comments' => $data['comments'] ?? null,
                 'action_metadata' => $data['metadata'] ?? null,
@@ -422,12 +481,12 @@ class SurveyApprovalService extends BaseService
         $currentLevel = $approvalRequest->current_approval_level;
 
         // SuperAdmin can approve any pending or in_progress approval
-        if ($approver->hasRole('superadmin')) {
+        if ($this->userHasRole($approver, 'superadmin')) {
             return in_array($currentStatus, ['pending', 'in_progress']);
         }
 
         // SektorAdmin can approve responses from schools in their sector
-        if ($approver->hasRole('sektoradmin')) {
+        if ($this->userHasRole($approver, 'sektoradmin')) {
             $responseInstitution = $response->institution;
             if (!$responseInstitution) {
                 return false;
@@ -448,7 +507,7 @@ class SurveyApprovalService extends BaseService
         }
 
         // RegionAdmin can approve responses from institutions in their region
-        if ($approver->hasRole('regionadmin')) {
+        if ($this->userHasRole($approver, 'regionadmin')) {
             // Check if response institution is within RegionAdmin's region
             $responseInstitution = $response->institution;
             if (!$responseInstitution) {
@@ -474,6 +533,16 @@ class SurveyApprovalService extends BaseService
         }
 
         return false;
+    }
+
+    /**
+     * Check if user has a role considering known aliases
+     */
+    private function userHasRole(User $user, string $role): bool
+    {
+        $normalized = $this->normalizeRoleSlug($role);
+        $roles = $this->collectUserRoles($user);
+        return $roles->contains($normalized);
     }
 
     /**
@@ -583,6 +652,300 @@ class SurveyApprovalService extends BaseService
                 }
                 break;
         }
+    }
+
+    /**
+     * Determine the appropriate approval level for the current approver
+     */
+    private function determineApprovalLevelForApprover(DataApprovalRequest $approvalRequest, ApprovalWorkflow $workflow, User $approver): int
+    {
+        $currentLevel = (int) ($approvalRequest->current_approval_level ?? 1);
+
+        // SuperAdmin operates at the highest configured level
+        if ($this->userHasRole($approver, 'superadmin')) {
+            $levels = collect($workflow->approval_chain ?? [])
+                ->pluck('level')
+                ->filter()
+                ->map(fn ($level) => (int) $level)
+                ->all();
+
+            return !empty($levels) ? max($levels) : $currentLevel;
+        }
+
+        $approverLevel = $this->resolveApproverLevel($workflow, $approver);
+
+        if ($approverLevel === null) {
+            // Fallback: infer level from role ordering if workflow uses legacy role slugs
+            $approverLevel = $this->inferLevelFromRoleAliases($workflow, $approver);
+        }
+
+        if ($approverLevel === null) {
+            return $currentLevel;
+        }
+
+        return max($currentLevel, (int) $approverLevel);
+    }
+
+    /**
+     * Resolve approver level from workflow configuration
+     */
+    private function resolveApproverLevel(ApprovalWorkflow $workflow, User $approver): ?int
+    {
+        $chain = $workflow->approval_chain ?? [];
+        $userRoles = $this->collectUserRoles($approver);
+
+        foreach ($chain as $step) {
+            $role = $step['role'] ?? null;
+            $level = isset($step['level']) ? (int) $step['level'] : null;
+
+            if (!$role || !$level) {
+                continue;
+            }
+
+            $normalizedStepRole = $this->normalizeRoleSlug($role);
+
+            if ($userRoles->contains($normalizedStepRole)) {
+                return $level;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Attempt to infer approver level when workflow uses legacy role aliases
+     */
+    private function inferLevelFromRoleAliases(ApprovalWorkflow $workflow, User $approver): ?int
+    {
+        $chain = $workflow->approval_chain ?? [];
+        $userRoles = $this->collectUserRoles($approver);
+
+        foreach ($chain as $step) {
+            $role = $step['role'] ?? null;
+            $level = isset($step['level']) ? (int) $step['level'] : null;
+
+            if (!$role || !$level) {
+                continue;
+            }
+
+            $normalizedStepRole = $this->normalizeRoleSlug($role);
+
+            foreach ($userRoles as $userRole) {
+                if ($this->rolesMatch($normalizedStepRole, $userRole)) {
+                    return $level;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Collect user roles (primary + assigned) in normalized form
+     */
+    private function collectUserRoles(User $approver): \Illuminate\Support\Collection
+    {
+        $roleNames = collect();
+
+        if (method_exists($approver, 'getRoleNames')) {
+            $roleNames = $approver->getRoleNames();
+        } elseif (method_exists($approver, 'roles')) {
+            $roleNames = $approver->roles->pluck('name');
+        }
+
+        if ($approver->role && !empty($approver->role->name)) {
+            $roleNames->push($approver->role->name);
+        }
+
+        return $roleNames
+            ->filter()
+            ->map(fn ($name) => $this->normalizeRoleSlug($name))
+            ->filter()
+            ->unique();
+    }
+
+    /**
+     * Normalize role slugs and apply known aliases
+     */
+    private function normalizeRoleSlug(?string $role): ?string
+    {
+        if (!$role) {
+            return null;
+        }
+
+        $normalized = strtolower(trim($role));
+
+        $aliases = [
+            'sectoradmin' => 'sektoradmin',
+            'sector_admin' => 'sektoradmin',
+            'region_admin' => 'regionadmin',
+            'regionaladmin' => 'regionadmin',
+            'regional_admin' => 'regionadmin',
+        ];
+
+        return $aliases[$normalized] ?? $normalized;
+    }
+
+    /**
+     * Determine if two normalized role slugs should be treated as identical
+     */
+    private function rolesMatch(?string $workflowRole, ?string $userRole): bool
+    {
+        if (!$workflowRole || !$userRole) {
+            return false;
+        }
+
+        return $workflowRole === $userRole;
+    }
+
+    /**
+     * Notify submitter/respondent that their response was rejected
+     */
+    private function notifySubmitterAboutRejection(
+        DataApprovalRequest $approvalRequest,
+        SurveyResponse $response,
+        User $approver,
+        ?string $reason
+    ): void {
+        $approvalRequest->loadMissing(['submitter', 'institution']);
+        $response->loadMissing(['institution', 'respondent']);
+        $response->loadMissing('survey');
+
+        $recipient = $approvalRequest->submitter ?? $response->respondent;
+
+        if (!$recipient instanceof User) {
+            return;
+        }
+
+        // Avoid notifying the same user who performed the rejection
+        if ($recipient->id === $approver->id) {
+            return;
+        }
+
+        $additionalData = [
+            'survey_id' => $response->survey_id,
+            'institution_name' => $response->institution->name ?? '',
+            'rejector_name' => $approver->name ?? $approver->username ?? $approver->email,
+            'rejection_reason' => $reason ?? 'Səbəb qeyd edilməyib',
+            'status' => 'rejected',
+            'submitted_by' => $approvalRequest->submitter->name ?? null,
+            'response_id' => $response->id,
+        ];
+
+        try {
+            $notification = new SurveyApprovalNotification(
+                $approvalRequest,
+                'approval_rejected',
+                $additionalData
+            );
+
+            if (method_exists($notification, 'afterCommit')) {
+                $notification->afterCommit();
+            }
+
+            Notification::sendNow($recipient, $notification);
+        } catch (\Throwable $e) {
+            \Log::warning('Failed to send survey rejection notification', [
+                'approval_request_id' => $approvalRequest->id,
+                'response_id' => $response->id,
+                'recipient_id' => $recipient->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        try {
+            /** @var NotificationService $notificationService */
+            $notificationService = app(NotificationService::class);
+
+            $title = 'Survey cavabınız rədd edildi';
+            $message = sprintf(
+                '%s sorğusunun cavabı %s tərəfindən rədd edildi. Səbəb: %s',
+                $response->survey->title ?? 'Survey',
+                $approver->name ?? $approver->username ?? 'Naməlum',
+                $reason ?? 'Səbəb qeyd edilməyib'
+            );
+
+            $notificationService->send([
+                'user_id' => $recipient->id,
+                'title' => $title,
+                'message' => $message,
+                'type' => 'survey_approval_rejected',
+                'channel' => 'in_app',
+                'priority' => 'high',
+                'related_type' => Survey::class,
+                'related_id' => $response->survey_id,
+                'metadata' => [
+                    'survey_id' => $response->survey_id,
+                    'response_id' => $response->id,
+                    'rejection_reason' => $reason,
+                    'rejector_id' => $approver->id,
+                    'rejector_name' => $approver->name ?? $approver->username ?? null,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            \Log::warning('Failed to create in-app rejection notification', [
+                'approval_request_id' => $approvalRequest->id,
+                'response_id' => $response->id,
+                'recipient_id' => $recipient->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Get the next required approval level for the workflow
+     */
+    private function getNextRequiredApprovalLevel(ApprovalWorkflow $workflow, int $currentLevel): ?int
+    {
+        $chain = $workflow->approval_chain ?? [];
+        $requireAllLevels = (bool) data_get($workflow->workflow_config, 'require_all_levels', false);
+
+        foreach ($chain as $step) {
+            $level = isset($step['level']) ? (int) $step['level'] : null;
+            if (!$level || $level <= $currentLevel) {
+                continue;
+            }
+
+            $isRequired = $step['required'] ?? true;
+
+            if ($requireAllLevels || $isRequired) {
+                return $level;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Determine the initial approval level for a new approval request
+     */
+    private function getInitialApprovalLevel(ApprovalWorkflow $workflow): int
+    {
+        $firstRequiredLevel = $this->getNextRequiredApprovalLevel($workflow, 0);
+
+        if ($firstRequiredLevel !== null) {
+            return $firstRequiredLevel;
+        }
+
+        $chain = $workflow->approval_chain ?? [];
+
+        if (!empty($chain)) {
+            $firstStep = $chain[0];
+            if (isset($firstStep['level'])) {
+                return (int) $firstStep['level'];
+            }
+        }
+
+        return 1;
+    }
+
+    /**
+     * Allow external services to refresh approval caches after status changes
+     */
+    public static function refreshCacheForSurvey(int $surveyId): void
+    {
+        $service = new self();
+        $service->clearApprovalCache($surveyId);
     }
 
     /**

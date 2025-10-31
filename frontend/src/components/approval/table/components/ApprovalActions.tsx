@@ -75,8 +75,10 @@ const ApprovalActions: React.FC<ApprovalActionsProps> = ({
     );
   }
 
-  // Show action buttons for pending status
-  if (approvalStatus === 'pending' && (canApprove || canReject)) {
+  const isActionableStatus = approvalStatus === 'pending' || approvalStatus === 'in_progress';
+
+  // Show action buttons for actionable status
+  if (isActionableStatus && (canApprove || canReject)) {
     return (
       <div className="flex items-center gap-1">
         {/* Quick approve button */}
@@ -91,6 +93,12 @@ const ApprovalActions: React.FC<ApprovalActionsProps> = ({
             {isProcessing && <RefreshCw className="h-3 w-3 mr-1 animate-spin" />}
             <CheckCircle className="h-3 w-3" />
           </Button>
+        )}
+
+        {approvalStatus === 'in_progress' && (
+          <Badge variant="outline" className="h-7 px-2 text-xs text-blue-700 border-blue-300 bg-blue-50">
+            İcrada
+          </Badge>
         )}
 
         {/* More actions dropdown */}
@@ -148,6 +156,17 @@ const ApprovalActions: React.FC<ApprovalActionsProps> = ({
         <Badge variant="outline" className="text-amber-700 border-amber-300 bg-amber-50">
           <Clock className="h-3 w-3 mr-1" />
           Gözləyir
+        </Badge>
+      </div>
+    );
+  }
+
+  if (approvalStatus === 'in_progress') {
+    return (
+      <div className="flex justify-center">
+        <Badge variant="outline" className="text-blue-700 border-blue-300 bg-blue-50">
+          <RefreshCw className="h-3 w-3 mr-1" />
+          İcrada
         </Badge>
       </div>
     );
