@@ -44,6 +44,7 @@ Route::middleware('permission:users.test')->group(function () {
 
 // User management with proper roles
 Route::middleware('permission:users.read')->group(function () {
+    Route::get('users/filter-options', [UserController::class, 'getFilterOptions']);
     Route::get('users', [UserController::class, 'index']);
     Route::get('users/{user}', [UserController::class, 'show']);
 });

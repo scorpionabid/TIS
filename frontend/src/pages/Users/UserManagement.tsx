@@ -65,6 +65,14 @@ export const UserManagement = memo(() => {
     filterParams,
   } = useUserFilters();
 
+  // Fetch filter options
+  const { data: filterOptions } = useQuery({
+    queryKey: ['users', 'filter-options', currentUser?.role],
+    queryFn: () => userService.getFilterOptions(),
+    enabled: !!currentUser,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
   const {
     data: usersResponse,
     isLoading,
@@ -148,7 +156,12 @@ export const UserManagement = memo(() => {
     }
   }, [usersResponse?.per_page, perPage]);
 
+  // Use server-side filter options with fallback to client-side
   const availableRoles = useMemo(() => {
+    if (filterOptions?.roles && filterOptions.roles.length > 0) {
+      return filterOptions.roles.map(r => r.value);
+    }
+    // Fallback to client-side extraction
     const roles = new Set<string>();
     users.forEach((user) => {
       if (user.role) {
@@ -156,11 +169,20 @@ export const UserManagement = memo(() => {
       }
     });
     return Array.from(roles).sort();
-  }, [users]);
+  }, [filterOptions, users]);
 
-  const availableStatuses = useMemo(() => ['active', 'inactive'], []);
+  const availableStatuses = useMemo(() => {
+    if (filterOptions?.statuses && filterOptions.statuses.length > 0) {
+      return filterOptions.statuses.map(s => s.value);
+    }
+    return ['active', 'inactive'];
+  }, [filterOptions]);
 
   const availableInstitutions = useMemo(() => {
+    if (filterOptions?.institutions && filterOptions.institutions.length > 0) {
+      return filterOptions.institutions;
+    }
+    // Fallback to client-side extraction
     const map = new Map<number, string>();
     users.forEach((user) => {
       const institutionId = user.institution?.id;
@@ -171,7 +193,7 @@ export const UserManagement = memo(() => {
     return Array.from(map.entries())
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [users]);
+  }, [filterOptions, users]);
 
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);

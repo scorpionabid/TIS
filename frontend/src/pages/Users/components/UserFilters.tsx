@@ -1,7 +1,8 @@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Search, Filter, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, X } from "lucide-react";
 import { memo, useMemo } from "react";
 
 export interface UserFiltersProps {
@@ -60,6 +61,15 @@ export const UserFilters = memo(({
   
   const hasActiveFilters = useMemo(() => {
     return searchTerm || roleFilter !== 'all' || statusFilter !== 'all' || institutionFilter !== 'all';
+  }, [searchTerm, roleFilter, statusFilter, institutionFilter]);
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (searchTerm) count++;
+    if (roleFilter !== 'all') count++;
+    if (statusFilter !== 'all') count++;
+    if (institutionFilter !== 'all') count++;
+    return count;
   }, [searchTerm, roleFilter, statusFilter, institutionFilter]);
 
   const getSortIcon = (field: UserFiltersProps['sortField']) => {
@@ -155,16 +165,21 @@ export const UserFilters = memo(({
         </Button>
       </div>
 
-      {/* Clear Filters */}
+      {/* Clear Filters with Count Badge */}
       {hasActiveFilters && (
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           size="sm"
           onClick={onClearFilters}
-          className="flex items-center gap-1"
+          className="flex items-center gap-2"
         >
-          <Filter className="h-4 w-4" />
-          Filtri təmizlə
+          <div className="flex items-center gap-1">
+            <X className="h-4 w-4" />
+            Filtri təmizlə
+          </div>
+          <Badge variant="secondary" className="ml-1">
+            {activeFilterCount}
+          </Badge>
         </Button>
       )}
     </div>

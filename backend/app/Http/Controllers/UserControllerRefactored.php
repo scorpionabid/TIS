@@ -531,6 +531,53 @@ class UserControllerRefactored extends BaseController
     }
 
     /**
+     * Get filter options for users list
+     * Returns available roles, statuses, and institutions based on current user permissions
+     */
+    public function getFilterOptions(Request $request): JsonResponse
+    {
+        try {
+            $currentUser = Auth::user();
+
+            // Get available roles based on user permissions
+            $availableRoles = $this->permissionService->getAvailableRoles($currentUser);
+            $roles = collect($availableRoles)->map(function($role) {
+                return [
+                    'value' => $role['name'],
+                    'label' => $role['display_name'] ?? $role['name'],
+                ];
+            })->values();
+
+            // Get available institutions based on user permissions
+            $availableInstitutions = $this->permissionService->getAvailableInstitutions($currentUser);
+            $institutions = collect($availableInstitutions)->map(function($institution) {
+                return [
+                    'id' => $institution['id'],
+                    'name' => $institution['name'],
+                ];
+            })->values();
+
+            // Static status options
+            $statuses = [
+                ['value' => 'active', 'label' => 'Aktiv'],
+                ['value' => 'inactive', 'label' => 'Passiv'],
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'roles' => $roles,
+                    'statuses' => $statuses,
+                    'institutions' => $institutions,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Filter seçimləri yüklənərkən xəta baş verdi.');
+        }
+    }
+
+    /**
      * Handle errors consistently
      */
     private function handleError(\Exception $e, string $defaultMessage): JsonResponse
@@ -538,7 +585,7 @@ class UserControllerRefactored extends BaseController
         Log::error('UserController error: ' . $e->getMessage(), [
             'trace' => $e->getTraceAsString()
         ]);
-        
+
         return response()->json([
             'success' => false,
             'message' => $defaultMessage,

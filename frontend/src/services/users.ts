@@ -563,7 +563,7 @@ class UserService {
         email: email,
         exclude_user_id: excludeUserId
       });
-      
+
       return {
         isUnique: response.data?.is_unique ?? false,
         message: response.data?.message
@@ -573,6 +573,33 @@ class UserService {
       return {
         isUnique: false,
         message: 'Email yoxlanması uğursuz oldu'
+      };
+    }
+  }
+
+  async getFilterOptions(): Promise<{
+    roles: Array<{ value: string; label: string }>;
+    statuses: Array<{ value: string; label: string }>;
+    institutions: Array<{ id: number; name: string }>;
+  }> {
+    try {
+      const response = await apiClient.get<{
+        roles: Array<{ value: string; label: string }>;
+        statuses: Array<{ value: string; label: string }>;
+        institutions: Array<{ id: number; name: string }>;
+      }>('/users/filter-options');
+
+      return response.data || {
+        roles: [],
+        statuses: [],
+        institutions: []
+      };
+    } catch (error) {
+      console.error('Filter options fetch failed:', error);
+      return {
+        roles: [],
+        statuses: [],
+        institutions: []
       };
     }
   }

@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
 
 type SortField = 'name' | 'created_at' | 'last_login';
 type SortDirection = 'asc' | 'desc';
@@ -17,6 +18,9 @@ export const useUserFilters = () => {
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
+  // Debounce search term to avoid excessive API calls
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
   const filterParams = useMemo(() => {
     const params: {
       search?: string;
@@ -30,7 +34,7 @@ export const useUserFilters = () => {
       sort_direction: sortDirection,
     };
 
-    const trimmedSearch = searchTerm.trim();
+    const trimmedSearch = debouncedSearchTerm.trim();
     if (trimmedSearch.length > 0) {
       params.search = trimmedSearch;
     }
@@ -51,7 +55,7 @@ export const useUserFilters = () => {
     }
 
     return params;
-  }, [searchTerm, roleFilter, statusFilter, institutionFilter, sortField, sortDirection]);
+  }, [debouncedSearchTerm, roleFilter, statusFilter, institutionFilter, sortField, sortDirection]);
 
   // Handlers
   const handleSortChange = useCallback((field: SortField) => {
