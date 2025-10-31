@@ -95,7 +95,10 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Educational Management Routes
     require __DIR__ . '/api/educational.php';
-    
+
+    // RegionAdmin Specific Routes
+    require __DIR__ . '/api/regionadmin.php';
+
     // Document & Task Management Routes
     require __DIR__ . '/api/documents.php';
     
