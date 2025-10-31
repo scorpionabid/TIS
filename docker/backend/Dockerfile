@@ -23,6 +23,12 @@ RUN apk add --no-cache autoconf g++ make \
     && docker-php-ext-enable redis \
     && apk del autoconf g++ make
 
+# Configure PHP upload settings for document management
+RUN echo "upload_max_filesize = 100M" > /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "post_max_size = 100M" >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "memory_limit = 256M" >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "max_execution_time = 300" >> /usr/local/etc/php/conf.d/uploads.ini
+
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
@@ -32,9 +38,9 @@ WORKDIR /var/www/html
 # Copy all backend files including vendor directory
 COPY backend/ /var/www/html/
 
-# Ensure composer dependencies are available
+# Ensure composer dependencies are available (with dev packages for local development)
 RUN if [ ! -d "/var/www/html/vendor" ]; then \
-        composer install --no-dev --optimize-autoloader --no-interaction --no-scripts; \
+        composer install --optimize-autoloader --no-interaction --no-scripts; \
     fi
 
 # Create necessary directories and set permissions

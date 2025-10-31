@@ -3,17 +3,24 @@
 namespace App\Providers;
 
 use Illuminate\Support\Facades\Gate;
-use Laravel\Telescope\IncomingEntry;
-use Laravel\Telescope\Telescope;
-use Laravel\Telescope\TelescopeApplicationServiceProvider;
+use Illuminate\Support\ServiceProvider;
 
-class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
+// Telescope is disabled for Docker development
+// Uncomment the following lines when Telescope package is installed:
+// use Laravel\Telescope\IncomingEntry;
+// use Laravel\Telescope\Telescope;
+// use Laravel\Telescope\TelescopeApplicationServiceProvider;
+
+class TelescopeServiceProvider extends ServiceProvider
 {
     /**
      * Register any application services.
      */
     public function register(): void
     {
+        // Telescope is disabled - no registration needed
+        // Uncomment when Telescope package is installed:
+        /*
         // Telescope::night();
 
         $this->hideSensitiveRequestDetails();
@@ -28,6 +35,7 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
                    $entry->isScheduledTask() ||
                    $entry->hasMonitoredTag();
         });
+        */
     }
 
     /**
@@ -35,6 +43,8 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
      */
     protected function hideSensitiveRequestDetails(): void
     {
+        // Telescope is disabled
+        /*
         if ($this->app->environment('local')) {
             return;
         }
@@ -46,6 +56,7 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
             'x-csrf-token',
             'x-xsrf-token',
         ]);
+        */
     }
 
     /**
@@ -57,6 +68,8 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
      */
     protected function gate(): void
     {
+        // Telescope is disabled
+        /*
         Gate::define('viewTelescope', function ($user) {
             // Development: Allow all authenticated users
             if ($this->app->environment('local')) {
@@ -66,5 +79,6 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
             // Production: Only SuperAdmin role
             return $user->hasRole('SuperAdmin');
         });
+        */
     }
 }

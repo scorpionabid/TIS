@@ -6,7 +6,6 @@ WORKDIR /app
 
 # Copy package files
 COPY frontend/package*.json ./
-COPY frontend/bun.lockb* ./
 
 # Install dependencies with npm (ensure compatibility)
 RUN npm install
