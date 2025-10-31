@@ -36,13 +36,30 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
 
     /**
      * Pre-cache institutions for faster lookup
+     * Priority: UTIS code > Institution code > Name
      */
     protected function cacheInstitutions(): void
     {
-        $institutions = Institution::whereIn('id', $this->allowedInstitutionIds)->get();
+        $institutions = Institution::whereIn('id', $this->allowedInstitutionIds)
+            ->select('id', 'name', 'utis_code', 'institution_code', 'type')
+            ->get();
+
         foreach ($institutions as $institution) {
-            $this->institutionCache[$institution->name] = $institution;
+            // Cache by ID
             $this->institutionCache[$institution->id] = $institution;
+
+            // Cache by UTIS code (PRIORITY)
+            if ($institution->utis_code) {
+                $this->institutionCache['utis:' . trim($institution->utis_code)] = $institution;
+            }
+
+            // Cache by institution code (FALLBACK)
+            if ($institution->institution_code) {
+                $this->institutionCache['code:' . trim($institution->institution_code)] = $institution;
+            }
+
+            // Cache by name (LAST RESORT)
+            $this->institutionCache['name:' . trim($institution->name)] = $institution;
         }
     }
 
@@ -68,26 +85,68 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
             Log::info('Processing class import row:', $row);
 
             // Validate required fields
-            if (empty($row['institution_name']) || empty($row['class_level']) || empty($row['class_name'])) {
+            if (empty($row['class_level']) || empty($row['class_name'])) {
                 Log::warning('Skipping row due to missing required fields:', $row);
-                $this->errors[] = 'Missing required fields: ' . json_encode($row);
+                $this->errors[] = 'Sinif səviyyəsi və sinif adı mütləqdir: ' . json_encode($row);
                 return null;
             }
 
-            // Find institution by name
-            $institutionName = trim($row['institution_name']);
-            $institution = $this->institutionCache[$institutionName] ?? null;
+            // Find institution by priority: UTIS code > Institution code > Name
+            $institution = null;
+            $identifierUsed = null;
 
+            // 1. PRIORITY: Find by UTIS code
+            if (!empty($row['utis_code'])) {
+                $utisCode = trim($row['utis_code']);
+                $institution = $this->institutionCache['utis:' . $utisCode] ?? null;
+
+                if (!$institution) {
+                    $this->errors[] = "UTIS kod '{$utisCode}' tapılmadı və ya bu regiona aid deyil";
+                    return null;
+                }
+                $identifierUsed = "UTIS: {$utisCode}";
+            }
+
+            // 2. FALLBACK: Find by institution code
+            if (!$institution && !empty($row['institution_code'])) {
+                $instCode = trim($row['institution_code']);
+                $institution = $this->institutionCache['code:' . $instCode] ?? null;
+
+                if (!$institution) {
+                    $this->errors[] = "Müəssisə kodu '{$instCode}' tapılmadı və ya bu regiona aid deyil";
+                    return null;
+                }
+                $identifierUsed = "Code: {$instCode}";
+            }
+
+            // 3. LAST RESORT: Find by name (with warning)
+            if (!$institution && !empty($row['institution_name'])) {
+                $instName = trim($row['institution_name']);
+                $institution = $this->institutionCache['name:' . $instName] ?? null;
+
+                if (!$institution) {
+                    $this->errors[] = "Müəssisə '{$instName}' tapılmadı və ya bu regiona aid deyil";
+                    return null;
+                }
+
+                // Warning: should use UTIS or institution code
+                Log::warning("Class import using institution name instead of code", [
+                    'institution_name' => $instName,
+                    'class' => $row['class_name']
+                ]);
+                $identifierUsed = "Name: {$instName} (XƏBƏRDARLIQ: UTIS kod istifadə edin)";
+            }
+
+            // If still no institution found
             if (!$institution) {
-                Log::warning("Institution not found or not in region: {$institutionName}");
-                $this->errors[] = "Institution '{$institutionName}' not found or not accessible";
+                $this->errors[] = 'Müəssisə müəyyən edilmədi. UTIS kod, müəssisə kodu və ya ad lazımdır';
                 return null;
             }
 
-            // Validate institution is in region
+            // Validate institution is in region (double check)
             if (!in_array($institution->id, $this->allowedInstitutionIds)) {
-                Log::warning("Institution {$institutionName} is not in region {$this->region->name}");
-                $this->errors[] = "Institution '{$institutionName}' is not in your region";
+                Log::warning("Institution {$institution->name} is not in region {$this->region->name}");
+                $this->errors[] = "Müəssisə '{$institution->name}' sizin regionunuzda deyil";
                 return null;
             }
 
@@ -183,7 +242,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
             ]);
 
             $this->successCount++;
-            Log::info("Successfully created class: {$institutionName} - {$classLevel}{$className}");
+            Log::info("Successfully created class via {$identifierUsed}: {$institution->name} - {$classLevel}{$className}");
 
             return $class;
 
@@ -203,16 +262,23 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
     public function rules(): array
     {
         return [
-            'institution_name' => ['required', 'string'],
+            // At least one institution identifier required (handled in model())
+            'utis_code' => ['nullable', 'string', 'size:8'],
+            'institution_code' => ['nullable', 'string', 'max:20'],
+            'institution_name' => ['nullable', 'string', 'max:200'],
+
+            // Required fields
             'class_level' => ['required', 'integer', 'min:1', 'max:12'],
             'class_name' => ['required', 'string', 'max:10'],
+
+            // Optional fields with validation
             'student_count' => ['nullable', 'integer', 'min:0', 'max:100'],
-            'male_count' => ['nullable', 'integer', 'min:0'],
-            'female_count' => ['nullable', 'integer', 'min:0'],
+            'male_count' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'female_count' => ['nullable', 'integer', 'min:0', 'max:100'],
             'specialty' => ['nullable', 'string', 'max:100'],
             'grade_category' => ['nullable', 'string', 'max:50'],
             'education_program' => ['nullable', 'string', 'max:50'],
-            'academic_year' => ['nullable', 'string'],
+            'academic_year' => ['nullable', 'string', 'max:20'],
         ];
     }
 
@@ -222,12 +288,15 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
     public function customValidationMessages(): array
     {
         return [
-            'institution_name.required' => 'Müəssisə adı mütləqdir',
+            'utis_code.size' => 'UTIS kod 8 simvol olmalıdır',
             'class_level.required' => 'Sinif səviyyəsi mütləqdir',
             'class_level.min' => 'Sinif səviyyəsi ən az 1 olmalıdır',
             'class_level.max' => 'Sinif səviyyəsi ən çox 12 ola bilər',
             'class_name.required' => 'Sinif adı mütləqdir',
+            'class_name.max' => 'Sinif adı maksimum 10 simvol ola bilər',
             'student_count.max' => 'Şagird sayı maksimum 100 ola bilər',
+            'male_count.max' => 'Oğlan sayı maksimum 100 ola bilər',
+            'female_count.max' => 'Qız sayı maksimum 100 ola bilər',
         ];
     }
 

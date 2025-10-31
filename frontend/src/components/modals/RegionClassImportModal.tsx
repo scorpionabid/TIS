@@ -95,15 +95,48 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              <div className="space-y-2">
-                <p className="font-medium">İdxal qaydaları:</p>
-                <ul className="list-disc list-inside space-y-1 text-sm">
-                  <li>Fayl formatı: .xlsx, .xls və ya .csv</li>
-                  <li>Maksimum fayl ölçüsü: 5 MB</li>
-                  <li>Mütləq sütunlar: Müəssisə, Sinif Səviyyəsi, Sinif Adı</li>
-                  <li>Müəssisələr sizin region daxilində olmalıdır</li>
-                  <li>Sinif səviyyəsi 1-12 arası olmalıdır</li>
-                </ul>
+              <div className="space-y-3">
+                <p className="font-semibold text-base">İdxal qaydaları:</p>
+
+                <div className="space-y-2">
+                  <p className="font-medium text-sm">1. Şablon yüklə:</p>
+                  <p className="text-sm text-muted-foreground pl-4">
+                    "Şablon yüklə" düyməsinə klikləyərək Excel şablonunu kompüterinizə endirin
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="font-medium text-sm">2. Məlumatları doldur:</p>
+                  <ul className="list-disc list-inside space-y-1 text-sm pl-4 text-muted-foreground">
+                    <li><strong className="text-foreground">UTIS kod</strong> və ya <strong className="text-foreground">Müəssisə kodu</strong> mütləqdir (ən az biri)</li>
+                    <li><strong className="text-foreground">Sinif səviyyəsi</strong> (1-12) və <strong className="text-foreground">Sinif adı</strong> (A,B,C...) mütləqdir</li>
+                    <li>Şagird sayı = Oğlan sayı + Qız sayı (avtomatik hesablanır)</li>
+                    <li>Digər sahələr ixtiyaridir: İxtisas, Kateqoriya, Təhsil proqramı</li>
+                  </ul>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="font-medium text-sm">3. Faylı yüklə:</p>
+                  <p className="text-sm text-muted-foreground pl-4">
+                    Doldurulmuş Excel faylını seçin və "İdxal Et" düyməsinə klikləyin
+                  </p>
+                </div>
+
+                <div className="bg-muted/50 p-3 rounded mt-3">
+                  <p className="font-medium text-sm mb-2">Nümunə sətir:</p>
+                  <code className="text-xs bg-background px-2 py-1 rounded block overflow-x-auto">
+                    12345678 | MKT-001 | 1 saylı məktəb | 5 | A | 25 | 13 | 12 | Ümumi | ümumi | umumi | 2024-2025
+                  </code>
+                </div>
+
+                <div className="space-y-1 pt-2">
+                  <p className="font-medium text-sm text-amber-600">⚠️ Qeyd:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs pl-4 text-amber-600">
+                    <li>Fayl formatı: .xlsx, .xls və ya .csv (maksimum 5 MB)</li>
+                    <li>Müəssisələr sizin region daxilində olmalıdır</li>
+                    <li>Mövcud siniflər yenilənəcək (duplikasiya olmayacaq)</li>
+                  </ul>
+                </div>
               </div>
             </AlertDescription>
           </Alert>

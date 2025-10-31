@@ -7,6 +7,8 @@ export interface ClassData {
     id: number;
     name: string;
     type: string;
+    utis_code?: string;
+    institution_code?: string;
   };
   academic_year_id: number;
   academicYear?: {
@@ -21,7 +23,9 @@ export interface ClassData {
   female_student_count: number;
   specialty?: string;
   grade_category?: string;
+  grade_type?: string;
   education_program?: string;
+  description?: string;
   homeroom_teacher_id?: number;
   homeroomTeacher?: {
     id: number;
@@ -33,7 +37,7 @@ export interface ClassData {
   room?: {
     id: number;
     name: string;
-    capacity: number;
+    capacity?: number;
   };
   is_active: boolean;
   created_at: string;
@@ -82,6 +86,21 @@ export interface Institution {
   id: number;
   name: string;
   type: string;
+  utis_code?: string;
+  institution_code?: string;
+  parent_id?: number;
+}
+
+export interface InstitutionGrouped {
+  sectors: Array<{
+    id: number;
+    name: string;
+    type: string;
+    schools: Institution[];
+    school_count: number;
+  }>;
+  direct_schools: Institution[];
+  all_schools: Institution[];
 }
 
 export interface AcademicYear {
@@ -184,7 +203,8 @@ class RegionAdminClassService {
   async downloadTemplate(): Promise<Blob> {
     const response = await apiClient.get(`${this.baseUrl}/export/template`, {
       responseType: 'blob',
-    });
+      cache: false, // Don't cache blob responses
+    } as any);
 
     return response.data;
   }
@@ -205,7 +225,8 @@ class RegionAdminClassService {
       {},
       {
         responseType: 'blob',
-      }
+        cache: false, // Don't cache blob responses
+      } as any
     );
 
     return response.data;
@@ -219,6 +240,19 @@ class RegionAdminClassService {
       success: boolean;
       data: Institution[];
     }>(`${this.baseUrl}/filter-options/institutions`);
+
+    return response.data.data;
+  }
+
+  /**
+   * Get institutions grouped by sector
+   */
+  async getInstitutionsGrouped(): Promise<InstitutionGrouped> {
+    const response = await apiClient.get<{
+      success: boolean;
+      data: InstitutionGrouped;
+      region_name: string;
+    }>(`${this.baseUrl}/filter-options/institutions-grouped`);
 
     return response.data.data;
   }

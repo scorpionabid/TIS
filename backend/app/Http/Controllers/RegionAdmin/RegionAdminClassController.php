@@ -36,7 +36,32 @@ class RegionAdminClassController extends Controller
             
             // Get all classes (grades) from schools in this region
             $classes = Grade::whereIn('institution_id', $allowedInstitutionIds)
-                ->with(['institution:id,name,type', 'homeroomTeacher:id,username,first_name,last_name', 'room:id,name'])
+                ->with([
+                    'institution:id,name,type,utis_code,institution_code',
+                    'homeroomTeacher:id,username,first_name,last_name',
+                    'room:id,name,capacity',
+                    'academicYear:id,year,is_current'
+                ])
+                ->select([
+                    'id',
+                    'name',
+                    'class_level',
+                    'institution_id',
+                    'homeroom_teacher_id',
+                    'room_id',
+                    'academic_year_id',
+                    'student_count',
+                    'male_student_count',
+                    'female_student_count',
+                    'specialty',
+                    'grade_category',
+                    'grade_type',
+                    'education_program',
+                    'description',
+                    'is_active',
+                    'created_at',
+                    'updated_at'
+                ])
                 ->when($request->get('search'), function ($query, $search) {
                     $query->where('name', 'ILIKE', "%{$search}%");
                 })
@@ -45,13 +70,20 @@ class RegionAdminClassController extends Controller
                         $query->where('institution_id', $institutionId);
                     }
                 })
-                ->when($request->get('is_active'), function ($query, $isActive) {
+                ->when($request->get('class_level'), function ($query, $classLevel) {
+                    $query->where('class_level', $classLevel);
+                })
+                ->when($request->get('academic_year_id'), function ($query, $academicYearId) {
+                    $query->where('academic_year_id', $academicYearId);
+                })
+                ->when($request->has('is_active'), function ($query) use ($request) {
+                    $isActive = $request->get('is_active') === 'true' || $request->get('is_active') === true;
                     $query->where('is_active', $isActive);
                 })
                 ->orderBy('institution_id')
                 ->orderBy('class_level')
                 ->orderBy('name')
-                ->paginate($request->get('per_page', 15));
+                ->paginate($request->get('per_page', 20));
 
             return response()->json([
                 'success' => true,
@@ -220,64 +252,66 @@ class RegionAdminClassController extends Controller
 
     /**
      * Download Excel template for class import
+     * Template includes UTIS code and institution code columns
      */
-    public function exportClassesTemplate(): StreamedResponse
+    public function exportClassesTemplate()
     {
-        $filename = 'class_import_template_' . date('Y-m-d') . '.xlsx';
+        try {
+            $user = Auth::user();
+            $region = Institution::findOrFail($user->institution_id);
 
-        return Excel::download(new class implements \Maatwebsite\Excel\Concerns\FromArray, \Maatwebsite\Excel\Concerns\WithHeadings {
-            public function array(): array
-            {
-                return [
-                    [
-                        'Məktəb #1',           // institution_name
-                        5,                      // class_level
-                        'A',                    // class_name
-                        25,                     // student_count
-                        13,                     // male_count
-                        12,                     // female_count
-                        'Ümumi',               // specialty
-                        'ümumi',               // grade_category
-                        'umumi',               // education_program
-                        '2024-2025',           // academic_year
-                    ],
-                    [
-                        'Məktəb #2',
-                        6,
-                        'B',
-                        30,
-                        15,
-                        15,
-                        'Riyaziyyat',
-                        'ixtisaslaşdırılmış',
-                        'umumi',
-                        '2024-2025',
-                    ],
-                ];
-            }
+            $allowedInstitutionIds = $region->getAllChildrenIds();
+            $allowedInstitutionIds[] = $region->id;
 
-            public function headings(): array
-            {
-                return [
-                    'Institution Name',      // institution_name
-                    'Class Level',          // class_level (1-12)
-                    'Class Name',           // class_name (A, B, C, etc.)
-                    'Student Count',        // student_count
-                    'Male Count',           // male_count
-                    'Female Count',         // female_count
-                    'Specialty',           // specialty (optional)
-                    'Grade Category',      // grade_category (ümumi, ixtisaslaşdırılmış)
-                    'Education Program',   // education_program (umumi, xususi, etc.)
-                    'Academic Year',       // academic_year (2024-2025)
-                ];
-            }
-        }, $filename);
+            // Get all schools in region with codes
+            $institutions = Institution::whereIn('id', $allowedInstitutionIds)
+                ->whereIn('type', ['Ümumi təhsil məktəbi', 'Uşaq Bağçası', 'Məktəbəqədər təhsil müəssisəsi', 'Lisey', 'Gimnaziya'])
+                ->select('id', 'name', 'utis_code', 'institution_code', 'type')
+                ->orderBy('name')
+                ->get();
+
+            $filename = 'sinif-import-shablon-' . date('Y-m-d') . '.xlsx';
+
+            return Excel::download(
+                new \App\Exports\ClassesTemplateExport($institutions),
+                $filename
+            );
+
+        } catch (\Exception $e) {
+            Log::error('Template export failed: ' . $e->getMessage());
+
+            // Fallback to simple template
+            return Excel::download(new class implements \Maatwebsite\Excel\Concerns\FromArray, \Maatwebsite\Excel\Concerns\WithHeadings {
+                public function array(): array
+                {
+                    return [];
+                }
+
+                public function headings(): array
+                {
+                    return [
+                        'UTIS Kod',
+                        'Müəssisə Kodu',
+                        'Müəssisə Adı',
+                        'Sinif Səviyyəsi (1-12)',
+                        'Sinif Adı (A,B,C...)',
+                        'Şagird Sayı',
+                        'Oğlan Sayı',
+                        'Qız Sayı',
+                        'İxtisas',
+                        'Kateqoriya',
+                        'Təhsil Proqramı',
+                        'Tədris İli',
+                    ];
+                }
+            }, 'sinif-import-shablon-' . date('Y-m-d') . '.xlsx');
+        }
     }
 
     /**
      * Export classes to Excel with filters
      */
-    public function exportClasses(Request $request): StreamedResponse
+    public function exportClasses(Request $request)
     {
         try {
             $user = Auth::user();
@@ -421,6 +455,86 @@ class RegionAdminClassController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch academic years',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get institutions grouped by sector
+     * Returns hierarchical structure for better UX in dropdowns
+     */
+    public function getInstitutionsGroupedBySector(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $region = Institution::findOrFail($user->institution_id);
+
+            $allowedInstitutionIds = $region->getAllChildrenIds();
+            $allowedInstitutionIds[] = $region->id;
+
+            // Get all institutions in region
+            $institutions = Institution::whereIn('id', $allowedInstitutionIds)
+                ->select('id', 'name', 'type', 'parent_id', 'utis_code', 'institution_code')
+                ->orderBy('type')
+                ->orderBy('name')
+                ->get();
+
+            // Find sectors (level 2 institutions)
+            $sectors = $institutions->where('type', 'Sektor');
+
+            // Group schools by sector
+            $grouped = $sectors->map(function ($sector) use ($institutions) {
+                $schools = $institutions->where('parent_id', $sector->id)
+                    ->whereIn('type', [
+                        'Ümumi təhsil məktəbi',
+                        'Uşaq Bağçası',
+                        'Məktəbəqədər təhsil müəssisəsi',
+                        'Lisey',
+                        'Gimnaziya',
+                        'Texniki peşə məktəbi',
+                        'Xüsusi məktəb'
+                    ])
+                    ->values();
+
+                return [
+                    'id' => $sector->id,
+                    'name' => $sector->name,
+                    'type' => $sector->type,
+                    'schools' => $schools,
+                    'school_count' => $schools->count(),
+                ];
+            })->values();
+
+            // Also include schools without sector (direct children of region)
+            $directSchools = $institutions->where('parent_id', $region->id)
+                ->whereNotIn('type', ['Sektor', 'Regional İdarə'])
+                ->values();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'sectors' => $grouped,
+                    'direct_schools' => $directSchools,
+                    'all_schools' => $institutions->whereIn('type', [
+                        'Ümumi təhsil məktəbi',
+                        'Uşaq Bağçası',
+                        'Məktəbəqədər təhsil müəssisəsi',
+                        'Lisey',
+                        'Gimnaziya',
+                        'Texniki peşə məktəbi',
+                        'Xüsusi məktəb'
+                    ])->values(),
+                ],
+                'region_name' => $region->name,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch grouped institutions: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch institutions',
                 'error' => $e->getMessage()
             ], 500);
         }

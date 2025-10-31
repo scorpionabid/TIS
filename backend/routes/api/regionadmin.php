@@ -24,6 +24,7 @@ Route::middleware(['auth:sanctum', 'role:regionadmin'])
 
         // Get filter options
         Route::get('/filter-options/institutions', [RegionAdminClassController::class, 'getAvailableInstitutions']);
+        Route::get('/filter-options/institutions-grouped', [RegionAdminClassController::class, 'getInstitutionsGroupedBySector']);
         Route::get('/filter-options/academic-years', [RegionAdminClassController::class, 'getAvailableAcademicYears']);
 
         // Import/Export operations

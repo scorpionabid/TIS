@@ -116,26 +116,52 @@ export const RegionClassManagement = () => {
   // Handle export
   const handleExportTemplate = async () => {
     try {
-      const blob = await regionAdminClassService.downloadTemplate();
+      const response = await regionAdminClassService.downloadTemplate();
+
+      // Ensure we have a proper Blob
+      let blob: Blob;
+      if (response instanceof Blob) {
+        blob = response;
+      } else {
+        // If cached response is not a blob, convert it
+        console.warn('Response is not a Blob, converting...');
+        blob = new Blob([JSON.stringify(response)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      }
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `class_import_template_${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.download = `sinif-import-shablon-${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Template download failed:', error);
+      alert('Şablon yüklənməsində xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.');
     }
   };
 
   const handleExport = async () => {
     try {
-      const blob = await regionAdminClassService.exportClasses(filterParams);
+      const response = await regionAdminClassService.exportClasses(filterParams);
+
+      // Ensure we have a proper Blob
+      let blob: Blob;
+      if (response instanceof Blob) {
+        blob = response;
+      } else {
+        console.warn('Response is not a Blob, converting...');
+        blob = new Blob([JSON.stringify(response)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      }
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `classes_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.download = `sinifler-eksport-${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Export failed:', error);
