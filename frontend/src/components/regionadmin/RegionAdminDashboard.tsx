@@ -1,218 +1,258 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import {
-  Users,
-  School,
-  Building2,
-  ClipboardCheck,
-  TrendingUp,
-  TrendingDown,
-  AlertTriangle,
-  CheckCircle,
-  Clock,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  AlertCircle,
+  ArrowRight,
+  BookOpen,
+  CalendarDays,
+  CheckSquare,
+  ClipboardList,
   FileText,
-  BarChart3,
-  Activity
-} from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { regionAdminService } from '@/services/regionAdmin';
+  ListChecks,
+  RefreshCw,
+  TrendingUp,
+  Users,
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { az } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { regionAdminService } from "@/services/regionAdmin";
+import { useAuth } from "@/contexts/AuthContext";
 
-interface RegionStats {
-  region_overview: {
-    region_name: string;
-    total_sectors: number;
-    total_schools: number;
-    total_users: number;
-    active_users: number;
-    user_activity_rate: number;
-  };
-  survey_metrics: {
-    total_surveys: number;
-    active_surveys: number;
-    total_responses: number;
-    response_rate: number;
-  };
-  task_metrics: {
-    total_tasks: number;
-    completed_tasks: number;
-    pending_tasks: number;
-    completion_rate: number;
-  };
-  sector_performance: Array<{
-    sector_name: string;
-    schools_count: number;
-    users_count: number;
-    surveys_count: number;
-    tasks_count: number;
-    completion_rate: number;
-  }>;
-  recent_activities: any[];
-  notifications: any[];
-  user_role: string;
-  region_id: number;
+interface RegionOverview {
+  region_name?: string;
+  total_sectors?: number;
+  total_schools?: number;
+  total_users?: number;
+  active_users?: number;
+  user_activity_rate?: number;
 }
 
-interface RecentActivity {
+interface MetricSummary {
+  total_surveys?: number;
+  active_surveys?: number;
+  total_responses?: number;
+  response_rate?: number;
+}
+
+interface TaskMetrics {
+  total_tasks?: number;
+  completed_tasks?: number;
+  pending_tasks?: number;
+  completion_rate?: number;
+}
+
+interface SectorPerformanceItem {
+  sector_name: string;
+  schools_count: number;
+  users_count: number;
+  surveys_count: number;
+  tasks_count: number;
+  completion_rate: number;
+}
+
+interface DashboardActivity {
   id: number;
-  type: 'user_created' | 'school_added' | 'survey_completed' | 'task_assigned';
-  description: string;
+  type: string;
+  action: string;
+  user: string;
+  time: string;
   timestamp: string;
-  user_name?: string;
-  institution_name?: string;
+}
+
+interface DashboardNotification {
+  id: number;
+  title: string;
+  message: string;
+  type: string;
+  is_read: boolean;
+  created_at: string;
+  time_ago: string;
+}
+
+interface RegionAdminDashboardResponse {
+  region_overview?: RegionOverview;
+  survey_metrics?: MetricSummary;
+  task_metrics?: TaskMetrics;
+  sector_performance?: SectorPerformanceItem[];
+  recent_activities?: DashboardActivity[];
+  notifications?: DashboardNotification[];
+  user_role?: string;
+  region_id?: number | null;
+  error?: string;
+  message?: string;
 }
 
 export const RegionAdminDashboard = () => {
   const { currentUser } = useAuth();
-  const isDevelopment = process.env.NODE_ENV !== 'production';
-  const debugLog = (...args: any[]) => {
-    if (isDevelopment) {
-      console.log(...args);
+  const navigate = useNavigate();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const {
+    data: dashboard,
+    isLoading,
+    refetch,
+  } = useQuery<RegionAdminDashboardResponse>({
+    queryKey: ["regionadmin-dashboard"],
+    queryFn: () => regionAdminService.getDashboardStats<RegionAdminDashboardResponse>(),
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+
+  const regionName =
+    dashboard?.region_overview?.region_name ??
+    currentUser?.institution?.name ??
+    "Regional İdarəetmə";
+
+  const summaryCards = useMemo(
+    () => [
+      {
+        label: "Sektorlar",
+        value: dashboard?.region_overview?.total_sectors ?? 0,
+      },
+      {
+        label: "Məktəblər",
+        value: dashboard?.region_overview?.total_schools ?? 0,
+      },
+      {
+        label: "İstifadəçilər",
+        value: dashboard?.region_overview?.total_users ?? 0,
+      },
+      {
+        label: "Aktiv istifadəçilər",
+        value: dashboard?.region_overview?.active_users ?? 0,
+      },
+      {
+        label: "Sorğu cavabları",
+        value: dashboard?.survey_metrics?.total_responses ?? 0,
+      },
+      {
+        label: "Tamamlanma nisbəti",
+        value:
+          dashboard?.task_metrics?.completion_rate !== undefined
+            ? `${dashboard.task_metrics.completion_rate}%`
+            : "—",
+      },
+    ],
+    [dashboard]
+  );
+
+  const quickLinks = useMemo(() => {
+    const taskMetrics = dashboard?.task_metrics;
+    const surveyMetrics = dashboard?.survey_metrics;
+
+    return [
+      {
+        key: "tasks",
+        title: "Tapşırıqlar",
+        description: "Region üzrə təyin edilmiş tapşırıqlar.",
+        href: "/tasks/assigned",
+        icon: ClipboardList,
+        badge: taskMetrics?.pending_tasks ?? 0,
+      },
+      {
+        key: "surveys",
+        title: "Sorğular",
+        description: "Aktiv regional sorğular.",
+        href: "/my-surveys/pending",
+        icon: ListChecks,
+        badge: surveyMetrics?.active_surveys ?? 0,
+      },
+      {
+        key: "assessments",
+        title: "Qiymətləndirmə",
+        description: "Qiymətləndirmə daxil etmə modulu.",
+        href: "/assessments/entry",
+        icon: CheckSquare,
+        badge: dashboard?.task_metrics?.total_tasks ?? 0,
+      },
+      {
+        key: "attendance",
+        title: "Davamiyyət",
+        description: "Toplu davamiyyət girişi.",
+        href: "/attendance/bulk",
+        icon: Users,
+        badge: dashboard?.region_overview?.active_users ?? 0,
+      },
+      {
+        key: "resources",
+        title: "Resurslar",
+        description: "Regional sənəd və qovluqlar.",
+        href: "/regionadmin/documents",
+        icon: BookOpen,
+        badge: dashboard?.notifications?.length ?? 0,
+      },
+      {
+        key: "approvals",
+        title: "Təsdiqlər",
+        description: "Müraciət və sorğuların təsdiqi.",
+        href: "/approvals",
+        icon: FileText,
+        badge: dashboard?.notifications?.length ?? 0,
+      },
+    ];
+  }, [dashboard]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+      toast.success("Dashboard yeniləndi");
+    } catch (error) {
+      toast.error("Yeniləmə alınmadı");
+    } finally {
+      setRefreshing(false);
     }
   };
 
-  // Debug current user
-  debugLog('🏛️ RegionAdminDashboard: Current user:', {
-    id: currentUser?.id,
-    name: currentUser?.name,
-    role: currentUser?.role,
-    institution_id: currentUser?.institution?.id,
-    permissions: currentUser?.permissions?.slice(0, 3)
-  });
-
-  // Fetch regional statistics
-  const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
-    queryKey: ['regionadmin-stats', currentUser?.institution?.id || 'no-institution'],
-    queryFn: async () => {
-      debugLog('📊 RegionAdminDashboard: Fetching stats for user:', currentUser?.name);
-      const data = await regionAdminService.getDashboardStats<RegionStats>();
-      debugLog('✅ RegionAdminDashboard: Stats response:', data);
-      return data;
-    },
-    enabled: !!currentUser,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
-
-  // Fetch recent activities
-  const { data: activities, isLoading: activitiesLoading, error: activitiesError } = useQuery({
-    queryKey: ['regionadmin-activities', currentUser?.institution?.id || 'no-institution'],
-    queryFn: async () => {
-      debugLog('📋 RegionAdminDashboard: Fetching activities for user:', currentUser?.name);
-      const data = await regionAdminService.getDashboardActivities<RecentActivity[]>();
-      debugLog('✅ RegionAdminDashboard: Activities response:', data);
-      return data || [];
-    },
-    enabled: !!currentUser,
-    staleTime: 1000 * 60 * 2, // 2 minutes
-  });
-
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'user_created':
-        return <Users className="h-4 w-4 text-blue-500" />;
-      case 'school_added':
-        return <School className="h-4 w-4 text-green-500" />;
-      case 'survey_completed':
-        return <CheckCircle className="h-4 w-4 text-purple-500" />;
-      case 'task_assigned':
-        return <ClipboardCheck className="h-4 w-4 text-orange-500" />;
-      default:
-        return <Activity className="h-4 w-4 text-gray-500" />;
-    }
-  };
-
-  const formatActivityDescription = (activity: RecentActivity) => {
-    switch (activity.type) {
-      case 'user_created':
-        return `${activity.user_name} istifadəçisi yaradıldı`;
-      case 'school_added':
-        return `${activity.institution_name} məktəbi əlavə edildi`;
-      case 'survey_completed':
-        return activity.description;
-      case 'task_assigned':
-        return activity.description;
-      default:
-        return activity.description;
-    }
-  };
-
-  // Debug logs
-  debugLog('🏛️ RegionAdminDashboard: Stats data:', stats);
-  debugLog('🏛️ RegionAdminDashboard: Activities data:', activities);
-  debugLog('🏛️ RegionAdminDashboard: Errors:', { statsError, activitiesError });
-
-  if (statsLoading) {
+  if (!isLoading && dashboard?.region_id === null) {
     return (
-      <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-64 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded-lg"></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Check if user has no institution assignment
-  if (!currentUser?.institution?.id) {
-    return (
-      <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
+      <div className="space-y-4 px-2 pt-0 pb-4 sm:px-3 lg:px-4">
         <Card className="border-amber-200 bg-amber-50">
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2 text-amber-600">
-              <AlertTriangle className="h-5 w-5" />
-              <span>Müəssisə təyini tələb olunur</span>
+            <CardTitle className="flex items-center gap-2 text-amber-700">
+              <AlertCircle className="h-5 w-5" />
+              Region təyinatı tələb olunur
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <p className="text-sm text-amber-800">
-                RegionAdmin dashboardunu görmək üçün müəssisəyə təyin olunmalısınız.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Bu problemin həlli üçün sistem administratoru ilə əlaqə saxlayın.
-              </p>
-              <div className="pt-2">
-                <Badge variant="outline" className="text-amber-600 border-amber-300">
-                  İstifadəçi ID: {currentUser?.id} | İstifadəçi adı: {currentUser?.name}
-                </Badge>
-              </div>
-            </div>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <p>
+              Regional dashboardu görmək üçün istifadəçi regional
+              müəssisəyə təyin olunmalıdır.
+            </p>
+            <p>Zəhmət olmasa sistem administratoru ilə əlaqə saxlayın.</p>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  // Show error state if there are errors
-  if (statsError || activitiesError) {
+  if (!isLoading && dashboard?.error) {
     return (
-      <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
-        <Card className="border-red-200">
+      <div className="space-y-4 px-2 pt-0 pb-4 sm:px-3 lg:px-4">
+        <Card className="border-amber-200 bg-amber-50">
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2 text-red-600">
-              <AlertTriangle className="h-5 w-5" />
-              <span>Dashboard yüklənərkən xəta</span>
+            <CardTitle className="flex items-center gap-2 text-amber-700">
+              <AlertCircle className="h-5 w-5" />
+              {dashboard.error}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {statsError && (
-                <p className="text-sm text-red-600">
-                  Stats xətası: {(statsError as Error).message}
-                </p>
-              )}
-              {activitiesError && (
-                <p className="text-sm text-red-600">
-                  Activities xətası: {(activitiesError as Error).message}
-                </p>
-              )}
-            </div>
+            <p className="text-sm text-muted-foreground">
+              {dashboard.message ??
+                "Regional dashboard məlumatları hazırda əlçatan deyil."}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -220,183 +260,248 @@ export const RegionAdminDashboard = () => {
   }
 
   return (
-    <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Regional İdarəetmə Dashboard</h1>
-        <p className="text-muted-foreground">
-          Regional təhsil strukturunun ümumi baxışı və performans göstəriciləri
-        </p>
+    <div className="space-y-6 px-2 pt-0 pb-4 sm:px-3 lg:px-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">
+            {regionName}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Regional idarəetmənin əsas göstəriciləri və qısayolları.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full gap-2 sm:w-auto"
+          onClick={handleRefresh}
+          disabled={refreshing || isLoading}
+        >
+          <RefreshCw
+            className={cn(
+              "h-4 w-4",
+              (refreshing || isLoading) && "animate-spin"
+            )}
+          />
+          Yenilə
+        </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Total Sectors */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Ümumi Sektorlar</p>
-                <p className="text-3xl font-bold text-blue-600">{stats?.region_overview?.total_sectors || 0}</p>
-              </div>
-              <Building2 className="h-12 w-12 text-blue-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Total Schools */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Ümumi Məktəblər</p>
-                <p className="text-3xl font-bold text-green-600">{stats?.region_overview?.total_schools || 0}</p>
-              </div>
-              <School className="h-12 w-12 text-green-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Total Users */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Ümumi İstifadəçilər</p>
-                <p className="text-3xl font-bold text-purple-600">{stats?.region_overview?.total_users || 0}</p>
-              </div>
-              <Users className="h-12 w-12 text-purple-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Active Surveys */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Aktiv Sorğular</p>
-                <p className="text-3xl font-bold text-orange-600">{stats?.survey_metrics?.active_surveys || 0}</p>
-              </div>
-              <FileText className="h-12 w-12 text-orange-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Pending Tasks */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Gözləyən Tapşırıqlar</p>
-                <p className="text-3xl font-bold text-red-600">{stats?.task_metrics?.pending_tasks || 0}</p>
-              </div>
-              <Clock className="h-12 w-12 text-red-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Completion Rate */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Tamamlanma Nisbəti</p>
-                <div className="flex items-center space-x-2">
-                  <p className="text-3xl font-bold text-teal-600">
-                    {stats?.region_overview?.user_activity_rate ? `${stats.region_overview.user_activity_rate}%` : '0%'}
-                  </p>
-                  {stats?.performance_trend !== undefined && (
-                    stats.performance_trend > 0 ? (
-                      <TrendingUp className="h-6 w-6 text-green-500" />
-                    ) : stats.performance_trend < 0 ? (
-                      <TrendingDown className="h-6 w-6 text-red-500" />
-                    ) : null
-                  )}
-                </div>
-              </div>
-              <BarChart3 className="h-12 w-12 text-teal-500" />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        {summaryCards.map((item) => (
+          <div
+            key={item.label}
+            className="flex items-center justify-between rounded-lg border border-border/60 bg-card/85 px-3 py-3"
+          >
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {item.label}
+            </span>
+            <span className="text-base font-semibold text-foreground">
+              {item.value}
+            </span>
+          </div>
+        ))}
       </div>
 
-      {/* Recent Activities */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Activity className="h-5 w-5" />
-              <span>Son Fəaliyyətlər</span>
-            </CardTitle>
-            <CardDescription>
-              Regional səviyyədə baş verən son dəyişikliklər
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {activitiesLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="animate-pulse flex space-x-3">
-                    <div className="h-4 w-4 bg-gray-200 rounded"></div>
-                    <div className="h-4 bg-gray-200 rounded flex-1"></div>
-                  </div>
-                ))}
-              </div>
-            ) : activities && activities.length > 0 ? (
-              <div className="space-y-4">
-                {activities.slice(0, 8).map((activity) => (
-                  <div key={activity.id} className="flex items-start space-x-3">
-                    {getActivityIcon(activity.type)}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-900">
-                        {formatActivityDescription(activity)}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {quickLinks.map((link) => {
+          const Icon = link.icon;
+          return (
+            <Card
+              key={link.key}
+              align="start"
+              className="flex h-full flex-col border border-border/60 bg-card/90 transition-colors hover:border-primary/40 hover:shadow-sm"
+            >
+              <CardContent className="flex flex-1 flex-col gap-3 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-1 items-center gap-3">
+                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">
+                        {link.title}
                       </p>
-                      <p className="text-xs text-gray-500">
-                        {new Date(activity.timestamp).toLocaleString('az-AZ')}
+                      <p className="text-xs text-muted-foreground">
+                        {link.description}
                       </p>
                     </div>
                   </div>
-                ))}
-              </div>
+                  <Badge
+                    variant="outline"
+                    className="rounded-full border px-2 py-0.5 text-xs font-medium"
+                  >
+                    {link.badge}
+                  </Badge>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-fit gap-1 px-0 text-primary"
+                  onClick={() => navigate(link.href)}
+                >
+                  Aç
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-base font-semibold">
+                Sektor performansı
+              </CardTitle>
+              <CardDescription>
+                Region daxilində sektorların əsas göstəriciləri
+              </CardDescription>
+            </div>
+            <TrendingUp className="h-5 w-5 text-muted-foreground" />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {dashboard?.sector_performance?.length ? (
+              dashboard.sector_performance.slice(0, 6).map((sector) => (
+                <div
+                  key={sector.sector_name}
+                  className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-foreground">
+                      {sector.sector_name}
+                    </p>
+                    <span className="text-xs text-muted-foreground">
+                      {sector.completion_rate}% tamamlanma
+                    </span>
+                  </div>
+                  <div className="mt-1 grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+                    <span>Məktəb: {sector.schools_count}</span>
+                    <span>İşçi: {sector.users_count}</span>
+                    <span>Tapş.: {sector.tasks_count}</span>
+                  </div>
+                </div>
+              ))
             ) : (
-              <div className="text-center py-8">
-                <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">Hələ ki fəaliyyət qeydə alınmayıb</p>
+              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/60 px-3 py-6 text-center text-sm text-muted-foreground">
+                <AlertCircle className="h-5 w-5" />
+                Sektor performans məlumatı tapılmadı.
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Quick Actions */}
         <Card>
-          <CardHeader>
-            <CardTitle>Tez Əməliyyatlar</CardTitle>
-            <CardDescription>
-              Tez-tez istifadə olunan funksiyalar
-            </CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-base font-semibold">
+                Yaxın son tarixlər
+              </CardTitle>
+              <CardDescription>Tapşırıq və sorğu prioritetləri</CardDescription>
+            </div>
+            <CalendarDays className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button className="w-full justify-start" variant="outline">
-              <Users className="h-4 w-4 mr-2" />
-              Yeni İstifadəçi Yaratmaq
-            </Button>
-            <Button className="w-full justify-start" variant="outline">
-              <School className="h-4 w-4 mr-2" />
-              Məktəb Əlavə Etmək
-            </Button>
-            <Button className="w-full justify-start" variant="outline">
-              <ClipboardCheck className="h-4 w-4 mr-2" />
-              Tapşırıq Təyin Etmək
-            </Button>
-            <Button className="w-full justify-start" variant="outline">
-              <FileText className="h-4 w-4 mr-2" />
-              Sorğu Yaratmaq
-            </Button>
-            <Button className="w-full justify-start" variant="outline">
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Hesabat Əldə Etmək
-            </Button>
+            {dashboard?.task_metrics?.pending_tasks ? (
+              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3">
+                <p className="text-sm font-medium text-foreground">
+                  Gözləyən tapşırıqlar
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Aktiv tapşırıqlar: {dashboard.task_metrics.pending_tasks}
+                </p>
+              </div>
+            ) : null}
+            {dashboard?.survey_metrics?.active_surveys ? (
+              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3">
+                <p className="text-sm font-medium text-foreground">
+                  Aktiv sorğular
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Cavab gözləyir: {dashboard.survey_metrics.active_surveys}
+                </p>
+              </div>
+            ) : null}
+            {!dashboard?.task_metrics?.pending_tasks &&
+            !dashboard?.survey_metrics?.active_surveys ? (
+              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/60 px-3 py-6 text-center text-sm text-muted-foreground">
+                <AlertCircle className="h-5 w-5" />
+                Hazırda təcili son tarix yoxdur.
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">
+              Son fəaliyyətlər
+            </CardTitle>
+            <CardDescription>Region səviyyəsində edilən addımlar</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {dashboard?.recent_activities?.length ? (
+              dashboard.recent_activities.slice(0, 6).map((activity) => (
+                <div
+                  key={`${activity.type}-${activity.id}-${activity.timestamp}`}
+                  className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm"
+                >
+                  <p className="font-medium text-foreground">
+                    {activity.action}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {activity.user} •{" "}
+                    {formatDistanceToNow(new Date(activity.timestamp), {
+                      addSuffix: true,
+                      locale: az,
+                    })}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/60 px-3 py-6 text-center text-sm text-muted-foreground">
+                <FileText className="h-5 w-5" />
+                Fəaliyyət qeydi tapılmadı.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">
+              Bildirişlər
+            </CardTitle>
+            <CardDescription>Regional xəbərdarlıqlar və elanlar</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {dashboard?.notifications?.length ? (
+              dashboard.notifications.slice(0, 6).map((notification) => (
+                <div
+                  key={notification.id}
+                  className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
+                >
+                  <p className="text-sm font-medium text-foreground">
+                    {notification.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {notification.message}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground/80">
+                    {notification.time_ago}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/60 px-3 py-6 text-center text-sm text-muted-foreground">
+                <AlertCircle className="h-5 w-5" />
+                Yeni bildiriş yoxdur.
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

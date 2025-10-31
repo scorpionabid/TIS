@@ -1,27 +1,49 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { StatsCard } from "@/components/dashboard/StatsCard";
-import { 
-  School, 
-  Users, 
-  GraduationCap, 
-  BarChart3, 
-  FileText, 
-  Bell, 
-  TrendingUp,
-  Calendar,
-  Activity,
-  UserCheck,
-  BookOpen,
-  Target,
-  AlertCircle,
-  RefreshCw
-} from "lucide-react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertCircle,
+  ArrowRight,
+  BookOpen,
+  ClipboardList,
+  FileText,
+  GraduationCap,
+  ListChecks,
+  RefreshCw,
+  School,
+  Users,
+} from "lucide-react";
 import { dashboardService } from "@/services/dashboard";
-import { Loader2 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { az } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+
+const isValidDateValue = (value?: string) => {
+  if (!value) return false;
+  const parsed = Date.parse(value);
+  return !Number.isNaN(parsed);
+};
+
+const getRelativeTime = (activity: SektorDashboardStats["recentActivities"][number]) => {
+  const timestampCandidate = activity.created_at ?? activity.time;
+  if (timestampCandidate && isValidDateValue(timestampCandidate)) {
+    return formatDistanceToNow(new Date(timestampCandidate), {
+      addSuffix: true,
+      locale: az,
+    });
+  }
+  return activity.time || "—";
+};
 
 interface SektorDashboardStats {
   totalSchools: number;
@@ -37,13 +59,14 @@ interface SektorDashboardStats {
     establishedYear: string;
   };
   recentActivities: Array<{
-    id: string;
+    id: string | number;
     type: string;
     title: string;
     description: string;
     time: string;
     status: string;
     school?: string;
+    created_at?: string;
   }>;
   schoolsList: Array<{
     id: number;
@@ -56,293 +79,320 @@ interface SektorDashboardStats {
 }
 
 export const SektorAdminDashboard = () => {
-  // Load dashboard data
-  const { data: stats, isLoading, error, refetch, isFetching } = useQuery<SektorDashboardStats>({
-    queryKey: ['sektor-dashboard-stats'],
+  const navigate = useNavigate();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const {
+    data: stats,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery<SektorDashboardStats>({
+    queryKey: ["sektoradmin-dashboard"],
     queryFn: () => dashboardService.getSektorAdminStats(),
-    refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes
-    refetchIntervalInBackground: false, // Don't refresh in background
-    staleTime: 3 * 60 * 1000, // 3 minutes - data stays fresh
-    gcTime: 10 * 60 * 1000, // 10 minutes cache
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
-  const handleManualRefresh = () => {
-    refetch();
+  const summaryCards = useMemo(
+    () => [
+      {
+        label: "Ümumi məktəblər",
+        value: stats?.totalSchools ?? 0,
+      },
+      {
+        label: "Aktiv məktəblər",
+        value: stats?.activeSchools ?? 0,
+      },
+      {
+        label: "Şagird sayı",
+        value: stats?.totalStudents
+          ? stats.totalStudents.toLocaleString()
+          : "0",
+      },
+      {
+        label: "Müəllim sayı",
+        value: stats?.totalTeachers ?? 0,
+      },
+      {
+        label: "Sektor istifadəçiləri",
+        value: stats?.sektorUsers ?? 0,
+      },
+      {
+        label: "Aktiv sorğular",
+        value: stats?.activeSurveys ?? 0,
+      },
+      {
+        label: "Gözləyən hesabatlar",
+        value: stats?.pendingReports ?? 0,
+      },
+    ],
+    [stats]
+  );
+
+  const quickLinks = useMemo(
+    () => [
+      {
+        key: "tasks",
+        title: "Tapşırıqlar",
+        description: "Sektor üzrə tapşırıqları izləyin.",
+        href: "/tasks/assigned",
+        icon: ClipboardList,
+        badge: stats?.pendingReports ?? 0,
+      },
+      {
+        key: "surveys",
+        title: "Sorğular",
+        description: "Aktiv sorğulara nəzarət edin.",
+        href: "/my-surveys/pending",
+        icon: ListChecks,
+        badge: stats?.activeSurveys ?? 0,
+      },
+      {
+        key: "assessments",
+        title: "Qiymətləndirmə",
+        description: "Qiymətləndirmə daxil etmə paneli.",
+        href: "/assessments/entry",
+        icon: GraduationCap,
+        badge: stats?.totalStudents ?? 0,
+      },
+      {
+        key: "attendance",
+        title: "Davamiyyət",
+        description: "Toplu davamiyyət hesabatları.",
+        href: "/attendance/bulk",
+        icon: Users,
+        badge: stats?.totalTeachers ?? 0,
+      },
+      {
+        key: "resources",
+        title: "Resurslar",
+        description: "Sektor sənədləri və qovluqları.",
+        href: "/my-resources",
+        icon: BookOpen,
+        badge: stats?.pendingReports ?? 0,
+      },
+      {
+        key: "approvals",
+        title: "Təsdiqlər",
+        description: "Sektor üzrə təsdiq prosesləri.",
+        href: "/approvals",
+        icon: FileText,
+        badge: stats?.pendingReports ?? 0,
+      },
+    ],
+    [stats]
+  );
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+      toast.success("Panel yeniləndi");
+    } catch (error) {
+      toast.error("Yeniləmə zamanı xəta baş verdi");
+    } finally {
+      setRefreshing(false);
+    }
   };
 
-  if (isLoading) {
+  if (isLoading && !stats) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="flex flex-col items-center space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-lg text-muted-foreground">Sektor məlumatları yüklənir...</p>
+      <div className="flex h-[320px] items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <RefreshCw className="h-6 w-6 animate-spin" />
+          <span>Panel məlumatları yüklənir...</span>
         </div>
       </div>
     );
   }
 
-  if (error || !stats) {
+  if (!stats) {
     return (
-      <div className="space-y-6">
-        <div className="flex flex-col space-y-2">
-          <h1 className="text-3xl font-bold text-foreground">
-            Sektor İdarəetmə Paneli
-          </h1>
-          <p className="text-muted-foreground">
-            Sektorunuzdakı bütün məktəblərin və fəaliyyətlərin idarə edilməsi
-          </p>
-        </div>
-        
-        <Card className="border-destructive">
+      <div className="space-y-4">
+        <Card className="border-destructive/40 bg-destructive/10">
           <CardHeader>
-            <CardTitle className="text-destructive flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-destructive">
               <AlertCircle className="h-5 w-5" />
-              Xəta baş verdi
+              Məlumat tapılmadı
             </CardTitle>
             <CardDescription>
-              Dashboard məlumatları yüklənə bilmədi. İnternet bağlantınızı yoxlayın və səhifəni yeniləyin.
+              Sektor dashboardu üçün məlumat əldə edilə bilmədi.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button 
-              onClick={() => window.location.reload()} 
-              className="flex items-center gap-2"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Yenidən yüklə
+            <Button onClick={handleRefresh} variant="outline">
+              Yenidən cəhd et
             </Button>
           </CardContent>
         </Card>
       </div>
     );
   }
-
-  const schoolsActiveRate = stats.totalSchools > 0 
-    ? Math.round((stats.activeSchools / stats.totalSchools) * 100) 
-    : 0;
 
   return (
-    <div className="space-y-6">
-      {/* Header Section */}
-      <div className="flex flex-col space-y-2">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-foreground">
+    <div className="space-y-6 px-2 pt-0 pb-4 sm:px-3 lg:px-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">
             Sektor İdarəetmə Paneli
           </h1>
-          <div className="flex items-center gap-3">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleManualRefresh}
-              disabled={isFetching}
-              className="flex items-center gap-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
-              Yenilə
-            </Button>
-            <Badge variant="secondary" className="text-sm">
-              {stats.sektorInfo.region} - {stats.sektorInfo.name}
-            </Badge>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            Sektorunuzdakı məktəblərin və fəaliyyətlərin ümumi baxışı.
+          </p>
         </div>
-        <p className="text-muted-foreground">
-          Sektorunuzdakı bütün məktəblərin və fəaliyyətlərin idarə edilməsi
-        </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Badge variant="secondary" className="w-fit">
+            {stats.sektorInfo.region} • {stats.sektorInfo.name}
+          </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={handleRefresh}
+            disabled={refreshing || isFetching}
+          >
+            <RefreshCw
+              className={cn(
+                "h-4 w-4",
+                (refreshing || isFetching) && "animate-spin"
+              )}
+            />
+            Yenilə
+          </Button>
+        </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatsCard
-          title="Ümumi Məktəblər"
-          value={stats.totalSchools.toString()}
-          description={`${stats.activeSchools} aktiv məktəb`}
-          icon={School}
-          trend={{ value: schoolsActiveRate, isPositive: true }}
-        />
-        <StatsCard
-          title="Ümumi Şagirdlər"
-          value={stats.totalStudents.toLocaleString()}
-          description="Bütün məktəblərdə"
-          icon={GraduationCap}
-        />
-        <StatsCard
-          title="Ümumi Müəllimlər"
-          value={stats.totalTeachers.toString()}
-          description="Aktiv müəllimlər"
-          icon={UserCheck}
-          trend={{ value: 12, isPositive: true }}
-        />
-        <StatsCard
-          title="Sektor İstifadəçiləri"
-          value={stats.sektorUsers.toString()}
-          description="Sistem istifadəçiləri"
-          icon={Users}
-        />
-      </div>
-
-      {/* Secondary Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Aktiv Sorğular</CardTitle>
-            <Bell className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">{stats.activeSurveys}</div>
-            <p className="text-xs text-muted-foreground">Cavab gözləyir</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Gözləyən Hesabatlar</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{stats.pendingReports}</div>
-            <p className="text-xs text-muted-foreground">Təqdim edilməlidir</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Məktəb Aktivlik Dərəcəsi</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{schoolsActiveRate}%</div>
-            <Progress value={schoolsActiveRate} className="mt-2" />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        
-        {/* Schools Overview */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <School className="h-5 w-5" />
-              Məktəblər Ümumi Görünüş
-            </CardTitle>
-            <CardDescription>
-              Sektorunuzdakı məktəblərin əsas statistikaları
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {stats.schoolsList.map((school) => (
-                <div key={school.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-medium">{school.name}</h4>
-                      <Badge 
-                        variant={school.status === 'active' ? 'default' : 'secondary'}
-                        className="text-xs"
-                      >
-                        {school.status === 'active' ? 'Aktiv' : 'Deaktiv'}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground capitalize">{school.type}</p>
-                  </div>
-                  <div className="text-right">
-                    <div className="flex items-center gap-4 text-sm">
-                      <span className="flex items-center gap-1">
-                        <GraduationCap className="h-3 w-3" />
-                        {school.students}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        {school.teachers}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              <div className="pt-2 border-t">
-                <Button variant="outline" className="w-full">
-                  Bütün məktəblər
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Recent Activities */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" />
-              Son Fəaliyyətlər
-            </CardTitle>
-            <CardDescription>
-              Sektor daxilindəki son dəyişikliklər
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {stats.recentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-start space-x-3">
-                  <div className="flex-shrink-0">
-                    <div className={`w-2 h-2 rounded-full mt-2 ${
-                      activity.status === 'completed' ? 'bg-green-500' :
-                      activity.status === 'in_progress' ? 'bg-blue-500' :
-                      activity.status === 'pending' ? 'bg-orange-500' :
-                      'bg-gray-400'
-                    }`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{activity.title}</p>
-                    <p className="text-xs text-muted-foreground">{activity.description}</p>
-                    {activity.school && (
-                      <p className="text-xs text-blue-600 mt-1">{activity.school}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-1">{activity.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
-            Tez Əməliyyatlar
-          </CardTitle>
-          <CardDescription>
-            Tez-tez istifadə edilən əməliyyatlar
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2 sm:gap-3">
-            <Button className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Yeni Sorğu Yarat
-            </Button>
-            <Button variant="outline" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Hesabat İxrac Et
-            </Button>
-            <Button variant="outline" className="flex items-center gap-2">
-              <School className="h-4 w-4" />
-              Məktəb Əlavə Et
-            </Button>
-            <Button variant="outline" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              İstifadəçi Qeydiyyatı
-            </Button>
-            <Button variant="outline" className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Təqvim Planlaması
-            </Button>
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        {summaryCards.map((card) => (
+          <div
+            key={card.label}
+            className="flex items-center justify-between rounded-lg border border-border/60 bg-card/85 px-3 py-3"
+          >
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {card.label}
+            </span>
+            <span className="text-base font-semibold text-foreground">
+              {card.value}
+            </span>
           </div>
-        </CardContent>
-      </Card>
+        ))}
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {quickLinks.map((link) => {
+          const Icon = link.icon;
+          return (
+            <Card
+              key={link.key}
+              align="start"
+              className="flex h-full flex-col border border-border/60 bg-card/90 transition-colors hover:border-primary/40 hover:shadow-sm"
+            >
+              <CardContent className="flex flex-1 flex-col gap-3 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-1 items-center gap-3">
+                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">
+                        {link.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {link.description}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="rounded-full border px-2 py-0.5 text-xs font-medium"
+                  >
+                    {link.badge}
+                  </Badge>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-fit gap-1 px-0 text-primary"
+                  onClick={() => navigate(link.href)}
+                >
+                  Aç
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">
+              Məktəblərin icmalı
+            </CardTitle>
+            <CardDescription>Sektor daxilində əsas məktəblər</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {stats.schoolsList?.length ? (
+              stats.schoolsList.slice(0, 6).map((school) => (
+                <div
+                  key={school.id}
+                  className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-medium text-foreground">{school.name}</p>
+                    <span className="text-xs text-muted-foreground">
+                      {school.status}
+                    </span>
+                  </div>
+                  <div className="mt-1 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                    <span>Şagird: {school.students}</span>
+                    <span>Müəllim: {school.teachers}</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/60 px-3 py-6 text-center text-sm text-muted-foreground">
+                <School className="h-5 w-5" />
+                Məktəb məlumatı tapılmadı.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">
+              Son fəaliyyətlər
+            </CardTitle>
+            <CardDescription>Sektor üzrə görülən addımlar</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {stats.recentActivities?.length ? (
+              stats.recentActivities.slice(0, 6).map((activity) => (
+                <div
+                  key={`${activity.id}-${activity.type}`}
+                  className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm"
+                >
+                  <p className="font-medium text-foreground">
+                    {activity.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {activity.school ? `${activity.school} • ` : ""}
+                    {getRelativeTime(activity)}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/60 px-3 py-6 text-center text-sm text-muted-foreground">
+                <FileText className="h-5 w-5" />
+                Fəaliyyət qeydi tapılmadı.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

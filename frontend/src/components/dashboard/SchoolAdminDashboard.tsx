@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
@@ -11,22 +11,27 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  AlertCircle,
+  ArrowRight,
+  BookOpen,
+  CalendarDays,
+  CheckSquare,
   ClipboardList,
   ListChecks,
-  GraduationCap,
-  Users,
-  BookOpen,
-  ArrowRight,
   RefreshCw,
-  AlertCircle,
-  CalendarDays,
-  Bell,
+  Users,
 } from "lucide-react";
-import { schoolAdminService, schoolAdminKeys } from "@/services/schoolAdmin";
 import { formatDistanceToNow } from "date-fns";
 import { az } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import {
+  schoolAdminKeys,
+  schoolAdminService,
+  SchoolActivity,
+  SchoolDeadline,
+  SchoolDashboardStats,
+} from "@/services/schoolAdmin";
 
 export const SchoolAdminDashboard = () => {
   const navigate = useNavigate();
@@ -36,105 +41,118 @@ export const SchoolAdminDashboard = () => {
     data: stats,
     isLoading: statsLoading,
     refetch: refetchStats,
-  } = useQuery({
+  } = useQuery<SchoolDashboardStats>({
     queryKey: schoolAdminKeys.dashboardStats(),
     queryFn: () => schoolAdminService.getDashboardStats(),
+    staleTime: 60_000,
     refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 5,
   });
 
   const {
     data: activities,
     isLoading: activitiesLoading,
     refetch: refetchActivities,
-  } = useQuery({
+  } = useQuery<SchoolActivity[]>({
     queryKey: schoolAdminKeys.activities(),
-    queryFn: () => schoolAdminService.getRecentActivities(5),
+    queryFn: () => schoolAdminService.getRecentActivities(6),
+    staleTime: 120_000,
     refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 2,
   });
 
   const {
     data: deadlines,
     isLoading: deadlinesLoading,
     refetch: refetchDeadlines,
-  } = useQuery({
+  } = useQuery<SchoolDeadline[]>({
     queryKey: schoolAdminKeys.deadlines(),
-    queryFn: () => schoolAdminService.getUpcomingDeadlines(5),
+    queryFn: () => schoolAdminService.getUpcomingDeadlines(6),
+    staleTime: 120_000,
     refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 5,
   });
 
-  const summary = [
-    {
-      label: "Aktiv tapşırıqlar",
-      value: stats?.active_tasks ?? 0,
-    },
-    {
-      label: "Gözləyən sorğular",
-      value: stats?.pending_surveys ?? 0,
-    },
-    {
-      label: "Qiymətləndirmə gözləyir",
-      value: stats?.pending_assessments ?? 0,
-    },
-    {
-      label: "Yeni sənədlər",
-      value: stats?.new_documents_count ?? 0,
-    },
-  ];
+  const summaryCards = useMemo(
+    () => [
+      {
+        label: "Aktiv tapşırıqlar",
+        value: stats?.active_tasks ?? 0,
+      },
+      {
+        label: "Gözləyən sorğular",
+        value: stats?.pending_surveys ?? 0,
+      },
+      {
+        label: "Qiymətləndirmə gözləyir",
+        value: stats?.pending_assessments ?? 0,
+      },
+      {
+        label: "Yeni sənədlər",
+        value: stats?.new_documents_count ?? 0,
+      },
+      {
+        label: "Bugünkü davamiyyət",
+        value:
+          stats?.today_attendance_rate !== undefined
+            ? `${stats.today_attendance_rate}%`
+            : "—",
+      },
+      {
+        label: "Təcili prioritetlər",
+        value: stats?.today_priority_items ?? 0,
+      },
+    ],
+    [stats]
+  );
 
-  const quickLinks = [
-    {
-      key: "tasks",
-      title: "Tapşırıqlar",
-      description: "Komandanıza təyin olunan tapşırıqları idarə edin.",
-      href: "/tasks/assigned",
-      icon: ClipboardList,
-      badge: stats?.active_tasks ?? 0,
-    },
-    {
-      key: "surveys",
-      title: "Sorğu cavabları",
-      description: "Sizə göndərilən sorğuları tamamlayın.",
-      href: "/my-surveys/pending",
-      icon: ListChecks,
-      badge: stats?.pending_surveys ?? 0,
-    },
-    {
-      key: "assessments",
-      title: "Qiymətləndirmə daxil et",
-      description: "Şagird nəticələrini qeyd edin.",
-      href: "/assessments/entry",
-      icon: GraduationCap,
-      badge: stats?.pending_assessments ?? 0,
-    },
-    {
-      key: "attendance",
-      title: "Toplu davamiyyət",
-      description: "Sinif davamiyyətini sürətlə daxil edin.",
-      href: "/attendance/bulk",
-      icon: Users,
-      badge: stats?.pending_attendance_records ?? 0,
-    },
-    {
-      key: "resources",
-      title: "Resurslarım",
-      description: "Paylaşılan sənədlərə və qovluqlara baxın.",
-      href: "/my-resources",
-      icon: BookOpen,
-      badge: stats?.new_documents_count ?? 0,
-    },
-  ];
+  const quickLinks = useMemo(
+    () => [
+      {
+        key: "tasks",
+        title: "Tapşırıqlar",
+        description: "Komandanıza təyin olunan tapşırıqları idarə edin.",
+        href: "/tasks/assigned",
+        icon: ClipboardList,
+        badge: stats?.active_tasks ?? 0,
+      },
+      {
+        key: "surveys",
+        title: "Sorğular",
+        description: "Sizə göndərilən sorğuları tamamlayın.",
+        href: "/my-surveys/pending",
+        icon: ListChecks,
+        badge: stats?.pending_surveys ?? 0,
+      },
+      {
+        key: "assessments",
+        title: "Qiymətləndirmə",
+        description: "Şagird nəticələrini daxil edin.",
+        href: "/assessments/entry",
+        icon: CheckSquare,
+        badge: stats?.pending_assessments ?? 0,
+      },
+      {
+        key: "attendance",
+        title: "Toplu davamiyyət",
+        description: "Sinif davamiyyətini sürətli daxil edin.",
+        href: "/attendance/bulk",
+        icon: Users,
+        badge: stats?.today_priority_items ?? 0,
+      },
+      {
+        key: "resources",
+        title: "Resurslarım",
+        description: "Paylaşılan sənədlərə və qovluqlara baxın.",
+        href: "/my-resources",
+        icon: BookOpen,
+        badge: stats?.new_documents_count ?? 0,
+      },
+    ],
+    [stats]
+  );
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await Promise.all([
-        refetchStats(),
-        refetchActivities(),
-        refetchDeadlines(),
-      ]);
+      await Promise.all([refetchStats(), refetchActivities(), refetchDeadlines()]);
       toast.success("Dashboard yeniləndi");
     } catch (error) {
       toast.error("Yeniləmə zamanı xəta baş verdi");
@@ -143,20 +161,7 @@ export const SchoolAdminDashboard = () => {
     }
   };
 
-  const renderActivityIcon = (type: string) => {
-    switch (type) {
-      case "survey":
-        return ListChecks;
-      case "task":
-        return ClipboardList;
-      case "assessment":
-        return GraduationCap;
-      default:
-        return Bell;
-    }
-  };
-
-  const deadlineTone = (priority?: string | null) => {
+  const deadlineTone = (priority: SchoolDeadline["priority"]) => {
     switch (priority) {
       case "high":
         return "text-destructive";
@@ -180,13 +185,14 @@ export const SchoolAdminDashboard = () => {
         </div>
         <Button
           variant="outline"
+          size="sm"
+          className="w-full gap-2 sm:w-auto"
           onClick={handleRefresh}
           disabled={refreshing || statsLoading}
-          className="self-start lg:self-auto"
         >
           <RefreshCw
             className={cn(
-              "mr-2 h-4 w-4",
+              "h-4 w-4",
               (refreshing || statsLoading) && "animate-spin"
             )}
           />
@@ -194,8 +200,8 @@ export const SchoolAdminDashboard = () => {
         </Button>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {summary.map((item) => (
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        {summaryCards.map((item) => (
           <div
             key={item.label}
             className="flex items-center justify-between rounded-lg border border-border/60 bg-card/80 px-3 py-3"
@@ -256,7 +262,7 @@ export const SchoolAdminDashboard = () => {
         })}
       </div>
 
-  <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -280,7 +286,7 @@ export const SchoolAdminDashboard = () => {
                 ))}
               </div>
             ) : deadlines && deadlines.length > 0 ? (
-              deadlines.slice(0, 4).map((deadline) => (
+              deadlines.slice(0, 5).map((deadline) => (
                 <div
                   key={deadline.id}
                   className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
@@ -303,24 +309,17 @@ export const SchoolAdminDashboard = () => {
                         : "Tarix yoxdur"}
                     </span>
                   </div>
-                  {deadline.description && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {deadline.description}
-                    </p>
-                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Status: {deadline.status === "pending" ? "Gözləyir" : deadline.status === "overdue" ? "Gecikmiş" : "Tamamlanıb"}
+                  </p>
                 </div>
               ))
             ) : (
               <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/20 px-3 py-6 text-center">
-                <AlertCircle className="h-6 w-6 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    Yaxınlaşan son tarix yoxdur
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Yeni tapşırıqlar əlavə olunduqda burada görünəcək
-                  </p>
-                </div>
+                <AlertCircle className="h-5 w-5 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  Yaxınlaşan son tarix yoxdur.
+                </p>
               </div>
             )}
           </CardContent>
@@ -336,7 +335,6 @@ export const SchoolAdminDashboard = () => {
                 Məktəb komandası tərəfindən görülən addımlar
               </CardDescription>
             </div>
-            <Bell className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent className="space-y-3">
             {activitiesLoading ? (
@@ -349,42 +347,29 @@ export const SchoolAdminDashboard = () => {
                 ))}
               </div>
             ) : activities && activities.length > 0 ? (
-              activities.slice(0, 4).map((activity) => {
-                const Icon = renderActivityIcon(activity.type);
-                return (
-                  <div
-                    key={activity.id}
-                    className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
-                  >
-                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-foreground">
-                        {activity.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {activity.user_name} •{" "}
-                        {formatDistanceToNow(new Date(activity.created_at), {
-                          addSuffix: true,
-                          locale: az,
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/20 px-3 py-6 text-center">
-                <AlertCircle className="h-6 w-6 text-muted-foreground" />
-                <div>
+              activities.slice(0, 6).map((activity) => (
+                <div
+                  key={activity.id}
+                  className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
+                >
                   <p className="text-sm font-medium text-foreground">
-                    Hələ fəaliyyət yoxdur
+                    {activity.title}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Komandanızın hərəkətləri burada görsənəcək
+                    {activity.user_name} •{" "}
+                    {formatDistanceToNow(new Date(activity.created_at), {
+                      addSuffix: true,
+                      locale: az,
+                    })}
                   </p>
                 </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/20 px-3 py-6 text-center">
+                <AlertCircle className="h-5 w-5 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  Hələ fəaliyyət yoxdur.
+                </p>
               </div>
             )}
           </CardContent>
