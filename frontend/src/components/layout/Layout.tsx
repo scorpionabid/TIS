@@ -4,7 +4,6 @@ import { ModernSidebar } from "@/components/layout/ModernSidebar";
 import { SidebarPreferences } from "@/components/layout/SidebarPreferences";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { HeaderContainer } from "@/components/layout/components/Header/HeaderContainer";
-import { Breadcrumbs } from "@/components/layout/components/Header/Breadcrumbs";
 import { PageContainer } from "@/components/layout/components/Container/PageContainer";
 import { MobileBottomNav } from "@/components/layout/components/Navigation/MobileBottomNav";
 import { useToast } from "@/hooks/use-toast";
@@ -95,14 +94,13 @@ const MainLayout = () => {
         
         <div className="flex-1 flex flex-col overflow-hidden">
           <HeaderContainer>
-            <div className="flex flex-col space-y-1 flex-1 min-w-0">
+            <div className="flex flex-col flex-1 min-w-0">
               <DashboardHeader
                 title={getDashboardTitle()}
                 subtitle={getDashboardSubtitle()}
                 notificationCount={5}
                 onLogout={handleLogout}
               />
-              <Breadcrumbs />
             </div>
           </HeaderContainer>
           <main
