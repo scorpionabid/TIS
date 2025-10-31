@@ -364,46 +364,135 @@ export const RegionClassManagement = () => {
                   <thead>
                     <tr className="border-b bg-muted/50">
                       <th className="p-3 text-left font-medium">Müəssisə</th>
-                      <th className="p-3 text-left font-medium">Səviyyə</th>
+                      <th className="p-3 text-left font-medium text-xs">UTIS</th>
+                      <th className="p-3 text-center font-medium">Səviyyə</th>
                       <th className="p-3 text-left font-medium">Sinif</th>
-                      <th className="p-3 text-left font-medium">Şagirdlər</th>
-                      <th className="p-3 text-left font-medium">Cinsi Bölgü</th>
                       <th className="p-3 text-left font-medium">İxtisas</th>
-                      <th className="p-3 text-left font-medium">Status</th>
+                      <th className="p-3 text-left font-medium text-xs">Kateqoriya</th>
+                      <th className="p-3 text-left font-medium text-xs">Proqram</th>
+                      <th className="p-3 text-center font-medium">Şagird</th>
+                      <th className="p-3 text-center font-medium text-xs">O/Q</th>
+                      <th className="p-3 text-left font-medium text-xs">Sinif Müəllimi</th>
+                      <th className="p-3 text-left font-medium text-xs">Tədris İli</th>
+                      <th className="p-3 text-center font-medium">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {classes.map((cls) => (
                       <tr key={cls.id} className="border-b hover:bg-muted/30 transition">
+                        {/* Institution */}
                         <td className="p-3">
-                          <div className="font-medium">{cls.institution?.name || '-'}</div>
+                          <div className="font-medium text-sm">{cls.institution?.name || '-'}</div>
                           <div className="text-xs text-muted-foreground">{cls.institution?.type || ''}</div>
                         </td>
+
+                        {/* UTIS Code */}
                         <td className="p-3">
-                          <Badge variant="secondary">{cls.class_level}</Badge>
+                          {cls.institution?.utis_code ? (
+                            <Badge variant="outline" className="text-xs font-mono">
+                              {cls.institution.utis_code}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
                         </td>
-                        <td className="p-3 font-medium">{cls.name}</td>
+
+                        {/* Class Level */}
+                        <td className="p-3 text-center">
+                          <Badge variant="secondary" className="font-semibold">
+                            {cls.class_level}
+                          </Badge>
+                        </td>
+
+                        {/* Class Name */}
                         <td className="p-3">
-                          <div className="flex items-center gap-2">
+                          <span className="font-bold text-lg">{cls.name}</span>
+                        </td>
+
+                        {/* Specialty */}
+                        <td className="p-3">
+                          <span className="text-sm">{cls.specialty || '-'}</span>
+                        </td>
+
+                        {/* Grade Category */}
+                        <td className="p-3">
+                          {cls.grade_category ? (
+                            <Badge
+                              variant="secondary"
+                              className={
+                                cls.grade_category === 'ixtisaslaşdırılmış' ? 'bg-purple-100 text-purple-800' :
+                                cls.grade_category === 'xüsusi' ? 'bg-orange-100 text-orange-800' :
+                                'bg-gray-100 text-gray-800'
+                              }
+                            >
+                              {cls.grade_category}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+                        </td>
+
+                        {/* Education Program */}
+                        <td className="p-3">
+                          {cls.education_program ? (
+                            <Badge variant="outline" className="text-xs">
+                              {cls.education_program === 'umumi' ? 'Ümumi' :
+                               cls.education_program === 'xususi' ? 'Xüsusi' :
+                               cls.education_program === 'ferdi_mekteb' ? 'Fərdi (M)' :
+                               cls.education_program === 'ferdi_ev' ? 'Fərdi (E)' :
+                               cls.education_program}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+                        </td>
+
+                        {/* Student Count */}
+                        <td className="p-3 text-center">
+                          <div className="flex items-center justify-center gap-1">
                             <Users className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-semibold">{cls.student_count}</span>
+                            <span className="font-semibold text-base">{cls.student_count}</span>
                           </div>
                         </td>
+
+                        {/* Gender Split */}
                         <td className="p-3">
-                          <div className="text-sm space-y-1">
-                            <div className="flex gap-2">
-                              <span className="text-blue-600">♂ {cls.male_student_count}</span>
-                              <span className="text-pink-600">♀ {cls.female_student_count}</span>
+                          <div className="flex gap-2 justify-center text-sm">
+                            <span className="text-blue-600 font-medium">♂{cls.male_student_count}</span>
+                            <span className="text-muted-foreground">/</span>
+                            <span className="text-pink-600 font-medium">♀{cls.female_student_count}</span>
+                          </div>
+                        </td>
+
+                        {/* Homeroom Teacher */}
+                        <td className="p-3">
+                          {cls.homeroomTeacher ? (
+                            <div className="text-sm">
+                              <div className="font-medium">
+                                {cls.homeroomTeacher.first_name} {cls.homeroomTeacher.last_name}
+                              </div>
                             </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">Təyin olunmayıb</span>
+                          )}
+                        </td>
+
+                        {/* Academic Year */}
+                        <td className="p-3">
+                          <div className="text-xs">
+                            {cls.academicYear?.year}
+                            {cls.academicYear?.is_current && (
+                              <Badge variant="default" className="ml-1 text-xs py-0 px-1">Cari</Badge>
+                            )}
                           </div>
                         </td>
-                        <td className="p-3">
-                          <span className="text-sm text-muted-foreground">
-                            {cls.specialty || '-'}
-                          </span>
-                        </td>
-                        <td className="p-3">
-                          <Badge variant={cls.is_active ? 'default' : 'secondary'}>
+
+                        {/* Status */}
+                        <td className="p-3 text-center">
+                          <Badge
+                            variant={cls.is_active ? 'default' : 'secondary'}
+                            className={cls.is_active ? 'bg-green-600' : 'bg-gray-400'}
+                          >
                             {cls.is_active ? 'Aktiv' : 'Passiv'}
                           </Badge>
                         </td>
