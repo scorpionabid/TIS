@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import type { StatItem } from './GenericStatsCard.helpers';
 
 interface GenericStatsCardProps {
@@ -14,18 +15,36 @@ export const GenericStatsCard: React.FC<GenericStatsCardProps> = ({
   gridCols = 'grid-cols-5' 
 }) => {
   return (
-    <div className={`grid grid-cols-1 md:${gridCols} gap-4 ${className}`}>
+    <div
+      className={cn("grid grid-cols-1 gap-4 sm:gap-5", `md:${gridCols}`, className)}
+    >
       {stats.map((stat, index) => (
-        <Card key={index}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{stat.title}</p>
-                <p className={`text-2xl font-bold ${stat.valueColor || ''}`}>
-                  {stat.value}
-                </p>
-              </div>
-              <stat.icon className={stat.bgColor || 'h-8 w-8 text-muted-foreground'} />
+        <Card key={index} align="center">
+          <CardContent className="flex flex-col items-center gap-4 py-5">
+            <span
+              className={cn(
+                "flex h-12 w-12 items-center justify-center rounded-lg bg-muted/50 text-muted-foreground",
+                stat.bgColor
+              )}
+            >
+              <stat.icon
+                className={cn(
+                  "h-6 w-6 text-muted-foreground",
+                  stat.iconColor
+                )}
+              />
+            </span>
+            <div className="space-y-2">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground/90">
+                {stat.title}
+              </p>
+              <p
+                className={`text-2xl font-semibold text-foreground sm:text-3xl ${
+                  stat.valueColor || ""
+                }`}
+              >
+                {stat.value}
+              </p>
             </div>
           </CardContent>
         </Card>

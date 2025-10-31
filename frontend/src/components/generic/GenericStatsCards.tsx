@@ -64,49 +64,63 @@ export function GenericStatsCards({ stats, className }: GenericStatsCardsProps) 
   };
 
   return (
-    <div className={cn("grid gap-4", getGridCols(), className)}>
+    <div
+      className={cn(
+        "grid gap-4 sm:gap-5",
+        getGridCols(),
+        className
+      )}
+    >
       {stats.map((stat) => {
         const colors = getColorClasses(stat.color);
         const Icon = stat.icon;
 
         return (
-          <Card key={stat.key} className={cn("border", colors.border)}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {stat.label}
-                  </p>
-                  <p className="text-2xl font-bold">
-                    {stat.value.toLocaleString()}
-                  </p>
-                  
-                  {/* Trend indicator */}
-                  {stat.trend && (
-                    <div className={cn(
-                      "flex items-center gap-1 text-xs",
-                      stat.trend.isPositive ? "text-green-600" : "text-red-600"
-                    )}>
-                      {stat.trend.isPositive ? (
-                        <TrendingUp className="h-3 w-3" />
-                      ) : (
-                        <TrendingDown className="h-3 w-3" />
-                      )}
-                      <span>
-                        {stat.trend.isPositive ? '+' : ''}
-                        {stat.trend.value}%
-                      </span>
-                    </div>
-                  )}
-                </div>
-                
-                <div className={cn(
-                  "flex items-center justify-center w-12 h-12 rounded-lg",
+          <Card
+            key={stat.key}
+            align="center"
+            className={cn(
+              "backdrop-blur-sm",
+              colors.border
+            )}
+          >
+            <CardContent className="flex flex-col items-center gap-4 py-5">
+              <div
+                className={cn(
+                  "flex h-12 w-12 items-center justify-center rounded-lg",
                   colors.background
-                )}>
-                  <Icon className={cn("h-6 w-6", colors.icon)} />
-                </div>
+                )}
+              >
+                <Icon className={cn("h-6 w-6", colors.icon)} />
               </div>
+
+              <div className="space-y-2">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground/90">
+                  {stat.label}
+                </p>
+                <p className="text-2xl font-semibold text-foreground sm:text-3xl">
+                  {stat.value.toLocaleString()}
+                </p>
+              </div>
+
+              {stat.trend && (
+                <div
+                  className={cn(
+                    "flex items-center gap-1 text-xs font-medium",
+                    stat.trend.isPositive ? "text-green-600" : "text-red-600"
+                  )}
+                >
+                  {stat.trend.isPositive ? (
+                    <TrendingUp className="h-3 w-3" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3" />
+                  )}
+                  <span>
+                    {stat.trend.isPositive ? "+" : ""}
+                    {stat.trend.value}%
+                  </span>
+                </div>
+              )}
             </CardContent>
           </Card>
         );
