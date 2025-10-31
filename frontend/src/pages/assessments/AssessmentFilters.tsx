@@ -1,10 +1,9 @@
 import React from 'react';
-import { Filter, Search } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
+import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AssessmentFilters as IAssessmentFilters } from '@/services/assessments';
+import { FilterBar } from '@/components/common/FilterBar';
 
 interface AssessmentFiltersProps {
   filters: IAssessmentFilters;
@@ -20,22 +19,32 @@ export const AssessmentFilters: React.FC<AssessmentFiltersProps> = ({
   setSearchTerm
 }) => {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <Filter className="h-5 w-5" />
-          <span>Filtrlər</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div className="space-y-3">
+      <FilterBar>
+        <FilterBar.Group>
+          <FilterBar.Field>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Qiymətləndirmə axtar..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-11"
+              />
+            </div>
+          </FilterBar.Field>
+        </FilterBar.Group>
+      </FilterBar>
+
+      <div className="filter-panel">
+        <div className="filter-panel__grid">
           <div className="space-y-2">
-            <Label htmlFor="assessment-type">Qiymətləndirmə Növü</Label>
+            <span className="text-xs text-muted-foreground uppercase tracking-wide">Qiymətləndirmə növü</span>
             <Select 
               value={filters.assessment_type} 
               onValueChange={(value) => setFilters(prev => ({ ...prev, assessment_type: value as any }))}
             >
-              <SelectTrigger>
+              <SelectTrigger className="h-11">
                 <SelectValue placeholder="Növ seçin" />
               </SelectTrigger>
               <SelectContent>
@@ -47,12 +56,12 @@ export const AssessmentFilters: React.FC<AssessmentFiltersProps> = ({
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="status">Status</Label>
+            <span className="text-xs text-muted-foreground uppercase tracking-wide">Status</span>
             <Select 
               value={filters.status || 'all'} 
               onValueChange={(value) => setFilters(prev => ({ ...prev, status: value === 'all' ? undefined : value as any }))}
             >
-              <SelectTrigger>
+              <SelectTrigger className="h-11">
                 <SelectValue placeholder="Status seçin" />
               </SelectTrigger>
               <SelectContent>
@@ -65,36 +74,26 @@ export const AssessmentFilters: React.FC<AssessmentFiltersProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="date-from">Başlanğıc tarixi</Label>
+            <span className="text-xs text-muted-foreground uppercase tracking-wide">Başlanğıc tarixi</span>
             <Input
               type="date"
               value={filters.date_from || ''}
               onChange={(e) => setFilters(prev => ({ ...prev, date_from: e.target.value }))}
+              className="h-11"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="date-to">Son tarix</Label>
+            <span className="text-xs text-muted-foreground uppercase tracking-wide">Son tarix</span>
             <Input
               type="date"
               value={filters.date_to || ''}
               onChange={(e) => setFilters(prev => ({ ...prev, date_to: e.target.value }))}
+              className="h-11"
             />
           </div>
         </div>
-
-        <div className="mt-4">
-          <div className="relative">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Qiymətləndirmə axtar..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8"
-            />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };

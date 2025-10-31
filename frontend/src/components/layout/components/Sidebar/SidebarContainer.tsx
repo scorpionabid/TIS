@@ -31,6 +31,10 @@ export const SidebarContainer: React.FC<SidebarContainerProps> = ({ children }) 
             "sidebar-mobile w-64 bg-card border-r border-border shadow-lg",
             !isExpanded && "closed"
           )}
+          style={{
+            paddingTop: 'env(safe-area-inset-top, 0px)',
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)'
+          }}
         >
           {children}
         </div>

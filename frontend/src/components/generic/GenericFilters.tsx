@@ -1,11 +1,11 @@
 import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, X, Filter } from 'lucide-react';
 import { FilterFieldConfig } from './types';
 import { cn } from '@/lib/utils';
+import { FilterBar } from '@/components/common/FilterBar';
 
 interface GenericFiltersProps {
   searchTerm: string;
@@ -126,21 +126,23 @@ export function GenericFilters({
   };
 
   return (
-    <Card className={className}>
-      <CardContent className="p-4 space-y-4">
-        {/* Search Bar */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Axtarış..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          
-          {/* Filter Toggle Button */}
+    <div className={cn("space-y-3", className)}>
+      <FilterBar>
+        <FilterBar.Group>
+          <FilterBar.Field>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Axtarış..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-11"
+              />
+            </div>
+          </FilterBar.Field>
+        </FilterBar.Group>
+
+        <FilterBar.Actions>
           {filterFields && filterFields.length > 0 && (
             <Button
               variant="outline"
@@ -153,60 +155,61 @@ export function GenericFilters({
               <Filter className="h-4 w-4" />
             </Button>
           )}
-          
-          {/* Clear Filters Button */}
+
           {(hasActiveFilters || searchTerm) && (
             <Button
-              variant="outline"
+              variant="ghost"
               size="icon"
               onClick={handleClearFilters}
             >
               <X className="h-4 w-4" />
             </Button>
           )}
+        </FilterBar.Actions>
+      </FilterBar>
+
+      {isExpanded && filterFields && filterFields.length > 0 && (
+        <div className="filter-panel">
+          <div className="filter-panel__grid">
+            {filterFields.map(renderFilterField)}
+          </div>
         </div>
+      )}
 
-        {/* Advanced Filters */}
-        {isExpanded && filterFields && filterFields.length > 0 && (
-          <div className="pt-4 border-t">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filterFields && filterFields.map(renderFilterField)}
-            </div>
+      {hasActiveFilters && (
+        <div className="filter-panel">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <span className="text-sm text-muted-foreground">Aktiv filtrlər</span>
+            <Button variant="ghost" size="sm" onClick={handleClearFilters} className="gap-1">
+              <X className="h-4 w-4" />
+              Hamısını təmizlə
+            </Button>
           </div>
-        )}
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(filters || {}).map(([key, value]) => {
+              if (!value || value === 'all') return null;
 
-        {/* Active Filters Summary */}
-        {hasActiveFilters && (
-          <div className="flex items-center gap-2 pt-2 border-t">
-            <span className="text-sm text-muted-foreground">Aktiv filtrlər:</span>
-            <div className="flex flex-wrap gap-1">
-              {Object.entries(filters || {}).map(([key, value]) => {
-                if (!value || value === 'all') return null;
-                
-                const field = filterFields?.find(f => f.key === key);
-                if (!field) return null;
-                
-                const displayValue = field.options?.find(o => String(o.value) === String(value))?.label || String(value);
-                
-                return (
-                  <span
-                    key={key}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary text-xs rounded-md"
+              const field = filterFields?.find(f => f.key === key);
+              if (!field) return null;
+
+              const displayValue = field.options?.find(o => String(o.value) === String(value))?.label || String(value);
+
+              return (
+                <span key={key} className="filter-chip">
+                  {field.label}: {displayValue}
+                  <button
+                    onClick={() => handleFilterChange(key, undefined)}
+                    className="hover:bg-primary/20 rounded-full p-0.5"
+                    aria-label={`${field.label} filtrini sil`}
                   >
-                    {field.label}: {displayValue}
-                    <button
-                      onClick={() => handleFilterChange(key, undefined)}
-                      className="hover:bg-primary/20 rounded-full p-0.5"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                );
-              })}
-            </div>
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              );
+            })}
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </div>
+      )}
+    </div>
   );
 }

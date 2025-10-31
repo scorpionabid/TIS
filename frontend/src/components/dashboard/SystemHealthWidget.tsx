@@ -75,17 +75,17 @@ export const SystemHealthWidget = memo(({ health }: SystemHealthWidgetProps) => 
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <ServerIcon className="h-5 w-5" />
               Sistem Sağlamlığı
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-xs sm:text-sm">
               Real-vaxt sistem monitorinqi
             </CardDescription>
           </div>
-          <Badge variant={badgeVariant as any}>
+          <Badge variant={badgeVariant as any} className="w-fit">
             <StatusIcon className={`h-4 w-4 mr-1 ${statusColor}`} />
             {statusLabel}
           </Badge>
@@ -94,7 +94,7 @@ export const SystemHealthWidget = memo(({ health }: SystemHealthWidgetProps) => 
       <CardContent>
         <div className="space-y-4">
           {/* System Metrics */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">CPU İstifadəsi</span>

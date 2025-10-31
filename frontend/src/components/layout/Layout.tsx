@@ -22,7 +22,8 @@ const MainLayout = () => {
     setPreferencesModalOpen,
     setTempPreferences,
     savePreferences,
-    resetPreferences 
+    resetPreferences,
+    isMobile,
   } = useLayout();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -91,7 +92,7 @@ const MainLayout = () => {
   // Show main dashboard layout
   return (
     <NavigationProvider>
-      <div className="flex h-screen bg-background w-full">
+      <div className="flex min-h-screen bg-background w-full">
         <ModernSidebar onLogout={handleLogout} />
         
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -106,8 +107,10 @@ const MainLayout = () => {
               <Breadcrumbs />
             </div>
           </HeaderContainer>
-          
-          <main className="flex-1 overflow-y-auto bg-surface pb-16 md:pb-0">
+          <main
+            className="flex-1 overflow-y-auto bg-surface pb-24 md:pb-0"
+            style={isMobile ? { paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 4.5rem)' } : undefined}
+          >
             <PageContainer padding="none" className="px-2 sm:px-3 lg:px-4 pt-1 lg:pt-2">
               <Outlet />
             </PageContainer>

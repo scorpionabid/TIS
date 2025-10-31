@@ -20,17 +20,17 @@ export const StatsCard = ({
   const getVariantStyles = () => {
     switch (variant) {
       case "primary":
-        return "border-l-4 border-primary";
+        return "border-l-2 sm:border-l-4 border-primary";
       case "success":
-        return "border-l-4 border-success";
+        return "border-l-2 sm:border-l-4 border-success";
       case "warning":
-        return "border-l-4 border-warning";
+        return "border-l-2 sm:border-l-4 border-warning";
       case "destructive":
-        return "border-l-4 border-destructive";
+        return "border-l-2 sm:border-l-4 border-destructive";
       case "info":
-        return "border-l-4 border-blue-500";
+        return "border-l-2 sm:border-l-4 border-blue-500";
       default:
-        return "border-l-4 border-border";
+        return "border-l-2 sm:border-l-4 border-border";
     }
   };
 
@@ -43,15 +43,15 @@ export const StatsCard = ({
       )}
       onClick={onClick}
     >
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground mb-1">
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="space-y-1">
+            <p className="text-xs sm:text-sm font-medium text-muted-foreground">
               {title}
             </p>
-            <div className="text-2xl font-semibold">{value}</div>
+            <div className="text-xl sm:text-2xl font-semibold">{value}</div>
           </div>
-          <div className="p-2 rounded-md bg-muted/50">
+          <div className="p-2 rounded-md bg-muted/40 sm:bg-muted/50">
             <Icon className="h-5 w-5 text-muted-foreground" />
           </div>
         </div>

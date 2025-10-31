@@ -2,7 +2,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, X } from "lucide-react";
+import { FilterBar } from "@/components/common/FilterBar";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, X } from "lucide-react";
 import { memo, useMemo } from "react";
 
 export interface UserFiltersProps {
@@ -80,108 +81,116 @@ export const UserFilters = memo(({
   };
 
   return (
-    <div className="flex flex-wrap gap-4 items-center mb-6 p-4 bg-background border rounded-lg">
-      {/* Search Input */}
-      <div className="relative min-w-[300px]">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-        <Input
-          placeholder="Ad, email və ya username ilə axtar..."
-          value={searchTerm}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+    <div className="space-y-3 mb-6">
+      <FilterBar>
+        <FilterBar.Group>
+          <FilterBar.Field>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Ad, email və ya username ilə axtar..."
+                value={searchTerm}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="pl-10 h-11"
+              />
+            </div>
+          </FilterBar.Field>
 
-      {/* Role Filter */}
-      <Select value={roleFilter} onValueChange={onRoleFilterChange}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Rol seçin" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Bütün rollar</SelectItem>
-          {availableRoles.map((role) => (
-            <SelectItem key={role} value={role}>
-              {roleLabels[role] || role}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+          <FilterBar.Field>
+            <Select value={roleFilter} onValueChange={onRoleFilterChange}>
+              <SelectTrigger className="h-11">
+                <SelectValue placeholder="Rol seçin" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Bütün rollar</SelectItem>
+                {availableRoles.map((role) => (
+                  <SelectItem key={role} value={role}>
+                    {roleLabels[role] || role}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterBar.Field>
 
-      {/* Status Filter */}
-      <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-        <SelectTrigger className="w-[150px]">
-          <SelectValue placeholder="Status seçin" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Bütün statuslar</SelectItem>
-          {availableStatuses.map((status) => (
-            <SelectItem key={status} value={status}>
-              {statusLabels[status] || status}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+          <FilterBar.Field>
+            <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+              <SelectTrigger className="h-11">
+                <SelectValue placeholder="Status seçin" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Bütün statuslar</SelectItem>
+                {availableStatuses.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {statusLabels[status] || status}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterBar.Field>
 
-      {/* Institution Filter */}
-      <Select value={institutionFilter} onValueChange={onInstitutionFilterChange}>
-        <SelectTrigger className="w-[200px]">
-          <SelectValue placeholder="Müəssisə seçin" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Bütün müəssisələr</SelectItem>
-          {availableInstitutions.map((institution) => (
-            <SelectItem key={institution.id} value={institution.id.toString()}>
-              {institution.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+          <FilterBar.Field>
+            <Select value={institutionFilter} onValueChange={onInstitutionFilterChange}>
+              <SelectTrigger className="h-11">
+                <SelectValue placeholder="Müəssisə seçin" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Bütün müəssisələr</SelectItem>
+                {availableInstitutions.map((institution) => (
+                  <SelectItem key={institution.id} value={institution.id.toString()}>
+                    {institution.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterBar.Field>
+        </FilterBar.Group>
 
-      {/* Sort Controls */}
-      <div className="flex items-center gap-2">
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={() => onSortChange('name')}
-          className="flex items-center gap-1"
-        >
-          Ad {getSortIcon('name')}
-        </Button>
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={() => onSortChange('last_login')}
-          className="flex items-center gap-1"
-        >
-          Son giriş {getSortIcon('last_login')}
-        </Button>
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={() => onSortChange('created_at')}
-          className="flex items-center gap-1"
-        >
-          Tarix {getSortIcon('created_at')}
-        </Button>
-      </div>
-
-      {/* Clear Filters with Count Badge */}
-      {hasActiveFilters && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onClearFilters}
-          className="flex items-center gap-2"
-        >
-          <div className="flex items-center gap-1">
-            <X className="h-4 w-4" />
-            Filtri təmizlə
+        <FilterBar.Actions>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => onSortChange('name')}
+              className="flex items-center gap-1"
+            >
+              Ad {getSortIcon('name')}
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => onSortChange('last_login')}
+              className="flex items-center gap-1"
+            >
+              Son giriş {getSortIcon('last_login')}
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => onSortChange('created_at')}
+              className="flex items-center gap-1"
+            >
+              Tarix {getSortIcon('created_at')}
+            </Button>
           </div>
-          <Badge variant="secondary" className="ml-1">
-            {activeFilterCount}
-          </Badge>
-        </Button>
-      )}
+
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClearFilters}
+              className="flex items-center gap-2"
+            >
+              <span className="flex items-center gap-1">
+                <X className="h-4 w-4" />
+                Filtri təmizlə
+              </span>
+              <Badge variant="secondary">
+                {activeFilterCount}
+              </Badge>
+            </Button>
+          )}
+        </FilterBar.Actions>
+      </FilterBar>
     </div>
   );
 });

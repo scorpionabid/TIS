@@ -10,6 +10,70 @@ Inspired by Azerbaijan's national colors and modern government interfaces
 All colors MUST be HSL format for consistent theming
 */
 
+@layer components {
+  .mobile-stack {
+    @apply flex flex-col gap-3 sm:flex-row sm:items-center;
+  }
+
+  .dashboard-card-grid {
+    @apply grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-4;
+  }
+
+  .dashboard-wide-grid {
+    @apply grid gap-3 sm:gap-4 lg:grid-cols-2;
+  }
+
+  .responsive-section {
+    @apply space-y-4 sm:space-y-6;
+  }
+
+  .responsive-section__title {
+    @apply text-lg font-semibold sm:text-xl;
+  }
+
+  .responsive-section__subtitle {
+    @apply text-sm text-muted-foreground sm:text-base;
+  }
+
+  .filter-bar {
+    @apply w-full rounded-xl border border-border/70 bg-card/70 backdrop-blur-sm shadow-sm px-3 py-3 sm:px-4 sm:py-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between;
+  }
+
+  .filter-bar__group {
+    @apply flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3 flex-1 w-full;
+  }
+
+  .filter-bar__field {
+    @apply min-w-[180px] w-full sm:flex-1;
+  }
+
+  .filter-bar__actions {
+    @apply flex flex-wrap items-center gap-2 justify-start sm:justify-end w-full md:w-auto;
+  }
+
+  .filter-panel {
+    @apply w-full rounded-xl border border-dashed border-border/60 bg-card/50 px-3 py-3 sm:px-4 sm:py-4 space-y-3;
+  }
+
+  .filter-panel__grid {
+    @apply grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+  }
+
+  .filter-chip {
+    @apply inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-medium;
+  }
+}
+
+@layer utilities {
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
 @layer base {
   :root {
     /* Background and surfaces */

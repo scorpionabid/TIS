@@ -122,14 +122,14 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
   const pageNumbers = getPageNumbers();
 
   return (
-    <div className="flex items-center justify-between space-x-4 py-4">
-      <div className="flex items-center space-x-2">
+    <div className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         <p className="text-sm font-medium">Səhifə başına</p>
         <Select
           value={actualItemsPerPage.toString()}
           onValueChange={(value) => actualOnItemsPerPageChange?.(Number(value))}
         >
-          <SelectTrigger className="h-8 w-[70px]">
+          <SelectTrigger className="h-9 w-full sm:w-[80px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent side="top">
@@ -142,8 +142,8 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
         </Select>
       </div>
 
-      <div className="flex items-center space-x-6 lg:space-x-8">
-        <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6 lg:gap-8">
+        <div className="flex items-center justify-center text-sm font-medium">
           {actualStartIndex + 1}-{actualEndIndex} / {actualTotalItems}
         </div>
         

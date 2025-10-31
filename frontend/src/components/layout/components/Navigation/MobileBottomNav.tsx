@@ -5,14 +5,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLayout } from '@/contexts/LayoutContext';
 import {
   HomeIcon,
-  UsersIcon,
   FileTextIcon,
   BarChart3Icon,
-  SettingsIcon,
   BuildingIcon,
-  GraduationCapIcon,
   ClipboardCheckIcon
 } from 'lucide-react';
+import { USER_ROLES } from '@/constants/roles';
 
 interface MobileNavItem {
   id: string;
@@ -28,35 +26,66 @@ const mobileNavItems: MobileNavItem[] = [
     label: 'Ana səhifə',
     path: '/',
     icon: HomeIcon,
-    roles: ['superadmin', 'RegionAdmin', 'SektorAdmin', 'SchoolAdmin', 'teacher']
+    roles: [
+      USER_ROLES.SUPERADMIN,
+      USER_ROLES.REGIONADMIN,
+      USER_ROLES.REGIONOPERATOR,
+      USER_ROLES.SEKTORADMIN,
+      USER_ROLES.SCHOOLADMIN,
+      USER_ROLES.MUELLIM
+    ]
   },
   {
     id: 'institutions',
     label: 'Müəssisələr',
     path: '/institutions',
     icon: BuildingIcon,
-    roles: ['superadmin', 'RegionAdmin']
+    roles: [
+      USER_ROLES.SUPERADMIN,
+      USER_ROLES.REGIONADMIN,
+      USER_ROLES.REGIONOPERATOR
+    ]
   },
   {
     id: 'surveys',
     label: 'Sorğular',
     path: '/surveys',
     icon: ClipboardCheckIcon,
-    roles: ['superadmin', 'RegionAdmin', 'SektorAdmin', 'SchoolAdmin', 'teacher']
+    roles: [
+      USER_ROLES.SUPERADMIN,
+      USER_ROLES.REGIONADMIN,
+      USER_ROLES.REGIONOPERATOR,
+      USER_ROLES.SEKTORADMIN,
+      USER_ROLES.SCHOOLADMIN,
+      USER_ROLES.MUELLIM
+    ]
   },
   {
     id: 'tasks',
     label: 'Tapşırıqlar',
     path: '/tasks',
     icon: FileTextIcon,
-    roles: ['superadmin', 'RegionAdmin', 'SektorAdmin', 'SchoolAdmin', 'teacher']
+    roles: [
+      USER_ROLES.SUPERADMIN,
+      USER_ROLES.REGIONADMIN,
+      USER_ROLES.REGIONOPERATOR,
+      USER_ROLES.SEKTORADMIN,
+      USER_ROLES.SCHOOLADMIN,
+      USER_ROLES.MUELLIM
+    ]
   },
   {
     id: 'analytics',
     label: 'Analitika',
     path: '/analytics',
     icon: BarChart3Icon,
-    roles: ['superadmin', 'RegionAdmin', 'SektorAdmin', 'SchoolAdmin']
+    roles: [
+      USER_ROLES.SUPERADMIN,
+      USER_ROLES.REGIONADMIN,
+      USER_ROLES.REGIONOPERATOR,
+      USER_ROLES.SEKTORADMIN,
+      USER_ROLES.SCHOOLADMIN
+    ]
   }
 ];
 
@@ -66,21 +95,33 @@ export const MobileBottomNav: React.FC = () => {
   const { currentUser } = useAuth();
   const { isMobile } = useLayout();
 
-  // Only show on mobile
+  const normalizeRole = (role?: string | null) =>
+    role ? role.toString().trim().toLowerCase() : undefined;
+
+  const activeRole = normalizeRole(currentUser?.role);
+
   if (!isMobile) return null;
 
-  // Filter nav items based on user role
-  const visibleItems = mobileNavItems.filter(item =>
-    currentUser && item.roles.includes(currentUser.role)
-  ).slice(0, 5); // Limit to 5 items for mobile
+  const visibleItems = mobileNavItems
+    .filter((item) =>
+      activeRole
+        ? item.roles.some((role) => normalizeRole(role) === activeRole)
+        : false
+    )
+    .slice(0, 5);
 
   const handleNavigation = (path: string) => {
     navigate(path);
   };
 
+  if (visibleItems.length === 0) return null;
+
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border">
-      <div className="flex items-center justify-around h-16 px-2">
+    <nav
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 border-t border-border shadow-lg backdrop-blur"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+    >
+      <div className="flex items-center justify-around px-2 py-2">
         {visibleItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path ||

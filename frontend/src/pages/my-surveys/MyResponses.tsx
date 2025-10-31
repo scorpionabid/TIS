@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Edit, Eye, Save, AlertCircle, Clock, Calendar, BarChart3, Download, CheckCircle, Star, Award } from 'lucide-react';
+import { FilterBar } from '@/components/common/FilterBar';
+import { Search, Edit, Eye, Save, AlertCircle, Clock, Calendar, BarChart3, Download, CheckCircle, Star, Award, X } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -102,6 +103,8 @@ const MyResponses: React.FC = () => {
 
     return matchesSearch && matchesStatus && matchesPeriod;
   });
+
+  const hasActiveFilters = searchTerm !== '' || statusFilter !== 'all' || periodFilter !== 'all';
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -284,50 +287,132 @@ const MyResponses: React.FC = () => {
         </div>
       )}
 
-      {/* Filters section */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-end gap-4">
-        {/* Minimalist Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          {/* Search Input */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Axtarış..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 py-1 h-9 text-sm"
-            />
-          </div>
-          
-          {/* Status Filter */}
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[120px] h-9">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Bütün statuslar</SelectItem>
-              <SelectItem value="draft">Qaralama</SelectItem>
-              <SelectItem value="in_progress">Davam edir</SelectItem>
-              <SelectItem value="submitted">Göndərilmiş</SelectItem>
-              <SelectItem value="completed">Tamamlanmış</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          {/* Period Filter - Only show if needed */}
-          {(statusFilter === 'submitted' || statusFilter === 'completed' || statusFilter === 'all') && (
-            <Select value={periodFilter} onValueChange={setPeriodFilter}>
-              <SelectTrigger className="w-[120px] h-9">
-                <SelectValue placeholder="Dövr" />
+      <FilterBar className="md:w-auto">
+        <FilterBar.Group>
+          <FilterBar.Field>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Axtarış..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8 h-10 text-sm"
+              />
+            </div>
+          </FilterBar.Field>
+
+          <FilterBar.Field>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-10 min-w-[150px]">
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Bütün vaxtlar</SelectItem>
-                <SelectItem value="week">Son həftə</SelectItem>
-                <SelectItem value="month">Son ay</SelectItem>
+                <SelectItem value="all">Bütün statuslar</SelectItem>
+                <SelectItem value="draft">Qaralama</SelectItem>
+                <SelectItem value="in_progress">Davam edir</SelectItem>
+                <SelectItem value="submitted">Göndərilmiş</SelectItem>
+                <SelectItem value="completed">Tamamlanmış</SelectItem>
               </SelectContent>
             </Select>
+          </FilterBar.Field>
+
+          {(statusFilter === 'submitted' || statusFilter === 'completed' || statusFilter === 'all') && (
+            <FilterBar.Field>
+              <Select value={periodFilter} onValueChange={setPeriodFilter}>
+                <SelectTrigger className="h-10 min-w-[150px]">
+                  <SelectValue placeholder="Dövr" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Bütün vaxtlar</SelectItem>
+                  <SelectItem value="week">Son həftə</SelectItem>
+                  <SelectItem value="month">Son ay</SelectItem>
+                </SelectContent>
+              </Select>
+            </FilterBar.Field>
           )}
+        </FilterBar.Group>
+
+        <FilterBar.Actions>
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchTerm('');
+                setStatusFilter('all');
+                setPeriodFilter('all');
+              }}
+              className="gap-1"
+            >
+              <X className="h-4 w-4" />
+              Hamısını təmizlə
+            </Button>
+          )}
+        </FilterBar.Actions>
+      </FilterBar>
+
+      {hasActiveFilters && (
+        <div className="filter-panel">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <span className="text-xs text-muted-foreground uppercase tracking-wide">
+              Aktiv filtrlər
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchTerm('');
+                setStatusFilter('all');
+                setPeriodFilter('all');
+              }}
+              className="h-7 gap-1"
+            >
+              <X className="h-4 w-4" />
+              Hamısını sıfırla
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {searchTerm && (
+              <span className="filter-chip">
+                Axtarış: "{searchTerm}"
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="hover:bg-primary/20 rounded-full p-0.5"
+                  aria-label="Axtarışı sıfırla"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+
+            {statusFilter !== 'all' && (
+              <span className="filter-chip">
+                Status: {statusFilter === 'draft' ? 'Qaralama' : statusFilter === 'in_progress' ? 'Davam edir' : statusFilter === 'submitted' ? 'Göndərilmiş' : 'Tamamlanmış'}
+                <button
+                  onClick={() => setStatusFilter('all')}
+                  className="hover:bg-primary/20 rounded-full p-0.5"
+                  aria-label="Status filtrini sıfırla"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+
+            {periodFilter !== 'all' && (
+              <span className="filter-chip">
+                Dövr: {periodFilter === 'week' ? 'Son həftə' : 'Son ay'}
+                <button
+                  onClick={() => setPeriodFilter('all')}
+                  className="hover:bg-primary/20 rounded-full p-0.5"
+                  aria-label="Dövr filtrini sıfırla"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Responses List */}
       {filteredResponses.length === 0 ? (

@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { surveyService } from '@/services/surveys';
 import { Survey } from '@/services/surveys';
 import { Loader2 } from 'lucide-react';
+import { FilterBar } from '@/components/common/FilterBar';
 
 interface SurveyWithStatus extends Survey {
   response_status: 'not_started' | 'in_progress' | 'completed' | 'overdue';
@@ -206,63 +207,122 @@ const PendingSurveys: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <h2 className="text-xl font-semibold text-gray-900">Gözləyən Sorğular</h2>
         
-        {/* Search and Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          {/* Search Input */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Axtarış..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 py-1 h-9 text-sm border-gray-300 focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
-            />
-          </div>
-          
-          {/* Priority Filter */}
-          <Select 
-            value={priorityFilter}
-            onValueChange={(value) => setPriorityFilter(value as any)}
-          >
-            <SelectTrigger className="w-[150px] h-9">
-              <SelectValue placeholder="Prioritet" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Bütün prioritetlər</SelectItem>
-              <SelectItem value="high">Yüksək</SelectItem>
-              <SelectItem value="medium">Orta</SelectItem>
-              <SelectItem value="low">Aşağı</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          {/* Status Filter */}
-          <Select 
-            value={statusFilter}
-            onValueChange={(value) => setStatusFilter(value as any)}
-          >
-            <SelectTrigger className="w-[150px] h-9">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Bütün statuslar</SelectItem>
-              <SelectItem value="not_started">Başlanmayıb</SelectItem>
-              <SelectItem value="in_progress">Davam edir</SelectItem>
-              <SelectItem value="overdue">Gecikmiş</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          {isFilterActive && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={resetFilters}
-              className="h-9 text-sm text-gray-600 hover:text-gray-900"
-            >
-              Təmizlə
-            </Button>
-          )}
-        </div>
+        <FilterBar className="md:w-auto">
+          <FilterBar.Group>
+            <FilterBar.Field>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Axtarış..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8 h-10 text-sm"
+                />
+              </div>
+            </FilterBar.Field>
+
+            <FilterBar.Field>
+              <Select 
+                value={priorityFilter}
+                onValueChange={(value) => setPriorityFilter(value as any)}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Prioritet" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Bütün prioritetlər</SelectItem>
+                  <SelectItem value="high">Yüksək</SelectItem>
+                  <SelectItem value="medium">Orta</SelectItem>
+                  <SelectItem value="low">Aşağı</SelectItem>
+                </SelectContent>
+              </Select>
+            </FilterBar.Field>
+
+            <FilterBar.Field>
+              <Select 
+                value={statusFilter}
+                onValueChange={(value) => setStatusFilter(value as any)}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Bütün statuslar</SelectItem>
+                  <SelectItem value="not_started">Başlanmayıb</SelectItem>
+                  <SelectItem value="in_progress">Davam edir</SelectItem>
+                  <SelectItem value="overdue">Gecikmiş</SelectItem>
+                </SelectContent>
+              </Select>
+            </FilterBar.Field>
+          </FilterBar.Group>
+
+          <FilterBar.Actions>
+            {isFilterActive && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={resetFilters}
+                className="gap-1"
+              >
+                <X className="h-4 w-4" />
+                Təmizlə
+              </Button>
+            )}
+          </FilterBar.Actions>
+        </FilterBar>
       </div>
+
+      {isFilterActive && (
+        <div className="filter-panel">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <span className="text-xs text-muted-foreground uppercase tracking-wide">
+              Aktiv filtrlər
+            </span>
+            <Button variant="ghost" size="sm" onClick={resetFilters} className="gap-1">
+              <X className="h-4 w-4" />
+              Hamısını təmizlə
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {searchTerm && (
+              <span className="filter-chip">
+                Axtarış: "{searchTerm}"
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="hover:bg-primary/20 rounded-full p-0.5"
+                  aria-label="Axtarışı sıfırla"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            {priorityFilter !== 'all' && (
+              <span className="filter-chip">
+                Prioritet: {priorityFilter === 'high' ? 'Yüksək' : priorityFilter === 'medium' ? 'Orta' : 'Aşağı'}
+                <button
+                  onClick={() => setPriorityFilter('all')}
+                  className="hover:bg-primary/20 rounded-full p-0.5"
+                  aria-label="Prioritet filtrini sıfırla"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            {statusFilter !== 'all' && (
+              <span className="filter-chip">
+                Status: {statusFilter === 'not_started' ? 'Başlanmayıb' : statusFilter === 'in_progress' ? 'Davam edir' : 'Gecikmiş'}
+                <button
+                  onClick={() => setStatusFilter('all')}
+                  className="hover:bg-primary/20 rounded-full p-0.5"
+                  aria-label="Status filtrini sıfırla"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Survey List */}
       {filteredSurveys.length === 0 ? (

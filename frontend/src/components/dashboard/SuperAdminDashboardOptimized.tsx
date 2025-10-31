@@ -138,10 +138,10 @@ export const SuperAdminDashboardOptimized = memo(() => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="responsive-section">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">SuperAdmin Panel</h2>
-        <p className="text-muted-foreground">
+        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">SuperAdmin Panel</h2>
+        <p className="text-sm text-muted-foreground sm:text-base">
           Sistem statistikaları və son fəaliyyət
           {isLoading && <span className="ml-2 text-sm">(yenilənir...)</span>}
         </p>
@@ -149,7 +149,7 @@ export const SuperAdminDashboardOptimized = memo(() => {
 
       {/* Stats Cards with direct rendering */}
       {stats ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="dashboard-card-grid">
             <StatsCard 
               title="Ümumi İstifadəçi"
               value={stats.users.total}
@@ -184,7 +184,7 @@ export const SuperAdminDashboardOptimized = memo(() => {
       )}
 
       {/* System Stats with direct rendering */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 sm:gap-4 md:grid-cols-3">
           {systemStats.map((stat, index) => (
             <StatsCard
               key={`system-${index}`}
@@ -198,26 +198,28 @@ export const SuperAdminDashboardOptimized = memo(() => {
       </div>
 
       {/* Charts and Activity - Direct rendering */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <div className="col-span-4">
+      <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <div className="col-span-1 md:col-span-1 lg:col-span-4">
           <Charts />
         </div>
 
-        <div className="col-span-3">
+        <div className="col-span-1 md:col-span-1 lg:col-span-3">
           <RecentActivityWidget activities={recentActivity} />
         </div>
       </div>
 
       {/* System Health Widget */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <div>
+      <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
+        <div className="order-2 md:order-1">
           <SystemHealthWidget health={systemHealth} />
         </div>
         
-        <Card>
+        <Card className="order-1 md:order-2">
           <CardHeader>
-            <CardTitle>Sistem Məlumatları</CardTitle>
-            <CardDescription>Son yeniləmə: {new Date().toLocaleString('az-AZ')}</CardDescription>
+            <CardTitle className="responsive-section__title">Sistem Məlumatları</CardTitle>
+            <CardDescription className="responsive-section__subtitle">
+              Son yeniləmə: {new Date().toLocaleString('az-AZ')}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
