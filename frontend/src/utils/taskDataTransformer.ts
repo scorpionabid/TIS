@@ -34,7 +34,7 @@ export function prepareTaskDefaultValues(task: Task | null | undefined): TaskFor
     description: task.description || '',
     category: task.category || 'other',
     priority: task.priority || 'medium',
-    deadline: task.deadline ? task.deadline.split('T')[0] : undefined,
+    deadline: task.deadline ? task.deadline.split('T')[0] : '',
     assigned_to: task.assigned_to != null ? task.assigned_to.toString() : '',
     assigned_institution_id: assignedInstitutionId,
     target_institution_id: assignedInstitutionId,

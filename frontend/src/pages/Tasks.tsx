@@ -18,8 +18,9 @@ import {
   PlayCircle, PauseCircle, Users, FileText, Wrench, PartyPopper, 
   Shield, BookOpen, MoreHorizontal 
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Task, CreateTaskData, TaskFilters, UpdateTaskData, taskService } from "@/services/tasks";
 import { TaskModalStandardized } from "@/components/modals/TaskModalStandardized";
 import { DeleteConfirmationModal } from "@/components/modals/DeleteConfirmationModal";
@@ -59,23 +60,71 @@ export default function Tasks() {
   const queryClient = useQueryClient();
 
   // Check access permissions
-  const hasAccess = currentUser && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role);
+  const hasAccess = currentUser ? ['superadmin', 'regionadmin', 'sektoradmin'].includes(currentUser.role) : false;
 
-  // Load tasks - use enabled prop
-  const { data: tasksResponse, isLoading, error } = useQuery({
-    queryKey: ['tasks', currentUser?.role, currentUser?.institution?.id],
-    queryFn: () => taskService.getAll(),
-    enabled: hasAccess,
+  const canSeeRegionTab = currentUser ? ['superadmin', 'regionadmin'].includes(currentUser.role) : false;
+  const canSeeSectorTab = currentUser ? ['superadmin', 'regionadmin', 'sektoradmin'].includes(currentUser.role) : false;
+
+  const availableTabs = useMemo(
+    () =>
+      ([
+        canSeeRegionTab && { value: 'region' as const, label: 'Regional Tapşırıqlar' },
+        canSeeSectorTab && { value: 'sector' as const, label: 'Sektor Tapşırıqları' },
+      ].filter(Boolean) as Array<{ value: 'region' | 'sector'; label: string }>),
+    [canSeeRegionTab, canSeeSectorTab]
+  );
+
+  const [activeTab, setActiveTab] = useState<'region' | 'sector'>('region');
+
+  useEffect(() => {
+    if (availableTabs.length === 0) {
+      return;
+    }
+
+    setActiveTab((prev) => {
+      if (availableTabs.some((tab) => tab.value === prev)) {
+        return prev;
+      }
+      return availableTabs[0]?.value ?? 'region';
+    });
+  }, [availableTabs]);
+
+  const regionTasksQuery = useQuery({
+    queryKey: ['tasks', 'region', currentUser?.institution?.id],
+    queryFn: () => taskService.getAll({ origin_scope: 'region' }),
+    enabled: hasAccess && canSeeRegionTab,
   });
+
+  const sectorTasksQuery = useQuery({
+    queryKey: ['tasks', 'sector', currentUser?.institution?.id],
+    queryFn: () => taskService.getAll({ origin_scope: 'sector' }),
+    enabled: hasAccess && canSeeSectorTab,
+  });
+
+  const activeTasksQuery = activeTab === 'region' ? regionTasksQuery : sectorTasksQuery;
+
+  const tasksResponse = activeTasksQuery.data;
+  const isLoading = activeTasksQuery.isLoading || activeTasksQuery.isFetching;
+  const error = activeTasksQuery.error as Error | null | undefined;
 
   const rawTasks = Array.isArray(tasksResponse?.data) ? tasksResponse.data : [];
 
-  // Load task statistics - use enabled prop
   const { data: taskStats } = useQuery({
-    queryKey: ['task-stats', currentUser?.role],
-    queryFn: () => taskService.getStats(undefined, currentUser?.role),
-    enabled: hasAccess,
+    queryKey: ['task-stats', activeTab, currentUser?.role],
+    queryFn: () => taskService.getStats({ origin_scope: activeTab }, currentUser?.role),
+    enabled:
+      hasAccess &&
+      ((activeTab === 'region' && canSeeRegionTab) || (activeTab === 'sector' && canSeeSectorTab)),
   });
+
+  const canCreateRegionTask = currentUser ? ['superadmin', 'regionadmin'].includes(currentUser.role) : false;
+  const canCreateSectorTask = currentUser ? ['superadmin', 'sektoradmin'].includes(currentUser.role) : false;
+  const showCreateButton =
+    (activeTab === 'region' && canCreateRegionTask) || (activeTab === 'sector' && canCreateSectorTask);
+
+  const canManageSectorTasks = currentUser ? ['superadmin', 'regionadmin', 'sektoradmin'].includes(currentUser.role) : false;
+  const canManageRegionTasks = canCreateRegionTask;
+  const currentTabLabel = availableTabs.find((tab) => tab.value === activeTab)?.label ?? '';
 
   // Filtering and Sorting logic - MOVED BEFORE SECURITY CHECK
   const tasks = useMemo(() => {
@@ -153,7 +202,7 @@ export default function Tasks() {
   }, [rawTasks, sortField, sortDirection, searchTerm, statusFilter, priorityFilter, categoryFilter, hasAccess]);
 
   // Security check - only administrative roles can access task management
-  if (!hasAccess) {
+  if (!hasAccess || availableTabs.length === 0) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
@@ -192,7 +241,61 @@ export default function Tasks() {
       : <ArrowDown className="ml-2 h-4 w-4" />;
   };
 
+  const getTaskOrigin = (task: Task): 'region' | 'sector' | null => {
+    if (task.origin_scope) {
+      return task.origin_scope;
+    }
+
+    if (task.target_scope === 'regional') {
+      return 'region';
+    }
+
+    if (task.target_scope === 'sector') {
+      return 'sector';
+    }
+
+    return null;
+  };
+
+  const canEditTaskItem = (task: Task): boolean => {
+    if (currentUser?.role === 'superadmin') {
+      return true;
+    }
+
+    if (task.created_by === currentUser?.id) {
+      return true;
+    }
+
+    const origin = getTaskOrigin(task);
+    if (origin === 'region') {
+      return canManageRegionTasks;
+    }
+
+    if (origin === 'sector') {
+      return canManageSectorTasks;
+    }
+
+    return false;
+  };
+
+  const canDeleteTaskItem = (task: Task): boolean => {
+    if (currentUser?.role === 'superadmin') {
+      return true;
+    }
+
+    return task.created_by === currentUser?.id;
+  };
+
   const handleOpenModal = (task?: Task) => {
+    if (!task && !showCreateButton) {
+      toast({
+        title: "İcazə yoxdur",
+        description: "Bu tabda yeni tapşırıq yaratmaq səlahiyyətiniz yoxdur.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSelectedTask(task || null);
     setIsModalOpen(true);
   };
@@ -215,6 +318,9 @@ export default function Tasks() {
       ? Number(data.target_institutions[0])
       : null;
 
+    const resolvedOriginScope = data.origin_scope ?? (activeTab === 'region' ? 'region' : 'sector');
+    const resolvedTargetScope = resolvedOriginScope === 'region' ? 'regional' : 'sector';
+
     return {
       ...data,
       assigned_to: assignedUserIds.length > 0
@@ -232,6 +338,8 @@ export default function Tasks() {
       assignment_notes: data.assignment_notes ?? undefined,
       assigned_user_ids: assignedUserIds,
       requires_approval: Boolean(data.requires_approval),
+      origin_scope: resolvedOriginScope,
+      target_scope: resolvedTargetScope,
     };
   };
 
@@ -380,10 +488,28 @@ export default function Tasks() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Tapşırıq İdarəetməsi</h1>
-            <p className="text-muted-foreground">Sistem genelində bütün tapşırıqların görülməsi və idarəsi</p>
+            <p className="text-muted-foreground">
+              {currentTabLabel
+                ? `${currentTabLabel} üçün tapşırıqların görülməsi və idarəsi`
+                : 'Sistem genelində bütün tapşırıqların görülməsi və idarəsi'}
+            </p>
           </div>
         </div>
         
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as 'region' | 'sector')}
+          className="mt-2"
+        >
+          <TabsList className="w-full sm:w-auto">
+            {availableTabs.map((tab) => (
+              <TabsTrigger key={tab.value} value={tab.value} className="capitalize">
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1,2,3,4].map((i) => (
             <div key={i} className="h-24 bg-muted rounded-lg animate-pulse" />
@@ -426,7 +552,9 @@ export default function Tasks() {
     return (
       <div className="p-4">
         <h1 className="text-2xl font-bold text-destructive mb-2">Xəta baş verdi</h1>
-        <p className="text-muted-foreground">Tapşırıqlar yüklənərkən problem yarandı.</p>
+        <p className="text-muted-foreground">
+          Tapşırıqlar yüklənərkən problem yarandı{error instanceof Error && error.message ? `: ${error.message}` : '.'}
+        </p>
       </div>
     );
   }
@@ -436,15 +564,33 @@ export default function Tasks() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Tapşırıq İdarəetməsi</h1>
-          <p className="text-muted-foreground">Sistem genelində bütün tapşırıqların görülməsi və idarəsi</p>
+          <p className="text-muted-foreground">
+            {currentTabLabel
+              ? `${currentTabLabel} üçün tapşırıqların görülməsi və idarəsi`
+              : 'Sistem genelində bütün tapşırıqların görülməsi və idarəsi'}
+          </p>
         </div>
-        {['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || '') && (
+        {showCreateButton && (
           <Button className="flex items-center gap-2" onClick={() => handleOpenModal()}>
             <Plus className="h-4 w-4" />
             Yeni Tapşırıq
           </Button>
         )}
       </div>
+
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as 'region' | 'sector')}
+        className="mt-2"
+      >
+        <TabsList className="w-full sm:w-auto">
+          {availableTabs.map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value} className="capitalize">
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -635,7 +781,7 @@ export default function Tasks() {
                   <div className="flex flex-col items-center gap-2">
                     <Users className="h-12 w-12 text-muted-foreground" />
                     <p className="text-muted-foreground">Heç bir tapşırıq tapılmadı.</p>
-                    {['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || '') && (
+                    {showCreateButton && (
                       <Button variant="outline" size="sm" onClick={() => handleOpenModal()}>
                         <Plus className="h-4 w-4 mr-2" />
                         İlk tapşırığı yarat
@@ -653,6 +799,11 @@ export default function Tasks() {
                         {getCategoryIcon(task.category)}
                       </div>
                       <div className="min-w-0 flex-1">
+                        {task.origin_scope_label && (
+                          <Badge variant="outline" className="mb-1">
+                            {task.origin_scope_label}
+                          </Badge>
+                        )}
                         <div className="font-medium truncate" title={task.title}>
                           {task.title}
                         </div>
@@ -722,17 +873,13 @@ export default function Tasks() {
                           <Eye className="mr-2 h-4 w-4" />
                           Ətraflı bax
                         </DropdownMenuItem>
-                        {(
-                          currentUser?.role === 'superadmin' || 
-                          task.created_by === currentUser?.id ||
-                          (['regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || ''))
-                        ) && (
+                        {canEditTaskItem(task) && (
                           <DropdownMenuItem onClick={() => handleOpenModal(task)}>
                             <Edit className="mr-2 h-4 w-4" />
                             Redaktə et
                           </DropdownMenuItem>
                         )}
-                        {(currentUser?.role === 'superadmin' || task.created_by === currentUser?.id) && (
+                        {canDeleteTaskItem(task) && (
                           <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
@@ -760,6 +907,7 @@ export default function Tasks() {
         onClose={handleCloseModal}
         task={selectedTask}
         onSave={handleSave}
+        originScope={activeTab}
       />
 
       {/* Delete Confirmation Modal */}

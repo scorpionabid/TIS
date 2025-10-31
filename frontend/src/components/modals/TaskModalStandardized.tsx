@@ -3,9 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { BaseModal } from '@/components/common/BaseModal';
 import { FormField } from '@/components/forms/FormBuilder';
 import { createField, commonValidations } from '@/components/forms/FormBuilder.helpers';
-import { Task, CreateTaskData } from '@/services/tasks';
-import { userService } from '@/services/users';
-import { institutionService, Institution } from '@/services/institutions';
+import { Task, CreateTaskData, taskService, TaskCreationContext, AssignableUser } from '@/services/tasks';
 import { departmentService } from '@/services/departments';
 import { useToast } from '@/hooks/use-toast';
 import { Users, Building } from 'lucide-react';
@@ -39,6 +37,7 @@ interface TaskModalStandardizedProps {
   onClose: () => void;
   task?: Task | null;
   onSave: (data: CreateTaskData) => Promise<void>;
+  originScope?: 'region' | 'sector' | null;
 }
 
 /**
@@ -60,33 +59,102 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
   onClose,
   task,
   onSave,
+  originScope,
 }) => {
   const { toast } = useToast();
   const isEditMode = !!task;
+
+  const effectiveOriginScope = React.useMemo(() => {
+    if (originScope) {
+      return originScope;
+    }
+
+    if (isEditMode && task?.origin_scope) {
+      return task.origin_scope;
+    }
+
+    return null;
+  }, [originScope, isEditMode, task?.origin_scope]);
+
+  const defaultFormValues = React.useMemo(() => {
+    const baseValues = prepareTaskDefaultValues(task);
+
+    if (!isEditMode && originScope) {
+      baseValues.target_scope = originScope === 'region' ? 'regional' : 'sector';
+    }
+
+    return baseValues;
+  }, [task, isEditMode, originScope]);
 
   // ============================================
   // Data Loading
   // ============================================
 
-  const { data: usersResponse, isLoading: usersLoading } = useQuery({
-    queryKey: ['users-for-assignment'],
-    queryFn: () => userService.getUsers({ per_page: 200 }),
-    staleTime: 1000 * 60 * 30, // 30 dəqiqə - cache optimization
-    cacheTime: 1000 * 60 * 60, // 1 saat memory-də saxla
-    refetchOnWindowFocus: false, // Window focus-da yenidən yükləmə
-    refetchOnMount: false, // Cache varsa yenidən yükləmə
+  const { data: creationContext, isLoading: contextLoading, error: creationContextError } = useQuery({
+    queryKey: ['task-creation-context'],
+    queryFn: () => taskService.getCreationContext(),
+    staleTime: 1000 * 60 * 10,
+    cacheTime: 1000 * 60 * 30,
+    refetchOnWindowFocus: false,
     enabled: open,
   });
 
-  const { data: institutionsResponse, isLoading: institutionsLoading } = useQuery({
-    queryKey: ['institutions-for-tasks'],
-    queryFn: () => institutionService.getAll({ per_page: 1000 }),
-    staleTime: 1000 * 60 * 30, // 30 dəqiqə
-    cacheTime: 1000 * 60 * 60, // 1 saat
+  const allowedTargetRoles = React.useMemo(() => {
+    const roles = creationContext?.allowed_target_roles ?? [];
+    const scopeRoleMap: Record<'region' | 'sector', string[]> = {
+      region: ['regionadmin', 'regionoperator', 'sektoradmin', 'sektoroperator'],
+      sector: ['sektoradmin', 'sektoroperator', 'schooladmin'],
+    };
+
+    if (!effectiveOriginScope) {
+      return roles;
+    }
+
+    const scopeRoles = scopeRoleMap[effectiveOriginScope] ?? [];
+    const filtered = roles.filter((role) => scopeRoles.includes(role));
+
+    if (filtered.length > 0) {
+      return filtered;
+    }
+
+    return scopeRoles.length > 0 ? scopeRoles : roles;
+  }, [creationContext, effectiveOriginScope]);
+
+  const { data: assignableUsers, isLoading: assignableUsersLoading } = useQuery({
+    queryKey: ['task-assignable-users', effectiveOriginScope ?? 'none', allowedTargetRoles.join('-')],
+    queryFn: () => taskService.getAssignableUsers(
+      effectiveOriginScope ? { origin_scope: effectiveOriginScope } : {}
+    ),
+    staleTime: 1000 * 60 * 5,
+    cacheTime: 1000 * 60 * 15,
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    enabled: open,
+    enabled: open && !!creationContext,
   });
+
+  React.useEffect(() => {
+    if (!open) return;
+
+    const payload = {
+      originScope: effectiveOriginScope,
+      hasUsers: Array.isArray(assignableUsers),
+      userCount: Array.isArray(assignableUsers) ? assignableUsers.length : null,
+      allowedTargetRoles,
+      loading: assignableUsersLoading,
+      error: creationContextError,
+    };
+
+    console.log('[TaskModal] assignableUsers query state', payload);
+  }, [open, assignableUsers, effectiveOriginScope, allowedTargetRoles, assignableUsersLoading, creationContextError]);
+
+  React.useEffect(() => {
+    if (creationContextError) {
+      toast({
+        title: 'Verilər yüklənmədi',
+        description: 'Tapşırıq yaradılma konteksti alınarkən xəta baş verdi.',
+        variant: 'destructive',
+      });
+    }
+  }, [creationContextError, toast]);
 
   const { data: departmentsResponse, isLoading: departmentsLoading } = useQuery({
     queryKey: ['departments-for-tasks'],
@@ -103,80 +171,158 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
   // ============================================
 
   const responsibleUserOptions = React.useMemo(() => {
-    if (!usersResponse?.data) return [];
-
-    const rawUsers = Array.isArray(usersResponse.data) ? usersResponse.data : [];
-    const normalizeRole = (value?: string | null) => (value || '').trim().toLowerCase();
-    const allowedRoles = new Set(ASSIGNABLE_ROLES);
-
-    const filtered = rawUsers.filter((user: any) => {
-      const directRole = normalizeRole(typeof user.role === 'string' ? user.role : user.role?.name);
-      if (allowedRoles.has(directRole)) return true;
-
-      if (Array.isArray(user.roles)) {
-        return user.roles.some((role: any) => allowedRoles.has(normalizeRole(role?.name || role?.slug || role?.role)));
-      }
-
-      if (Array.isArray(user.role_names)) {
-        return user.role_names.some((role: string) => allowedRoles.has(normalizeRole(role)));
-      }
-
-      return false;
+    console.log('[TaskModal] building responsibleUserOptions', {
+      hasUsers: Array.isArray(assignableUsers),
+      userCount: Array.isArray(assignableUsers) ? assignableUsers.length : 0,
+      allowedTargetRoles,
+      originScope: effectiveOriginScope,
     });
 
-    return filtered.map((user: any) => {
-      const displayName = user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'İsimsiz İstifadəçi';
-
-      const primaryRole = (() => {
-        if (typeof user.role === 'string') return user.role;
-        if (user.role?.name) return user.role.name;
-        if (Array.isArray(user.roles) && user.roles.length > 0) {
-          return user.roles[0].name || user.roles[0].slug || user.roles[0].role;
-        }
-        if (Array.isArray(user.role_names) && user.role_names.length > 0) {
-          return user.role_names[0];
-        }
-        return null;
-      })();
-
-      return {
-        label: `${displayName}${primaryRole ? ` (${primaryRole})` : ''}`,
-        value: user.id.toString(),
-        meta: {
-          email: user.email,
-          role: primaryRole,
-        },
-      };
-    });
-  }, [usersResponse?.data]); // Daha spesifik dependency - yalnız data dəyişəndə
-
-  const institutionData: TaskInstitution[] = React.useMemo(() => {
-    let institutions: Institution[] = [];
-
-    if (Array.isArray(institutionsResponse)) {
-      institutions = institutionsResponse as Institution[];
-    } else if (institutionsResponse?.data) {
-      if (Array.isArray(institutionsResponse.data)) {
-        institutions = institutionsResponse.data as Institution[];
-      } else if (Array.isArray(institutionsResponse.data?.data)) {
-        institutions = institutionsResponse.data.data as Institution[];
-      }
+    if (!Array.isArray(assignableUsers)) {
+      return [];
     }
 
-    return institutions.map((institution: any) => {
-      const levelValue = institution.level ?? institution.institution_level ?? institution?.type?.level ?? null;
-      const typeValue = typeof institution.type === 'string'
-        ? institution.type
-        : institution.type?.key || institution.type?.name || institution.institution_type || '';
+    const normalizeRole = (value?: string | null) => (value || '').trim().toLowerCase();
 
-      return {
-        id: Number(institution.id),
-        name: institution.name,
-        level: typeof levelValue === 'number' ? levelValue : Number(levelValue) || null,
-        type: typeValue || null,
-      };
+    const scopeRoleMap: Record<'region' | 'sector', string[]> = {
+      region: ['regionadmin', 'regionoperator', 'sektoradmin'],
+      sector: ['sektoradmin', 'schooladmin'],
+    };
+
+    const fallbackRoles = effectiveOriginScope ? scopeRoleMap[effectiveOriginScope] ?? [] : [];
+
+    const rolesSource = allowedTargetRoles.length > 0 ? allowedTargetRoles : fallbackRoles;
+    const allowedRoles = new Set(
+      (rolesSource.length > 0 ? rolesSource : ASSIGNABLE_ROLES).map((role) => role.toLowerCase())
+    );
+
+    const levelFilters = effectiveOriginScope === 'region'
+      ? new Set([2, 3])
+      : effectiveOriginScope === 'sector'
+        ? new Set([3, 4])
+        : null;
+
+    const filteredUsers = assignableUsers
+      .filter((user) => allowedRoles.size === 0 || allowedRoles.has(normalizeRole(user.role)))
+      .sort((a, b) => {
+        const pathA = Array.isArray(a.institution?.hierarchy_path)
+          ? a.institution!.hierarchy_path.map((node) => node.name).join(' > ')
+          : '';
+        const pathB = Array.isArray(b.institution?.hierarchy_path)
+          ? b.institution!.hierarchy_path.map((node) => node.name).join(' > ')
+          : '';
+
+        if (pathA === pathB) {
+          return a.name.localeCompare(b.name);
+        }
+
+        return pathA.localeCompare(pathB);
+      });
+
+    console.log('[TaskModal] filteredUsers', {
+      count: filteredUsers.length,
+      sample: filteredUsers.slice(0, 5),
     });
-  }, [institutionsResponse]);
+
+    const options: { label: string; value: string; meta?: Record<string, any> }[] = [];
+    const groupCache = new Set<string>();
+
+    const ensureGroup = (
+      key: string,
+      label: string,
+      depth: number,
+      extraMeta?: Record<string, any>
+    ) => {
+      if (groupCache.has(key)) {
+        return;
+      }
+
+      groupCache.add(key);
+      options.push({
+        label,
+        value: key,
+        meta: {
+          isGroup: true,
+          indentLevel: depth,
+          ...extraMeta,
+        },
+      });
+    };
+
+    filteredUsers.forEach((user) => {
+      console.log('[TaskModal] user candidate', {
+        userId: user.id,
+        name: user.name,
+        role: user.role,
+        institution: user.institution,
+        path: user.institution?.hierarchy_path,
+      });
+
+      const hierarchyPath = Array.isArray(user.institution?.hierarchy_path)
+        ? user.institution!.hierarchy_path
+        : [];
+
+      const filteredPath = levelFilters
+        ? hierarchyPath.filter((node) =>
+            node.level != null && levelFilters.has(Number(node.level))
+          )
+        : hierarchyPath;
+
+      filteredPath.forEach((node, index) => {
+        ensureGroup(
+          `__group_${node.id}`,
+          node.name,
+          index,
+          { level: node.level }
+        );
+      });
+
+      if (filteredPath.length === 0) {
+        if (user.institution?.id) {
+          ensureGroup(
+            `__group_${user.institution.id}`,
+            user.institution.name,
+            0,
+            { level: user.institution.level ?? null }
+          );
+        } else {
+          const roleKey = normalizeRole(user.role) || 'other';
+          ensureGroup(`__group_role_${roleKey}`, 'Digər İstifadəçilər', 0);
+        }
+      }
+
+      options.push({
+        label: user.name,
+        value: user.id.toString(),
+        meta: {
+          role: user.role,
+          institution: user.institution?.name ?? undefined,
+          indentLevel: Math.max(1, filteredPath.length),
+        },
+      });
+    });
+
+    return options;
+  }, [assignableUsers, allowedTargetRoles, effectiveOriginScope]);
+
+  console.log('[TaskModal] responsibleUserOptions result', {
+    optionCount: responsibleUserOptions.length,
+    preview: responsibleUserOptions.slice(0, 5),
+  });
+
+  const institutionData: TaskInstitution[] = React.useMemo(() => {
+    const targetable = creationContext?.targetable_institutions ?? [];
+
+    return targetable.map((institution) => ({
+      id: Number(institution.id),
+      name: institution.name,
+      level: typeof institution.level === 'number'
+        ? institution.level
+        : Number(institution.level) || null,
+      type: institution.type ?? null,
+      parent_id: institution.parent_id ?? null,
+    }));
+  }, [creationContext]);
 
   const availableDepartments = React.useMemo(() => {
     let departments = [];
@@ -192,7 +338,7 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
     }));
   }, [departmentsResponse]);
 
-  const isLoading = usersLoading || institutionsLoading || departmentsLoading;
+  const isLoading = contextLoading || assignableUsersLoading || departmentsLoading;
 
   // ============================================
   // Form Field Configuration
@@ -223,8 +369,8 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
     createField('assigned_user_ids', 'Məsul şəxslər', 'multiselect', {
       required: true,
       options: responsibleUserOptions,
-      placeholder: usersLoading ? taskFormPlaceholders.assignedUsersLoading : taskFormPlaceholders.assignedUsers,
-      disabled: usersLoading,
+      placeholder: assignableUsersLoading ? taskFormPlaceholders.assignedUsersLoading : taskFormPlaceholders.assignedUsers,
+      disabled: assignableUsersLoading,
       validation: z.array(z.string()).min(1, taskValidationMessages.assignedUsersRequired),
       description: taskFormDescriptions.assignedUsers,
       className: 'md:col-span-2'
@@ -236,7 +382,7 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
       validation: commonValidations.required,
       className: 'md:col-span-2'
     }),
-  ], [responsibleUserOptions, usersLoading]);
+  ], [responsibleUserOptions, assignableUsersLoading]);
 
   const basicFieldNames = React.useMemo(
     () => baseBasicFields.map((field) => field.name),
@@ -268,7 +414,7 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
           form={formControl}
           formField={formField}
           institutions={institutionData}
-          disabled={institutionsLoading}
+          disabled={contextLoading || !creationContext}
         />
       )
     }),
@@ -340,7 +486,27 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
 
   const handleSubmit = React.useCallback(async (data: any) => {
     try {
+      if (!creationContext) {
+        toast({
+          title: 'Məlumat tapılmadı',
+          description: 'Tapşırıq üçün lazım olan məlumatlar yüklənmədi. Zəhmət olmasa yenidən cəhd edin.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       const transformedData = transformTaskDataForAPI(data);
+
+      if (!isEditMode && originScope) {
+        transformedData.origin_scope = originScope;
+        if (!transformedData.target_scope || transformedData.target_scope === 'specific') {
+          transformedData.target_scope = originScope === 'region' ? 'regional' : 'sector';
+        }
+      }
+
+      if (isEditMode && task?.origin_scope && !transformedData.origin_scope) {
+        transformedData.origin_scope = task.origin_scope;
+      }
 
       logger.info('TaskModal submitting', {
         component: 'TaskModalStandardized',
@@ -371,7 +537,7 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
       });
       throw error;
     }
-  }, [onSave, isEditMode, task?.id, toast]);
+  }, [onSave, isEditMode, task?.id, task?.origin_scope, originScope, toast, creationContext]);
 
   // ============================================
   // Render
@@ -388,7 +554,7 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
       entityBadge={task?.category ? categoryOptions.find(c => c.value === task.category)?.label : undefined}
       entity={task}
       tabs={modalTabs}
-      defaultValues={prepareTaskDefaultValues(task)}
+      defaultValues={defaultFormValues}
       onSubmit={handleSubmit}
       submitLabel={isEditMode ? 'Yenilə' : 'Yarat'}
       maxWidth="4xl"

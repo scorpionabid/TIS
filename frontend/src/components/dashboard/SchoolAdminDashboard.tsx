@@ -192,7 +192,7 @@ export const SchoolAdminDashboard: React.FC = () => {
     if (item.type === 'survey') {
       navigate(`/survey-response/${item.id}`);
     } else if (item.type === 'task') {
-      navigate(`/school/tasks`);
+      navigate(`/tasks/assigned`);
       toast.info(`Tapşırıq: ${item.title}`);
     }
   };
@@ -213,7 +213,7 @@ export const SchoolAdminDashboard: React.FC = () => {
         navigate('/surveys');
         break;
       case 'tasks':
-        navigate('/school/tasks');
+        navigate('/tasks/assigned');
         break;
       case 'approvals':
         navigate('/approvals');
@@ -269,7 +269,7 @@ export const SchoolAdminDashboard: React.FC = () => {
           value={stats?.active_tasks || 0}
           icon={CheckSquare}
           variant="primary"
-          onClick={() => navigate('/school/tasks')}
+          onClick={() => navigate('/tasks/assigned')}
         />
         <StatsCard
           title="Yeni Fayllar"

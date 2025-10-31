@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Task;
 use App\Models\TaskAssignment;
+use App\Models\User;
 use App\Services\TaskPermissionService;
 use App\Services\TaskAssignmentService;
 use App\Services\TaskStatisticsService;
@@ -48,7 +49,8 @@ class TaskControllerRefactored extends Controller
             'search' => 'nullable|string|max:255',
             'deadline_filter' => 'nullable|string|in:approaching,overdue,all',
             'sort_by' => 'nullable|string|in:created_at,deadline,priority,status',
-            'sort_direction' => 'nullable|string|in:asc,desc'
+            'sort_direction' => 'nullable|string|in:asc,desc',
+            'origin_scope' => 'nullable|string|in:region,sector'
         ]);
 
         $user = Auth::user();
@@ -81,6 +83,70 @@ class TaskControllerRefactored extends Controller
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Error retrieving tasks');
+        }
+    }
+
+    /**
+     * Get tasks assigned to current user or their institution
+     */
+    public function getAssignedToCurrentUser(Request $request): JsonResponse
+    {
+        $request->validate([
+            'per_page' => 'nullable|integer|min:1|max:100',
+            'status' => 'nullable|string|in:pending,in_progress,review,completed,cancelled',
+            'priority' => 'nullable|string|in:low,medium,high,urgent',
+            'category' => 'nullable|string|in:report,maintenance,event,audit,instruction,other',
+            'search' => 'nullable|string|max:255',
+            'deadline_filter' => 'nullable|string|in:approaching,overdue,all',
+            'sort_by' => 'nullable|string|in:created_at,deadline,priority,status',
+            'sort_direction' => 'nullable|string|in:asc,desc',
+            'origin_scope' => 'nullable|string|in:region,sector'
+        ]);
+
+        $user = Auth::user();
+        $institutionId = $user->institution_id;
+
+        try {
+            $query = Task::with(['creator', 'assignee', 'assignedInstitution', 'approver'])
+                ->where(function ($assignedQuery) use ($user, $institutionId) {
+                    $assignedQuery->where('assigned_to', $user->id)
+                        ->orWhereHas('assignments', function ($assignmentQuery) use ($user, $institutionId) {
+                            $assignmentQuery->where('assigned_user_id', $user->id);
+
+                            if ($institutionId) {
+                                $assignmentQuery->orWhere('institution_id', $institutionId);
+                            }
+                        });
+
+                    if ($institutionId) {
+                        $assignedQuery->orWhere('assigned_institution_id', $institutionId)
+                            ->orWhereJsonContains('target_institutions', $institutionId);
+                    }
+                });
+
+            $this->applyFilters($query, $request);
+
+            $sortBy = $request->sort_by ?? 'deadline';
+            $sortDirection = $request->sort_direction ?? 'asc';
+            $query->orderBy($sortBy, $sortDirection);
+
+            $perPage = $request->per_page ?? 15;
+            $tasks = $query->paginate($perPage);
+
+            return response()->json([
+                'success' => true,
+                'data' => $tasks->items(),
+                'meta' => [
+                    'current_page' => $tasks->currentPage(),
+                    'from' => $tasks->firstItem(),
+                    'last_page' => $tasks->lastPage(),
+                    'per_page' => $tasks->perPage(),
+                    'to' => $tasks->lastItem(),
+                    'total' => $tasks->total(),
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Təyin edilmiş tapşırıqlar alınarkən xəta baş verdi.');
         }
     }
 
@@ -494,6 +560,147 @@ class TaskControllerRefactored extends Controller
     }
 
     /**
+     * Get assignable users for task creation based on permissions
+     */
+    public function getAssignableUsers(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+
+        $request->validate([
+            'role' => 'nullable|string',
+            'institution_id' => 'nullable|integer|exists:institutions,id',
+            'search' => 'nullable|string|max:255',
+            'per_page' => 'nullable|integer|min:1|max:200',
+            'origin_scope' => 'nullable|string|in:region,sector',
+        ]);
+
+        try {
+            $allowedRoles = $this->permissionService->getAllowedTargetRoles($user);
+            $originScope = $request->origin_scope;
+
+            if ($originScope) {
+                $allowedRoles = $this->permissionService->filterRolesByOriginScope($allowedRoles, $originScope);
+            }
+
+            if (empty($allowedRoles)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tapşırıq üçün məsul şəxs təyin etmək icazəniz yoxdur.'
+                ], 403);
+            }
+
+            $roleFilter = $request->role;
+            if ($roleFilter && !in_array($roleFilter, $allowedRoles, true)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Seçilmiş rola istifadəçi təyin etmək icazəniz yoxdur.'
+                ], 403);
+            }
+
+            $institutionScope = $this->permissionService->getUserInstitutionScope($user, $originScope);
+            $institutionFilter = $request->institution_id;
+
+            if ($institutionFilter && !in_array((int) $institutionFilter, $institutionScope, true)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu müəssisədən istifadəçi seçmək icazəniz yoxdur.'
+                ], 403);
+            }
+
+            \Log::info('TaskController:getAssignableUsers context', [
+                'user_id' => $user->id,
+                'origin_scope' => $originScope,
+                'allowed_roles' => $allowedRoles,
+                'institution_scope_count' => count($institutionScope),
+            ]);
+
+            $query = User::query()
+                ->with(['roles:id,name', 'institution:id,name,level,parent_id'])
+                ->select(['id', 'first_name', 'last_name', 'email', 'institution_id', 'is_active'])
+                ->where('is_active', true)
+                ->whereHas('roles', function ($roleQuery) use ($allowedRoles, $roleFilter) {
+                    if ($roleFilter) {
+                        $roleQuery->where('name', $roleFilter);
+                    } else {
+                        $roleQuery->whereIn('name', $allowedRoles);
+                    }
+                });
+
+            if (!empty($institutionScope)) {
+                $query->where(function ($institutionQuery) use ($institutionScope) {
+                    $institutionQuery->whereIn('institution_id', $institutionScope)
+                        ->orWhereNull('institution_id');
+                });
+            }
+
+            if ($institutionFilter) {
+                $query->where('institution_id', $institutionFilter);
+            }
+
+            if ($search = $request->search) {
+                $query->where(function ($searchQuery) use ($search) {
+                    $searchQuery->where('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+            }
+
+            $perPage = $request->per_page ?? 100;
+            $users = $query->orderBy('first_name')->orderBy('last_name')->paginate($perPage);
+
+            \Log::info('TaskController:getAssignableUsers query result', [
+                'total' => $users->total(),
+                'current_page' => $users->currentPage(),
+                'filter_institution' => $institutionFilter,
+            ]);
+
+            $institutionMap = $this->permissionService->buildInstitutionHierarchyMap(
+                $users->getCollection()->pluck('institution_id')->filter()->unique()->values()->all()
+            );
+
+            $data = $users->getCollection()->map(function (User $assignableUser) use ($institutionMap) {
+                $primaryRole = $assignableUser->roles->first();
+                $institution = $assignableUser->institution;
+                $institutionId = $institution?->id;
+                $institutionMeta = $institutionId ? ($institutionMap[$institutionId] ?? null) : null;
+
+                return [
+                    'id' => $assignableUser->id,
+                    'name' => $assignableUser->name,
+                    'email' => $assignableUser->email,
+                    'institution' => $assignableUser->institution ? [
+                        'id' => $assignableUser->institution->id,
+                        'name' => $assignableUser->institution->name,
+                        'level' => $assignableUser->institution->level,
+                        'parent_id' => $assignableUser->institution->parent_id,
+                        'hierarchy_path' => $institutionMeta['path'] ?? [],
+                        'depth' => $institutionMeta['depth'] ?? 0,
+                    ] : null,
+                    'role' => $primaryRole?->name,
+                    'is_active' => $assignableUser->is_active,
+                ];
+            });
+
+            \Log::info('TaskController:getAssignableUsers response sample', [
+                'first_user' => $data->first(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $data,
+                'meta' => [
+                    'current_page' => $users->currentPage(),
+                    'last_page' => $users->lastPage(),
+                    'per_page' => $users->perPage(),
+                    'total' => $users->total(),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Təyin edilə bilən istifadəçilər alınarkən xəta baş verdi.');
+        }
+    }
+
+    /**
      * Apply filters to task query
      */
     private function applyFilters($query, Request $request): void
@@ -516,6 +723,27 @@ class TaskControllerRefactored extends Controller
 
         if ($request->created_by) {
             $query->createdBy($request->created_by);
+        }
+
+        if ($request->origin_scope) {
+            $originScope = $request->origin_scope;
+            $query->where(function ($q) use ($originScope) {
+                $q->where('origin_scope', $originScope);
+
+                if ($originScope === 'region') {
+                    $q->orWhere(function ($subQ) {
+                        $subQ->whereNull('origin_scope')
+                             ->where('target_scope', 'regional');
+                    });
+                }
+
+                if ($originScope === 'sector') {
+                    $q->orWhere(function ($subQ) {
+                        $subQ->whereNull('origin_scope')
+                             ->whereIn('target_scope', ['sector', 'sectoral']);
+                    });
+                }
+            });
         }
 
         if ($request->search) {

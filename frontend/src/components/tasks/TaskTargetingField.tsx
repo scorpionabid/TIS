@@ -17,6 +17,7 @@ export type TaskInstitution = {
   name: string;
   level: number | null;
   type: string | null;
+  parent_id?: number | null;
 };
 
 export interface TaskTargetingFieldProps {

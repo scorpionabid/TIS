@@ -59,6 +59,7 @@ class TaskAssignmentService extends BaseService
                 'target_departments' => $data['target_departments'] ?? null,
                 'target_roles' => $this->normalizeStringArray($data['target_roles'] ?? []),
                 'target_scope' => $data['target_scope'] ?? 'specific',
+                'origin_scope' => $this->determineOriginScope($user, $data['target_scope'] ?? null),
                 'notes' => $data['notes'] ?? null,
                 'requires_approval' => (bool)($data['requires_approval'] ?? false),
                 'status' => 'pending',
@@ -90,6 +91,30 @@ class TaskAssignmentService extends BaseService
                 ]
             ];
         });
+    }
+
+    /**
+     * Determine task origin scope from user role or explicit target scope
+     */
+    private function determineOriginScope($user, ?string $targetScope): ?string
+    {
+        if ($targetScope === 'regional') {
+            return 'region';
+        }
+
+        if (in_array($targetScope, ['sector', 'sectoral'])) {
+            return 'sector';
+        }
+
+        if ($user->hasRole('regionadmin')) {
+            return 'region';
+        }
+
+        if ($user->hasRole('sektoradmin')) {
+            return 'sector';
+        }
+
+        return null;
     }
 
     /**

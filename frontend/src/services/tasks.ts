@@ -23,6 +23,8 @@ export interface Task extends BaseEntity {
   completion_notes?: string;
   attachments?: TaskAttachment[];
   requires_approval: boolean;
+  origin_scope?: 'region' | 'sector' | null;
+  origin_scope_label?: string | null;
   approved_by?: number;
   approved_at?: string;
   
@@ -82,6 +84,7 @@ export interface CreateTaskData {
   target_roles?: string[];
   assigned_user_ids?: number[];
   target_scope?: Task['target_scope'];
+  origin_scope?: Task['origin_scope'];
   notes?: string;
   assignment_notes?: string;
   requires_approval?: boolean;
@@ -107,6 +110,7 @@ export interface TaskFilters extends PaginationParams {
   deadline_filter?: 'approaching' | 'overdue' | 'all';
   sort_by?: 'created_at' | 'deadline' | 'priority' | 'status';
   sort_direction?: 'asc' | 'desc';
+  origin_scope?: 'region' | 'sector';
 }
 
 export interface TaskStats {
@@ -118,6 +122,45 @@ export interface TaskStats {
   by_priority: Record<string, number>;
   completion_rate: number;
   average_completion_time: number;
+}
+
+export interface TaskCreationContext {
+  can_create_basic_task: boolean;
+  can_create_hierarchical_task: boolean;
+  targetable_institutions: Array<{
+    id: number;
+    name: string;
+    level: number | null;
+    type?: string | null;
+    parent_id?: number | null;
+  }>;
+  allowed_target_roles: string[];
+  institution_scope: number[];
+  targetable_institutions_count?: number;
+  allowed_target_roles_count?: number;
+  user_role: string[];
+  user_institution?: {
+    id: number;
+    name: string;
+    level: number;
+    type: string;
+  } | null;
+}
+
+export interface AssignableUser {
+  id: number;
+  name: string;
+  email: string | null;
+  role?: string | null;
+  is_active: boolean;
+  institution?: {
+    id: number;
+    name: string;
+    level?: number | null;
+    parent_id?: number | null;
+    hierarchy_path?: Array<{ id: number; name: string; level: number | null }>;
+    depth?: number;
+  } | null;
 }
 
 class TaskService extends BaseService<Task> {
@@ -197,53 +240,49 @@ class TaskService extends BaseService<Task> {
     return response as any; // PaginatedResponse
   }
 
+  async getCreationContext(): Promise<TaskCreationContext> {
+    const response = await apiClient.get(`${this.baseEndpoint}/creation-context`);
+    return (response.data?.data ?? response.data) as TaskCreationContext;
+  }
+
+  async getAssignableUsers(params?: {
+    role?: string;
+    institution_id?: number;
+    search?: string;
+    per_page?: number;
+    origin_scope?: 'region' | 'sector';
+  }): Promise<AssignableUser[]> {
+    const response = await apiClient.get<{ success?: boolean; data?: AssignableUser[] }>(`${this.baseEndpoint}/assignable-users`, params);
+    console.log('[TaskService] getAssignableUsers response', response);
+
+    const payload = response.data ?? (response as any)?.data ?? [];
+
+    if (Array.isArray(payload)) {
+      return payload as AssignableUser[];
+    }
+
+    if (Array.isArray((payload as any)?.data)) {
+      return (payload as any).data as AssignableUser[];
+    }
+
+    return [];
+  }
+
+  async getAssignedToMe(filters?: TaskFilters) {
+    const response = await apiClient.get<Task[]>(`${this.baseEndpoint}/assigned-to-me`, filters);
+    return response as any; // PaginatedResponse
+  }
+
   async getStats(filters?: Partial<TaskFilters>, userRole?: string) {
     console.log('🔍 TaskService.getStats called', { filters, userRole });
     try {
-      let endpoint: string;
-      
-      // Use role-specific endpoint for statistics based on available routes
-      if (userRole === 'sektoradmin') {
-        endpoint = '/sektoradmin/tasks/statistics';
-      } else {
-        // For other roles, try to get basic task analytics from the general analytics endpoint
-        // or return a mock/calculated response since specific endpoints don't exist yet
-        console.warn('⚠️ Task statistics endpoint not available for role:', userRole);
-        
-        // Try to get basic statistics by fetching all tasks and calculating stats
-        try {
-          const tasksResponse = await this.getAll();
-          const tasks = Array.isArray(tasksResponse.data) ? tasksResponse.data : tasksResponse;
-          
-          if (Array.isArray(tasks)) {
-            // Calculate basic statistics from tasks
-            const stats: TaskStats = {
-              total: tasks.length,
-              pending: tasks.filter(t => t.status === 'pending').length,
-              in_progress: tasks.filter(t => t.status === 'in_progress').length,
-              completed: tasks.filter(t => t.status === 'completed').length,
-              overdue: tasks.filter(t => {
-                if (!t.deadline) return false;
-                return new Date(t.deadline) < new Date() && t.status !== 'completed';
-              }).length,
-              by_priority: {
-                low: tasks.filter(t => t.priority === 'low').length,
-                medium: tasks.filter(t => t.priority === 'medium').length,
-                high: tasks.filter(t => t.priority === 'high').length,
-                urgent: tasks.filter(t => t.priority === 'urgent').length,
-              },
-              completion_rate: tasks.length > 0 ? (tasks.filter(t => t.status === 'completed').length / tasks.length) * 100 : 0,
-              average_completion_time: 0, // Could be calculated if needed
-            };
-            
-            console.log('✅ TaskService.getStats calculated from tasks:', stats);
-            return stats;
-          }
-        } catch (tasksError) {
-          console.error('❌ Failed to fetch tasks for stats calculation:', tasksError);
-        }
-        
-        // Return empty stats if calculation fails
+      const tasksResponse = await this.getAll(filters, false);
+      const tasksArray = Array.isArray(tasksResponse.data)
+        ? tasksResponse.data
+        : (tasksResponse as any)?.data;
+
+      if (!Array.isArray(tasksArray)) {
+        console.warn('⚠️ TaskService.getStats received unexpected response structure');
         return {
           total: 0,
           pending: 0,
@@ -255,10 +294,30 @@ class TaskService extends BaseService<Task> {
           average_completion_time: 0,
         };
       }
-      
-      const response = await apiClient.get(endpoint, filters);
-      console.log('✅ TaskService.getStats successful:', response);
-      return response.data || response;
+
+      const stats: TaskStats = {
+        total: tasksArray.length,
+        pending: tasksArray.filter(t => t.status === 'pending').length,
+        in_progress: tasksArray.filter(t => t.status === 'in_progress').length,
+        completed: tasksArray.filter(t => t.status === 'completed').length,
+        overdue: tasksArray.filter(t => {
+          if (!t.deadline) return false;
+          return new Date(t.deadline) < new Date() && t.status !== 'completed';
+        }).length,
+        by_priority: {
+          low: tasksArray.filter(t => t.priority === 'low').length,
+          medium: tasksArray.filter(t => t.priority === 'medium').length,
+          high: tasksArray.filter(t => t.priority === 'high').length,
+          urgent: tasksArray.filter(t => t.priority === 'urgent').length,
+        },
+        completion_rate: tasksArray.length > 0
+          ? (tasksArray.filter(t => t.status === 'completed').length / tasksArray.length) * 100
+          : 0,
+        average_completion_time: 0,
+      };
+
+      console.log('✅ TaskService.getStats calculated from tasks:', stats);
+      return stats;
     } catch (error) {
       console.error('❌ TaskService.getStats failed:', error);
       throw error;

@@ -29,6 +29,7 @@ class Task extends Model
         'target_departments',
         'target_roles',
         'target_scope',
+        'origin_scope',
         'notes',
         'completion_notes',
         'attachments',
@@ -48,6 +49,13 @@ class Task extends Model
         'attachments' => 'array',
         'requires_approval' => 'boolean',
         'progress' => 'integer',
+    ];
+
+    protected $appends = [
+        'category_label',
+        'priority_label',
+        'status_label',
+        'origin_scope_label',
     ];
 
     // Constants for enums - Updated to English for consistency
@@ -81,6 +89,11 @@ class Task extends Model
         'sector' => 'Sektor',
         'institutional' => 'Müəssisə',
         'all' => 'Hamısı',
+    ];
+
+    const ORIGIN_SCOPES = [
+        'region' => 'Regional Task',
+        'sector' => 'Sector Task',
     ];
 
     /**
@@ -287,6 +300,35 @@ class Task extends Model
     public function getStatusLabelAttribute(): string
     {
         return self::STATUSES[$this->status] ?? $this->status;
+    }
+
+    /**
+     * Get origin scope label
+     */
+    public function getOriginScopeLabelAttribute(): ?string
+    {
+        $origin = $this->origin_scope ?? $this->inferOriginScope();
+        return $origin ? (self::ORIGIN_SCOPES[$origin] ?? ucfirst($origin)) : null;
+    }
+
+    /**
+     * Infer origin scope when explicit column empty
+     */
+    private function inferOriginScope(): ?string
+    {
+        if ($this->origin_scope) {
+            return $this->origin_scope;
+        }
+
+        if ($this->target_scope === 'regional') {
+            return 'region';
+        }
+
+        if ($this->target_scope === 'sector') {
+            return 'sector';
+        }
+
+        return null;
     }
 
     /**

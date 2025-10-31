@@ -487,14 +487,14 @@ export const improvedNavigationConfig: MenuGroup[] = [
         label: 'Tapşırıqlar',
         path: '/tasks',
         icon: ClipboardCheck,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN]
       },
       {
-        id: 'school-tasks',
-        label: 'Məktəb Tapşırıqları',
-        path: '/school/tasks',
-        icon: CheckSquare,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]
+        id: 'assigned-tasks',
+        label: 'Təyin olunmuş Tapşırıqlar',
+        path: '/tasks/assigned',
+        icon: CheckCircle,
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]
       },
       {
         id: 'surveys',

@@ -85,7 +85,9 @@ export const statusColors: Record<string, string> = {
 export const ASSIGNABLE_ROLES = [
   'regionadmin',
   'regionoperator',
-  'sektoradmin'
+  'sektoradmin',
+  'sektoroperator',
+  'schooladmin'
 ] as const;
 
 export type AssignableRole = typeof ASSIGNABLE_ROLES[number];
@@ -165,7 +167,7 @@ export const taskDefaultValues = {
   target_institutions: [] as string[],
   target_roles: [] as string[],
   target_institution_id: null as number | null,
-  deadline: undefined as string | undefined,
+  deadline: '' as string,
   notes: '',
   assigned_institution_id: null as number | null,
   assignment_notes: '',

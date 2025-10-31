@@ -71,6 +71,9 @@ class SchoolTaskController extends Controller
                 'deadline' => $task->deadline,
                 'created_by' => $task->creator->name ?? 'Sistem',
                 'created_at' => $task->created_at,
+                'target_scope' => $task->target_scope,
+                'origin_scope' => $task->origin_scope ?? ($task->target_scope === 'regional' ? 'region' : ($task->target_scope === 'sector' ? 'sector' : null)),
+                'origin_scope_label' => $task->origin_scope_label,
                 'progress_percentage' => $task->progress_percentage ?? 0,
                 'days_until_deadline' => $task->deadline 
                     ? Carbon::parse($task->deadline)->diffInDays(Carbon::now(), false) 
@@ -129,6 +132,9 @@ class SchoolTaskController extends Controller
                 'deadline' => $task->deadline,
                 'created_by' => $task->creator->name ?? 'Sistem',
                 'created_at' => $task->created_at,
+                'target_scope' => $task->target_scope,
+                'origin_scope' => $task->origin_scope ?? ($task->target_scope === 'regional' ? 'region' : ($task->target_scope === 'sector' ? 'sector' : null)),
+                'origin_scope_label' => $task->origin_scope_label,
                 'updated_at' => $task->updated_at,
                 'progress_percentage' => $task->progress_percentage ?? 0,
                 'requirements' => $task->requirements ?? [],

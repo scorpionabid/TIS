@@ -32,14 +32,16 @@ class TaskPermissionService extends BaseService
         // Check if task is assigned to user's institution or its children
         if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
             $childIds = $userInstitution->getAllChildrenIds();
-            return in_array($task->assigned_institution_id, $childIds) || 
-                   $task->assigned_institution_id === $userInstitution->id;
+            return in_array($task->assigned_institution_id, $childIds, true) ||
+                   $task->assigned_institution_id === $userInstitution->id ||
+                   $this->taskTargetsInstitutions($task, $childIds, 'regionadmin');
         }
 
         if ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
             $childIds = $userInstitution->getAllChildrenIds();
-            return in_array($task->assigned_institution_id, $childIds) || 
-                   $task->assigned_institution_id === $userInstitution->id;
+            return in_array($task->assigned_institution_id, $childIds, true) ||
+                   $task->assigned_institution_id === $userInstitution->id ||
+                   $this->taskTargetsInstitutions($task, $childIds, 'sektoradmin');
         }
 
         if ($user->hasRole('schooladmin')) {
@@ -76,12 +78,14 @@ class TaskPermissionService extends BaseService
         // Higher level admins can update tasks assigned to their institutions
         if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
             $childIds = $userInstitution->getAllChildrenIds();
-            return in_array($task->assigned_institution_id, $childIds);
+            return in_array($task->assigned_institution_id, $childIds, true) ||
+                   $this->taskTargetsInstitutions($task, $childIds, 'regionadmin');
         }
 
         if ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
             $childIds = $userInstitution->getAllChildrenIds();
-            return in_array($task->assigned_institution_id, $childIds);
+            return in_array($task->assigned_institution_id, $childIds, true) ||
+                   $this->taskTargetsInstitutions($task, $childIds, 'sektoradmin');
         }
 
         return false;
@@ -109,12 +113,14 @@ class TaskPermissionService extends BaseService
         // Higher level admins can delete tasks assigned to their institutions
         if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
             $childIds = $userInstitution->getAllChildrenIds();
-            return in_array($task->assigned_institution_id, $childIds);
+            return in_array($task->assigned_institution_id, $childIds, true) ||
+                   $this->taskTargetsInstitutions($task, $childIds, 'regionadmin');
         }
 
         if ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
             $childIds = $userInstitution->getAllChildrenIds();
-            return in_array($task->assigned_institution_id, $childIds);
+            return in_array($task->assigned_institution_id, $childIds, true) ||
+                   $this->taskTargetsInstitutions($task, $childIds, 'sektoradmin');
         }
 
         return false;
@@ -189,11 +195,14 @@ class TaskPermissionService extends BaseService
             if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
                 $childIds = $userInstitution->getAllChildrenIds();
                 $q->orWhereIn('assigned_institution_id', $childIds);
+                $this->appendTargetInstitutionFilterToQuery($q, $childIds);
             } elseif ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
                 $childIds = $userInstitution->getAllChildrenIds();
                 $q->orWhereIn('assigned_institution_id', $childIds);
+                $this->appendTargetInstitutionFilterToQuery($q, $childIds);
             } elseif ($user->hasRole('schooladmin')) {
                 $q->orWhere('assigned_institution_id', $userInstitution->id);
+                $q->orWhereJsonContains('target_institutions', $userInstitution->id);
             }
 
             // Tasks directly assigned to user
@@ -208,7 +217,7 @@ class TaskPermissionService extends BaseService
     /**
      * Get user's institutional scope for task operations
      */
-    public function getUserInstitutionScope($user): array
+    public function getUserInstitutionScope($user, ?string $originScope = null): array
     {
         if ($user->hasRole('superadmin')) {
             return Institution::pluck('id')->toArray();
@@ -222,12 +231,114 @@ class TaskPermissionService extends BaseService
         $scope = [$userInstitution->id];
 
         if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
-            $scope = $userInstitution->getAllChildrenIds();
+            $scope = array_unique(array_merge([$userInstitution->id], $userInstitution->getAllChildrenIds()));
         } elseif ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
-            $scope = $userInstitution->getAllChildrenIds();
+            $scope = array_unique(array_merge([$userInstitution->id], $userInstitution->getAllChildrenIds()));
+        } elseif ($user->hasRole('schooladmin')) {
+            $scope = [$userInstitution->id];
+        }
+
+        if ($originScope === 'region') {
+            return $this->filterInstitutionIdsByLevels($scope, [2, 3]);
+        }
+
+        if ($originScope === 'sector') {
+            return $this->filterInstitutionIdsByLevels($scope, [3, 4]);
         }
 
         return $scope;
+    }
+
+    public function filterRolesByOriginScope(array $roles, string $originScope): array
+    {
+        $scopeRoleMap = [
+            'region' => ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'sektoroperator'],
+            'sector' => ['superadmin', 'sektoradmin', 'sektoroperator', 'schooladmin'],
+        ];
+
+        $allowed = $scopeRoleMap[$originScope] ?? $roles;
+
+        $filtered = array_values(array_intersect($roles, $allowed));
+
+        return empty($filtered) ? $roles : $filtered;
+    }
+
+    public function buildInstitutionHierarchyMap(array $institutionIds): array
+    {
+        if (empty($institutionIds)) {
+            return [];
+        }
+
+        $collected = collect();
+        $pendingIds = array_unique($institutionIds);
+        $visited = [];
+
+        while (!empty($pendingIds)) {
+            $chunkIds = array_diff($pendingIds, $visited);
+            if (empty($chunkIds)) {
+                break;
+            }
+
+            $institutions = Institution::whereIn('id', $chunkIds)
+                ->get(['id', 'name', 'level', 'parent_id']);
+
+            $collected = $collected->merge($institutions);
+            $visited = array_unique(array_merge($visited, $chunkIds));
+
+            $parents = $institutions->pluck('parent_id')
+                ->filter()
+                ->diff($visited)
+                ->values()
+                ->all();
+
+            $pendingIds = $parents;
+        }
+
+        $indexed = $collected->keyBy('id');
+
+        $result = [];
+
+        foreach ($institutionIds as $institutionId) {
+            if (!$indexed->has($institutionId)) {
+                continue;
+            }
+
+            $path = [];
+            $currentId = $institutionId;
+            $depth = 0;
+
+            while ($currentId && $indexed->has($currentId)) {
+                $institution = $indexed->get($currentId);
+                $path[] = [
+                    'id' => $institution->id,
+                    'name' => $institution->name,
+                    'level' => $institution->level,
+                ];
+                $currentId = $institution->parent_id;
+                $depth++;
+
+                if ($depth > 5) {
+                    break;
+                }
+            }
+
+            $result[$institutionId] = [
+                'depth' => max(0, $depth - 1),
+                'path' => array_reverse($path),
+            ];
+        }
+
+        return $result;
+    }
+
+    private function filterInstitutionIdsByLevels(array $institutionIds, array $levels): array
+    {
+        $uniqueIds = array_unique($institutionIds);
+
+        return Institution::whereIn('id', $uniqueIds)
+            ->whereIn('level', $levels)
+            ->pluck('id')
+            ->toArray();
     }
 
     /**
@@ -275,25 +386,48 @@ class TaskPermissionService extends BaseService
      */
     public function getAllowedTargetRoles($user): array
     {
-        $baseRoles = ['teacher', 'schooladmin'];
-
         if ($user->hasRole('superadmin')) {
-            return array_merge($baseRoles, ['regionadmin', 'sektoradmin']);
+            return [
+                'regionadmin',
+                'regionoperator',
+                'sektoradmin',
+                'sektoroperator',
+                'schooladmin',
+            ];
         }
 
         if ($user->hasRole('regionadmin')) {
-            return array_merge($baseRoles, ['sektoradmin']);
+            return [
+                'regionadmin',
+                'regionoperator',
+                'sektoradmin',
+                'sektoroperator',
+                'schooladmin',
+            ];
+        }
+
+        if ($user->hasRole('regionoperator')) {
+            return [
+                'regionoperator',
+                'sektoradmin',
+                'sektoroperator',
+                'schooladmin',
+            ];
         }
 
         if ($user->hasRole('sektoradmin')) {
-            return $baseRoles;
+            return [
+                'sektoradmin',
+                'sektoroperator',
+                'schooladmin',
+            ];
         }
 
         if ($user->hasRole('schooladmin')) {
-            return ['teacher'];
+            return ['schooladmin'];
         }
 
-        return [];
+        return ['schooladmin'];
     }
 
     /**
@@ -438,6 +572,57 @@ class TaskPermissionService extends BaseService
             'allowed_target_roles' => $this->getAllowedTargetRoles($user),
             'access_level' => $this->determineAccessLevel($user)
         ];
+    }
+
+    /**
+     * Check if task targets any of the provided institutions
+     */
+    private function taskTargetsInstitutions(Task $task, array $institutionIds, string $roleName): bool
+    {
+        if (empty($institutionIds)) {
+            return false;
+        }
+
+        if ($roleName === 'regionadmin' && $task->target_scope === 'regional') {
+            return true;
+        }
+
+        if ($roleName === 'sektoradmin' && in_array($task->target_scope, ['sector', 'sectoral'], true)) {
+            return true;
+        }
+
+        $targets = $task->target_institutions;
+
+        if (!is_array($targets) || empty($targets)) {
+            return false;
+        }
+
+        $normalizedTargets = array_map('intval', $targets);
+        $normalizedInstitutions = array_map('intval', $institutionIds);
+
+        return count(array_intersect($normalizedTargets, $normalizedInstitutions)) > 0;
+    }
+
+    /**
+     * Append target institution JSON conditions to query
+     */
+    private function appendTargetInstitutionFilterToQuery(Builder $query, array $institutionIds): void
+    {
+        $ids = array_values(array_unique(array_map('intval', array_filter($institutionIds))));
+
+        if (empty($ids)) {
+            return;
+        }
+
+        $firstId = array_shift($ids);
+
+        $query->orWhere(function ($targetQuery) use ($firstId, $ids) {
+            $targetQuery->whereJsonContains('target_institutions', $firstId);
+
+            foreach ($ids as $childId) {
+                $targetQuery->orWhereJsonContains('target_institutions', $childId);
+            }
+        });
     }
 
     /**

@@ -28,6 +28,7 @@ const Surveys = lazy(() => import("./pages/Surveys"));
 const SurveyArchive = lazy(() => import("./pages/SurveyArchive"));
 const SurveyResponse = lazy(() => import("./pages/SurveyResponse"));
 const Tasks = lazy(() => import("./pages/Tasks"));
+const AssignedTasks = lazy(() => import("./pages/AssignedTasks"));
 const Resources = lazy(() => import("./pages/Resources"));
 const MyResources = lazy(() => import("./pages/MyResources"));
 const Reports = lazy(() => import("./pages/Reports"));
@@ -57,7 +58,6 @@ const RegionSchedules = lazy(() => import("./pages/regionadmin/RegionSchedules")
 const RegionTeacherManagement = lazy(() => import("./pages/regionadmin/RegionTeacherManagement").then(m => ({ default: m.RegionTeacherManagement })));
 
 // School pages  
-const SchoolTasks = lazy(() => import("./pages/school/SchoolTasks"));
 const SchoolTeachers = lazy(() => import("./pages/school/SchoolTeachers"));
 const SchoolClasses = lazy(() => import("./pages/school/SchoolClasses"));
 const SchoolAttendanceRecord = lazy(() => import("./pages/school/SchoolAttendanceRecord"));
@@ -357,6 +357,23 @@ const App = () => {
                 </LazyWrapper>
               } />
               <Route path="tasks" element={<LazyWrapper><Tasks /></LazyWrapper>} />
+              <Route
+                path="tasks/assigned"
+                element={
+                  <LazyWrapper>
+                    <RoleProtectedRoute
+                      allowedRoles={[
+                        USER_ROLES.SUPERADMIN,
+                        USER_ROLES.REGIONADMIN,
+                        USER_ROLES.SEKTORADMIN,
+                        USER_ROLES.SCHOOLADMIN,
+                      ]}
+                    >
+                      <AssignedTasks />
+                    </RoleProtectedRoute>
+                  </LazyWrapper>
+                }
+              />
 
               {/* New unified Resources page */}
               <Route path="resources" element={<LazyWrapper><Resources /></LazyWrapper>} />
@@ -436,13 +453,6 @@ const App = () => {
               <Route path="my-documents" element={<Navigate to="/my-resources?tab=folders" replace />} />
               
               {/* SchoolAdmin Routes */}
-              <Route path="school/tasks" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
-                    <SchoolTasks />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
               <Route path="school/students" element={<Navigate to="/students" replace />} />
               <Route path="school/teachers" element={
                 <LazyWrapper>

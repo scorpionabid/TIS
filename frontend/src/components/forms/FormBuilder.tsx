@@ -473,14 +473,30 @@ const MultiSelectField: React.FC<MultiSelectFieldProps> = ({ field, formField, l
       <PopoverContent className="w-[260px] p-2" align="start">
         <div className="max-h-60 overflow-y-auto">
           {field.options?.map((option) => {
+            if ((option as any)?.meta?.isGroup) {
+              const indentLevel = Number((option as any)?.meta?.indentLevel ?? 0);
+              return (
+                <div
+                  key={option.value}
+                  className="py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide"
+                  style={{ paddingLeft: 8 + indentLevel * 16 }}
+                >
+                  {option.label}
+                </div>
+              );
+            }
+
             const checked = selectedValues.includes(option.value);
             const roleLabel = (option as any)?.meta?.role;
+            const institutionLabel = (option as any)?.meta?.institution;
+            const indentLevel = Number((option as any)?.meta?.indentLevel ?? 0);
 
             return (
               <label
                 key={option.value}
                 htmlFor={`${field.name}-${option.value}`}
-                className="flex items-center space-x-2 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-muted"
+                className="flex items-center space-x-2 rounded-md py-1.5 text-sm cursor-pointer hover:bg-muted"
+                style={{ paddingLeft: 8 + indentLevel * 16, paddingRight: 8 }}
               >
                 <Checkbox
                   id={`${field.name}-${option.value}`}
@@ -489,10 +505,10 @@ const MultiSelectField: React.FC<MultiSelectFieldProps> = ({ field, formField, l
                   disabled={field.disabled || loading}
                 />
                 <span className="flex-1">
-                  {option.label}
-                  {roleLabel && (
-                    <span className="ml-1 text-xs text-muted-foreground">({roleLabel})</span>
-                  )}
+                  <span className="font-medium">{option.label}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {roleLabel || ''}{institutionLabel ? ` • ${institutionLabel}` : ''}
+                  </span>
                 </span>
               </label>
             );

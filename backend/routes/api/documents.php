@@ -7,6 +7,8 @@ use App\Http\Controllers\TaskControllerRefactored as TaskController;
 use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
 
+Route::pattern('task', '[0-9]+');
+
 /*
 |--------------------------------------------------------------------------
 | Document & Task Management Routes
@@ -81,6 +83,7 @@ Route::prefix('document-shares')->middleware('permission:documents.share')->grou
 // Task Management Routes
 Route::middleware('permission:tasks.read')->group(function () {
     Route::get('tasks', [TaskController::class, 'index']);
+    Route::get('tasks/assigned-to-me', [TaskController::class, 'getAssignedToCurrentUser']);
     Route::get('tasks/{task}', [TaskController::class, 'show']);
     Route::get('tasks/{task}/progress', [TaskController::class, 'getProgress']);
     Route::get('tasks/{task}/history', [TaskController::class, 'getHistory']);
@@ -88,7 +91,7 @@ Route::middleware('permission:tasks.read')->group(function () {
     Route::get('tasks/institution/{institution}', [TaskController::class, 'getInstitutionTasks']);
 });
 
-Route::middleware('role_or_permission:superadmin|regionadmin|sektoradmin|tasks.write')->group(function () {
+Route::middleware('role:superadmin|regionadmin|sektoradmin')->group(function () {
     Route::post('tasks', [TaskController::class, 'store']);
     Route::put('tasks/{task}', [TaskController::class, 'update']);
     Route::delete('tasks/{task}', [TaskController::class, 'destroy']);
@@ -99,6 +102,8 @@ Route::middleware('role_or_permission:superadmin|regionadmin|sektoradmin|tasks.w
     Route::post('tasks/bulk-create', [TaskController::class, 'bulkCreate']);
     Route::post('tasks/bulk-assign', [TaskController::class, 'bulkAssign']);
     Route::post('tasks/bulk-update-status', [TaskController::class, 'bulkUpdateStatus']);
+    Route::get('tasks/creation-context', [TaskController::class, 'getTaskCreationContext']);
+    Route::get('tasks/assignable-users', [TaskController::class, 'getAssignableUsers']);
 });
 
 Route::middleware('permission:tasks.approve')->group(function () {
