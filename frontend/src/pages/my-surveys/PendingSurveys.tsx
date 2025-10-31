@@ -1,20 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Clock, Calendar, Search, AlertCircle, Users, Play, Lock, Eye, ArrowRight } from 'lucide-react';
-import { formatDistanceToNow, format, isAfter, isBefore } from 'date-fns';
+import { Clock, Calendar, Search, AlertCircle, ArrowRight } from 'lucide-react';
+import { format, isAfter } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { surveyService } from '@/services/surveys';
 import { Survey } from '@/services/surveys';
 import { Loader2 } from 'lucide-react';
 import { FilterBar } from '@/components/common/FilterBar';
+import { cn } from '@/lib/utils';
 
 interface SurveyWithStatus extends Survey {
   response_status: 'not_started' | 'in_progress' | 'completed' | 'overdue';
@@ -65,7 +64,7 @@ const PendingSurveys: React.FC = () => {
   });
 
   // Log any errors
-  React.useEffect(() => {
+  useEffect(() => {
     if (error) {
       console.error('Error in useQuery:', error);
     }
@@ -121,42 +120,35 @@ const PendingSurveys: React.FC = () => {
     priorityFilter !== 'all' || 
     statusFilter !== 'all';
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = (priority?: string | null) => {
     switch (priority) {
-      case 'high': return 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100 transition-colors';
-      case 'medium': return 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100 transition-colors';
-      case 'low': return 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100 transition-colors';
-      default: return 'bg-gray-50 text-gray-700 border-gray-200';
+      case 'high':
+        return 'border-destructive/30 bg-destructive/10 text-destructive';
+      case 'medium':
+        return 'border-amber-300/60 bg-amber-50 text-amber-700';
+      case 'low':
+        return 'border-emerald-300/60 bg-emerald-50 text-emerald-700';
+      default:
+        return 'border-border/60 bg-muted/40 text-muted-foreground';
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status?: string | null) => {
     switch (status) {
-      case 'overdue': return 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100 transition-colors';
-      case 'not_started': return 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 transition-colors';
-      case 'in_progress': return 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 transition-colors';
-      default: return 'bg-gray-50 text-gray-700 border-gray-200';
+      case 'overdue':
+        return 'border-destructive/40 bg-destructive/10 text-destructive';
+      case 'not_started':
+        return 'border-primary/30 bg-primary/10 text-primary';
+      case 'in_progress':
+        return 'border-amber-300/60 bg-amber-50 text-amber-700';
+      default:
+        return 'border-border/60 bg-muted/40 text-muted-foreground';
     }
   };
 
   const isOverdue = (endDate?: string) => {
     if (!endDate) return false;
     return isAfter(new Date(), new Date(endDate));
-  };
-
-  const getDaysUntilDue = (endDate?: string) => {
-    if (!endDate) return null;
-    const due = new Date(endDate);
-    const now = new Date();
-
-    if (isAfter(now, due)) {
-      return `${Math.ceil((now.getTime() - due.getTime()) / (1000 * 60 * 60 * 24))} gün gecikib`;
-    }
-
-    return formatDistanceToNow(due, {
-      addSuffix: true,
-      locale: az
-    });
   };
 
   const getDaysRemaining = (endDate: string) => {
@@ -172,11 +164,6 @@ const PendingSurveys: React.FC = () => {
 
   const handleStartSurvey = (surveyId: number) => {
     navigate(`/survey-response/${surveyId}`);
-  };
-
-  const handlePreviewSurvey = (surveyId: number) => {
-    // Navigate to survey preview modal or page
-    navigate(`/surveys/${surveyId}/preview`);
   };
 
   if (isLoading) {
@@ -340,128 +327,156 @@ const PendingSurveys: React.FC = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredSurveys.map((survey: SurveyWithStatus) => (
-            <Card key={survey.id} className={`h-full flex flex-col transition-shadow hover:shadow-sm ${
-              survey.response_status === 'overdue' ? 'border-l-2 border-l-red-500' : ''
-            }`}>
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <div className="space-y-2">
-                    <CardTitle className="text-lg font-semibold">
-                      {survey.title}
-                    </CardTitle>
-                    <CardDescription className="text-sm">
-                      {survey.description}
-                    </CardDescription>
-                  </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filteredSurveys.map((survey: SurveyWithStatus) => {
+            const overdue =
+              survey.response_status === 'overdue' ||
+              (survey.end_date ? isOverdue(survey.end_date) : false);
+            const daysRemaining = survey.end_date ? getDaysRemaining(survey.end_date) : null;
+            const statusLabel =
+              survey.response_status === 'overdue'
+                ? 'Gecikmiş'
+                : survey.response_status === 'in_progress'
+                ? 'Davam edir'
+                : 'Gözləyir';
+            const actionLabel = overdue
+              ? 'Təcili başla'
+              : survey.response_status === 'in_progress'
+              ? 'Davam et'
+              : 'Sorğunu başlat';
 
-                  <div className="flex flex-col items-end gap-2">
-                    <div className="flex items-center gap-2">
-                      {/* Priority Indicator */}
-                      {survey.priority && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className={`w-2.5 h-2.5 rounded-full ${
-                              survey.priority === 'high' ? 'bg-red-500' : 
-                              survey.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
-                            }`}></div>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs">
-                            {survey.priority === 'high' ? 'Yüksək prioritet' : 
-                             survey.priority === 'medium' ? 'Orta prioritet' : 'Aşağı prioritet'}
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                      
-                      {/* Status Badge */}
-                      <Badge 
-                        variant="outline"
-                        className={`text-xs font-normal px-2 h-5 ${getStatusColor(survey.response_status)}`}
-                      >
-                        {survey.response_status === 'overdue' ? 'Gecikmiş' : 
-                         survey.response_status === 'in_progress' ? 'Davam edir' : 'Gözləyir'}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              </CardHeader>
-
-              <CardContent className="flex-1 flex flex-col justify-between">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                  <div className="flex flex-col space-y-1">
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="h-5 w-5 text-blue-600" />
-                      <span className="font-medium text-gray-900">Bitmə Tarixi</span>
-                    </div>
-                    {survey.end_date ? (
-                      <div className="flex items-center space-x-2">
-                        <span className={`text-lg font-semibold ${
-                          isOverdue(survey.end_date) ? 'text-red-600' : 'text-gray-900'
-                        }`}>
-                          {format(new Date(survey.end_date), 'dd MMMM yyyy', { locale: az })}
-                        </span>
-                        <Badge 
-                          variant={isOverdue(survey.end_date) ? 'destructive' : 'outline'}
-                          className="ml-2"
-                        >
-                          {isOverdue(survey.end_date) 
-                            ? `${getDaysRemaining(survey.end_date) * -1} gün gecikib`
-                            : getDaysRemaining(survey.end_date) === 0 
-                              ? 'Bu gün son gün' 
-                              : `${getDaysRemaining(survey.end_date)} gün qalıb`
-                          }
-                        </Badge>
+            return (
+              <Card
+                key={survey.id}
+                variant="surface"
+                align="start"
+                className={cn(
+                  "flex h-full flex-col border-border/70 transition-all duration-200",
+                  "hover:border-primary/40 hover:shadow-card",
+                  overdue && "ring-1 ring-inset ring-destructive/40 bg-destructive/5"
+                )}
+              >
+                <CardHeader density="cozy" className="gap-2.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        {survey.priority && (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "rounded-full border px-2 py-0.5 font-medium",
+                              getPriorityColor(survey.priority)
+                            )}
+                          >
+                            {survey.priority === 'high'
+                              ? 'Yüksək prioritet'
+                              : survey.priority === 'medium'
+                              ? 'Orta prioritet'
+                              : 'Aşağı prioritet'}
+                          </Badge>
+                        )}
+                        {survey.is_anonymous && (
+                          <Badge
+                            variant="outline"
+                            className="rounded-full border px-2 py-0.5 font-medium text-muted-foreground"
+                          >
+                            Anonim sorğu
+                          </Badge>
+                        )}
                       </div>
-                    ) : (
-                      <span className="text-gray-500">Müəyyən edilməyib</span>
+                      <CardTitle className="text-base font-semibold leading-snug text-foreground sm:text-lg">
+                        {survey.title}
+                      </CardTitle>
+                      {survey.description && (
+                        <CardDescription className="text-sm text-muted-foreground line-clamp-2">
+                          {survey.description}
+                        </CardDescription>
+                      )}
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "rounded-full border px-2 py-0.5 text-xs font-medium",
+                        getStatusColor(survey.response_status)
+                      )}
+                    >
+                      {statusLabel}
+                    </Badge>
+                  </div>
+                </CardHeader>
+
+                <CardContent density="compact" className="flex flex-1 flex-col gap-3">
+                  <div
+                    className={cn(
+                      "flex items-center justify-between gap-3 rounded-lg border border-dashed px-3 py-2.5",
+                      "border-border/60 bg-muted/30",
+                      overdue && "border-destructive/40 bg-destructive/10"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={cn(
+                          "flex h-10 w-10 items-center justify-center rounded-full",
+                          overdue ? "bg-destructive/15 text-destructive" : "bg-amber-50 text-amber-600"
+                        )}
+                      >
+                        <Calendar className="h-5 w-5" />
+                      </span>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
+                          Bitmə tarixi
+                        </p>
+                        <p
+                          className={cn(
+                            "text-sm font-semibold",
+                            overdue ? "text-destructive" : "text-foreground"
+                          )}
+                        >
+                          {survey.end_date
+                            ? format(new Date(survey.end_date), 'dd MMMM yyyy', { locale: az })
+                            : 'Müəyyən edilməyib'}
+                        </p>
+                      </div>
+                    </div>
+                    {survey.end_date && (
+                      <Badge
+                        variant={overdue ? "destructive" : "outline"}
+                        className={cn(
+                          "rounded-full border px-3 py-1 text-xs font-medium whitespace-nowrap",
+                          !overdue && "border-amber-200 bg-amber-50 text-amber-700"
+                        )}
+                      >
+                        {overdue
+                          ? `${Math.abs(daysRemaining ?? 0)} gün gecikib`
+                          : daysRemaining === 0
+                          ? 'Bu gün son gün'
+                          : `${daysRemaining} gün qalıb`}
+                      </Badge>
                     )}
                   </div>
 
-                  {survey.estimated_duration && (
-                    <div className="flex items-center space-x-2 text-sm">
-                      <Clock className="h-4 w-4 text-gray-500" />
-                      <span className="text-gray-600">Müddət:</span>
-                      <span className="font-medium text-gray-900">{survey.estimated_duration} dəq</span>
+                  {overdue && (
+                    <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                      <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                      <span>Sorğunun müddəti bitib. Cavablandırmaq üçün dərhal başlayın.</span>
                     </div>
                   )}
+                </CardContent>
 
-                  {survey.questions_count && (
-                    <div className="flex items-center space-x-2 text-sm">
-                      <Users className="h-4 w-4 text-gray-500" />
-                      <span className="text-gray-600">Suallar:</span>
-                      <span className="font-medium text-gray-900">{survey.questions_count}</span>
-                    </div>
-                  )}
-                </div>
-
-
-                <div className="mt-4 flex flex-col sm:flex-row justify-between items-center gap-3">
-                  {survey.end_date && isOverdue(survey.end_date) && (
-                    <div className="w-full sm:w-auto p-2 rounded-md bg-red-50 border border-red-100 text-sm text-red-700">
-                      <div className="flex items-center justify-center sm:justify-start space-x-2">
-                        <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                        <span>Sorğunun müddəti bitib!</span>
-                      </div>
-                    </div>
-                  )}
-                  <div className="w-full sm:w-auto">
+                <CardFooter density="compact" className="flex-col gap-2 px-4 pb-4 pt-0 sm:flex-col sm:px-5">
                   <Button
                     onClick={() => handleStartSurvey(survey.id)}
                     size="sm"
-                    className={`h-8 text-sm w-full sm:w-auto ${
-                      survey.response_status === 'overdue'
-                        ? 'bg-red-600 hover:bg-red-700'
-                        : 'bg-blue-600 hover:bg-blue-700'
-                    }`}
+                    variant={overdue ? "destructive" : "default"}
+                    className="w-full justify-center gap-2"
                   >
-                    {survey.response_status === 'overdue' ? 'Təcili başla' : 'Başla'}
+                    {actionLabel}
+                    <ArrowRight className="h-4 w-4" />
                   </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardFooter>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

@@ -1,639 +1,395 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   ClipboardList,
-  CheckSquare,
-  Users,
-  Calendar,
-  AlertTriangle,
-  TrendingUp,
-  Bell,
-  BookOpen,
-  UserCheck,
+  ListChecks,
   GraduationCap,
-  FileText,
-  Clock,
-  BarChart3,
-  RefreshCw,
-  Eye,
-  Edit,
-  Plus,
+  Users,
+  BookOpen,
   ArrowRight,
-  FolderOpen
-} from 'lucide-react';
-import { StatsCard } from './StatsCard';
-import { PriorityAlertBar } from './PriorityAlertBar';
-import { TodayPriorityPanel } from './TodayPriorityPanel';
-import { QuickResponsePanel } from './QuickResponsePanel';
-import { RecentDocumentsWidget } from './RecentDocumentsWidget';
-import { SurveyAnalyticsDashboard } from '@/components/analytics/SurveyAnalyticsDashboard';
-import { SurveyDashboardWidget } from './SurveyDashboardWidget';
-import { schoolAdminService, schoolAdminKeys } from '@/services/schoolAdmin';
-import { formatDistanceToNow, format } from 'date-fns';
-import { az } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+  RefreshCw,
+  AlertCircle,
+  CalendarDays,
+  Bell,
+} from "lucide-react";
+import { schoolAdminService, schoolAdminKeys } from "@/services/schoolAdmin";
+import { formatDistanceToNow } from "date-fns";
+import { az } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
-export const SchoolAdminDashboard: React.FC = () => {
-  const [refreshing, setRefreshing] = useState(false);
+export const SchoolAdminDashboard = () => {
   const navigate = useNavigate();
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Fetch dashboard stats
-  const { 
-    data: stats, 
+  const {
+    data: stats,
     isLoading: statsLoading,
-    refetch: refetchStats 
+    refetch: refetchStats,
   } = useQuery({
     queryKey: schoolAdminKeys.dashboardStats(),
     queryFn: () => schoolAdminService.getDashboardStats(),
     refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
   });
 
-  // Fetch recent activities
-  const { 
-    data: activities, 
-    isLoading: activitiesLoading 
+  const {
+    data: activities,
+    isLoading: activitiesLoading,
+    refetch: refetchActivities,
   } = useQuery({
     queryKey: schoolAdminKeys.activities(),
-    queryFn: () => schoolAdminService.getRecentActivities(8),
+    queryFn: () => schoolAdminService.getRecentActivities(5),
     refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: 1000 * 60 * 2,
   });
 
-  // Fetch upcoming deadlines
-  const { 
-    data: deadlines, 
-    isLoading: deadlinesLoading 
+  const {
+    data: deadlines,
+    isLoading: deadlinesLoading,
+    refetch: refetchDeadlines,
   } = useQuery({
     queryKey: schoolAdminKeys.deadlines(),
-    queryFn: () => schoolAdminService.getUpcomingDeadlines(6),
+    queryFn: () => schoolAdminService.getUpcomingDeadlines(5),
     refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
   });
 
-  // Fetch notifications
-  const { 
-    data: notifications, 
-    isLoading: notificationsLoading 
-  } = useQuery({
-    queryKey: schoolAdminKeys.notifications(),
-    queryFn: () => schoolAdminService.getNotifications({ per_page: 5 }),
-    refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 1, // 1 minute
-  });
+  const summary = [
+    {
+      label: "Aktiv tapşırıqlar",
+      value: stats?.active_tasks ?? 0,
+    },
+    {
+      label: "Gözləyən sorğular",
+      value: stats?.pending_surveys ?? 0,
+    },
+    {
+      label: "Qiymətləndirmə gözləyir",
+      value: stats?.pending_assessments ?? 0,
+    },
+    {
+      label: "Yeni sənədlər",
+      value: stats?.new_documents_count ?? 0,
+    },
+  ];
 
-  // Fetch quick actions
-  const {
-    data: quickActions
-  } = useQuery({
-    queryKey: ['schoolAdmin', 'quickActions'],
-    queryFn: () => schoolAdminService.getQuickActions(),
-    refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 30, // 30 minutes
-  });
-
-  // Fetch pending surveys list
-  const {
-    data: pendingSurveys,
-    isLoading: pendingSurveysLoading
-  } = useQuery({
-    queryKey: schoolAdminKeys.pendingSurveys(),
-    queryFn: () => schoolAdminService.getPendingSurveysList(10),
-    refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 2, // 2 minutes
-  });
-
-  // Fetch today priority items
-  const {
-    data: todayPriority,
-    isLoading: todayPriorityLoading
-  } = useQuery({
-    queryKey: schoolAdminKeys.todayPriority(),
-    queryFn: () => schoolAdminService.getTodayPriority(),
-    refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 1, // 1 minute
-  });
-
-  // Fetch recent documents
-  const {
-    data: recentDocuments,
-    isLoading: recentDocumentsLoading
-  } = useQuery({
-    queryKey: schoolAdminKeys.recentDocuments(),
-    queryFn: () => schoolAdminService.getRecentDocumentsList(10),
-    refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
+  const quickLinks = [
+    {
+      key: "tasks",
+      title: "Tapşırıqlar",
+      description: "Komandanıza təyin olunan tapşırıqları idarə edin.",
+      href: "/tasks/assigned",
+      icon: ClipboardList,
+      badge: stats?.active_tasks ?? 0,
+    },
+    {
+      key: "surveys",
+      title: "Sorğu cavabları",
+      description: "Sizə göndərilən sorğuları tamamlayın.",
+      href: "/my-surveys/pending",
+      icon: ListChecks,
+      badge: stats?.pending_surveys ?? 0,
+    },
+    {
+      key: "assessments",
+      title: "Qiymətləndirmə daxil et",
+      description: "Şagird nəticələrini qeyd edin.",
+      href: "/assessments/entry",
+      icon: GraduationCap,
+      badge: stats?.pending_assessments ?? 0,
+    },
+    {
+      key: "attendance",
+      title: "Toplu davamiyyət",
+      description: "Sinif davamiyyətini sürətlə daxil edin.",
+      href: "/attendance/bulk",
+      icon: Users,
+      badge: stats?.pending_attendance_records ?? 0,
+    },
+    {
+      key: "resources",
+      title: "Resurslarım",
+      description: "Paylaşılan sənədlərə və qovluqlara baxın.",
+      href: "/my-resources",
+      icon: BookOpen,
+      badge: stats?.new_documents_count ?? 0,
+    },
+  ];
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
       await Promise.all([
         refetchStats(),
+        refetchActivities(),
+        refetchDeadlines(),
       ]);
-      toast.success('Məlumatlar yeniləndi');
+      toast.success("Dashboard yeniləndi");
     } catch (error) {
-      toast.error('Yeniləmə zamanı xəta baş verdi');
+      toast.error("Yeniləmə zamanı xəta baş verdi");
     } finally {
       setRefreshing(false);
     }
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'destructive';
-      case 'medium': return 'warning';
-      case 'low': return 'secondary';
-      default: return 'secondary';
-    }
-  };
-
-  const getActivityIcon = (type: string) => {
+  const renderActivityIcon = (type: string) => {
     switch (type) {
-      case 'survey': return ClipboardList;
-      case 'task': return CheckSquare;
-      case 'attendance': return UserCheck;
-      case 'assessment': return GraduationCap;
-      case 'document': return FileText;
-      default: return Bell;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'success';
-      case 'in_progress': return 'warning';
-      case 'pending': return 'secondary';
-      case 'overdue': return 'destructive';
-      default: return 'secondary';
-    }
-  };
-
-  if (statsLoading) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
-            <p className="text-muted-foreground">Dashboard yüklənir...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const handlePriorityItemClick = (item: any) => {
-    if (item.type === 'survey') {
-      navigate(`/survey-response/${item.id}`);
-    } else if (item.type === 'task') {
-      navigate(`/tasks/assigned`);
-      toast.info(`Tapşırıq: ${item.title}`);
-    }
-  };
-
-  const handleSurveyRespond = (surveyId: number) => {
-    navigate(`/survey-response/${surveyId}`);
-  };
-
-  const handleDocumentView = (docId: number) => {
-    // Navigate to documents page with selected document
-    navigate('/school/documents');
-    toast.info(`Sənəd #${docId} seçildi`);
-  };
-
-  const handleAlertClick = (type: string) => {
-    switch (type) {
-      case 'surveys':
-        navigate('/surveys');
-        break;
-      case 'tasks':
-        navigate('/tasks/assigned');
-        break;
-      case 'approvals':
-        navigate('/approvals');
-        break;
+      case "survey":
+        return ListChecks;
+      case "task":
+        return ClipboardList;
+      case "assessment":
+        return GraduationCap;
       default:
-        // Scroll to priority panel
-        document.querySelector('[data-priority-panel]')?.scrollIntoView({ behavior: 'smooth' });
+        return Bell;
+    }
+  };
+
+  const deadlineTone = (priority?: string | null) => {
+    switch (priority) {
+      case "high":
+        return "text-destructive";
+      case "medium":
+        return "text-warning";
+      default:
+        return "text-muted-foreground";
     }
   };
 
   return (
-    <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-2 lg:space-y-2">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+    <div className="space-y-6 px-2 pt-0 pb-4 sm:px-3 lg:px-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Məktəb İdarəetməsi</h1>
-          <p className="text-muted-foreground">
-            Məktəb fəaliyyətlərinin mərkəzləşdirilmiş idarəsi
+          <h1 className="text-2xl font-semibold text-foreground">
+            Məktəb İdarəetməsi
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Əsas iş axınlarını bir mərkəzdən idarə edin.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={handleRefresh}
-            disabled={refreshing}
-          >
-            <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
-            Yenilə
-          </Button>
-        </div>
-      </div>
-
-      {/* Priority Alert Bar */}
-      <PriorityAlertBar
-        urgentSurveys={todayPriority?.filter(item => item.type === 'survey' && item.hours_remaining <= 6).length || 0}
-        urgentTasks={todayPriority?.filter(item => item.type === 'task' && item.hours_remaining <= 6).length || 0}
-        pendingApprovals={stats?.pending_approvals || 0}
-        todayPriorityItems={stats?.today_priority_items || 0}
-        onClick={handleAlertClick}
-      />
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatsCard
-          title="Gözləyən Sorğular"
-          value={stats?.pending_surveys || 0}
-          icon={ClipboardList}
-          variant={stats && stats.pending_surveys > 0 ? "warning" : "default"}
-          onClick={() => navigate('/surveys')}
-        />
-        <StatsCard
-          title="Aktiv Tapşırıqlar"
-          value={stats?.active_tasks || 0}
-          icon={CheckSquare}
-          variant="primary"
-          onClick={() => navigate('/tasks/assigned')}
-        />
-        <StatsCard
-          title="Yeni Fayllar"
-          value={stats?.new_documents_count || 0}
-          icon={FolderOpen}
-          variant={stats && stats.new_documents_count > 0 ? "info" : "default"}
-          onClick={() => navigate('/school/documents')}
-        />
-        <StatsCard
-          title="Bugünkü Davamiyyət"
-          value={stats?.today_attendance_rate ? `${stats.today_attendance_rate}%` : '0%'}
-          icon={UserCheck}
-          variant={stats && stats.today_attendance_rate >= 90 ? "success" : "warning"}
-          onClick={() => navigate('/school/attendance')}
-        />
-      </div>
-
-      {/* Action Hub - 3 Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" data-priority-panel>
-        {/* Today Priority */}
-        <TodayPriorityPanel
-          items={todayPriority || []}
-          isLoading={todayPriorityLoading}
-          onItemClick={handlePriorityItemClick}
-        />
-
-        {/* Quick Response */}
-        <QuickResponsePanel
-          surveys={pendingSurveys || []}
-          isLoading={pendingSurveysLoading}
-          onRespond={handleSurveyRespond}
-        />
-
-        {/* Recent Documents */}
-        <RecentDocumentsWidget
-          documents={recentDocuments || []}
-          isLoading={recentDocumentsLoading}
-          onViewDocument={handleDocumentView}
-          onViewAll={() => navigate('/school/documents')}
-        />
-      </div>
-
-      {/* Survey Widget */}
-      <div className="mb-6">
-        <SurveyDashboardWidget variant="default" />
-      </div>
-
-      {/* Secondary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-destructive/10 rounded-lg">
-                  <AlertTriangle className="h-4 w-4 text-destructive" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Gecikmiş Tapşırıqlar</p>
-                  <p className="text-xl font-semibold">{stats?.overdue_tasks || 0}</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card 
-          className="cursor-pointer hover:bg-muted/50 transition-colors" 
-          onClick={() => window.location.href = '/school/assessments'}
+        <Button
+          variant="outline"
+          onClick={handleRefresh}
+          disabled={refreshing || statsLoading}
+          className="self-start lg:self-auto"
         >
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-warning/10 rounded-lg">
-                  <TrendingUp className="h-4 w-4 text-warning" />
+          <RefreshCw
+            className={cn(
+              "mr-2 h-4 w-4",
+              (refreshing || statsLoading) && "animate-spin"
+            )}
+          />
+          Yenilə
+        </Button>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {summary.map((item) => (
+          <div
+            key={item.label}
+            className="flex items-center justify-between rounded-lg border border-border/60 bg-card/80 px-3 py-3"
+          >
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {item.label}
+            </span>
+            <span className="text-base font-semibold text-foreground">
+              {item.value}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {quickLinks.map((link) => {
+          const Icon = link.icon;
+          return (
+            <Card
+              key={link.key}
+              align="start"
+              className="flex h-full flex-col border border-border/60 bg-card/90 transition-colors hover:border-primary/40 hover:shadow-sm"
+            >
+              <CardContent className="flex flex-1 flex-col gap-3 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-1 items-center gap-3">
+                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">
+                        {link.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {link.description}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="rounded-full border px-2 py-0.5 text-xs font-medium"
+                  >
+                    {link.badge}
+                  </Badge>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-fit gap-1 px-0 text-primary"
+                  onClick={() => navigate(link.href)}
+                >
+                  Aç
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+  <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-base font-semibold">
+                Yaxın son tarixlər
+              </CardTitle>
+              <CardDescription>
+                Növbəti həftə üçün vacib işlər
+              </CardDescription>
+            </div>
+            <CalendarDays className="h-5 w-5 text-muted-foreground" />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {deadlinesLoading ? (
+              <div className="space-y-2">
+                {[0, 1, 2].map((item) => (
+                  <div
+                    key={item}
+                    className="h-12 animate-pulse rounded-lg bg-muted/40"
+                  />
+                ))}
+              </div>
+            ) : deadlines && deadlines.length > 0 ? (
+              deadlines.slice(0, 4).map((deadline) => (
+                <div
+                  key={deadline.id}
+                  className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-foreground">
+                      {deadline.title}
+                    </p>
+                    <span
+                      className={cn(
+                        "text-xs font-medium",
+                        deadlineTone(deadline.priority)
+                      )}
+                    >
+                      {deadline.due_date
+                        ? formatDistanceToNow(new Date(deadline.due_date), {
+                            addSuffix: true,
+                            locale: az,
+                          })
+                        : "Tarix yoxdur"}
+                    </span>
+                  </div>
+                  {deadline.description && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {deadline.description}
+                    </p>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/20 px-3 py-6 text-center">
+                <AlertCircle className="h-6 w-6 text-muted-foreground" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Qiymətləndirmə Hub-ı</p>
-                  <p className="text-xl font-semibold">{stats?.pending_assessments || 0}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Gözləyən qiymətləndirmələr</p>
+                  <p className="text-sm font-medium text-foreground">
+                    Yaxınlaşan son tarix yoxdur
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Yeni tapşırıqlar əlavə olunduqda burada görünəcək
+                  </p>
                 </div>
               </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
-            </div>
+            )}
           </CardContent>
         </Card>
-        
+
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <Clock className="h-4 w-4 text-primary" />
-                </div>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-base font-semibold">
+                Son fəaliyyətlər
+              </CardTitle>
+              <CardDescription>
+                Məktəb komandası tərəfindən görülən addımlar
+              </CardDescription>
+            </div>
+            <Bell className="h-5 w-5 text-muted-foreground" />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {activitiesLoading ? (
+              <div className="space-y-2">
+                {[0, 1, 2].map((item) => (
+                  <div
+                    key={item}
+                    className="h-12 animate-pulse rounded-lg bg-muted/40"
+                  />
+                ))}
+              </div>
+            ) : activities && activities.length > 0 ? (
+              activities.slice(0, 4).map((activity) => {
+                const Icon = renderActivityIcon(activity.type);
+                return (
+                  <div
+                    key={activity.id}
+                    className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
+                  >
+                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-foreground">
+                        {activity.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {activity.user_name} •{" "}
+                        {formatDistanceToNow(new Date(activity.created_at), {
+                          addSuffix: true,
+                          locale: az,
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/20 px-3 py-6 text-center">
+                <AlertCircle className="h-6 w-6 text-muted-foreground" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Yaxınlaşan Son Tarixlər</p>
-                  <p className="text-xl font-semibold">{stats?.upcoming_deadlines || 0}</p>
+                  <p className="text-sm font-medium text-foreground">
+                    Hələ fəaliyyət yoxdur
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Komandanızın hərəkətləri burada görsənəcək
+                  </p>
                 </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
-
-      {/* Main Content Tabs */}
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Ümumi Baxış</TabsTrigger>
-          <TabsTrigger value="tasks">Tapşırıqlar</TabsTrigger>
-          <TabsTrigger value="deadlines">Son Tarixlər</TabsTrigger>
-          <TabsTrigger value="notifications">Bildirişlər</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-6">
-          {/* Interactive Charts */}
-          <SurveyAnalyticsDashboard className="mt-4" />
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Recent Activities */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <BarChart3 className="h-5 w-5" />
-                      Son Fəaliyyətlər
-                    </CardTitle>
-                    <CardDescription>
-                      Məktəbdə baş verən son fəaliyyətlər
-                    </CardDescription>
-                  </div>
-                  <Button variant="ghost" size="sm">
-                    <Eye className="h-4 w-4 mr-2" />
-                    Hamısını gör
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {activitiesLoading ? (
-                  <div className="space-y-3">
-                    {[...Array(4)].map((_, i) => (
-                      <div key={i} className="flex items-start gap-3 animate-pulse">
-                        <div className="w-8 h-8 bg-muted rounded-lg" />
-                        <div className="flex-1 space-y-2">
-                          <div className="w-3/4 h-4 bg-muted rounded" />
-                          <div className="w-1/2 h-3 bg-muted rounded" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : activities && activities.length > 0 ? (
-                  activities.map((activity) => {
-                    const ActivityIcon = getActivityIcon(activity.type);
-                    return (
-                      <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-                        <div className="p-2 bg-primary/10 rounded-lg">
-                          <ActivityIcon className="h-4 w-4 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{activity.title}</p>
-                          <p className="text-xs text-muted-foreground truncate">{activity.description}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs text-muted-foreground">
-                              {activity.user_name}
-                            </span>
-                            <span className="text-xs text-muted-foreground">•</span>
-                            <span className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(activity.created_at), { 
-                                addSuffix: true, 
-                                locale: az 
-                              })}
-                            </span>
-                          </div>
-                        </div>
-                        {activity.status && (
-                          <Badge variant={getStatusColor(activity.status)} className="text-xs">
-                            {activity.status}
-                          </Badge>
-                        )}
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="text-center py-8">
-                    <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">Hələ ki fəaliyyət qeydə alınmayıb</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Plus className="h-5 w-5" />
-                  Sürətli Əməliyyatlar
-                </CardTitle>
-                <CardDescription>
-                  Tez-tez istifadə olunan funksiyalar
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-3">
-                {quickActions && quickActions.length > 0 ? (
-                  quickActions.map((action) => (
-                    <Button
-                      key={action.id}
-                      variant="outline"
-                      className="h-auto p-4 flex flex-col items-center gap-2"
-                      onClick={() => {
-                        if (action.action_type === 'navigate' && action.action_url) {
-                          window.location.href = action.action_url;
-                        }
-                      }}
-                    >
-                      <span className="text-lg">{action.icon}</span>
-                      <div className="text-center">
-                        <p className="font-medium text-sm">{action.title}</p>
-                        <p className="text-xs text-muted-foreground">{action.description}</p>
-                      </div>
-                    </Button>
-                  ))
-                ) : (
-                  <>
-                    <Button variant="outline" className="h-auto p-4 flex flex-col items-center gap-2">
-                      <ClipboardList className="h-5 w-5" />
-                      <div className="text-center">
-                        <p className="font-medium text-sm">Sorğu Cavabla</p>
-                        <p className="text-xs text-muted-foreground">Gözləyən sorğular</p>
-                      </div>
-                    </Button>
-                    
-                    <Button variant="outline" className="h-auto p-4 flex flex-col items-center gap-2">
-                      <UserCheck className="h-5 w-5" />
-                      <div className="text-center">
-                        <p className="font-medium text-sm">Davamiyyət Qeyd Et</p>
-                        <p className="text-xs text-muted-foreground">Bugünkü davamiyyət</p>
-                      </div>
-                    </Button>
-                    
-                    <Button 
-                      variant="outline" 
-                      className="h-auto p-4 flex flex-col items-center gap-2"
-                      onClick={() => window.location.href = '/school/assessments'}
-                    >
-                      <TrendingUp className="h-5 w-5" />
-                      <div className="text-center">
-                        <p className="font-medium text-sm">Qiymətləndirmə Hub-ı</p>
-                        <p className="text-xs text-muted-foreground">KSQ, BSQ və adi qiymətləndirmələr</p>
-                      </div>
-                    </Button>
-                    
-                    <Button variant="outline" className="h-auto p-4 flex flex-col items-center gap-2">
-                      <CheckSquare className="h-5 w-5" />
-                      <div className="text-center">
-                        <p className="font-medium text-sm">Tapşırıq Yarat</p>
-                        <p className="text-xs text-muted-foreground">Yeni tapşırıq</p>
-                      </div>
-                    </Button>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="tasks" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Aktiv Tapşırıqlar</CardTitle>
-              <CardDescription>Hazırda işlənilməkdə olan tapşırıqlar</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <CheckSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">Tapşırıq komponentləri tezliklə əlavə olunacaq</p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="deadlines" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Yaxınlaşan Son Tarixlər</CardTitle>
-              <CardDescription>Diqqət tələb edən müddətlər</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {deadlinesLoading ? (
-                <div className="space-y-3">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 rounded-lg border animate-pulse">
-                      <div className="w-8 h-8 bg-muted rounded-lg" />
-                      <div className="flex-1 space-y-2">
-                        <div className="w-3/4 h-4 bg-muted rounded" />
-                        <div className="w-1/2 h-3 bg-muted rounded" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : deadlines && deadlines.length > 0 ? (
-                deadlines.map((deadline) => (
-                  <div key={deadline.id} className="flex items-center justify-between p-4 rounded-lg border hover:shadow-sm transition-shadow">
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "p-2 rounded-lg",
-                        deadline.priority === 'high' ? "bg-destructive/10" :
-                        deadline.priority === 'medium' ? "bg-warning/10" : "bg-secondary/10"
-                      )}>
-                        <Clock className={cn(
-                          "h-4 w-4",
-                          deadline.priority === 'high' ? "text-destructive" :
-                          deadline.priority === 'medium' ? "text-warning" : "text-secondary"
-                        )} />
-                      </div>
-                      <div>
-                        <p className="font-medium">{deadline.title}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {format(new Date(deadline.due_date), 'dd MMM yyyy', { locale: az })}
-                          {deadline.days_remaining <= 3 && (
-                            <span className="ml-2 text-destructive font-medium">
-                              ({deadline.days_remaining} gün qalıb)
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={getPriorityColor(deadline.priority)}>
-                        {deadline.priority}
-                      </Badge>
-                      <Badge variant={getStatusColor(deadline.status)}>
-                        {deadline.status}
-                      </Badge>
-                      <Button variant="ghost" size="sm">
-                        <ArrowRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8">
-                  <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">Yaxınlaşan son tarix yoxdur</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="notifications" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Son Bildirişlər</CardTitle>
-              <CardDescription>Diqqət tələb edən bildirişlər</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">Bildiriş komponentləri tezliklə əlavə olunacaq</p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
     </div>
   );
 };

@@ -21,44 +21,44 @@ export const StatsCard = ({
     switch (variant) {
       case "primary":
         return {
-          border: "ring-1 ring-inset ring-primary/30",
-          iconBackground: "bg-primary/10 text-primary",
-          label: "text-primary/80",
+          wrapper: "border border-primary/20 bg-primary/5",
+          iconBackground: "bg-primary/15 text-primary",
+          label: "text-primary/70",
         };
       case "success":
         return {
-          border: "ring-1 ring-inset ring-success/30",
-          iconBackground: "bg-success/10 text-success",
-          label: "text-success/80",
+          wrapper: "border border-success/20 bg-success/5",
+          iconBackground: "bg-success/15 text-success",
+          label: "text-success/70",
         };
       case "warning":
         return {
-          border: "ring-1 ring-inset ring-warning/35",
-          iconBackground: "bg-warning/15 text-warning/90",
-          label: "text-warning/80",
+          wrapper: "border border-warning/25 bg-warning/5",
+          iconBackground: "bg-warning/20 text-warning/80",
+          label: "text-warning/70",
         };
       case "destructive":
         return {
-          border: "ring-1 ring-inset ring-destructive/30",
-          iconBackground: "bg-destructive/10 text-destructive",
-          label: "text-destructive/80",
+          wrapper: "border border-destructive/25 bg-destructive/5",
+          iconBackground: "bg-destructive/15 text-destructive",
+          label: "text-destructive/70",
         };
       case "info":
         return {
-          border: "ring-1 ring-inset ring-blue-400/40",
+          wrapper: "border border-blue-300/30 bg-blue-50/40",
           iconBackground: "bg-blue-500/10 text-blue-600",
-          label: "text-blue-600/80",
+          label: "text-blue-600/75",
         };
       default:
         return {
-          border: "ring-1 ring-inset ring-border/60",
-          iconBackground: "bg-muted/50 text-muted-foreground",
-          label: "text-muted-foreground/80",
+          wrapper: "border border-border/40 bg-card/85",
+          iconBackground: "bg-muted/40 text-muted-foreground",
+          label: "text-muted-foreground/70",
         };
     }
   };
 
-  const { border, iconBackground, label } = getVariantStyles();
+  const { wrapper, iconBackground, label } = getVariantStyles();
 
   return (
     <Card
@@ -66,25 +66,25 @@ export const StatsCard = ({
       interactive={Boolean(onClick)}
       className={cn(
         "overflow-hidden backdrop-blur-sm",
-        border,
-        onClick && "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        wrapper,
+        onClick && "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
       )}
       onClick={onClick}
     >
-      <CardContent className="flex flex-col items-center gap-4 py-5">
+      <CardContent className="flex flex-col items-center gap-3 px-4 py-4 sm:px-5">
         <div
           className={cn(
-            "flex h-12 w-12 items-center justify-center rounded-lg",
+            "flex h-10 w-10 items-center justify-center rounded-lg",
             iconBackground
           )}
         >
-          <Icon className="h-6 w-6" />
+          <Icon className="h-5 w-5" />
         </div>
-        <div className="space-y-2">
-          <p className={cn("text-xs uppercase tracking-wide", label)}>
+        <div className="space-y-1.5">
+          <p className={cn("text-[11px] uppercase tracking-wide font-medium", label)}>
             {title}
           </p>
-          <p className="text-2xl font-semibold text-foreground sm:text-3xl">
+          <p className="text-xl font-semibold text-foreground sm:text-2xl">
             {value}
           </p>
         </div>
