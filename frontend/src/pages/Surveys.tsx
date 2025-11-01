@@ -517,14 +517,14 @@ export default function Surveys() {
                         ? `${survey.description.substring(0, 100)}...` 
                         : survey.description || 'Təsvir yoxdur'}
                     </p>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                       <span>{survey.response_count || 0} cavab</span>
                       <span>{survey.questions_count || survey.questions?.length || 0} sual</span>
                       <span>Yaradıldı: {formatDate(survey.created_at)}</span>
                       {survey.creator && <span>Yaradan: {survey.creator.full_name || survey.creator.username}</span>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Button 
                       variant="ghost" 
                       size="sm"

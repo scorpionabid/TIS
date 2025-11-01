@@ -11,7 +11,8 @@ export const SidebarContainer: React.FC<SidebarContainerProps> = ({ children }) 
     isExpanded, 
     isMobile, 
     handleMouseEnter, 
-    handleMouseLeave 
+    handleMouseLeave,
+    closeSidebar
   } = useSidebarBehavior();
 
   if (isMobile) {
@@ -21,7 +22,7 @@ export const SidebarContainer: React.FC<SidebarContainerProps> = ({ children }) 
         {isExpanded && (
           <div
             className="sidebar-overlay"
-            onClick={() => handleMouseLeave()}
+            onClick={closeSidebar}
           />
         )}
 

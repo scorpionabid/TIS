@@ -66,6 +66,7 @@ class DepartmentTest extends ModelTestCase
         'is_active' => 'boolean',
         'metadata' => 'array',
         'budget_allocation' => 'decimal:2',
+        'deleted_at' => 'datetime',
     ];
 
     protected function setUp(): void

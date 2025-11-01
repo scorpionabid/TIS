@@ -71,7 +71,7 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
 
   const institutions = institutionsResponse?.data || institutionsResponse?.institutions || [];
   const departmentTypes = typesResponse?.data || [];
-  const parentDepartments = parentDepartmentsResponse?.departments || [];
+  const parentDepartments = parentDepartmentsResponse?.data || [];
   
   // Minimal debug logging (can be removed in production)
   React.useEffect(() => {

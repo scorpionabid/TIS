@@ -2,15 +2,17 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Department extends Model
 {
     use HasFactory;
+    use SoftDeletes;
 
     /**
      * Department types based on PRD requirements
@@ -208,16 +210,16 @@ class Department extends Model
     public function scopeAccessibleBy(Builder $query, User $user): Builder
     {
         $userRole = $user->roles->first()?->name;
-        
-        return $query->where(function ($q) use ($user, $userRole) {
-            // SuperAdmin can see all departments
-            if ($userRole === 'superadmin') {
-                return; // No restrictions
-            }
-            
-            // Apply regional filtering based on user role
-            $this->applyRegionalDepartmentFiltering($q, $user, $userRole);
-        });
+
+        // SuperAdmin can see all departments without restrictions
+        if ($userRole === 'superadmin') {
+            return $query;
+        }
+
+        // Apply regional filtering based on user role
+        $this->applyRegionalDepartmentFiltering($query, $user, $userRole);
+
+        return $query;
     }
 
     /**

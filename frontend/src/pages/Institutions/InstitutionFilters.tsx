@@ -75,6 +75,25 @@ export const InstitutionFilters: React.FC<InstitutionFiltersProps> = ({
   const hasActiveFilters = searchQuery || statusFilter !== 'all' || levelFilter !== 'all' ||
     parentFilter !== 'all' || deletedFilter !== 'active' || sortField !== 'name' || sortDirection !== 'asc';
 
+  const regionOptions: Array<{ id?: number | string; name?: string }> = Array.isArray(parentInstitutions?.regions)
+    ? parentInstitutions?.regions ?? []
+    : parentInstitutions?.regions && typeof parentInstitutions.regions === 'object'
+      ? Object.values(parentInstitutions.regions)
+      : [];
+
+  const sectorOptions: Array<{ id?: number | string; name?: string }> = Array.isArray(parentInstitutions?.sectors)
+    ? parentInstitutions?.sectors ?? []
+    : parentInstitutions?.sectors && typeof parentInstitutions.sectors === 'object'
+      ? Object.values(parentInstitutions.sectors)
+      : [];
+
+  const toOptionValue = (value: number | string | undefined): string | undefined => {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+    return typeof value === 'string' ? value : value.toString();
+  };
+
   return (
     <div className="space-y-4">
       {/* Main search and type filter */}
@@ -179,13 +198,25 @@ export const InstitutionFilters: React.FC<InstitutionFiltersProps> = ({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Bütün ana müəssisələr</SelectItem>
-                      {parentInstitutions.regions?.map((region) => (
-                        <SelectItem key={region.id} value={region.id.toString()}>
+                      {regionOptions
+                        .map((region) => ({
+                          id: toOptionValue(region?.id),
+                          name: region?.name ?? 'Naməlum',
+                        }))
+                        .filter((region) => region.id)
+                        .map((region) => (
+                          <SelectItem key={region.id} value={region.id!}>
                           📍 {region.name}
                         </SelectItem>
                       ))}
-                      {parentInstitutions.sectors?.map((sector) => (
-                        <SelectItem key={sector.id} value={sector.id.toString()}>
+                      {sectorOptions
+                        .map((sector) => ({
+                          id: toOptionValue(sector?.id),
+                          name: sector?.name ?? 'Naməlum',
+                        }))
+                        .filter((sector) => sector.id)
+                        .map((sector) => (
+                          <SelectItem key={sector.id} value={sector.id!}>
                           🏢 {sector.name}
                         </SelectItem>
                       ))}

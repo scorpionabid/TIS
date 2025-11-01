@@ -422,10 +422,10 @@ const SurveyApprovalDashboard: React.FC = () => {
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Target className="h-8 w-8 text-primary" />
+          <h1 className="flex items-center gap-2 text-2xl font-bold sm:text-3xl">
+            <Target className="h-7 w-7 text-primary sm:h-8 sm:w-8" />
             Sorğu Cavablarının Təsdiqi
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -433,7 +433,7 @@ const SurveyApprovalDashboard: React.FC = () => {
           </p>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             onClick={handleRefresh}
@@ -468,7 +468,7 @@ const SurveyApprovalDashboard: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
                 <Select
                   value={selectedSurvey?.id?.toString() || ""}
                   onValueChange={(value) => {
@@ -476,7 +476,7 @@ const SurveyApprovalDashboard: React.FC = () => {
                     if (survey) handleSurveySelect(survey);
                   }}
                 >
-                  <SelectTrigger className="w-full max-w-md">
+                <SelectTrigger className="w-full">
                     <SelectValue placeholder="Sorğu seçin..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -489,7 +489,7 @@ const SurveyApprovalDashboard: React.FC = () => {
                 </Select>
 
                 {selectedSurvey && (
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground sm:text-sm">
                     <div className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
                       {selectedSurvey.start_date && new Date(selectedSurvey.start_date).toLocaleDateString('az-AZ')}
@@ -585,14 +585,14 @@ const SurveyApprovalDashboard: React.FC = () => {
 
           {/* Filters */}
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2">
                 <Filter className="h-5 w-5" />
                 Filterlər və Axtarış
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <CardContent className="space-y-4 pt-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                 {/* Search */}
                 <div className="relative">
                   <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
@@ -660,18 +660,19 @@ const SurveyApprovalDashboard: React.FC = () => {
 
               {/* Bulk Actions */}
               {selectedResponses.length > 0 && (
-                <div className="mt-4 p-4 bg-primary/10 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                <div className="mt-4 rounded-lg bg-primary/10 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="secondary">
                         {selectedResponses.length} cavab seçildi
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Button
                         size="sm"
                         variant="default"
                         onClick={() => handleBulkAction('approve')}
+                        className="w-full sm:w-auto"
                       >
                         <CheckCircle className="h-4 w-4 mr-2" />
                         Təsdiq Et
@@ -680,6 +681,7 @@ const SurveyApprovalDashboard: React.FC = () => {
                         size="sm"
                         variant="destructive"
                         onClick={() => handleBulkAction('reject')}
+                        className="w-full sm:w-auto"
                       >
                         <XCircle className="h-4 w-4 mr-2" />
                         Rədd Et
@@ -688,6 +690,7 @@ const SurveyApprovalDashboard: React.FC = () => {
                         size="sm"
                         variant="outline"
                         onClick={() => handleBulkAction('return')}
+                        className="w-full sm:w-auto"
                       >
                         <RefreshCw className="h-4 w-4 mr-2" />
                         Geri Qaytart

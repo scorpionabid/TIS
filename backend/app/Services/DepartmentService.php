@@ -2,10 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\Department;
 use App\Models\Institution;
+use App\Models\Department;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class DepartmentService
 {
@@ -15,12 +14,19 @@ class DepartmentService
     public function getDepartmentsForInstitution(int $institutionId, Request $request)
     {
         $query = Department::where('institution_id', $institutionId)
-                          ->with(['parent', 'children', 'users' => function ($q) {
-                              $q->where('is_active', true);
-                          }])
-                          ->withCount(['users', 'users as active_users_count' => function ($q) {
-                              $q->where('is_active', true);
-                          }]);
+            ->with([
+                'parent',
+                'children',
+                'users' => function ($q) {
+                    $q->where('is_active', true);
+                },
+            ])
+            ->withCount([
+                'users',
+                'users as active_users_count' => function ($q) {
+                    $q->where('is_active', true);
+                },
+            ]);
 
         // Apply filters
         if ($request->search) {
@@ -31,12 +37,10 @@ class DepartmentService
             $query->where('is_active', $request->is_active);
         }
 
-        if ($request->has('parent_id')) {
-            if ($request->parent_id) {
-                $query->where('parent_id', $request->parent_id);
-            } else {
-                $query->whereNull('parent_id');
-            }
+        if ($request->filled('parent_id')) {
+            $query->where('parent_department_id', $request->parent_id);
+        } elseif ($request->has('parent_id')) {
+            $query->whereNull('parent_department_id');
         }
 
         // Apply sorting
@@ -45,8 +49,8 @@ class DepartmentService
         $query->orderBy($sortBy, $sortDirection);
 
         // Return as hierarchy or paginated list
-        if ($request->hierarchy && !$request->parent_id) {
-            $departments = $query->whereNull('parent_id')->get();
+        if ($request->boolean('hierarchy') && !$request->filled('parent_id')) {
+            $departments = $query->whereNull('parent_department_id')->get();
             $this->loadDepartmentHierarchy($departments);
             
             return $this->formatDepartmentHierarchy($departments);
@@ -61,19 +65,28 @@ class DepartmentService
     public function createDepartment(array $validatedData): Department
     {
         // Verify institution exists
-        if (!Institution::where('id', $validatedData['institution_id'])->where('is_active', true)->exists()) {
+        $institution = Institution::where('id', $validatedData['institution_id'])
+            ->where('is_active', true)
+            ->first();
+
+        if (!$institution) {
             throw new \Exception('Təşkilat tapılmadı və ya aktiv deyil.');
         }
 
-        // Set level based on parent
-        if (isset($validatedData['parent_id'])) {
-            $parent = Department::find($validatedData['parent_id']);
+        // Ensure department type is allowed
+        if (!empty($validatedData['department_type'])) {
+            $allowedTypes = Department::getAllowedTypesForInstitution($institution->type);
+            if (!in_array($validatedData['department_type'], $allowedTypes)) {
+                throw new \Exception('Departament növü bu təşkilat üçün uyğun deyil.');
+            }
+        }
+
+        // Ensure parent belongs to same institution
+        if (isset($validatedData['parent_department_id'])) {
+            $parent = Department::find($validatedData['parent_department_id']);
             if (!$parent || $parent->institution_id !== $validatedData['institution_id']) {
                 throw new \Exception('Yanlış ana departament seçilmişdir.');
             }
-            $validatedData['level'] = $parent->level + 1;
-        } else {
-            $validatedData['level'] = 1;
         }
 
         return Department::create($validatedData);
@@ -84,34 +97,27 @@ class DepartmentService
      */
     public function updateDepartment(Department $department, array $validatedData): Department
     {
-        DB::beginTransaction();
-        
-        try {
-            // Update level if parent changed
-            if (isset($validatedData['parent_id']) && $validatedData['parent_id'] !== $department->parent_id) {
-                if ($validatedData['parent_id']) {
-                    $parent = Department::find($validatedData['parent_id']);
-                    if (!$parent || $parent->institution_id !== $department->institution_id) {
-                        throw new \Exception('Yanlış ana departament seçilmişdir.');
-                    }
-                    $validatedData['level'] = $parent->level + 1;
-                } else {
-                    $validatedData['level'] = 1;
-                }
-                
-                // Update children levels recursively
-                $this->updateDepartmentChildrenLevels($department, $validatedData['level']);
+        // Validate department type against institution type
+        if (isset($validatedData['department_type'])) {
+            $allowedTypes = Department::getAllowedTypesForInstitution($department->institution->type);
+            if (!in_array($validatedData['department_type'], $allowedTypes)) {
+                throw new \Exception('Departament növü bu təşkilat üçün uyğun deyil.');
             }
-
-            $department->update($validatedData);
-
-            DB::commit();
-            
-            return $department->fresh(['parent', 'children', 'users']);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            throw $e;
         }
+
+        // Ensure parent belongs to the same institution
+        if (array_key_exists('parent_department_id', $validatedData)) {
+            if ($validatedData['parent_department_id']) {
+                $parent = Department::find($validatedData['parent_department_id']);
+                if (!$parent || $parent->institution_id !== $department->institution_id) {
+                    throw new \Exception('Yanlış ana departament seçilmişdir.');
+                }
+            }
+        }
+
+        $department->update($validatedData);
+
+        return $department->fresh(['parent', 'children', 'users']);
     }
 
     /**
@@ -120,7 +126,7 @@ class DepartmentService
     public function deleteDepartment(Department $department): bool
     {
         // Check if department has active children
-        if ($department->children()->where('is_active', true)->exists()) {
+        if ($department->children()->whereNull('deleted_at')->where('is_active', true)->exists()) {
             throw new \Exception('Bu departamentin aktiv alt departamentləri var.');
         }
 
@@ -129,7 +135,13 @@ class DepartmentService
             throw new \Exception('Bu departamentdə aktiv istifadəçilər var.');
         }
 
-        return $department->update(['is_active' => false]);
+        $department->update(['is_active' => false]);
+
+        if (!$department->trashed()) {
+            $department->delete();
+        }
+
+        return true;
     }
 
     /**
@@ -137,18 +149,19 @@ class DepartmentService
      */
     public function getDepartmentStatistics(int $institutionId): array
     {
-        $query = Department::where('institution_id', $institutionId);
+        $baseQuery = Department::where('institution_id', $institutionId);
 
         return [
-            'total_departments' => $query->count(),
-            'active_departments' => $query->where('is_active', true)->count(),
-            'by_level' => $query->groupBy('level')
-                               ->selectRaw('level, count(*) as count')
-                               ->pluck('count', 'level'),
+            'total_departments' => (clone $baseQuery)->count(),
+            'active_departments' => (clone $baseQuery)->where('is_active', true)->count(),
+            'hierarchy_breakdown' => [
+                'root' => (clone $baseQuery)->whereNull('parent_department_id')->count(),
+                'child' => (clone $baseQuery)->whereNotNull('parent_department_id')->count(),
+            ],
             'total_users' => \App\Models\User::whereIn('department_id', 
-                $query->pluck('id'))->count(),
+                (clone $baseQuery)->pluck('id'))->count(),
             'active_users' => \App\Models\User::whereIn('department_id', 
-                $query->pluck('id'))->where('is_active', true)->count(),
+                (clone $baseQuery)->pluck('id'))->where('is_active', true)->count(),
         ];
     }
 
@@ -174,9 +187,8 @@ class DepartmentService
                 'id' => $department->id,
                 'name' => $department->name,
                 'description' => $department->description,
-                'level' => $department->level,
                 'is_active' => $department->is_active,
-                'parent_id' => $department->parent_id,
+                'parent_department_id' => $department->parent_department_id,
                 'institution_id' => $department->institution_id,
                 'children_count' => $department->children->count(),
                 'users_count' => $department->users_count ?? 0,
@@ -187,16 +199,4 @@ class DepartmentService
         })->toArray();
     }
 
-    /**
-     * Update department children levels recursively
-     */
-    private function updateDepartmentChildrenLevels(Department $department, int $newParentLevel): void
-    {
-        $children = $department->children;
-        
-        foreach ($children as $child) {
-            $child->update(['level' => $newParentLevel + 1]);
-            $this->updateDepartmentChildrenLevels($child, $newParentLevel + 1);
-        }
-    }
 }

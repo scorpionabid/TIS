@@ -5,22 +5,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Edit, Trash2, Loader2, Building, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter, AlertTriangle } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Department, departmentService } from "@/services/departments";
+import { Department, departmentService, DepartmentListResponse, DepartmentType as DepartmentTypeItem, DepartmentFilters } from "@/services/departments";
 import { DepartmentModal } from "@/components/modals/DepartmentModal";
 import { DeleteConfirmationModal } from "@/components/modals/DeleteConfirmationModal";
 import { useToast } from "@/hooks/use-toast";
-import { usePagination } from "@/hooks/usePagination";
 import { TablePagination } from "@/components/common/TablePagination";
 import { User, userService, UserFilters } from "@/services/users";
 import { CreateDepartmentData } from "@/services/departments";
-import { ApiResponse } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 
-interface DepartmentApiResponse extends ApiResponse<Department[]> {
-  success: boolean;
-}
-
-type SortField = 'name' | 'short_name' | 'department_type' | 'institution' | 'is_active';
+type SortField = 'name' | 'department_type';
 type SortDirection = 'asc' | 'desc';
 
 export default function Departments() {
@@ -32,11 +26,13 @@ export default function Departments() {
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'archived'>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [departmentAdmins, setDepartmentAdmins] = useState<Record<number, User | null>>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(15);
 
   // Check access permissions
   const hasAccess = currentUser && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role);
@@ -76,9 +72,10 @@ export default function Departments() {
     admin?: User | null;
   }
 
-  // Load departments with proper typing
-  const { data: departmentsResponse, isLoading, isError } = useQuery<DepartmentApiResponse>({
+  const { data: departmentsResponse, isLoading, isError } = useQuery<DepartmentListResponse>({
     queryKey: ['departments', {
+      page,
+      perPage,
       searchTerm,
       status: statusFilter,
       type: typeFilter,
@@ -87,182 +84,152 @@ export default function Departments() {
       userRole: currentUser?.role,
       institutionId: currentUser?.institution?.id
     }],
-    queryFn: async () => {
-      const response = await departmentService.getAll({
+    queryFn: () => {
+      const params: DepartmentFilters = {
+        page,
+        per_page: perPage,
         search: searchTerm || undefined,
-        is_active: statusFilter === 'all' ? undefined : statusFilter === 'active',
         department_type: typeFilter === 'all' ? undefined : typeFilter,
-      }) as DepartmentApiResponse;
+        sort_by: sortField,
+        sort_direction: sortDirection,
+      };
 
-      return response;
+      switch (statusFilter) {
+        case 'active':
+          params.is_active = true;
+          break;
+        case 'inactive':
+          params.is_active = false;
+          params.include_deleted = true;
+          break;
+        case 'archived':
+          params.only_deleted = true;
+          break;
+        default:
+          break;
+      }
+
+      return departmentService.getAll(params);
     },
     enabled: hasAccess,
+    keepPreviousData: true,
   });
 
-  // Extract departments from the API response
-  const rawDepartments: ExtendedDepartment[] = useMemo(() => {
-    if (!departmentsResponse) return [];
-    
-    // Handle different response structures from the API
-    let departmentsList: Department[] = [];
-    
-    const response = departmentsResponse as any;
-    
-    if (response && response.data) {
-      // Check if it's direct array response
-      if (Array.isArray(response.data)) {
-        departmentsList = response.data;
-      }
-      // Check if it's paginated response with data.data
-      else if (response.data.data && Array.isArray(response.data.data)) {
-        departmentsList = response.data.data;
-      }
-    }
-    
-    return departmentsList.map(department => ({
+  const departments = departmentsResponse?.data ?? [];
+
+  const departmentsWithAdmins: ExtendedDepartment[] = useMemo(() => {
+    return departments.map((department) => ({
       ...department,
-      admin: departmentAdmins[department.id] || null,
+      admin: department.deleted_at ? null : (departmentAdmins[department.id] ?? null),
     }));
-  }, [departmentsResponse, departmentAdmins]);
+  }, [departments, departmentAdmins]);
 
-  // Fetch department admins when departments change
   useEffect(() => {
-    if (!departmentsResponse || !hasAccess) return;
-
-    // Get the list of department IDs that need admin loading
-    const response = departmentsResponse as any;
-    let departmentsList: Department[] = [];
-
-    if (response && response.data) {
-      if (Array.isArray(response.data)) {
-        departmentsList = response.data;
-      } else if (response.data.data && Array.isArray(response.data.data)) {
-        departmentsList = response.data.data;
-      }
+    if (!hasAccess || departments.length === 0) {
+      return;
     }
 
-    // Only fetch for departments that don't have admin data yet
-    const missingAdminDepts = departmentsList.filter(dept => !(dept.id in departmentAdmins));
+    const missingAdminDepts = departments.filter((dept) => !dept.deleted_at && !(dept.id in departmentAdmins));
 
-    // Batch fetch admins with a small delay to avoid overwhelming the API
     missingAdminDepts.forEach((department, index) => {
       setTimeout(() => {
         fetchDepartmentAdmin(department.id);
-      }, index * 100); // 100ms delay between requests
+      }, index * 100);
     });
-  }, [departmentsResponse, hasAccess, departmentAdmins]);
+  }, [departments, hasAccess, departmentAdmins]);
 
-  // Load department types for filter with proper typing
-  interface DepartmentType {
-    id: string;
-    key: string;        // For SelectItem value
-    name: string;       // For display name
-    label: string;      // For SelectItem label
-    description?: string;
+  const paginationMeta = departmentsResponse?.pagination;
+
+  useEffect(() => {
+    if (paginationMeta?.per_page && paginationMeta.per_page !== perPage) {
+      setPerPage(paginationMeta.per_page);
+    }
+  }, [paginationMeta?.per_page, perPage]);
+
+  const totalItems = paginationMeta?.total ?? departments.length;
+  const itemsPerPageResolved = paginationMeta?.per_page ?? perPage;
+  const currentPage = paginationMeta?.current_page ?? page;
+  const totalPages = paginationMeta?.last_page ?? Math.max(Math.ceil(totalItems / (itemsPerPageResolved || 1)), 1);
+  const startIndex = paginationMeta?.from !== undefined && paginationMeta?.from !== null
+    ? Math.max(paginationMeta.from - 1, 0)
+    : (currentPage - 1) * itemsPerPageResolved;
+  const endIndex = paginationMeta?.to ?? Math.min(startIndex + itemsPerPageResolved, totalItems);
+  const canGoPrevious = currentPage > 1;
+  const canGoNext = currentPage < totalPages;
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handlePerPageChange = (newPerPage: number) => {
+    setPerPage(newPerPage);
+    setPage(1);
+  };
+
+  const handlePreviousPage = () => {
+    if (canGoPrevious) {
+      setPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (canGoNext) {
+      setPage(currentPage + 1);
+    }
+  };
+
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  interface DepartmentTypeOption {
+    key: string;
+    label: string;
+    description?: string | null;
   }
 
-  const { data: typesResponse } = useQuery<DepartmentApiResponse>({
+  const { data: typesResponse } = useQuery({
     queryKey: ['department-types'],
-    queryFn: () => departmentService.getTypes() as Promise<DepartmentApiResponse>,
+    queryFn: () => departmentService.getTypes(),
     staleTime: 1000 * 60 * 10,
     enabled: hasAccess,
   });
 
-  const departmentTypes = useMemo<DepartmentType[]>(() => {
-    if (!typesResponse) return [];
-    
-    // Handle the response structure from the API
-    if (typesResponse.success && Array.isArray(typesResponse.data)) {
-      return typesResponse.data.map(type => ({
-        ...type,
-        id: type.id || String(Math.random()),
-        key: type.id || String(Math.random()),  // Ensure key is unique and set for SelectItem
-        label: type.name || 'Unnamed',          // Use name as label by default
-        name: type.name || 'Unnamed'            // Ensure name is always defined
-      }));
-    }
-    
-    // Fallback for other response structures
-    return Array.isArray(typesResponse) 
-      ? typesResponse.map((t, index) => ({
-          ...t,
-          id: t.id || `type-${index}`,
-          key: t.id || `type-${index}`,
-          label: t.name || 'Unnamed',
-          name: t.name || 'Unnamed'
-        }))
-      : [];
+  const departmentTypes = useMemo<DepartmentTypeOption[]>(() => {
+    const items = (typesResponse?.data ?? []) as DepartmentTypeItem[];
+
+    return items.map((type, index) => ({
+      key: type.key || `type-${index}`,
+      label: type.label || type.key || `Unnamed-${index}`,
+      description: type.description ?? null,
+    }));
   }, [typesResponse]);
 
-  // Filtering and Sorting logic
-  const filteredAndSortedDepartments: ExtendedDepartment[] = useMemo(() => {
-    let filtered = [...rawDepartments];
-
-    // Apply search filter
-    if (searchTerm) {
-      filtered = filtered.filter(dept => 
-        dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (dept.short_name && dept.short_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (dept.institution?.name && dept.institution.name.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
+  const getStatusDisplay = (department: Department) => {
+    if (department.deleted_at) {
+      return {
+        label: 'Arxivləşdirilib',
+        dotClass: 'bg-slate-400',
+        textClass: 'text-slate-600',
+      };
     }
 
-    // Apply status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(dept => 
-        statusFilter === 'active' ? dept.is_active : !dept.is_active
-      );
+    if (department.is_active) {
+      return {
+        label: 'Aktiv',
+        dotClass: 'bg-green-500',
+        textClass: 'text-green-600',
+      };
     }
 
-    // Apply type filter
-    if (typeFilter !== 'all') {
-      filtered = filtered.filter(dept => dept.department_type === typeFilter);
-    }
-
-    // Sort the filtered results
-    const sorted = filtered.sort((a, b) => {
-      let aValue: string | number;
-      let bValue: string | number;
-
-      switch (sortField) {
-        case 'name':
-          aValue = a.name.toLowerCase();
-          bValue = b.name.toLowerCase();
-          break;
-        case 'short_name':
-          aValue = (a.short_name || '').toLowerCase();
-          bValue = (b.short_name || '').toLowerCase();
-          break;
-        case 'department_type':
-          aValue = (a.department_type_display || a.department_type).toLowerCase();
-          bValue = (b.department_type_display || b.department_type).toLowerCase();
-          break;
-        case 'institution':
-          aValue = (a.institution?.name || '').toLowerCase();
-          bValue = (b.institution?.name || '').toLowerCase();
-          break;
-        case 'is_active':
-          aValue = a.is_active ? 1 : 0;
-          bValue = b.is_active ? 1 : 0;
-          break;
-        default:
-          return 0;
-      }
-
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-    return sorted;
-  }, [rawDepartments, sortField, sortDirection, searchTerm, statusFilter, typeFilter]);
-
-  // Apply pagination
-  const pagination = usePagination(filteredAndSortedDepartments, {
-    initialPage: 1,
-    initialItemsPerPage: 15
-  });
-
-  const departments = pagination.paginatedItems;
+    return {
+      label: 'Deaktiv',
+      dotClass: 'bg-amber-500',
+      textClass: 'text-amber-600',
+    };
+  };
 
   // Security check - only administrative roles can access department management
   if (!hasAccess) {
@@ -283,6 +250,7 @@ export default function Departments() {
     setSearchTerm('');
     setStatusFilter('all');
     setTypeFilter('all');
+    setPage(1);
   };
 
   const handleSort = (field: SortField) => {
@@ -292,6 +260,7 @@ export default function Departments() {
       setSortField(field);
       setSortDirection('asc');
     }
+    setPage(1);
   };
 
   const getSortIcon = (field: SortField) => {
@@ -393,20 +362,17 @@ export default function Departments() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[200px]">Ad</TableHead>
-                <TableHead>Qısa ad</TableHead>
-                <TableHead>Növ</TableHead>
-                <TableHead>Müəssisə</TableHead>
-                <TableHead>Tutum</TableHead>
-                <TableHead>Büdcə</TableHead>
-                <TableHead className="w-[80px]">Status</TableHead>
-                <TableHead className="text-right w-[100px]">Əməliyyat</TableHead>
+              <TableHead className="w-[200px]">Ad</TableHead>
+              <TableHead>Növ</TableHead>
+              <TableHead>Müəssisə</TableHead>
+              <TableHead>Admin</TableHead>
+              <TableHead className="w-[80px]">Status</TableHead>
+              <TableHead className="text-right w-[100px]">Əməliyyat</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {[1,2,3,4,5,6].map((i) => (
                 <TableRow key={i}>
-                  <TableCell><div className="h-6 bg-muted rounded animate-pulse" /></TableCell>
                   <TableCell><div className="h-6 bg-muted rounded animate-pulse" /></TableCell>
                   <TableCell><div className="h-6 bg-muted rounded animate-pulse" /></TableCell>
                   <TableCell><div className="h-6 bg-muted rounded animate-pulse" /></TableCell>
@@ -455,12 +421,21 @@ export default function Departments() {
             <Input
               placeholder="Departament axtar..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(1);
+              }}
               className="pl-8 w-[250px]"
             />
           </div>
           
-          <Select value={statusFilter} onValueChange={(value: 'all' | 'active' | 'inactive') => setStatusFilter(value)}>
+          <Select
+            value={statusFilter}
+            onValueChange={(value: 'all' | 'active' | 'inactive' | 'archived') => {
+              setStatusFilter(value);
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="w-[150px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -468,30 +443,34 @@ export default function Departments() {
               <SelectItem value="all">Bütün statuslar</SelectItem>
               <SelectItem value="active">Aktiv</SelectItem>
               <SelectItem value="inactive">Deaktiv</SelectItem>
+              <SelectItem value="archived">Arxivləşdirilmiş</SelectItem>
             </SelectContent>
           </Select>
 
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <Select
+            value={typeFilter}
+            onValueChange={(value) => {
+              setTypeFilter(value);
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Növ" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Bütün növlər</SelectItem>
-              {departmentTypes.map((type) => {
-                const itemKey = type.key || type.id || `type-${type.name || 'unknown'}`;
-                return (
-                  <SelectItem key={itemKey} value={itemKey}>
-                    {type.label || type.name || 'Unnamed'}
-                  </SelectItem>
-                );
-              })}
+              {departmentTypes.map((type) => (
+                <SelectItem key={type.key} value={type.key}>
+                  {type.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">
-            {pagination.totalItems} departament
+            {totalItems} departament
           </span>
           {(searchTerm || statusFilter !== 'all' || typeFilter !== 'all') && (
             <Button variant="outline" size="sm" onClick={clearFilters}>
@@ -526,40 +505,14 @@ export default function Departments() {
                   {getSortIcon('department_type')}
                 </Button>
               </TableHead>
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort('institution')}
-                  className="h-auto p-0 font-semibold hover:bg-transparent"
-                >
-                  Müəssisə
-                  {getSortIcon('institution')}
-                </Button>
-              </TableHead>
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  className="h-auto p-0 font-semibold hover:bg-transparent"
-                >
-                  Admin
-                </Button>
-              </TableHead>
-              <TableHead className="w-[60px] text-center">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort('is_active')}
-                  className="h-auto p-0 font-semibold hover:bg-transparent"
-                  title="Status"
-                >
-                  <div className="h-3 w-3 rounded-full bg-muted-foreground/20 mx-auto" />
-                  {getSortIcon('is_active')}
-                </Button>
-              </TableHead>
+              <TableHead>Müəssisə</TableHead>
+              <TableHead>Admin</TableHead>
+              <TableHead className="w-[60px] text-center">Status</TableHead>
               <TableHead className="text-right w-[100px]">Əməliyyat</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {!isLoading && pagination.totalItems === 0 ? (
+            {!isLoading && totalItems === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center">
                   {searchTerm || statusFilter !== 'all' || typeFilter !== 'all' 
@@ -577,7 +530,7 @@ export default function Departments() {
                 </TableCell>
               </TableRow>
             ) : (
-              departments.map((department) => (
+              departmentsWithAdmins.map((department) => (
                 <TableRow key={department.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
@@ -597,9 +550,9 @@ export default function Departments() {
                   </TableCell>
                   <TableCell>
                     <div className="max-w-[150px] truncate">
-                      {departmentAdmins[department.id] ? (
-                        <span title={`${departmentAdmins[department.id]?.first_name} ${departmentAdmins[department.id]?.last_name}`}>
-                          {departmentAdmins[department.id]?.first_name} {departmentAdmins[department.id]?.last_name}
+                      {department.admin ? (
+                        <span title={`${department.admin.first_name} ${department.admin.last_name}`}>
+                          {department.admin.first_name} {department.admin.last_name}
                         </span>
                       ) : (
                         <span className="text-muted-foreground">Təyin olunmayıb</span>
@@ -607,12 +560,15 @@ export default function Departments() {
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
-                    <div className="flex items-center justify-center">
-                      <div 
-                        className={`h-3 w-3 rounded-full ${department.is_active ? 'bg-green-500' : 'bg-yellow-500'}`}
-                        title={department.is_active ? 'Aktiv' : 'Deaktiv'}
-                      />
-                    </div>
+                    {(() => {
+                      const status = getStatusDisplay(department);
+                      return (
+                        <div className="flex items-center justify-center gap-2">
+                          <span className={`h-2.5 w-2.5 rounded-full ${status.dotClass}`} aria-hidden />
+                          <span className={`text-sm font-medium ${status.textClass}`}>{status.label}</span>
+                        </div>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center gap-1 justify-end">
@@ -646,20 +602,20 @@ export default function Departments() {
       </div>
 
       {/* Pagination */}
-      {pagination.totalItems > 0 && (
+      {totalItems > 0 && (
         <TablePagination
-          currentPage={pagination.currentPage}
-          totalPages={pagination.totalPages}
-          totalItems={pagination.totalItems}
-          itemsPerPage={pagination.itemsPerPage}
-          startIndex={pagination.startIndex}
-          endIndex={pagination.endIndex}
-          onPageChange={pagination.goToPage}
-          onItemsPerPageChange={pagination.setItemsPerPage}
-          onPrevious={pagination.goToPreviousPage}
-          onNext={pagination.goToNextPage}
-          canGoPrevious={pagination.canGoPrevious}
-          canGoNext={pagination.canGoNext}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPageResolved}
+          startIndex={startIndex}
+          endIndex={endIndex}
+          onPageChange={handlePageChange}
+          onItemsPerPageChange={handlePerPageChange}
+          onPrevious={handlePreviousPage}
+          onNext={handleNextPage}
+          canGoPrevious={canGoPrevious}
+          canGoNext={canGoNext}
         />
       )}
 

@@ -75,6 +75,7 @@ class DepartmentTest extends TestCase
         $response = $this->postJson('/api/departments', $departmentData);
 
         $response->assertStatus(201)
+            ->assertJsonPath('success', true)
             ->assertJsonFragment([
                 'name' => 'Test Maliyyə Şöbəsi',
                 'department_type' => 'maliyyə',
@@ -146,6 +147,7 @@ class DepartmentTest extends TestCase
         $response = $this->postJson('/api/departments', $departmentData);
 
         $response->assertStatus(201)
+            ->assertJsonPath('success', true)
             ->assertJsonFragment([
                 'name' => 'İnzibati Şöbəsi',
                 'department_type' => 'inzibati'
@@ -241,10 +243,11 @@ class DepartmentTest extends TestCase
         Sanctum::actingAs($superadmin);
 
         $response = $this->getJson("/api/departments?institution_id={$institution->id}&per_page=10");
-        $response->assertStatus(200);
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true);
 
-        $payload = $response->json('data.data');
-        $this->assertEquals(2, $response->json('data.total'));
+        $payload = $response->json('data', []);
+        $this->assertEquals(2, $response->json('pagination.total'));
 
         $collection = collect($payload);
         $this->assertTrue($collection->contains(fn ($item) => $item['department_type'] === 'inzibati' && (bool) $item['is_active']));
@@ -285,6 +288,7 @@ class DepartmentTest extends TestCase
         $response = $this->putJson("/api/departments/{$department->id}", $updateData);
 
         $response->assertStatus(200)
+            ->assertJsonPath('success', true)
             ->assertJsonFragment([
                 'name' => 'Updated Department Name',
                 'capacity' => 30
@@ -320,11 +324,48 @@ class DepartmentTest extends TestCase
 
         $response = $this->deleteJson("/api/departments/{$department->id}?type=hard");
 
-        $response->assertStatus(200);
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true);
 
         $this->assertDatabaseMissing('departments', [
             'id' => $department->id
         ]);
+    }
+
+    /**
+     * Test archived departments listing
+     */
+    public function test_department_archived_filter_returns_soft_deleted_departments()
+    {
+        $institution = Institution::factory()->create();
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('superadmin');
+
+        $department = Department::factory()->create([
+            'name' => 'Archived Department',
+            'institution_id' => $institution->id,
+        ]);
+
+        Sanctum::actingAs($superadmin);
+
+        // Archive department via soft delete
+        $this->deleteJson("/api/departments/{$department->id}")
+            ->assertStatus(200);
+
+        $this->assertSoftDeleted('departments', [
+            'id' => $department->id,
+        ]);
+
+        // Should not appear in default listing
+        $defaultResponse = $this->getJson('/api/departments');
+        $defaultResponse->assertStatus(200);
+        $this->assertNull(collect($defaultResponse->json('data', []))->firstWhere('id', $department->id));
+
+        // Should appear when requesting only deleted records
+        $archivedResponse = $this->getJson('/api/departments?only_deleted=1');
+        $archivedResponse->assertStatus(200)
+            ->assertJsonPath('pagination.total', 1)
+            ->assertJsonPath('data.0.id', $department->id);
     }
 
     /**
@@ -349,28 +390,38 @@ class DepartmentTest extends TestCase
         $response = $this->getJson("/api/departments/{$department->id}");
 
         $response->assertStatus(200)
-            ->assertJsonFragment([
-                'id' => $department->id,
-                'name' => 'Test Department',
-                'department_type' => 'maliyyə',
-                'capacity' => 25
-            ])
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.id', $department->id)
+            ->assertJsonPath('data.name', 'Test Department')
+            ->assertJsonPath('data.department_type', 'maliyyə')
+            ->assertJsonPath('data.capacity', 25)
             ->assertJsonStructure([
-                'id',
-                'name',
-                'short_name',
-                'department_type',
-                'institution_id',
-                'description',
-                'capacity',
-                'budget_allocation',
-                'is_active',
-                'created_at',
-                'updated_at',
-                'institution' => [
+                'success',
+                'data' => [
                     'id',
                     'name',
-                    'type'
+                    'short_name',
+                    'department_type',
+                    'department_type_display',
+                    'institution_id',
+                    'description',
+                    'capacity',
+                    'budget_allocation',
+                    'functional_scope',
+                    'is_active',
+                    'metadata',
+                    'parent',
+                    'children',
+                    'users_count',
+                    'active_users_count',
+                    'created_at',
+                    'updated_at',
+                    'deleted_at',
+                    'institution' => [
+                        'id',
+                        'name',
+                        'type'
+                    ]
                 ]
             ]);
     }
@@ -448,8 +499,9 @@ class DepartmentTest extends TestCase
         $response = $this->postJson('/api/departments', $departmentData);
 
         $response->assertStatus(201)
-            ->assertJsonPath('department.name', 'Child Department')
-            ->assertJsonPath('department.parent.id', $parentDept->id);
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.name', 'Child Department')
+            ->assertJsonPath('data.parent.id', $parentDept->id);
 
         $this->assertDatabaseHas('departments', [
             'name' => 'Child Department',

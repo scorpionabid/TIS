@@ -44,13 +44,13 @@ export const DepartmentModalStandardized: React.FC<DepartmentModalStandardizedPr
   // Load parent departments
   const { data: parentDepartmentsResponse } = useQuery({
     queryKey: ['parent-departments'],
-    queryFn: () => departmentService.getAll(),
+    queryFn: () => departmentService.getAll({ per_page: 100, is_active: true }),
     enabled: open,
   });
 
   const institutions = institutionsResponse?.data || institutionsResponse?.institutions || [];
   const departmentTypes = typesResponse?.data || [];
-  const parentDepartments = parentDepartmentsResponse?.departments || [];
+  const parentDepartments = parentDepartmentsResponse?.data || [];
 
   // Dynamic fields with loaded data
   const dynamicFields = useMemo(() => [
@@ -73,10 +73,13 @@ export const DepartmentModalStandardized: React.FC<DepartmentModalStandardizedPr
       required: true,
       placeholder: 'Departament növünü seçin',
       validation: commonValidations.required,
-      options: departmentTypes.map((type: any) => ({
-        label: type.display_name || type.name,
-        value: type.name
-      })),
+      options: departmentTypes.map((type: any, index: number) => {
+        const value = type.key || type.name || `type-${index}`;
+        return {
+          label: type.label || type.name || value,
+          value: value.toString(),
+        };
+      }),
     }),
     
     // Parent department selection (optional)

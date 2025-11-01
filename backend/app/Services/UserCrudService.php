@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Exception;
@@ -436,16 +437,33 @@ class UserCrudService
      */
     protected function applySearch($query, string $search): void
     {
-        $query->where(function ($q) use ($search) {
-            $q->where('username', 'ILIKE', "%{$search}%")
-              ->orWhere('email', 'ILIKE', "%{$search}%")
-              ->orWhereHas('profile', function ($pq) use ($search) {
-                  $pq->where('first_name', 'ILIKE', "%{$search}%")
-                     ->orWhere('last_name', 'ILIKE', "%{$search}%");
-              })
-              ->orWhereHas('institution', function ($iq) use ($search) {
-                  $iq->where('name', 'ILIKE', "%{$search}%");
-              });
+        $driver = $query->getConnection()->getDriverName();
+        $searchPattern = "%{$search}%";
+
+        $query->where(function ($q) use ($driver, $search, $searchPattern) {
+            if ($driver === 'sqlite') {
+                $like = '%' . Str::lower($search) . '%';
+
+                $q->whereRaw('LOWER(username) LIKE ?', [$like])
+                  ->orWhereRaw('LOWER(email) LIKE ?', [$like])
+                  ->orWhereHas('profile', function ($pq) use ($like) {
+                      $pq->whereRaw('LOWER(first_name) LIKE ?', [$like])
+                         ->orWhereRaw('LOWER(last_name) LIKE ?', [$like]);
+                  })
+                  ->orWhereHas('institution', function ($iq) use ($like) {
+                      $iq->whereRaw('LOWER(name) LIKE ?', [$like]);
+                  });
+            } else {
+                $q->where('username', 'ILIKE', $searchPattern)
+                  ->orWhere('email', 'ILIKE', $searchPattern)
+                  ->orWhereHas('profile', function ($pq) use ($searchPattern) {
+                      $pq->where('first_name', 'ILIKE', $searchPattern)
+                         ->orWhere('last_name', 'ILIKE', $searchPattern);
+                  })
+                  ->orWhereHas('institution', function ($iq) use ($searchPattern) {
+                      $iq->where('name', 'ILIKE', $searchPattern);
+                  });
+            }
         });
     }
     

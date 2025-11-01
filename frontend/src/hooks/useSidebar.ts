@@ -40,6 +40,11 @@ export const useSidebarBehavior = () => {
     }
   }, [isMobile, sidebarPreferences.autoCollapseOnNavigation, sidebarPreferences.behavior, sidebarHovered, sidebarCollapsed, setSidebarCollapsed, setSidebarHovered]);
 
+  const closeSidebar = useCallback(() => {
+    setSidebarHovered(false);
+    setSidebarCollapsed(true);
+  }, [setSidebarCollapsed, setSidebarHovered]);
+
   // Determine if sidebar should be expanded based on mode and preferences
   const isExpanded = (() => {
     // If keepAlwaysExpanded is enabled, always return true
@@ -63,6 +68,7 @@ export const useSidebarBehavior = () => {
     handleMouseEnter,
     handleMouseLeave,
     handleNavigation,
-    toggleSidebar
+    toggleSidebar,
+    closeSidebar
   };
 };

@@ -1,10 +1,11 @@
 import { BaseService, BaseEntity, PaginationParams } from './BaseService';
-import { apiClient } from './api';
+import { ApiResponse, apiClient } from './api';
 
 export interface Department extends BaseEntity {
   name: string;
   short_name?: string;
   department_type: string;
+  department_type_display?: string;
   institution_id: number;
   parent_department_id?: number;
   description?: string;
@@ -13,6 +14,7 @@ export interface Department extends BaseEntity {
   budget_allocation?: number;
   functional_scope?: string;
   is_active: boolean;
+  deleted_at?: string | null;
   
   // Relations
   institution?: {
@@ -45,6 +47,8 @@ export interface DepartmentFilters extends PaginationParams {
   is_active?: boolean;
   hierarchy?: boolean;
   search?: string;
+  include_deleted?: boolean;
+  only_deleted?: boolean;
 }
 
 export interface DepartmentType {
@@ -53,134 +57,99 @@ export interface DepartmentType {
   description?: string;
 }
 
+export interface DepartmentListResponse extends ApiResponse<Department[]> {
+  pagination?: {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from?: number | null;
+    to?: number | null;
+  };
+}
+
 class DepartmentService extends BaseService<Department> {
   constructor() {
     super('/departments');
   }
 
-  async getAll(params?: DepartmentFilters) {
-    console.log('🔍 DepartmentService.getAll called', params);
-    try {
-      const response = await apiClient.get(this.baseEndpoint, params);
-      console.log('✅ DepartmentService.getAll successful:', response);
-      return response;
-    } catch (error) {
-      console.error('❌ DepartmentService.getAll failed:', error);
-      throw error;
-    }
+  async getAll(params?: DepartmentFilters): Promise<DepartmentListResponse> {
+    const response = await apiClient.get<Department[]>(this.baseEndpoint, params);
+    return response as DepartmentListResponse;
   }
 
   async create(data: CreateDepartmentData): Promise<Department> {
-    console.log('🔥 DepartmentService.create called', data);
-    
-    try {
-      const response = await apiClient.post(this.baseEndpoint, data);
-      console.log('📤 API response for departments create:', response);
-      
-      // Backend returns: { message: '...', department: {...} }
-      if (!response.department) {
-        console.error('❌ No department in response:', response);
-        throw new Error('Yaratma əməliyyatı uğursuz oldu - server cavabında department yoxdur');
-      }
-      
-      console.log('✅ Department create successful:', response.department);
-      return response.department;
-    } catch (error) {
-      console.error('❌ Department create failed:', error);
-      throw error;
+    const response = await apiClient.post<Department>(this.baseEndpoint, data);
+
+    if (!response.data) {
+      throw new Error('Departament yaratmaq mümkün olmadı - server məlumat qaytarmadı.');
     }
+
+    return response.data;
   }
 
   async update(id: number, data: Partial<CreateDepartmentData>): Promise<Department> {
-    console.log('🔥 DepartmentService.update called', id, data);
-    
-    try {
-      const response = await apiClient.put(`${this.baseEndpoint}/${id}`, data);
-      console.log('📤 API response for departments update:', response);
-      
-      // Backend returns: { message: '...', department: {...} }
-      if (!response.department) {
-        console.error('❌ No department in response:', response);
-        throw new Error('Yeniləmə əməliyyatı uğursuz oldu - server cavabında department yoxdur');
-      }
-      
-      console.log('✅ Department update successful:', response.department);
-      return response.department;
-    } catch (error) {
-      console.error('❌ Department update failed:', error);
-      throw error;
+    const response = await apiClient.put<Department>(`${this.baseEndpoint}/${id}`, data);
+
+    if (!response.data) {
+      throw new Error('Departament yenilənmədi - server məlumat qaytarmadı.');
     }
+
+    return response.data;
   }
 
-  async getByInstitution(institutionId: number, params?: DepartmentFilters) {
-    const response = await apiClient.get(`${this.baseEndpoint}`, { 
+  async getByInstitution(institutionId: number, params?: DepartmentFilters): Promise<DepartmentListResponse> {
+    const response = await apiClient.get<Department[]>(`${this.baseEndpoint}`, { 
       ...params, 
       institution_id: institutionId 
     });
+    return response as DepartmentListResponse;
+  }
+
+  async getTypes(): Promise<ApiResponse<DepartmentType[]>> {
+    const response = await apiClient.get<DepartmentType[]>('/departments/types');
     return response;
   }
 
-  async getTypes() {
-    console.log('🔍 DepartmentService.getTypes called');
-    try {
-      const response = await apiClient.get('/departments/types');
-      console.log('✅ DepartmentService.getTypes successful:', response);
-      return response;
-    } catch (error) {
-      console.error('❌ DepartmentService.getTypes failed:', error);
-      throw error;
-    }
-  }
-
-  async getTypesForInstitution(institutionId: number) {
-    const response = await apiClient.get('/departments/types-for-institution', { 
+  async getTypesForInstitution(institutionId: number): Promise<ApiResponse<DepartmentType[]>> {
+    const response = await apiClient.get<DepartmentType[]>('/departments/types-for-institution', { 
       institution_id: institutionId 
     });
     return response;
   }
 
-  async getHierarchy(institutionId?: number) {
+  async getHierarchy(institutionId?: number): Promise<ApiResponse<Department[]>> {
     const params = institutionId ? { institution_id: institutionId } : {};
-    const response = await apiClient.get(`${this.baseEndpoint}`, { 
+    const response = await apiClient.get<Department[]>(`${this.baseEndpoint}`, { 
       ...params, 
       hierarchy: true 
     });
     return response;
   }
 
-  async getRoots(institutionId?: number) {
+  async getRoots(institutionId?: number): Promise<DepartmentListResponse> {
     const params = institutionId ? { institution_id: institutionId } : {};
-    const response = await apiClient.get(`${this.baseEndpoint}`, { 
+    const response = await apiClient.get<Department[]>(`${this.baseEndpoint}`, { 
       ...params, 
       parent_id: null 
     });
-    return response;
+    return response as DepartmentListResponse;
   }
 
-  async getChildren(parentId: number) {
-    const response = await apiClient.get(`${this.baseEndpoint}`, { 
+  async getChildren(parentId: number): Promise<DepartmentListResponse> {
+    const response = await apiClient.get<Department[]>(`${this.baseEndpoint}`, { 
       parent_id: parentId 
     });
-    return response;
+    return response as DepartmentListResponse;
   }
 
-  async getStatistics(institutionId: number) {
-    const response = await apiClient.get(`/institutions/${institutionId}/departments/statistics`);
+  async getStatistics(institutionId: number): Promise<ApiResponse<Record<string, any>>> {
+    const response = await apiClient.get<Record<string, any>>(`/institutions/${institutionId}/departments/statistics`);
     return response;
   }
 
   async delete(id: number, deleteType: 'soft' | 'hard' = 'soft'): Promise<void> {
-    console.log(`🔥 DepartmentService.delete called for ${id} with type: ${deleteType}`);
-    
-    try {
-      const response = await apiClient.delete(`${this.baseEndpoint}/${id}`, {
-        type: deleteType
-      });
-      console.log('✅ Department delete successful:', response);
-    } catch (error) {
-      console.error('❌ Department delete failed:', error);
-      throw error;
-    }
+    await apiClient.delete(`${this.baseEndpoint}/${id}?type=${deleteType}`);
   }
 }
 

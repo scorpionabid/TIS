@@ -77,7 +77,7 @@ export const useLinkCreate = ({ onLinkCreated, onClose }: UseLinkCreateProps) =>
   // Fetch departments
   const { data: departments, isLoading: departmentsLoading } = useQuery({
     queryKey: ['departments'],
-    queryFn: () => departmentService.getAll()
+    queryFn: () => departmentService.getAll({ per_page: 200, is_active: true })
   });
 
   // Filtered data
@@ -103,9 +103,9 @@ export const useLinkCreate = ({ onLinkCreated, onClose }: UseLinkCreateProps) =>
   }, [institutions?.data?.data, institutionSearch, institutionTypeFilter]);
 
   const filteredDepartments = useMemo(() => {
-    if (!departments?.data?.data) return [];
+    if (!departments?.data || !Array.isArray(departments.data)) return [];
     
-    let filtered = departments.data.data;
+    let filtered = departments.data;
     
     if (selectedInstitutionForDepartments) {
       filtered = filtered.filter(department => 
@@ -123,7 +123,7 @@ export const useLinkCreate = ({ onLinkCreated, onClose }: UseLinkCreateProps) =>
     }
     
     return filtered;
-  }, [departments?.data?.data, departmentSearch, selectedInstitutionForDepartments]);
+  }, [departments?.data, departmentSearch, selectedInstitutionForDepartments]);
 
   // Available institution types for filter
   const availableInstitutionTypes = useMemo(() => {

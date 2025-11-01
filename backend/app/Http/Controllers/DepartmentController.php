@@ -23,6 +23,8 @@ class DepartmentController extends Controller
             'department_type' => 'nullable|string|max:50',
             'is_active' => 'nullable|boolean',
             'hierarchy' => 'nullable|boolean',
+            'include_deleted' => 'nullable|boolean',
+            'only_deleted' => 'nullable|boolean',
             'sort_by' => 'nullable|string|in:name,short_name,department_type,created_at',
             'sort_direction' => 'nullable|string|in:asc,desc'
         ]);
@@ -64,13 +66,20 @@ class DepartmentController extends Controller
         $sortDirection = $request->sort_direction ?? 'asc';
         $query->orderBy($sortBy, $sortDirection);
 
+        if ($request->boolean('only_deleted')) {
+            $query->onlyTrashed();
+        } elseif ($request->boolean('include_deleted')) {
+            $query->withTrashed();
+        }
+
         // Return as hierarchy or paginated list
-        if ($request->hierarchy && !$request->parent_id) {
+        if ($request->boolean('hierarchy') && !$request->filled('parent_id')) {
             $departments = $query->roots()->get();
             $this->loadDepartmentHierarchy($departments);
             
             return response()->json([
-                'departments' => $departments->map(function ($department) {
+                'success' => true,
+                'data' => $departments->map(function ($department) {
                     return $this->formatDepartmentWithChildren($department);
                 })
             ]);
@@ -80,17 +89,17 @@ class DepartmentController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => [
-                'data' => $departments->map(function ($department) {
-                    return $this->formatDepartment($department);
-                }),
+            'data' => $departments->getCollection()->map(function ($department) {
+                return $this->formatDepartment($department);
+            })->values(),
+            'pagination' => [
                 'current_page' => $departments->currentPage(),
                 'last_page' => $departments->lastPage(),
                 'per_page' => $departments->perPage(),
                 'total' => $departments->total(),
                 'from' => $departments->firstItem(),
                 'to' => $departments->lastItem()
-            ]
+            ],
         ]);
     }
 
@@ -112,38 +121,43 @@ class DepartmentController extends Controller
         $department->load(['institution', 'parent', 'children', 'users']);
 
         return response()->json([
-            'id' => $department->id,
-            'name' => $department->name,
-            'short_name' => $department->short_name,
-            'department_type' => $department->department_type,
-            'institution_id' => $department->institution_id,
-            'description' => $department->description,
-            'capacity' => $department->capacity,
-            'budget_allocation' => $department->budget_allocation,
-            'functional_scope' => $department->functional_scope,
-            'metadata' => $department->metadata,
-            'is_active' => $department->is_active,
-            'institution' => $department->institution ? [
-                'id' => $department->institution->id,
-                'name' => $department->institution->name,
-                'type' => $department->institution->type
-            ] : null,
-            'parent' => $department->parent ? [
-                'id' => $department->parent->id,
-                'name' => $department->parent->name
-            ] : null,
-            'children' => $department->children->map(function ($child) {
-                return [
-                    'id' => $child->id,
-                    'name' => $child->name,
-                    'short_name' => $child->short_name,
-                    'is_active' => $child->is_active
-                ];
-            }),
-            'users_count' => $department->users->count(),
-            'active_users_count' => $department->users->where('is_active', true)->count(),
-            'created_at' => $department->created_at,
-            'updated_at' => $department->updated_at
+            'success' => true,
+            'data' => [
+                'id' => $department->id,
+                'name' => $department->name,
+                'short_name' => $department->short_name,
+                'department_type' => $department->department_type,
+                'department_type_display' => $department->getTypeDisplayName(),
+                'institution_id' => $department->institution_id,
+                'description' => $department->description,
+                'capacity' => $department->capacity,
+                'budget_allocation' => $department->budget_allocation,
+                'functional_scope' => $department->functional_scope,
+                'metadata' => $department->metadata,
+                'is_active' => $department->is_active,
+                'institution' => $department->institution ? [
+                    'id' => $department->institution->id,
+                    'name' => $department->institution->name,
+                    'type' => $department->institution->type
+                ] : null,
+                'parent' => $department->parent ? [
+                    'id' => $department->parent->id,
+                    'name' => $department->parent->name
+                ] : null,
+                'children' => $department->children->map(function ($child) {
+                    return [
+                        'id' => $child->id,
+                        'name' => $child->name,
+                        'short_name' => $child->short_name,
+                        'is_active' => $child->is_active
+                    ];
+                }),
+                'users_count' => $department->users->count(),
+                'active_users_count' => $department->users->where('is_active', true)->count(),
+                'created_at' => $department->created_at,
+                'updated_at' => $department->updated_at,
+                'deleted_at' => $department->deleted_at,
+            ],
         ]);
     }
 
@@ -221,8 +235,9 @@ class DepartmentController extends Controller
         $department->load(['institution', 'parent']);
 
         return response()->json([
+            'success' => true,
             'message' => 'Department created successfully',
-            'department' => $this->formatDepartment($department)
+            'data' => $this->formatDepartment($department)
         ], 201);
     }
 
@@ -277,8 +292,9 @@ class DepartmentController extends Controller
         $department->load(['institution', 'parent']);
 
         return response()->json([
+            'success' => true,
             'message' => 'Department updated successfully',
-            'department' => $this->formatDepartment($department)
+            'data' => $this->formatDepartment($department)
         ]);
     }
 
@@ -322,7 +338,7 @@ class DepartmentController extends Controller
                 // }
 
                 $departmentName = $department->name;
-                $department->delete();
+                $department->forceDelete();
 
                 $message = "Department '{$departmentName}' permanently deleted successfully";
             } else {
@@ -346,8 +362,11 @@ class DepartmentController extends Controller
 
                 $department->update([
                     'is_active' => false,
-                    'deleted_at' => now()
                 ]);
+
+                if (!$department->trashed()) {
+                    $department->delete();
+                }
 
                 $message = "Department '{$department->name}' deactivated successfully";
             }
@@ -355,13 +374,19 @@ class DepartmentController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => $message
+                'success' => true,
+                'message' => $message,
+                'data' => [
+                    'id' => $department->id,
+                    'delete_type' => $deleteType,
+                ],
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
             
             return response()->json([
+                'success' => false,
                 'message' => 'Department deletion failed',
                 'error' => $e->getMessage()
             ], 500);
@@ -472,7 +497,8 @@ class DepartmentController extends Controller
             ] : null,
             'children_count' => $department->children ? $department->children->count() : 0,
             'created_at' => $department->created_at,
-            'updated_at' => $department->updated_at
+            'updated_at' => $department->updated_at,
+            'deleted_at' => $department->deleted_at,
         ];
     }
 

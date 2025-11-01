@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Institution;
 use App\Models\Department;
+use App\Models\Institution;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class InstitutionDepartmentController extends Controller
 {
@@ -20,14 +19,22 @@ class InstitutionDepartmentController extends Controller
         try {
             $request->validate([
                 'include_inactive' => 'nullable|boolean',
-                'sort_by' => 'nullable|string|in:name,type,created_at',
+                'include_deleted' => 'nullable|boolean',
+                'only_deleted' => 'nullable|boolean',
+                'sort_by' => 'nullable|string|in:name,department_type,created_at',
                 'sort_direction' => 'nullable|string|in:asc,desc'
             ]);
 
-            $query = $institution->departments();
+            $query = $institution->departments()->with(['parent', 'institution']);
 
             if (!$request->boolean('include_inactive', false)) {
                 $query->where('is_active', true);
+            }
+
+            if ($request->boolean('only_deleted')) {
+                $query->onlyTrashed();
+            } elseif ($request->boolean('include_deleted', false)) {
+                $query->withTrashed();
             }
 
             $sortBy = $request->sort_by ?? 'name';
@@ -38,7 +45,7 @@ class InstitutionDepartmentController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $departments,
+                'data' => $departments->map(fn (Department $department) => $this->formatDepartment($department)),
                 'institution' => [
                     'id' => $institution->id,
                     'name' => $institution->name,
@@ -71,11 +78,14 @@ class InstitutionDepartmentController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'type' => 'nullable|string|max:100',
-            'head_name' => 'nullable|string|max:255',
-            'phone' => 'nullable|string|max:20',
-            'email' => 'nullable|email|max:255',
+            'short_name' => 'nullable|string|max:20',
+            'department_type' => 'required|string|max:50',
+            'parent_department_id' => 'nullable|integer|exists:departments,id',
             'description' => 'nullable|string|max:1000',
+            'metadata' => 'nullable|array',
+            'capacity' => 'nullable|integer|min:1|max:1000',
+            'budget_allocation' => 'nullable|numeric|min:0',
+            'functional_scope' => 'nullable|string|max:1000',
             'is_active' => 'boolean',
         ]);
 
@@ -91,12 +101,37 @@ class InstitutionDepartmentController extends Controller
             $departmentData = $validator->validated();
             $departmentData['institution_id'] = $institution->id;
 
+            // Ensure parent department belongs to the same institution
+            if (!empty($departmentData['parent_department_id'])) {
+                $parent = Department::where('id', $departmentData['parent_department_id'])
+                    ->where('institution_id', $institution->id)
+                    ->first();
+
+                if (!$parent) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Seçilmiş ana şöbə bu təşkilata aid deyil.',
+                    ], 422);
+                }
+            }
+
+            // Validate department type compatibility
+            $allowedTypes = Department::getAllowedTypesForInstitution($institution->type);
+            if (!in_array($departmentData['department_type'], $allowedTypes)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Departament növü bu təşkilat üçün uyğun deyil.',
+                    'allowed_types' => $allowedTypes,
+                ], 422);
+            }
+
             $department = Department::create($departmentData);
+            $department->load(['institution', 'parent']);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Şöbə uğurla yaradıldı.',
-                'data' => $department->load('institution'),
+                'data' => $this->formatDepartment($department),
             ], 201);
 
         } catch (\Exception $e) {
@@ -164,11 +199,14 @@ class InstitutionDepartmentController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name' => 'string|max:255',
-            'type' => 'nullable|string|max:100',
-            'head_name' => 'nullable|string|max:255',
-            'phone' => 'nullable|string|max:20',
-            'email' => 'nullable|email|max:255',
+            'short_name' => 'nullable|string|max:20',
+            'department_type' => 'nullable|string|max:50',
+            'parent_department_id' => 'nullable|integer|exists:departments,id',
             'description' => 'nullable|string|max:1000',
+            'metadata' => 'nullable|array',
+            'capacity' => 'nullable|integer|min:1|max:1000',
+            'budget_allocation' => 'nullable|numeric|min:0',
+            'functional_scope' => 'nullable|string|max:1000',
             'is_active' => 'boolean',
         ]);
 
@@ -181,12 +219,38 @@ class InstitutionDepartmentController extends Controller
         }
 
         try {
-            $department->update($validator->validated());
+            $updateData = $validator->validated();
+
+            if (!empty($updateData['parent_department_id'])) {
+                $parent = Department::where('id', $updateData['parent_department_id'])
+                    ->where('institution_id', $institution->id)
+                    ->first();
+
+                if (!$parent) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Seçilmiş ana şöbə bu təşkilata aid deyil.',
+                    ], 422);
+                }
+            }
+
+            if (!empty($updateData['department_type'])) {
+                $allowedTypes = Department::getAllowedTypesForInstitution($institution->type);
+                if (!in_array($updateData['department_type'], $allowedTypes)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Departament növü bu təşkilat üçün uyğun deyil.',
+                        'allowed_types' => $allowedTypes,
+                    ], 422);
+                }
+            }
+
+            $department->update($updateData);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Şöbə məlumatları yeniləndi.',
-                'data' => $department->fresh(['institution']),
+                'data' => $this->formatDepartment($department->fresh(['institution', 'parent'])),
             ]);
 
         } catch (\Exception $e) {
@@ -377,5 +441,42 @@ class InstitutionDepartmentController extends Controller
             'success' => true,
             'data' => $types,
         ]);
+    }
+
+    /**
+     * Helper to format department responses consistently.
+     */
+    private function formatDepartment(Department $department): array
+    {
+        $department->loadMissing(['institution', 'parent']);
+
+        return [
+            'id' => $department->id,
+            'name' => $department->name,
+            'short_name' => $department->short_name,
+            'department_type' => $department->department_type,
+            'department_type_display' => $department->getTypeDisplayName(),
+            'institution_id' => $department->institution_id,
+            'parent_department_id' => $department->parent_department_id,
+            'description' => $department->description,
+            'metadata' => $department->metadata,
+            'capacity' => $department->capacity,
+            'budget_allocation' => $department->budget_allocation,
+            'functional_scope' => $department->functional_scope,
+            'is_active' => $department->is_active,
+            'institution' => $department->institution ? [
+                'id' => $department->institution->id,
+                'name' => $department->institution->name,
+                'type' => $department->institution->type,
+            ] : null,
+            'parent' => $department->parent ? [
+                'id' => $department->parent->id,
+                'name' => $department->parent->name,
+                'department_type' => $department->parent->department_type,
+            ] : null,
+            'created_at' => $department->created_at,
+            'updated_at' => $department->updated_at,
+            'deleted_at' => $department->deleted_at,
+        ];
     }
 }

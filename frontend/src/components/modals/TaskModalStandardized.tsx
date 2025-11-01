@@ -158,7 +158,7 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
 
   const { data: departmentsResponse, isLoading: departmentsLoading } = useQuery({
     queryKey: ['departments-for-tasks'],
-    queryFn: () => departmentService.getAll(),
+    queryFn: () => departmentService.getAll({ per_page: 100 }),
     staleTime: 1000 * 60 * 15, // 15 dəqiqə (daha tez-tez dəyişir)
     cacheTime: 1000 * 60 * 30, // 30 dəqiqə
     refetchOnWindowFocus: false,
@@ -325,12 +325,9 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
   }, [creationContext]);
 
   const availableDepartments = React.useMemo(() => {
-    let departments = [];
-    if (departmentsResponse?.data && Array.isArray(departmentsResponse.data)) {
-      departments = departmentsResponse.data;
-    } else if (Array.isArray(departmentsResponse)) {
-      departments = departmentsResponse;
-    }
+    const departments = Array.isArray(departmentsResponse?.data)
+      ? departmentsResponse?.data
+      : [];
 
     return departments.map((department: any) => ({
       label: `${department.name}${department.institution ? ` (${department.institution.name})` : ''}`,

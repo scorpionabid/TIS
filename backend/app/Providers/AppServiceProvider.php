@@ -6,6 +6,8 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Connection;
+use Illuminate\Database\Query\Grammars\SQLiteGrammar;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -39,6 +41,8 @@ class AppServiceProvider extends ServiceProvider
 
         // Set default string length for MySQL compatibility
         Schema::defaultStringLength(191);
+
+        $this->setupSqliteCaseInsensitiveLike();
     }
 
     /**
@@ -112,6 +116,48 @@ class AppServiceProvider extends ServiceProvider
             return $userId;
         } catch (\Throwable $e) {
             return null;
+        }
+    }
+
+    private function setupSqliteCaseInsensitiveLike(): void
+    {
+        foreach (config('database.connections', []) as $name => $connectionConfig) {
+            if (($connectionConfig['driver'] ?? null) !== 'sqlite') {
+                continue;
+            }
+
+            $connection = DB::connection($name);
+
+            $connection->setQueryGrammar(new class($connection) extends SQLiteGrammar {
+                public function __construct($connection)
+                {
+                    parent::__construct($connection);
+                }
+
+                protected function compileWhereBasic($query, $where)
+                {
+                    $operator = strtolower($where['operator'] ?? '');
+
+                    if ($operator === 'ilike') {
+                        return $this->compileCaseInsensitiveLike($where['column'], $where['value']);
+                    }
+
+                    if ($operator === 'not ilike') {
+                        return $this->compileCaseInsensitiveLike($where['column'], $where['value'], true);
+                    }
+
+                    return parent::compileWhereBasic($query, $where);
+                }
+
+                private function compileCaseInsensitiveLike(string $column, $value, bool $not = false): string
+                {
+                    $wrappedColumn = "LOWER(" . $this->wrap($column) . ")";
+                    $wrappedValue = "LOWER(" . $this->parameter($value) . ")";
+                    $operator = $not ? 'NOT LIKE' : 'LIKE';
+
+                    return "$wrappedColumn $operator $wrappedValue";
+                }
+            });
         }
     }
 }
