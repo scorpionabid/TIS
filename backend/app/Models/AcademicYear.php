@@ -47,6 +47,29 @@ class AcademicYear extends Model
     }
 
     /**
+     * The attributes that should be appended to the model's array form.
+     *
+     * @var array<string>
+     */
+    protected $appends = ['year', 'is_current'];
+
+    /**
+     * Get the year attribute (alias for name).
+     */
+    public function getYearAttribute(): ?string
+    {
+        return $this->name;
+    }
+
+    /**
+     * Get the is_current attribute.
+     */
+    public function getIsCurrentAttribute(): bool
+    {
+        return (bool) $this->is_active;
+    }
+
+    /**
      * Get the grades for this academic year.
      */
     public function grades(): HasMany

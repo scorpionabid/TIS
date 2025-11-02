@@ -310,6 +310,9 @@ class ApiClientOptimized {
     const authorization = this.getAuthorizationHeader();
     if (authorization) {
       headers.Authorization = authorization;
+      log('info', 'Authorization header added', { hasBearer: authorization.startsWith('Bearer ') });
+    } else {
+      log('warn', 'No authorization header - user not logged in?', { hasToken: !!this.token });
     }
 
     const csrfToken = this.getCsrfToken();
@@ -318,6 +321,14 @@ class ApiClientOptimized {
       log('info', 'CSRF token attached to headers');
     } else {
       log('warn', 'CSRF token missing when preparing request headers');
+    }
+
+    if (isDevelopment) {
+      log('info', 'Request headers prepared', {
+        hasAuth: !!headers.Authorization,
+        hasCsrf: !!headers['X-XSRF-TOKEN'],
+        contentType: headers['Content-Type']
+      });
     }
 
     return headers;
@@ -657,17 +668,32 @@ class ApiClientOptimized {
 
     // Handle blob responses
     if (options?.responseType === 'blob') {
+      log('info', 'Processing blob response', {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type'),
+        contentLength: response.headers.get('content-length')
+      });
+
       if (!response.ok) {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           const errorData = await response.json();
+          log('error', 'Blob request failed with JSON error', errorData);
           throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
         } else {
+          log('error', 'Blob request failed', { status: response.status, statusText: response.statusText });
           throw new Error(`HTTP error! status: ${response.status}`);
         }
       }
 
       const blob = await response.blob();
+      log('info', 'Blob created successfully', {
+        size: blob.size,
+        type: blob.type
+      });
+
       return { data: blob } as ApiResponse<T>;
     }
 

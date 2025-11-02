@@ -23,6 +23,19 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
       setImportResult(result);
       queryClient.invalidateQueries({ queryKey: ['regionadmin', 'classes'] });
       queryClient.invalidateQueries({ queryKey: ['regionadmin', 'class-statistics'] });
+
+      // Show success toast
+      if (result.data.success_count > 0) {
+        console.log(`✅ ${result.data.success_count} sinif uğurla idxal edildi`);
+      }
+    },
+    onError: (error: any) => {
+      console.error('❌ İdxal xətası:', error);
+      alert(
+        error?.response?.data?.message ||
+        error?.message ||
+        'İdxal zamanı xəta baş verdi. Zəhmət olmasa faylı yoxlayın və yenidən cəhd edin.'
+      );
     },
   });
 
@@ -245,20 +258,37 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
                 <Alert variant="destructive">
                   <XCircle className="h-4 w-4" />
                   <AlertDescription>
-                    <div className="space-y-2">
-                      <p className="font-medium">Xətalar ({importResult.data.errors.length}):</p>
-                      <div className="max-h-40 overflow-y-auto space-y-1">
-                        {importResult.data.errors.slice(0, 10).map((error, index) => (
-                          <div key={index} className="text-xs p-2 bg-destructive/10 rounded">
-                            {error}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="font-semibold text-base">Xətalar ({importResult.data.errors.length}):</p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const errorText = importResult.data.errors.join('\n');
+                            navigator.clipboard.writeText(errorText);
+                            alert('Xətalar panoya kopyalandı');
+                          }}
+                          className="h-7 text-xs"
+                        >
+                          Kopyala
+                        </Button>
+                      </div>
+                      <div className="max-h-60 overflow-y-auto space-y-1.5 pr-2">
+                        {importResult.data.errors.map((error, index) => (
+                          <div key={index} className="text-sm p-3 bg-destructive/10 rounded border border-destructive/20">
+                            <span className="font-mono text-xs text-destructive/80 mr-2">
+                              #{index + 1}
+                            </span>
+                            <span className="text-destructive">{error}</span>
                           </div>
                         ))}
-                        {importResult.data.errors.length > 10 && (
-                          <div className="text-xs text-muted-foreground text-center pt-2">
-                            ... və {importResult.data.errors.length - 10} daha çox xəta
-                          </div>
-                        )}
                       </div>
+                      {importResult.data.errors.length > 5 && (
+                        <div className="text-xs text-muted-foreground italic text-center pt-2 border-t">
+                          💡 Məsləhət: Xətaları düzəltmək üçün Excel faylını yoxlayın və yenidən cəhd edin
+                        </div>
+                      )}
                     </div>
                   </AlertDescription>
                 </Alert>

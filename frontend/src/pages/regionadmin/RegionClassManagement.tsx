@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { regionAdminClassService, ClassFilters } from '@/services/regionadmin/classes';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,7 +17,10 @@ import {
   FileSpreadsheet,
   Search,
   Filter,
-  X
+  X,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { TablePagination } from '@/components/common/TablePagination';
 import { RegionClassImportModal } from '@/components/modals/RegionClassImportModal';
@@ -36,6 +39,10 @@ export const RegionClassManagement = () => {
   // Pagination
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
+
+  // Sorting
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Build filter params
   const filterParams: ClassFilters = useMemo(() => {
@@ -88,10 +95,95 @@ export const RegionClassManagement = () => {
     staleTime: 10 * 60 * 1000,
   });
 
-  const classes = classesData?.data?.data || [];
+  const rawClasses = classesData?.data?.data || [];
   const totalItems = classesData?.data?.total || 0;
   const totalPages = classesData?.data?.last_page || 1;
   const currentPage = classesData?.data?.current_page || page;
+
+  // Apply client-side sorting
+  const classes = useMemo(() => {
+    if (!sortColumn || rawClasses.length === 0) return rawClasses;
+
+    const sorted = [...rawClasses].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortColumn) {
+        case 'institution':
+          aValue = a.institution?.name || '';
+          bValue = b.institution?.name || '';
+          break;
+        case 'utis':
+          aValue = a.institution?.utis_code || '';
+          bValue = b.institution?.utis_code || '';
+          break;
+        case 'level':
+          aValue = a.class_level || 0;
+          bValue = b.class_level || 0;
+          break;
+        case 'name':
+          aValue = a.name || '';
+          bValue = b.name || '';
+          break;
+        case 'specialty':
+          aValue = a.specialty || '';
+          bValue = b.specialty || '';
+          break;
+        case 'students':
+          aValue = a.student_count || 0;
+          bValue = b.student_count || 0;
+          break;
+        case 'teacher':
+          aValue = a.homeroomTeacher ? `${a.homeroomTeacher.first_name} ${a.homeroomTeacher.last_name}` : '';
+          bValue = b.homeroomTeacher ? `${b.homeroomTeacher.first_name} ${b.homeroomTeacher.last_name}` : '';
+          break;
+        case 'year':
+          aValue = a.academicYear?.year || '';
+          bValue = b.academicYear?.year || '';
+          break;
+        case 'status':
+          aValue = a.is_active ? 1 : 0;
+          bValue = b.is_active ? 1 : 0;
+          break;
+        default:
+          return 0;
+      }
+
+      // Compare values
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+
+      const aStr = String(aValue).toLowerCase();
+      const bStr = String(bValue).toLowerCase();
+
+      if (sortDirection === 'asc') {
+        return aStr.localeCompare(bStr, 'az-AZ');
+      } else {
+        return bStr.localeCompare(aStr, 'az-AZ');
+      }
+    });
+
+    return sorted;
+  }, [rawClasses, sortColumn, sortDirection]);
+
+  // Debug logging to inspect data structure
+  useEffect(() => {
+    if (classesData) {
+      console.log('🔍 Classes Data Structure:', {
+        fullData: classesData,
+        hasData: !!classesData?.data,
+        hasDataData: !!classesData?.data?.data,
+        dataKeys: classesData ? Object.keys(classesData) : [],
+        dataDataKeys: classesData?.data ? Object.keys(classesData.data) : [],
+        classesArray: classes,
+        classesLength: classes.length,
+        totalItems: totalItems,
+        totalPages: totalPages,
+        currentPage: currentPage
+      });
+    }
+  }, [classesData, classes, totalItems, totalPages, currentPage]);
 
   // Handle filter changes
   const handleSearchChange = (value: string) => {
@@ -108,25 +200,85 @@ export const RegionClassManagement = () => {
     setPage(1);
   };
 
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      // Toggle direction if same column
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New column, default to ascending
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (column: string) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-3.5 w-3.5 ml-1 opacity-40" />;
+    }
+    return sortDirection === 'asc'
+      ? <ArrowUp className="h-3.5 w-3.5 ml-1" />
+      : <ArrowDown className="h-3.5 w-3.5 ml-1" />;
+  };
+
   const hasActiveFilters = useMemo(() => {
     return searchTerm || institutionFilter !== 'all' || classLevelFilter !== 'all' ||
            academicYearFilter !== 'all' || statusFilter !== 'all';
   }, [searchTerm, institutionFilter, classLevelFilter, academicYearFilter, statusFilter]);
 
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (searchTerm) count++;
+    if (institutionFilter !== 'all') count++;
+    if (classLevelFilter !== 'all') count++;
+    if (academicYearFilter !== 'all') count++;
+    if (statusFilter !== 'all') count++;
+    return count;
+  }, [searchTerm, institutionFilter, classLevelFilter, academicYearFilter, statusFilter]);
+
   // Handle export
   const handleExportTemplate = async () => {
     try {
+      console.log('🔍 Starting template download...');
       const response = await regionAdminClassService.downloadTemplate();
 
-      // Ensure we have a proper Blob
+      console.log('📦 Response received:', {
+        type: typeof response,
+        isBlob: response instanceof Blob,
+        constructor: response?.constructor?.name,
+        hasData: !!response?.data,
+        dataType: response?.data ? typeof response.data : 'none',
+        dataIsBlob: response?.data instanceof Blob
+      });
+
+      // Get the blob from response
       let blob: Blob;
-      if (response instanceof Blob) {
-        blob = response;
-      } else {
-        // If cached response is not a blob, convert it
-        console.warn('Response is not a Blob, converting...');
-        blob = new Blob([JSON.stringify(response)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+      // Check if response.data is a Blob (API wrapper format)
+      if (response?.data instanceof Blob) {
+        console.log('✅ Found Blob in response.data');
+        blob = response.data;
       }
+      // Check if response itself is a Blob
+      else if (response instanceof Blob) {
+        console.log('✅ Response is directly a Blob');
+        blob = response;
+      }
+      // Invalid response - don't create corrupt file
+      else {
+        console.error('❌ Invalid response format:', response);
+        throw new Error('Server cavabı düzgün Excel formatında deyil. Zəhmət olmasa yenidən cəhd edin.');
+      }
+
+      // Validate blob has content
+      if (!blob || blob.size === 0) {
+        console.error('❌ Empty blob received');
+        throw new Error('Boş fayl alındı. Zəhmət olmasa yenidən cəhd edin.');
+      }
+
+      console.log('✅ Valid blob ready for download:', {
+        size: blob.size,
+        type: blob.type
+      });
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -136,9 +288,11 @@ export const RegionClassManagement = () => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+
+      console.log('✅ Template download completed successfully');
     } catch (error) {
-      console.error('Template download failed:', error);
-      alert('Şablon yüklənməsində xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.');
+      console.error('❌ Template download failed:', error);
+      alert(error instanceof Error ? error.message : 'Şablon yüklənməsində xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.');
     }
   };
 
@@ -263,13 +417,47 @@ export const RegionClassManagement = () => {
               </Button>
             </div>
 
+            {/* Active Filters Info */}
+            {hasActiveFilters && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 px-3 py-2 rounded-md">
+                <span className="font-medium">Aktiv filtrlər ({activeFilterCount}):</span>
+                <div className="flex flex-wrap gap-2">
+                  {searchTerm && (
+                    <Badge variant="secondary" className="gap-1">
+                      Axtarış: {searchTerm}
+                    </Badge>
+                  )}
+                  {institutionFilter !== 'all' && (
+                    <Badge variant="secondary" className="gap-1">
+                      Müəssisə: {institutions?.find(i => i.id.toString() === institutionFilter)?.name}
+                    </Badge>
+                  )}
+                  {classLevelFilter !== 'all' && (
+                    <Badge variant="secondary" className="gap-1">
+                      {classLevelFilter}-ci sinif
+                    </Badge>
+                  )}
+                  {academicYearFilter !== 'all' && (
+                    <Badge variant="secondary" className="gap-1">
+                      {academicYears?.find(y => y.id.toString() === academicYearFilter)?.year}
+                    </Badge>
+                  )}
+                  {statusFilter !== 'all' && (
+                    <Badge variant="secondary" className="gap-1">
+                      {statusFilter === 'active' ? 'Aktiv' : 'Passiv'}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Filters */}
             <div className="flex flex-wrap gap-3 items-center">
               {/* Search */}
-              <div className="relative min-w-[250px]">
+              <div className="relative min-w-[300px] flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
-                  placeholder="Sinif adı ilə axtar..."
+                  placeholder="Sinif adı, müəssisə, UTIS kodu ilə axtar..."
                   value={searchTerm}
                   onChange={(e) => handleSearchChange(e.target.value)}
                   className="pl-10"
@@ -278,14 +466,15 @@ export const RegionClassManagement = () => {
 
               {/* Institution Filter */}
               <Select value={institutionFilter} onValueChange={(value) => { setInstitutionFilter(value); setPage(1); }}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Müəssisə" />
+                <SelectTrigger className="w-[280px]">
+                  <SelectValue placeholder="Müəssisə seç" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Bütün müəssisələr</SelectItem>
                   {institutions?.map((inst) => (
                     <SelectItem key={inst.id} value={inst.id.toString()}>
                       {inst.name}
+                      {inst.utis_code && ` (${inst.utis_code})`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -308,14 +497,14 @@ export const RegionClassManagement = () => {
 
               {/* Academic Year Filter */}
               <Select value={academicYearFilter} onValueChange={(value) => { setAcademicYearFilter(value); setPage(1); }}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Tədris ili" />
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Tədris ili seç" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Bütün illər</SelectItem>
+                  <SelectItem value="all">Bütün tədris illəri</SelectItem>
                   {academicYears?.map((year) => (
                     <SelectItem key={year.id} value={year.id.toString()}>
-                      {year.year} {year.is_current && '(Cari)'}
+                      {year.year}{year.is_current && ' (Cari)'}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -335,9 +524,19 @@ export const RegionClassManagement = () => {
 
               {/* Clear Filters */}
               {hasActiveFilters && (
-                <Button variant="ghost" size="sm" onClick={handleClearFilters} className="gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearFilters}
+                  className="gap-2 border-destructive/50 text-destructive hover:bg-destructive/10"
+                >
                   <X className="h-4 w-4" />
-                  Təmizlə
+                  Filtrlər Təmizlə
+                  {activeFilterCount > 0 && (
+                    <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs">
+                      {activeFilterCount}
+                    </Badge>
+                  )}
                 </Button>
               )}
             </div>
@@ -359,22 +558,95 @@ export const RegionClassManagement = () => {
             </div>
           ) : (
             <>
-              <div className="rounded-md border overflow-x-auto">
-                <table className="w-full">
+              {/* Desktop Table View */}
+              <div className="hidden lg:block rounded-md border overflow-x-auto">
+                <table className="w-full min-w-max">
                   <thead>
                     <tr className="border-b bg-muted/50">
-                      <th className="p-3 text-left font-medium">Müəssisə</th>
-                      <th className="p-3 text-left font-medium text-xs">UTIS</th>
-                      <th className="p-3 text-center font-medium">Səviyyə</th>
-                      <th className="p-3 text-left font-medium">Sinif</th>
-                      <th className="p-3 text-left font-medium">İxtisas</th>
+                      <th
+                        className="p-3 text-left font-medium cursor-pointer hover:bg-muted/70 transition select-none"
+                        onClick={() => handleSort('institution')}
+                      >
+                        <div className="flex items-center">
+                          Müəssisə
+                          {getSortIcon('institution')}
+                        </div>
+                      </th>
+                      <th
+                        className="p-3 text-left font-medium text-xs cursor-pointer hover:bg-muted/70 transition select-none"
+                        onClick={() => handleSort('utis')}
+                      >
+                        <div className="flex items-center">
+                          UTIS
+                          {getSortIcon('utis')}
+                        </div>
+                      </th>
+                      <th
+                        className="p-3 text-center font-medium cursor-pointer hover:bg-muted/70 transition select-none"
+                        onClick={() => handleSort('level')}
+                      >
+                        <div className="flex items-center justify-center">
+                          Səviyyə
+                          {getSortIcon('level')}
+                        </div>
+                      </th>
+                      <th
+                        className="p-3 text-left font-medium cursor-pointer hover:bg-muted/70 transition select-none"
+                        onClick={() => handleSort('name')}
+                      >
+                        <div className="flex items-center">
+                          Sinif
+                          {getSortIcon('name')}
+                        </div>
+                      </th>
+                      <th
+                        className="p-3 text-left font-medium cursor-pointer hover:bg-muted/70 transition select-none"
+                        onClick={() => handleSort('specialty')}
+                      >
+                        <div className="flex items-center">
+                          İxtisas
+                          {getSortIcon('specialty')}
+                        </div>
+                      </th>
                       <th className="p-3 text-left font-medium text-xs">Kateqoriya</th>
                       <th className="p-3 text-left font-medium text-xs">Proqram</th>
-                      <th className="p-3 text-center font-medium">Şagird</th>
+                      <th
+                        className="p-3 text-center font-medium cursor-pointer hover:bg-muted/70 transition select-none"
+                        onClick={() => handleSort('students')}
+                      >
+                        <div className="flex items-center justify-center">
+                          Şagird
+                          {getSortIcon('students')}
+                        </div>
+                      </th>
                       <th className="p-3 text-center font-medium text-xs">O/Q</th>
-                      <th className="p-3 text-left font-medium text-xs">Sinif Müəllimi</th>
-                      <th className="p-3 text-left font-medium text-xs">Tədris İli</th>
-                      <th className="p-3 text-center font-medium">Status</th>
+                      <th
+                        className="p-3 text-left font-medium text-xs cursor-pointer hover:bg-muted/70 transition select-none"
+                        onClick={() => handleSort('teacher')}
+                      >
+                        <div className="flex items-center">
+                          Sinif Müəllimi
+                          {getSortIcon('teacher')}
+                        </div>
+                      </th>
+                      <th
+                        className="p-3 text-left font-medium text-xs cursor-pointer hover:bg-muted/70 transition select-none"
+                        onClick={() => handleSort('year')}
+                      >
+                        <div className="flex items-center">
+                          Tədris İli
+                          {getSortIcon('year')}
+                        </div>
+                      </th>
+                      <th
+                        className="p-3 text-center font-medium cursor-pointer hover:bg-muted/70 transition select-none"
+                        onClick={() => handleSort('status')}
+                      >
+                        <div className="flex items-center justify-center">
+                          Status
+                          {getSortIcon('status')}
+                        </div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -500,6 +772,123 @@ export const RegionClassManagement = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="lg:hidden space-y-4">
+                {classes.map((cls) => (
+                  <Card key={cls.id} className="overflow-hidden">
+                    <CardContent className="p-4">
+                      {/* Header */}
+                      <div className="flex items-start justify-between mb-3 pb-3 border-b">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="secondary" className="font-semibold text-base">
+                              {cls.class_level}
+                            </Badge>
+                            <span className="font-bold text-xl">{cls.name}</span>
+                          </div>
+                          <div className="text-sm font-medium text-muted-foreground">
+                            {cls.institution?.name}
+                          </div>
+                          {cls.institution?.utis_code && (
+                            <Badge variant="outline" className="text-xs font-mono mt-1">
+                              {cls.institution.utis_code}
+                            </Badge>
+                          )}
+                        </div>
+                        <Badge
+                          variant={cls.is_active ? 'default' : 'secondary'}
+                          className={cls.is_active ? 'bg-green-600' : 'bg-gray-400'}
+                        >
+                          {cls.is_active ? 'Aktiv' : 'Passiv'}
+                        </Badge>
+                      </div>
+
+                      {/* Details Grid */}
+                      <div className="space-y-2.5">
+                        {/* Specialty */}
+                        {cls.specialty && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">İxtisas:</span>
+                            <span className="font-medium">{cls.specialty}</span>
+                          </div>
+                        )}
+
+                        {/* Category & Program */}
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Kateqoriya:</span>
+                          <div>
+                            {cls.grade_category ? (
+                              <Badge
+                                variant="secondary"
+                                className={
+                                  cls.grade_category === 'ixtisaslaşdırılmış' ? 'bg-purple-100 text-purple-800' :
+                                  cls.grade_category === 'xüsusi' ? 'bg-orange-100 text-orange-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }
+                              >
+                                {cls.grade_category}
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {cls.education_program && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Proqram:</span>
+                            <Badge variant="outline" className="text-xs">
+                              {cls.education_program === 'umumi' ? 'Ümumi' :
+                               cls.education_program === 'xususi' ? 'Xüsusi' :
+                               cls.education_program === 'ferdi_mekteb' ? 'Fərdi (M)' :
+                               cls.education_program === 'ferdi_ev' ? 'Fərdi (E)' :
+                               cls.education_program}
+                            </Badge>
+                          </div>
+                        )}
+
+                        {/* Student Count */}
+                        <div className="flex items-center justify-between text-sm pt-2 border-t">
+                          <span className="text-muted-foreground">Şagird sayı:</span>
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1">
+                              <Users className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-semibold text-base">{cls.student_count}</span>
+                            </div>
+                            <div className="flex gap-2 text-sm">
+                              <span className="text-blue-600 font-medium">♂{cls.male_student_count}</span>
+                              <span className="text-muted-foreground">/</span>
+                              <span className="text-pink-600 font-medium">♀{cls.female_student_count}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Homeroom Teacher */}
+                        {cls.homeroomTeacher && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Sinif müəllimi:</span>
+                            <span className="font-medium">
+                              {cls.homeroomTeacher.first_name} {cls.homeroomTeacher.last_name}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Academic Year */}
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Tədris ili:</span>
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs">{cls.academicYear?.year}</span>
+                            {cls.academicYear?.is_current && (
+                              <Badge variant="default" className="text-xs py-0 px-1.5">Cari</Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
 
               {/* Pagination */}

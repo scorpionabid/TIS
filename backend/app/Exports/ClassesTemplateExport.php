@@ -5,13 +5,13 @@ namespace App\Exports;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
-class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles, ShouldAutoSize, WithColumnWidths
+class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles, WithMapping, WithColumnWidths
 {
     protected $institutions;
 
@@ -25,12 +25,12 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
      */
     public function collection()
     {
-        $examples = [];
+        $examples = collect();
 
         // Add 3 example rows for first 3 institutions
         foreach ($this->institutions->take(3) as $index => $institution) {
             // Example 1: Class A
-            $examples[] = [
+            $examples->push((object)[
                 'utis_code' => $institution->utis_code ?? '',
                 'institution_code' => $institution->institution_code ?? '',
                 'institution_name' => $institution->name,
@@ -43,10 +43,10 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
                 'grade_category' => 'ümumi',
                 'education_program' => 'umumi',
                 'academic_year' => date('Y') . '-' . (date('Y') + 1),
-            ];
+            ]);
 
             // Example 2: Class B
-            $examples[] = [
+            $examples->push((object)[
                 'utis_code' => $institution->utis_code ?? '',
                 'institution_code' => $institution->institution_code ?? '',
                 'institution_name' => $institution->name,
@@ -59,11 +59,11 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
                 'grade_category' => 'ümumi',
                 'education_program' => 'umumi',
                 'academic_year' => date('Y') . '-' . (date('Y') + 1),
-            ];
+            ]);
 
             // Only add 2 examples for first institution
             if ($index === 0) {
-                $examples[] = [
+                $examples->push((object)[
                     'utis_code' => $institution->utis_code ?? '',
                     'institution_code' => $institution->institution_code ?? '',
                     'institution_name' => $institution->name,
@@ -76,11 +76,32 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
                     'grade_category' => 'ixtisaslaşdırılmış',
                     'education_program' => 'umumi',
                     'academic_year' => date('Y') . '-' . (date('Y') + 1),
-                ];
+                ]);
             }
         }
 
-        return collect($examples);
+        return $examples;
+    }
+
+    /**
+     * Map data to array format for Excel
+     */
+    public function map($row): array
+    {
+        return [
+            $row->utis_code,
+            $row->institution_code,
+            $row->institution_name,
+            $row->class_level,
+            $row->class_name,
+            $row->student_count,
+            $row->male_count,
+            $row->female_count,
+            $row->specialty,
+            $row->grade_category,
+            $row->education_program,
+            $row->academic_year,
+        ];
     }
 
     /**
@@ -130,46 +151,50 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
      */
     public function styles(Worksheet $sheet)
     {
-        // Header row styling
-        $sheet->getStyle('A1:L1')->applyFromArray([
-            'font' => [
-                'bold' => true,
-                'size' => 12,
-                'color' => ['rgb' => 'FFFFFF'],
-            ],
-            'fill' => [
-                'fillType' => Fill::FILL_SOLID,
-                'startColor' => ['rgb' => '4472C4'],
-            ],
-            'alignment' => [
-                'horizontal' => Alignment::HORIZONTAL_CENTER,
-                'vertical' => Alignment::VERTICAL_CENTER,
-            ],
-        ]);
-
-        // Set row height for header
-        $sheet->getRowDimension(1)->setRowHeight(25);
-
-        // Center align specific columns
-        $sheet->getStyle('A2:A1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('B2:B1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('D2:D1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('E2:E1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('F2:H1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-
-        // Add border to all cells
-        $sheet->getStyle('A1:L1000')->applyFromArray([
-            'borders' => [
-                'allBorders' => [
-                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
-                    'color' => ['rgb' => 'CCCCCC'],
+        try {
+            // Header row styling
+            $sheet->getStyle('A1:L1')->applyFromArray([
+                'font' => [
+                    'bold' => true,
+                    'size' => 12,
+                    'color' => ['rgb' => 'FFFFFF'],
                 ],
-            ],
-        ]);
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => '4472C4'],
+                ],
+                'alignment' => [
+                    'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    'vertical' => Alignment::VERTICAL_CENTER,
+                ],
+            ]);
 
-        // Freeze header row
-        $sheet->freezePane('A2');
+            // Set row height for header
+            $sheet->getRowDimension(1)->setRowHeight(25);
 
-        return [];
+            // Center align specific columns
+            $sheet->getStyle('A2:A1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('B2:B1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('D2:D1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('E2:E1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('F2:H1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+            // Add border to all cells
+            $sheet->getStyle('A1:L1000')->applyFromArray([
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                        'color' => ['rgb' => 'CCCCCC'],
+                    ],
+                ],
+            ]);
+
+            // Freeze header row
+            $sheet->freezePane('A2');
+        } catch (\Exception $e) {
+            \Log::error('Excel styling error: ' . $e->getMessage());
+        }
+
+        return $sheet;
     }
 }

@@ -143,7 +143,7 @@ class RegionAdminClassService {
       total_institutions: number;
     }>(`${this.baseUrl}?${params.toString()}`);
 
-    return response.data;
+    return response;
   }
 
   /**
@@ -174,7 +174,7 @@ class RegionAdminClassService {
       region_name: string;
     }>(`${this.baseUrl}/statistics`);
 
-    return response.data;
+    return response;
   }
 
   /**
@@ -201,32 +201,71 @@ class RegionAdminClassService {
    * Download Excel template for class import
    */
   async downloadTemplate(): Promise<Blob> {
-    const response = await apiClient.get(`${this.baseUrl}/export/template`, {
-      responseType: 'blob',
-      cache: false, // Don't cache blob responses
-    } as any);
+    try {
+      console.log('🔍 Service: Calling API for template download...');
 
-    return response.data;
+      // IMPORTANT: apiClient.get(endpoint, params, options)
+      // Second param is query params, third is options
+      const response = await apiClient.get(
+        `${this.baseUrl}/export/template`,
+        undefined, // No query params
+        {
+          responseType: 'blob',
+          cache: false, // Don't cache blob responses
+        }
+      );
+
+      console.log('📦 Service: API response received:', {
+        hasResponse: !!response,
+        hasData: !!response?.data,
+        dataType: typeof response?.data,
+        dataIsBlob: response?.data instanceof Blob,
+        dataSize: response?.data instanceof Blob ? response.data.size : 'N/A',
+        responseKeys: response ? Object.keys(response) : [],
+        fullResponse: response
+      });
+
+      // Log every property of response for debugging
+      if (response) {
+        console.log('📊 Response properties:', {
+          data: response.data,
+          message: response.message,
+          errors: response.errors,
+          status: response.status
+        });
+      }
+
+      if (!response?.data) {
+        console.error('❌ Service: No data in response');
+        throw new Error('API cavabında məlumat yoxdur');
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('❌ Service: Template download error:', error);
+      throw error;
+    }
   }
 
   /**
    * Export classes to Excel with filters
    */
   async exportClasses(filters?: ClassFilters): Promise<Blob> {
-    const params = new URLSearchParams();
+    const params: Record<string, any> = {};
 
-    if (filters?.institution_id) params.append('institution_id', filters.institution_id.toString());
-    if (filters?.class_level) params.append('class_level', filters.class_level.toString());
-    if (filters?.academic_year_id) params.append('academic_year_id', filters.academic_year_id.toString());
-    if (filters?.is_active !== undefined) params.append('is_active', filters.is_active.toString());
+    if (filters?.institution_id) params.institution_id = filters.institution_id;
+    if (filters?.class_level) params.class_level = filters.class_level;
+    if (filters?.academic_year_id) params.academic_year_id = filters.academic_year_id;
+    if (filters?.is_active !== undefined) params.is_active = filters.is_active;
 
     const response = await apiClient.post(
-      `${this.baseUrl}/export?${params.toString()}`,
-      {},
+      `${this.baseUrl}/export`,
+      params, // Send as request body
+      undefined, // No query params
       {
         responseType: 'blob',
-        cache: false, // Don't cache blob responses
-      } as any
+        cache: false,
+      }
     );
 
     return response.data;
@@ -241,7 +280,8 @@ class RegionAdminClassService {
       data: Institution[];
     }>(`${this.baseUrl}/filter-options/institutions`);
 
-    return response.data.data;
+    // Handle both response formats: { data: { data: [] } } and { data: [] }
+    return response.data?.data || response.data || [];
   }
 
   /**
@@ -266,7 +306,8 @@ class RegionAdminClassService {
       data: AcademicYear[];
     }>(`${this.baseUrl}/filter-options/academic-years`);
 
-    return response.data.data;
+    // Handle both response formats: { data: { data: [] } } and { data: [] }
+    return response.data?.data || response.data || [];
   }
 }
 

@@ -257,30 +257,89 @@ class RegionAdminClassController extends Controller
     public function exportClassesTemplate()
     {
         try {
+            Log::info('🔍 Template export started');
+
             $user = Auth::user();
             $region = Institution::findOrFail($user->institution_id);
 
-            $allowedInstitutionIds = $region->getAllChildrenIds();
-            $allowedInstitutionIds[] = $region->id;
+            Log::info('📍 User region found', ['region_id' => $region->id, 'name' => $region->name]);
 
-            // Get all schools in region with codes
-            $institutions = Institution::whereIn('id', $allowedInstitutionIds)
-                ->whereIn('type', ['Ümumi təhsil məktəbi', 'Uşaq Bağçası', 'Məktəbəqədər təhsil müəssisəsi', 'Lisey', 'Gimnaziya'])
-                ->select('id', 'name', 'utis_code', 'institution_code', 'type')
-                ->orderBy('name')
+            // Use recursive CTE for efficient child querying
+            $institutions = \DB::table('institutions as i')
+                ->select('i.id', 'i.name', 'i.utis_code', 'i.institution_code', 'i.type')
+                ->whereRaw("
+                    i.id IN (
+                        WITH RECURSIVE institution_tree AS (
+                            SELECT id, parent_id, type FROM institutions WHERE id = ?
+                            UNION ALL
+                            SELECT i2.id, i2.parent_id, i2.type
+                            FROM institutions i2
+                            INNER JOIN institution_tree it ON i2.parent_id = it.id
+                        )
+                        SELECT id FROM institution_tree
+                    )
+                ", [$region->id])
+                ->where(function($query) {
+                    $query->where('i.type', 'LIKE', '%məktəb%')
+                          ->orWhere('i.type', 'LIKE', '%Bağça%')
+                          ->orWhere('i.type', 'LIKE', '%Lisey%')
+                          ->orWhere('i.type', 'LIKE', '%Gimnaziya%')
+                          ->orWhere('i.type', 'LIKE', '%təhsil%');
+                })
+                ->whereNull('i.deleted_at')
+                ->orderBy('i.name')
                 ->get();
+
+            Log::info('🏫 Institutions loaded', [
+                'count' => $institutions->count(),
+                'first_few' => $institutions->take(3)->pluck('name')->toArray()
+            ]);
+
+            // If no institutions found, create a basic template
+            if ($institutions->count() === 0) {
+                Log::warning('⚠️ No institutions found, creating basic template');
+                $institutions = collect([
+                    (object)[
+                        'id' => null,
+                        'name' => 'Nümunə Məktəb',
+                        'utis_code' => 'UTIS001',
+                        'institution_code' => 'MKT001',
+                        'type' => 'Ümumi təhsil məktəbi'
+                    ]
+                ]);
+            }
 
             $filename = 'sinif-import-shablon-' . date('Y-m-d') . '.xlsx';
 
-            return Excel::download(
-                new \App\Exports\ClassesTemplateExport($institutions),
-                $filename
-            );
+            Log::info('📄 Creating Excel export', ['filename' => $filename]);
+
+            $export = new \App\Exports\ClassesTemplateExport($institutions);
+
+            Log::info('✅ Export object created, starting download');
+
+            $response = Excel::download($export, $filename);
+
+            // Set proper headers for Excel file
+            $response->headers->set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            $response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '"');
+            $response->headers->set('Cache-Control', 'no-cache, no-store, must-revalidate');
+            $response->headers->set('Pragma', 'no-cache');
+            $response->headers->set('Expires', '0');
+
+            Log::info('✅ Response headers set, returning file', [
+                'filename' => $filename,
+                'content_type' => $response->headers->get('Content-Type')
+            ]);
+
+            return $response;
 
         } catch (\Exception $e) {
-            Log::error('Template export failed: ' . $e->getMessage());
+            Log::error('❌ Template export failed: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
 
             // Fallback to simple template
+            Log::info('⚠️ Using fallback template');
             return Excel::download(new class implements \Maatwebsite\Excel\Concerns\FromArray, \Maatwebsite\Excel\Concerns\WithHeadings {
                 public function array(): array
                 {
