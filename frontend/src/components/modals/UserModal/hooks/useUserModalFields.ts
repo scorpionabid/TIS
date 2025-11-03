@@ -4,6 +4,7 @@
  */
 
 import { useCallback } from 'react';
+import { z } from 'zod';
 import { WORKPLACE_TYPES, GENDER_OPTIONS, IS_ACTIVE_OPTIONS, ROLE_TYPES } from '../utils/constants';
 import type { UserModalMode } from '../utils/constants';
 
@@ -99,9 +100,15 @@ export function useUserModalFields(params: {
       }),
       createField('contact_phone', 'Telefon', 'text'),
       createField('birth_date', 'Doğum tarixi', 'date', {
-        required: false,
+        required: false, // Könüllü seçim
         value: selectedBirthDate,
         onChange: (value: string) => setSelectedBirthDate(value),
+        validation: z.union([
+          z.string().refine((date) => !date || !isNaN(Date.parse(date)), 'Düzgün tarix formatı'),
+          z.literal(''),
+          z.undefined(),
+          z.null()
+        ]).optional(),
       }),
       createField('gender', 'Cins', 'select', {
         options: GENDER_OPTIONS,
@@ -119,6 +126,7 @@ export function useUserModalFields(params: {
         placeholder: loadingOptions ? 'Rollar yüklənir...' : 'Rol seçin',
         disabled: loadingOptions,
         onChange: (value: string) => {
+          console.log('🔄 Role changed to:', value);
           setSelectedRole(value);
           if (isTeacherRole(value)) {
             setTimeout(() => setActiveTab('teacher'), 100);
@@ -127,10 +135,21 @@ export function useUserModalFields(params: {
           }
         },
       }),
-      // Conditionally show institution or department field
+      // Müəssisə field - RegionOperator və digər rollar üçün
       ...(mode === 'teacher'
-        ? [] // Don't show institution field for teachers
-        : isRegionalOperatorRole(selectedRole)
+        ? [] // Müəllimlər üçün müəssisə field göstərilmir
+        : [createField('institution_id', 'Müəssisə (Region/Sektor)', 'select', {
+            required: !isRegionalOperatorRole(selectedRole), // RegionOperator üçün könüllü (çünki departament məcburidir)
+            options: availableInstitutions.map(inst => ({
+              label: `${inst.name} (${inst.type})`,
+              value: inst.id.toString()
+            })),
+            placeholder: loadingOptions ? 'Müəssisələr yüklənir...' : 'Müəssisə seçin',
+            disabled: loadingOptions,
+          })]
+      ),
+      // RegionOperator üçün ƏLAVƏ departament field (MƏCBURI)
+      ...(isRegionalOperatorRole(selectedRole)
         ? [createField('department_id', 'Departament', 'select', {
             required: true,
             options: availableDepartments.map(dept => ({
@@ -140,17 +159,10 @@ export function useUserModalFields(params: {
             placeholder: loadingOptions ? 'Departamentlər yüklənir...' : 'Departament seçin',
             disabled: loadingOptions || availableDepartments.length === 0,
             helperText: availableDepartments.length === 0
-              ? 'Region üzrə aktiv departament tapılmadı'
-              : undefined,
+              ? '⚠️ Region üzrə aktiv departament tapılmadı'
+              : '✓ RegionOperator üçün departament məcburidir',
           })]
-        : [createField('institution_id', 'Müəssisə', 'select', {
-            options: availableInstitutions.map(inst => ({
-              label: `${inst.name} (${inst.type})`,
-              value: inst.id.toString()
-            })),
-            placeholder: loadingOptions ? 'Müəssisələr yüklənir...' : 'Müəssisə seçin',
-            disabled: loadingOptions,
-          })]
+        : []
       ),
       createField('is_active', 'Status', 'select', {
         required: true,

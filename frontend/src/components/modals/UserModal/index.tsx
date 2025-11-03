@@ -304,6 +304,7 @@ export function UserModal({
 
   // Get fields for current tab
   const getCurrentTabFields = useMemo(() => {
+    console.log('🔍 Getting fields for tab:', state.activeTab, 'Role:', state.selectedRole);
     switch (state.activeTab) {
       case 'basic':
         return fields.getBasicFields();
