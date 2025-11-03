@@ -47,6 +47,17 @@ Route::get('config/constants', [ConfigController::class, 'getConstants']);
 
 // WebSocket configuration endpoint (no auth required)
 Route::get('test/websocket/info', function () {
+    // Check if broadcasting is enabled (not 'log' or 'null')
+    $broadcastDriver = env('BROADCAST_CONNECTION', 'log');
+    $isWebSocketEnabled = !in_array($broadcastDriver, ['log', 'null']);
+
+    if (!$isWebSocketEnabled) {
+        return response()->json([
+            'success' => false,
+            'message' => 'WebSocket/Broadcasting is disabled. Using polling for updates.',
+        ]);
+    }
+
     return response()->json([
         'success' => true,
         'data' => [

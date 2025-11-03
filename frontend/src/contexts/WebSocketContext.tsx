@@ -116,13 +116,19 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
         };
       }
 
-      throw new Error('Failed to get WebSocket config from backend');
+      // WebSocket is disabled on the backend
+      const message = data.message || 'WebSocket/Broadcasting is disabled';
+      logger.info(message + ' - Real-time updates will use polling instead.');
+      throw new Error(message);
     } catch (error) {
-      logger.info('WebSocket not configured - using polling for updates');
+      if (error instanceof Error && error.message.includes('disabled')) {
+        // WebSocket explicitly disabled - this is expected, not an error
+        throw error;
+      }
 
-      // Return null config to disable WebSocket connections
-      // This prevents failed connection attempts to non-existent WebSocket server
-      throw error; // Re-throw to prevent connection attempt
+      // Network or other error
+      logger.warn('Could not fetch WebSocket configuration - using polling for updates');
+      throw error;
     }
   }, []);
 
@@ -220,6 +226,15 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
         scheme: wsConfig.scheme,
       });
     } catch (error) {
+      if (error instanceof Error && error.message.includes('disabled')) {
+        // WebSocket is explicitly disabled - this is expected behavior, not an error
+        logger.info('WebSocket disabled - application will use polling for real-time updates');
+        setIsConnecting(false);
+        // Don't set error state or schedule reconnect for disabled WebSocket
+        return;
+      }
+
+      // Actual error occurred
       logger.error('Failed to initialize Laravel Echo connection', error);
       setConnectionError('Failed to initialize Echo connection');
       scheduleReconnect();
