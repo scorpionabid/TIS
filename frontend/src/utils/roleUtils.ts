@@ -49,8 +49,9 @@ export const getDashboardPath = (role: UserRole): string => {
     case USER_ROLES.SUPERADMIN:
       return '/';
     case USER_ROLES.REGIONADMIN:
-    case USER_ROLES.REGIONOPERATOR:
       return '/regionadmin';
+    case USER_ROLES.REGIONOPERATOR:
+      return '/';
     case USER_ROLES.SEKTORADMIN:
       return '/';
     case USER_ROLES.SCHOOLADMIN:

@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { userService } from '@/services/users';
 import { subjectService } from '@/services/subjects';
+import { ROLE_TYPES } from '../utils/constants';
 
 export interface UserModalOptions {
   availableRoles: any[];
@@ -15,7 +16,7 @@ export interface UserModalOptions {
   loadingOptions: boolean;
 }
 
-export function useUserModalOptions(open: boolean, selectedRole: string) {
+export function useUserModalOptions(open: boolean) {
   const [availableRoles, setAvailableRoles] = useState<any[]>([]);
   const [availableInstitutions, setAvailableInstitutions] = useState<any[]>([]);
   const [availableDepartments, setAvailableDepartments] = useState<any[]>([]);
@@ -33,7 +34,7 @@ export function useUserModalOptions(open: boolean, selectedRole: string) {
         const [rolesData, institutionsData, departmentsData, subjectsData] = await Promise.all([
           userService.getAvailableRoles().catch(() => []),
           userService.getAvailableInstitutions().catch(() => []),
-          userService.getAvailableDepartments().catch(() => []),
+          userService.getAvailableDepartments(ROLE_TYPES.REGIONAL_OPERATOR).catch(() => []),
           subjectService.getAll().catch(() => [])
         ]);
 

@@ -104,6 +104,24 @@ export function validateTeacherFields(
 }
 
 /**
+ * Validate regional-operator-specific fields
+ */
+export function validateRegionalOperatorFields(
+  data: any,
+  isRegionalOperatorRole: (roleId: string) => boolean
+): string[] {
+  const errors: string[] = [];
+
+  if (!data.role_id) return errors;
+
+  if (isRegionalOperatorRole(data.role_id) && !data.department_id) {
+    errors.push(ERROR_MESSAGES.REGION_OPERATOR_NEEDS_DEPARTMENT);
+  }
+
+  return errors;
+}
+
+/**
  * Check if email is unique (external validation)
  */
 export function checkEmailUniqueness(
@@ -128,6 +146,7 @@ export function validateFormData(
     isNewUser: boolean;
     emailIsUnique: boolean | null;
     isTeacherRole: (roleId: string) => boolean;
+    isRegionalOperatorRole: (roleId: string) => boolean;
   }
 ): ValidationResult {
   const allErrors: string[] = [];
@@ -145,6 +164,7 @@ export function validateFormData(
 
   // Role-based validation
   allErrors.push(...validateTeacherFields(data, options.isTeacherRole));
+  allErrors.push(...validateRegionalOperatorFields(data, options.isRegionalOperatorRole));
 
   return {
     isValid: allErrors.length === 0,

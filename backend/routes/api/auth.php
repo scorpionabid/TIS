@@ -70,3 +70,4 @@ Route::prefix('devices')->group(function () {
 // Navigation routes
 Route::get('navigation', [NavigationController::class, 'getNavigation']);
 Route::get('navigation/permissions', [NavigationController::class, 'getNavigationWithPermissions']);
+Route::get('navigation/menu', [NavigationController::class, 'getMenuItems']);

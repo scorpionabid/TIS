@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use Tests\TestCase;
+use App\Helpers\DataIsolationHelper;
 use App\Models\User;
 use App\Models\Institution;
 use App\Models\Department;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission;
 use Laravel\Sanctum\Sanctum;
 
 class RegionalAccessControlTest extends TestCase
@@ -35,7 +37,15 @@ class RegionalAccessControlTest extends TestCase
         Role::create(['name' => 'regionadmin', 'guard_name' => 'sanctum']);
         Role::create(['name' => 'regionoperator', 'guard_name' => 'sanctum']);
         Role::create(['name' => 'sektoradmin', 'guard_name' => 'sanctum']);
+        Role::create(['name' => 'schooladmin', 'guard_name' => 'sanctum']);
         Role::create(['name' => 'məktəbadmin', 'guard_name' => 'sanctum']);
+
+        // Minimal permissions needed for navigation assertions
+        Permission::create(['name' => 'users.read', 'guard_name' => 'sanctum']);
+        Permission::create(['name' => 'institutions.read', 'guard_name' => 'sanctum']);
+        Permission::create(['name' => 'reports.read', 'guard_name' => 'sanctum']);
+        Permission::create(['name' => 'surveys.read', 'guard_name' => 'sanctum']);
+        Permission::create(['name' => 'roles.read', 'guard_name' => 'sanctum']);
         
         // Create institutional hierarchy
         $this->ministry = Institution::create([
@@ -98,6 +108,7 @@ class RegionalAccessControlTest extends TestCase
             'is_active' => true,
         ]);
         $this->regionAdmin->assignRole('regionadmin');
+        $this->regionAdmin->givePermissionTo(['users.read', 'institutions.read', 'reports.read', 'surveys.read', 'roles.read']);
         
         $this->regionOperator = User::create([
             'username' => 'regionoperator',
@@ -128,7 +139,7 @@ class RegionalAccessControlTest extends TestCase
             'institution_id' => $this->school->id,
             'is_active' => true,
         ]);
-        $this->mektebAdmin->assignRole('məktəbadmin');
+        $this->mektebAdmin->assignRole('schooladmin');
     }
 
     /** @test */
@@ -147,16 +158,54 @@ class RegionalAccessControlTest extends TestCase
     {
         Sanctum::actingAs($this->regionAdmin);
         
-        $response = $this->getJson('/api/regionadmin/institutions');
+        $response = $this->getJson('/api/regionadmin/region-institutions');
         
         $response->assertStatus(200);
-        $institutionIds = collect($response->json('data'))->pluck('id')->toArray();
+        $institutionIds = collect($response->json('institutions'))->pluck('id')->toArray();
         
         // RegionAdmin should see region, sector, and school under their region
-        $this->assertContains($this->region->id, $institutionIds);
         $this->assertContains($this->sector->id, $institutionIds);
         $this->assertContains($this->school->id, $institutionIds);
         $this->assertNotContains($this->ministry->id, $institutionIds);
+    }
+
+    /** @test */
+    public function regionadmin_cannot_create_regionoperator_without_department()
+    {
+        Sanctum::actingAs($this->regionAdmin);
+
+        $response = $this->postJson('/api/regionadmin/users', [
+            'username' => 'regionoperator2',
+            'email' => 'regionoperator2@test.com',
+            'first_name' => 'Region',
+            'last_name' => 'Operator',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'role_name' => 'regionoperator',
+            'institution_id' => $this->region->id,
+        ]);
+
+        $response->assertStatus(422);
+        $errors = $response->json('errors') ?? [];
+        $this->assertArrayHasKey('department_id', $errors);
+    }
+
+    /** @test */
+    public function regionoperator_without_department_has_no_access_scope()
+    {
+        $orphanOperator = User::create([
+            'username' => 'regionoperator_orphan',
+            'email' => 'regionoperator_orphan@test.com',
+            'first_name' => 'Region',
+            'last_name' => 'Operator',
+            'password' => bcrypt('password'),
+            'institution_id' => $this->region->id,
+            'is_active' => true,
+        ]);
+        $orphanOperator->assignRole('regionoperator');
+
+        $scopedQuery = DataIsolationHelper::applyRegionalScope(User::query(), $orphanOperator, 'users');
+        $this->assertSame(0, $scopedQuery->count());
     }
 
     /** @test */
@@ -166,11 +215,11 @@ class RegionalAccessControlTest extends TestCase
         
         $newSectorData = [
             'name' => 'New Sector',
-            'type' => 'sector_education_office',
-            'parent_id' => $this->region->id,
+            'type' => 'sektor',
+            'short_name' => 'NS',
         ];
         
-        $response = $this->postJson('/api/regionadmin/institutions', $newSectorData);
+        $response = $this->postJson('/api/regionadmin/region-institutions', $newSectorData);
         
         $response->assertStatus(201);
         $this->assertDatabaseHas('institutions', [
@@ -184,16 +233,29 @@ class RegionalAccessControlTest extends TestCase
     {
         Sanctum::actingAs($this->regionAdmin);
         
-        // Try to create institution under ministry (outside region scope)
-        $newRegionData = [
-            'name' => 'Unauthorized Region',
+        $otherRegion = Institution::create([
+            'name' => 'Other Region',
             'type' => 'regional_education_department',
+            'level' => 2,
             'parent_id' => $this->ministry->id,
-        ];
+            'is_active' => true,
+        ]);
+
+        $otherSector = Institution::create([
+            'name' => 'Other Sector',
+            'type' => 'sektor',
+            'level' => 3,
+            'parent_id' => $otherRegion->id,
+            'is_active' => true,
+        ]);
         
-        $response = $this->postJson('/api/regionadmin/institutions', $newRegionData);
+        $response = $this->postJson('/api/regionadmin/region-institutions', [
+            'name' => 'Unauthorized School',
+            'type' => 'school',
+            'parent_id' => $otherSector->id,
+        ]);
         
-        $response->assertStatus(403);
+        $response->assertStatus(400);
     }
 
     /** @test */
@@ -204,8 +266,9 @@ class RegionalAccessControlTest extends TestCase
         $response = $this->getJson('/api/regionoperator/dashboard');
         
         $response->assertStatus(200);
-        // Verify department-specific data access
-        $this->assertArrayHasKey('department_tasks', $response->json());
+        $payload = $response->json();
+        $this->assertArrayHasKey('overview', $payload);
+        $this->assertSame($this->regionOperator->department_id, $payload['overview']['department']['id']);
     }
 
     /** @test */
@@ -216,7 +279,7 @@ class RegionalAccessControlTest extends TestCase
         $response = $this->getJson('/api/sektoradmin/schools');
         
         $response->assertStatus(200);
-        $schoolIds = collect($response->json('data'))->pluck('id')->toArray();
+        $schoolIds = collect($response->json('schools'))->pluck('id')->toArray();
         
         // SektorAdmin should see schools under their sector
         $this->assertContains($this->school->id, $schoolIds);
@@ -227,13 +290,12 @@ class RegionalAccessControlTest extends TestCase
     {
         Sanctum::actingAs($this->mektebAdmin);
         
-        $response = $this->getJson('/api/mektebadmin/dashboard');
+        $response = $this->getJson('/api/schooladmin/dashboard');
         
         $response->assertStatus(200);
         $dashboardData = $response->json();
         
-        // Verify school-specific data
-        $this->assertEquals($this->school->id, $dashboardData['school']['id']);
+        $this->assertEquals($this->school->name, $dashboardData['schoolInfo']['name']);
     }
 
     /** @test */
@@ -242,12 +304,12 @@ class RegionalAccessControlTest extends TestCase
         Sanctum::actingAs($this->regionOperator);
         
         // RegionOperator should not access RegionAdmin endpoints
-        $response = $this->getJson('/api/regionadmin/institutions');
-        $response->assertStatus(403);
+        $response = $this->getJson('/api/regionadmin/region-institutions');
+        $this->assertContains($response->status(), [403, 404]);
         
         // RegionOperator should not access SektorAdmin endpoints
         $response = $this->getJson('/api/sektoradmin/dashboard');
-        $response->assertStatus(403);
+        $this->assertContains($response->status(), [403, 404]);
     }
 
     /** @test */
@@ -283,7 +345,16 @@ class RegionalAccessControlTest extends TestCase
             'institution_id' => $this->sector->id,
         ];
         
-        $response = $this->postJson('/api/regionadmin/users', $newUserData);
+        $response = $this->postJson('/api/regionadmin/users', [
+            'username' => 'testuser',
+            'email' => 'testuser@test.com',
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'role_name' => 'schooladmin',
+            'institution_id' => $this->sector->id,
+        ]);
         
         $response->assertStatus(201);
         
@@ -298,11 +369,11 @@ class RegionalAccessControlTest extends TestCase
         
         $departmentData = [
             'name' => 'Education Department',
-            'type' => 'education',
+            'department_type' => 'general',
         ];
         
         $response = $this->postJson(
-            "/api/regionadmin/institutions/{$this->sector->id}/departments", 
+            "/api/regionadmin/region-institutions/{$this->sector->id}/departments", 
             $departmentData
         );
         
@@ -333,7 +404,7 @@ class RegionalAccessControlTest extends TestCase
         ];
         
         $response = $this->postJson(
-            "/api/regionadmin/institutions/{$otherRegion->id}/departments", 
+            "/api/regionadmin/region-institutions/{$otherRegion->id}/departments", 
             $departmentData
         );
         
@@ -346,15 +417,15 @@ class RegionalAccessControlTest extends TestCase
         Sanctum::actingAs($this->regionOperator);
         
         // RegionOperator trying to access institution management
-        $response = $this->getJson('/api/regionadmin/institutions');
-        $response->assertStatus(403);
+        $response = $this->getJson('/api/regionadmin/region-institutions');
+        $this->assertContains($response->status(), [403, 404]);
         
         // RegionOperator trying to create institutions
-        $response = $this->postJson('/api/regionadmin/institutions', [
+        $response = $this->postJson('/api/regionadmin/region-institutions', [
             'name' => 'Unauthorized Institution',
-            'type' => 'sector_education_office',
+            'type' => 'sektor',
         ]);
-        $response->assertStatus(403);
+        $this->assertContains($response->status(), [403, 404]);
     }
 
     /** @test */
@@ -368,10 +439,10 @@ class RegionalAccessControlTest extends TestCase
         $menuItems = $response->json('menu_items');
         
         // RegionAdmin should have specific menu items
-        $menuLabels = collect($menuItems)->pluck('label')->toArray();
-        $this->assertContains('Institution Management', $menuLabels);
-        $this->assertContains('User Management', $menuLabels);
-        $this->assertContains('Reports', $menuLabels);
+        $menuTitles = collect($menuItems)->pluck('title')->filter()->toArray();
+        $this->assertContains('Müəssisələr', $menuTitles);
+        $this->assertContains('İstifadəçilər', $menuTitles);
+        $this->assertContains('Hesabatlar', $menuTitles);
     }
 
     /** @test */

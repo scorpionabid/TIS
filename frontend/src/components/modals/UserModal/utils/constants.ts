@@ -83,6 +83,7 @@ export const ERROR_MESSAGES = {
   PASSWORD_MISMATCH: 'Şifrə və şifrə təkrarı uyğun gəlmir',
   PASSWORD_CONFIRMATION_REQUIRED: 'Şifrə təkrarı lazımdır',
   TEACHER_NEEDS_SUBJECTS: 'Müəllim rolü üçün ən azı bir fən seçilməlidir',
+  REGION_OPERATOR_NEEDS_DEPARTMENT: 'RegionOperator üçün departament seçilməlidir',
   VALIDATION_ERROR: 'Validation Xətası',
   OPERATION_FAILED: 'Əməliyyat zamanı xəta baş verdi',
   DUPLICATE_DATA: 'Bu məlumatlarla istifadəçi artıq mövcuddur',

@@ -99,6 +99,7 @@ export function useUserModalFields(params: {
       }),
       createField('contact_phone', 'Telefon', 'text'),
       createField('birth_date', 'Doğum tarixi', 'date', {
+        required: false,
         value: selectedBirthDate,
         onChange: (value: string) => setSelectedBirthDate(value),
       }),
@@ -131,12 +132,16 @@ export function useUserModalFields(params: {
         ? [] // Don't show institution field for teachers
         : isRegionalOperatorRole(selectedRole)
         ? [createField('department_id', 'Departament', 'select', {
+            required: true,
             options: availableDepartments.map(dept => ({
-              label: `${dept.name} (${dept.institution.name})`,
+              label: `${dept.name} (${dept.institution?.name ?? 'Müəssisə'})`,
               value: dept.id.toString()
             })),
             placeholder: loadingOptions ? 'Departamentlər yüklənir...' : 'Departament seçin',
-            disabled: loadingOptions,
+            disabled: loadingOptions || availableDepartments.length === 0,
+            helperText: availableDepartments.length === 0
+              ? 'Region üzrə aktiv departament tapılmadı'
+              : undefined,
           })]
         : [createField('institution_id', 'Müəssisə', 'select', {
             options: availableInstitutions.map(inst => ({

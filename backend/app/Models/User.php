@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\RegionOperatorPermission;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -109,6 +110,14 @@ class User extends Authenticatable
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    /**
+     * Get RegionOperator permission profile when applicable.
+     */
+    public function regionOperatorPermissions(): HasOne
+    {
+        return $this->hasOne(RegionOperatorPermission::class);
     }
 
     /**

@@ -259,7 +259,7 @@ class UserUtilityService
     public function getAvailableDepartments(?string $roleName = null, ?int $institutionId = null): Collection
     {
         $user = Auth::user();
-        $query = \App\Models\Department::with('institution:id,name,type')
+        $query = \App\Models\Department::with('institution:id,name,type,level')
             ->where('is_active', true)
             ->select(['id', 'name', 'department_type', 'institution_id']);
         
@@ -272,6 +272,10 @@ class UserUtilityService
                 $accessibleInstitutionIds = $userInstitution->getAllChildrenIds();
                 $query->whereIn('institution_id', $accessibleInstitutionIds);
             }
+            // Restrict to regional-level institution departments (level 2)
+            $query->whereHas('institution', function ($q) {
+                $q->where('level', 2);
+            });
         }
         
         // Filter by specific institution if provided

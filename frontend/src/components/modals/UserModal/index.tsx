@@ -67,7 +67,7 @@ export function UserModal({
 
   // Initialize hooks
   const state = useUserModalState(user, open);
-  const options = useUserModalOptions(open, state.selectedRole);
+  const options = useUserModalOptions(open);
 
   // Create validation hook first (to get debouncedEmailCheck)
   const validationTemp = useUserModalValidation(
@@ -75,7 +75,8 @@ export function UserModal({
     state.emailValidation,
     state.setEmailValidation,
     state.selectedRole,
-    (roleId: string) => false // Temporary, will be replaced
+    (roleId: string) => false, // Temporary, will be replaced
+    (roleId: string) => false
   );
 
   // Create fields hook with debouncedEmailCheck
@@ -98,7 +99,8 @@ export function UserModal({
     state.emailValidation,
     state.setEmailValidation,
     state.selectedRole,
-    fields.isTeacherRole
+    fields.isTeacherRole,
+    fields.isRegionalOperatorRole
   );
 
   // Auto-select default role when modal opens
@@ -121,6 +123,26 @@ export function UserModal({
 
     state.setFormData(prev => {
       const updated = { ...prev, ...allFormValues };
+
+      const activeRoleId = updated.role_id || state.selectedRole;
+      if (fields.isRegionalOperatorRole(activeRoleId)) {
+        if (Object.prototype.hasOwnProperty.call(allFormValues, 'department_id')) {
+          const newDepartmentId = allFormValues.department_id;
+          if (newDepartmentId) {
+            const selectedDept = options.availableDepartments.find(
+              (dept: any) => String(dept.id) === String(newDepartmentId)
+            );
+            if (selectedDept?.institution?.id) {
+              updated.department_id = newDepartmentId;
+              updated.institution_id = selectedDept.institution.id.toString();
+            }
+          } else {
+            updated.department_id = '';
+            updated.institution_id = '';
+          }
+        }
+      }
+
       console.log('📋 Updated form data (all tabs):', {
         previous: Object.keys(prev),
         incoming: Object.keys(allFormValues),
@@ -148,7 +170,7 @@ export function UserModal({
     if (allFormValues.birth_date && allFormValues.birth_date !== state.selectedBirthDate) {
       state.setSelectedBirthDate(allFormValues.birth_date);
     }
-  }, [state, fields, validation]);
+  }, [state, fields, validation, options.availableDepartments]);
 
   // Form submit handler
   const handleSubmit = async (data: any) => {

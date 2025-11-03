@@ -19,6 +19,12 @@ const RegionAdminDashboard = lazy(() =>
   }))
 );
 
+const RegionOperatorDashboard = lazy(() => 
+  import("@/components/regionoperator/RegionOperatorDashboard").then(module => ({
+    default: module.RegionOperatorDashboard
+  }))
+);
+
 const SektorAdminDashboard = lazy(() => 
   import("@/components/sektoradmin/SektorAdminDashboard").then(module => ({
     default: module.SektorAdminDashboard
@@ -82,8 +88,10 @@ const IndexOptimized = () => {
         return SuperAdminDashboardOptimized;
 
       case USER_ROLES.REGIONADMIN:
-      case USER_ROLES.REGIONOPERATOR:
         return RegionAdminDashboard;
+
+      case USER_ROLES.REGIONOPERATOR:
+        return RegionOperatorDashboard;
 
       case USER_ROLES.SEKTORADMIN:
         return SektorAdminDashboard;
@@ -100,7 +108,7 @@ const IndexOptimized = () => {
 
   // Handle RegionAdmin redirect - only redirect when on exact index page
   useEffect(() => {
-    if (currentUser && ['regionadmin', 'regionoperator'].includes(currentUser.role)) {
+    if (currentUser?.role === USER_ROLES.REGIONADMIN) {
       // Only redirect if we're on the exact root path "/"
       if (location.pathname === '/') {
         navigate('/regionadmin', { replace: true });
@@ -133,7 +141,7 @@ const IndexOptimized = () => {
   }
 
   // Don't show dashboard for regionadmin on root path, let the redirect happen
-  if (currentUser && ['regionadmin', 'regionoperator'].includes(currentUser.role) && location.pathname === '/') {
+  if (currentUser?.role === USER_ROLES.REGIONADMIN && location.pathname === '/') {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center space-y-4">

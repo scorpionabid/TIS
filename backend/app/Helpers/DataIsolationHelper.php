@@ -7,6 +7,7 @@ use App\Models\Institution;
 use App\Models\Department;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 class DataIsolationHelper
 {
@@ -101,6 +102,13 @@ class DataIsolationHelper
         $userInstitution = $user->institution;
         
         if (!$userDepartment || !$userInstitution) {
+            Log::warning('RegionOperator scope blocked due to missing department or institution', [
+                'user_id' => $user->id,
+                'username' => $user->username,
+                'has_department' => (bool) $userDepartment,
+                'has_institution' => (bool) $userInstitution,
+                'resource_type' => $resourceType,
+            ]);
             return $query->whereRaw('1 = 0');
         }
 

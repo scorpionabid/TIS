@@ -159,7 +159,12 @@ class RegionAdminUserController extends Controller
             'password' => 'required|string|min:8|confirmed',
             'role_name' => ['required', 'string', Rule::in(['regionoperator', 'sektoradmin', 'schooladmin', 'məktəbadmin', 'müəllim'])],
             'institution_id' => ['required', 'integer', Rule::in($allowedInstitutionIds)],
-            'department_id' => 'nullable|integer|exists:departments,id'
+            'department_id' => [
+                Rule::requiredIf(fn () => $request->input('role_name') === 'regionoperator'),
+                'nullable',
+                'integer',
+                'exists:departments,id'
+            ]
         ]);
         
         if ($validator->fails()) {
@@ -171,6 +176,13 @@ class RegionAdminUserController extends Controller
         
         $data = $validator->validated();
         
+        // Ensure RegionOperator always has department assignment
+        if ($data['role_name'] === 'regionoperator' && empty($data['department_id'])) {
+            return response()->json([
+                'message' => 'RegionOperator üçün departament seçilməlidir'
+            ], 422);
+        }
+
         // Validate department belongs to institution
         if (!empty($data['department_id'])) {
             $department = Department::where('id', $data['department_id'])
@@ -278,7 +290,17 @@ class RegionAdminUserController extends Controller
             'password' => 'sometimes|string|min:8|confirmed',
             'role_name' => ['sometimes', 'required', 'string', Rule::in(['regionoperator', 'sektoradmin', 'schooladmin', 'məktəbadmin', 'müəllim'])],
             'institution_id' => ['sometimes', 'required', 'integer', Rule::in($allowedInstitutionIds)],
-            'department_id' => 'nullable|integer|exists:departments,id',
+            'department_id' => [
+                'sometimes',
+                Rule::requiredIf(function () use ($request, $targetUser) {
+                    $incomingRole = $request->input('role_name');
+                    $currentRole = $incomingRole ?? $targetUser->roles->first()?->name;
+                    return $currentRole === 'regionoperator';
+                }),
+                'nullable',
+                'integer',
+                'exists:departments,id'
+            ],
             'is_active' => 'sometimes|boolean'
         ]);
         
@@ -291,10 +313,19 @@ class RegionAdminUserController extends Controller
         
         $data = $validator->validated();
         
+        $targetRoleName = $data['role_name'] ?? $targetUser->roles->first()?->name;
+        $departmentId = $data['department_id'] ?? $targetUser->department_id;
+
+        if ($targetRoleName === 'regionoperator' && empty($departmentId)) {
+            return response()->json([
+                'message' => 'RegionOperator üçün departament seçilməlidir'
+            ], 422);
+        }
+
         // Validate department belongs to institution
-        if (isset($data['department_id']) && $data['department_id']) {
+        if (!empty($departmentId)) {
             $institutionId = $data['institution_id'] ?? $targetUser->institution_id;
-            $department = Department::where('id', $data['department_id'])
+            $department = Department::where('id', $departmentId)
                 ->where('institution_id', $institutionId)
                 ->first();
             if (!$department) {

@@ -21,6 +21,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { QuickAuth } from '@/components/auth/QuickAuth';
 import { regionAdminService } from '@/services/regionAdmin';
+import { RegionOperatorPermissionsModal } from '@/components/regionadmin/RegionOperatorPermissionsModal';
 
 interface RegionalUser {
   id: number;
@@ -37,6 +38,18 @@ export default function RegionAdminUsers() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('all');
   const { currentUser } = useAuth();
+  const [permissionsModalOpen, setPermissionsModalOpen] = useState(false);
+  const [selectedOperator, setSelectedOperator] = useState<RegionalUser | null>(null);
+
+  const handleOpenPermissions = (user: RegionalUser) => {
+    setSelectedOperator(user);
+    setPermissionsModalOpen(true);
+  };
+
+  const handleClosePermissions = () => {
+    setPermissionsModalOpen(false);
+    setSelectedOperator(null);
+  };
 
   // Helper function to fetch users by role (not a hook)
   const createUserQuery = async (role: string) => {
@@ -150,7 +163,17 @@ export default function RegionAdminUsers() {
     }
   };
 
-  const UserTable = ({ users, isLoading, roleType }: { users?: RegionalUser[], isLoading: boolean, roleType: string }) => {
+  const UserTable = ({
+    users,
+    isLoading,
+    roleType,
+    onManagePermissions,
+  }: {
+    users?: RegionalUser[];
+    isLoading: boolean;
+    roleType: string;
+    onManagePermissions?: (user: RegionalUser) => void;
+  }) => {
     if (isLoading) {
       return (
         <div className="flex justify-center py-8">
@@ -217,6 +240,15 @@ export default function RegionAdminUsers() {
                   <Button variant="ghost" size="sm">
                     Deaktiv et
                   </Button>
+                  {roleType === 'operators' && onManagePermissions && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onManagePermissions(user)}
+                    >
+                      Səlahiyyətlər
+                    </Button>
+                  )}
                 </div>
               </TableCell>
             </TableRow>
@@ -309,6 +341,7 @@ export default function RegionAdminUsers() {
                 users={operatorsQuery.data} 
                 isLoading={operatorsQuery.isLoading}
                 roleType="operators"
+                onManagePermissions={handleOpenPermissions}
               />
             </CardContent>
           </Card>
@@ -368,6 +401,12 @@ export default function RegionAdminUsers() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <RegionOperatorPermissionsModal
+        operatorId={permissionsModalOpen && selectedOperator ? selectedOperator.id : null}
+        open={permissionsModalOpen}
+        onClose={handleClosePermissions}
+      />
     </div>
   );
 }

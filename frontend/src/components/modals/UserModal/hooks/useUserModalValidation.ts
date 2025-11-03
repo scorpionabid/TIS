@@ -22,7 +22,8 @@ export function useUserModalValidation(
   emailValidation: EmailValidation,
   setEmailValidation: (validation: EmailValidation) => void,
   selectedRole: string,
-  isTeacherRole: (roleId: string) => boolean
+  isTeacherRole: (roleId: string) => boolean,
+  isRegionalOperatorRole: (roleId: string) => boolean
 ) {
   // Check email uniqueness
   const checkEmailUniqueness = useCallback(async (email: string) => {
@@ -64,10 +65,11 @@ export function useUserModalValidation(
       isNewUser: !user,
       emailIsUnique: emailValidation.isUnique,
       isTeacherRole,
+      isRegionalOperatorRole,
     });
 
     return result;
-  }, [user, emailValidation.isUnique, isTeacherRole]);
+  }, [user, emailValidation.isUnique, isTeacherRole, isRegionalOperatorRole]);
 
   return {
     validate,

@@ -7,6 +7,7 @@ use App\Http\Controllers\RegionAdmin\RegionAdminUserController;
 use App\Http\Controllers\RegionAdmin\RegionAdminReportsController;
 use App\Http\Controllers\RegionAdmin\RegionAdminTaskController;
 use App\Http\Controllers\RegionAdmin\RegionTeacherController;
+use App\Http\Controllers\RegionAdmin\RegionOperatorPermissionController;
 use App\Http\Controllers\SurveyController;
 use App\Http\Controllers\RegionOperator\RegionOperatorDashboardController;
 use App\Http\Controllers\SektorAdmin\SektorAdminDashboardController;
@@ -49,19 +50,19 @@ Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|supera
     Route::get('dashboard/analytics', [RegionAdminDashboardController::class, 'getAnalytics']);
     
     // Institution management endpoints - READ operations (RegionAdmin-specific)
-    Route::get('region-institutions', [RegionAdminInstitutionController::class, 'getRegionInstitutions']);
+    Route::get('region-institutions', [RegionAdminInstitutionController::class, 'index']);
     Route::get('region-institutions/{institution}', [RegionAdminInstitutionController::class, 'getInstitutionDetails']);
     Route::get('region-institutions/{institution}/stats', [RegionAdminInstitutionController::class, 'getInstitutionStats']);
     Route::get('region-institutions/{institution}/hierarchy', [RegionAdminInstitutionController::class, 'getInstitutionHierarchy']);
 
     // Institution management endpoints - WRITE operations (RegionAdmin-specific)
-    Route::post('region-institutions', [RegionAdminInstitutionController::class, 'createInstitution']);
+    Route::post('region-institutions', [RegionAdminInstitutionController::class, 'store']);
     Route::put('region-institutions/{institution}', [RegionAdminInstitutionController::class, 'updateInstitution']);
     Route::delete('region-institutions/{institution}', [RegionAdminInstitutionController::class, 'deleteInstitution']);
     
     // Department management endpoints (RegionAdmin-specific)
     Route::get('region-institutions/{institution}/departments', [RegionAdminInstitutionController::class, 'getDepartments']);
-    Route::post('region-institutions/{institution}/departments', [RegionAdminInstitutionController::class, 'createDepartment']);
+    Route::post('region-institutions/{institution}/departments', [RegionAdminInstitutionController::class, 'storeDepartment']);
     Route::put('region-departments/{department}', [RegionAdminInstitutionController::class, 'updateDepartment']);
     Route::delete('region-departments/{department}', [RegionAdminInstitutionController::class, 'deleteDepartment']);
 
@@ -80,6 +81,10 @@ Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|supera
     Route::post('users', [RegionAdminUserController::class, 'store']);
     Route::put('users/{user}', [RegionAdminUserController::class, 'update']);
     Route::delete('users/{user}', [RegionAdminUserController::class, 'destroy']);
+
+    // RegionOperator permission management
+    Route::get('region-operators/{user}/permissions', [RegionOperatorPermissionController::class, 'show']);
+    Route::put('region-operators/{user}/permissions', [RegionOperatorPermissionController::class, 'update']);
     
     // User management helper endpoints (TODO: Implement these methods)
     // Route::post('users/{user}/assign-role', [RegionAdminUserController::class, 'assignRole']);

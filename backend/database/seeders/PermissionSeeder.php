@@ -379,8 +379,10 @@ class PermissionSeeder extends Seeder
                 'survey_responses.write',
                 'documents.read',
                 'tasks.read',
+                'departments.read',
                 'reports.read',
-                'institutions.read'
+                'institutions.read',
+                'links.read'
             ],
             'sektoradmin' => [
                 'users.read', 'users.create', 'users.update',

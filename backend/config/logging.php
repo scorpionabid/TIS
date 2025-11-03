@@ -135,6 +135,14 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'audit' => [
+            'driver' => env('LOG_AUDIT_DRIVER', 'daily'),
+            'path' => storage_path('logs/audit.log'),
+            'level' => env('LOG_AUDIT_LEVEL', 'info'),
+            'days' => env('LOG_AUDIT_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];
