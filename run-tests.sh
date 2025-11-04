@@ -191,72 +191,45 @@ run_backend_tests() {
     
     print_header "BACKEND TESTLƏR"
     
-    local test_command=""
-    local coverage_flags=""
-    
-    if [ "$GENERATE_COVERAGE" = true ]; then
-        coverage_flags="--coverage-html=coverage --coverage-clover=coverage.xml"
-    fi
-    
-    if [ -n "$SPECIFIC_TEST" ]; then
-        test_command="--filter=$SPECIFIC_TEST"
-    fi
-    
     if [ "$USE_DOCKER" = true ]; then
         print_status "Docker container-də backend testlər çalışdırılır..."
         
         # Ensure PHPUnit is available
         docker exec atis_backend composer install --no-interaction --prefer-dist --optimize-autoloader >/dev/null 2>&1
         
-        # Run Unit tests
-        print_info "Unit testlər..."
-        if docker exec atis_backend ./vendor/bin/phpunit --testsuite=Unit $test_command $coverage_flags 2>/dev/null; then
-            print_success "Unit testlər uğurlu"
-        else
-            print_warning "Unit testlərdə problem var (davam edilir)"
+        local phpunit_command="./vendor/bin/phpunit"
+        if [ -n "$SPECIFIC_TEST" ]; then
+            phpunit_command="$phpunit_command --filter=$SPECIFIC_TEST"
         fi
-        
-        # Run Feature tests
-        print_info "Feature testlər..."
-        if docker exec atis_backend ./vendor/bin/phpunit --testsuite=Feature $test_command 2>/dev/null; then
-            print_success "Feature testlər uğurlu"
-        else
-            print_warning "Feature testlərdə problem var (davam edilir)"
+        if [ "$GENERATE_COVERAGE" = true ]; then
+            print_warning "Coverage üçün Xdebug və ya PCOV tələb olunur. Əlavə konfiqurasiya etdiyinizə əminsiniz."
         fi
-        
-        # Run specific soft delete tests if they exist
-        print_info "Soft Delete testlər..."
-        if docker exec atis_backend test -f /var/www/html/tests/Feature/UserSoftDeleteTest.php; then
-            docker exec atis_backend ./vendor/bin/phpunit tests/Feature/UserSoftDeleteTest.php 2>/dev/null && \
-                print_success "Soft Delete testlər uğurlu" || \
-                print_warning "Soft Delete testlərdə problem var"
+
+        if docker exec atis_backend bash -lc "$phpunit_command"; then
+            print_success "Backend testlər uğurla tamamlandı"
         else
-            print_info "Soft Delete testlər tapılmadı"
-        fi
-        
-        # Run UserCrudService tests
-        print_info "UserCrudService testlər..."
-        if docker exec atis_backend test -f /var/www/html/tests/Unit/Services/UserCrudServiceTest.php; then
-            docker exec atis_backend ./vendor/bin/phpunit tests/Unit/Services/UserCrudServiceTest.php 2>/dev/null && \
-                print_success "UserCrudService testlər uğurlu" || \
-                print_warning "UserCrudService testlərdə problem var"
-        else
-            print_info "UserCrudService testlər tapılmadı"
+            print_error "Backend testlərində problem var"
+            exit 1
         fi
         
     else
         print_status "Local mühitdə backend testlər çalışdırılır..."
         cd backend
         
-        if command -v ./vendor/bin/phpunit >/dev/null 2>&1; then
-            ./vendor/bin/phpunit --testsuite=Unit $test_command $coverage_flags
-            ./vendor/bin/phpunit --testsuite=Feature $test_command
-        else
+        local phpunit_command="./vendor/bin/phpunit"
+        if ! command -v ./vendor/bin/phpunit >/dev/null 2>&1; then
             print_warning "PHPUnit tapılmadı. Composer install çalışdırılır..."
             composer install --no-interaction
-            ./vendor/bin/phpunit --testsuite=Unit $test_command $coverage_flags
-            ./vendor/bin/phpunit --testsuite=Feature $test_command
         fi
+
+        if [ -n "$SPECIFIC_TEST" ]; then
+            phpunit_command="$phpunit_command --filter=$SPECIFIC_TEST"
+        fi
+        if [ "$GENERATE_COVERAGE" = true ]; then
+            print_warning "Coverage üçün Xdebug/PCOV tələb olunur. Əlavə konfiqurasiya etdiyinizə əminsiniz."
+        fi
+
+        $phpunit_command
         
         cd ..
     fi

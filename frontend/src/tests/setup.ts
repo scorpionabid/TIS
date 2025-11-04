@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom';
 
-// Mock console methods to avoid noise during tests
+// Silence console noise during tests unless explicitly needed
 global.console = {
   ...console,
   log: vi.fn(),
@@ -10,14 +10,14 @@ global.console = {
   error: vi.fn(),
 };
 
-// Mock ResizeObserver
+// Polyfill ResizeObserver
 global.ResizeObserver = vi.fn(() => ({
   observe: vi.fn(),
   unobserve: vi.fn(),
   disconnect: vi.fn(),
-}));
+})) as unknown as typeof ResizeObserver;
 
-// Mock IntersectionObserver
+// Polyfill IntersectionObserver
 global.IntersectionObserver = vi.fn(() => ({
   observe: vi.fn(),
   unobserve: vi.fn(),
@@ -25,9 +25,9 @@ global.IntersectionObserver = vi.fn(() => ({
   root: null,
   rootMargin: '',
   thresholds: [],
-}));
+})) as unknown as typeof IntersectionObserver;
 
-// Mock window.matchMedia
+// Polyfill matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: vi.fn().mockImplementation(query => ({
