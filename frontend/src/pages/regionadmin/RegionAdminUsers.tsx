@@ -22,6 +22,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { QuickAuth } from '@/components/auth/QuickAuth';
 import { regionAdminService } from '@/services/regionAdmin';
 import { RegionOperatorPermissionsModal } from '@/components/regionadmin/RegionOperatorPermissionsModal';
+import { UserModalTabs } from '@/components/modals/UserModal';
 
 interface RegionalUser {
   id: number;
@@ -40,6 +41,58 @@ export default function RegionAdminUsers() {
   const { currentUser } = useAuth();
   const [permissionsModalOpen, setPermissionsModalOpen] = useState(false);
   const [selectedOperator, setSelectedOperator] = useState<RegionalUser | null>(null);
+  const [userModalOpen, setUserModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<RegionalUser | null>(null);
+
+  // Fetch institutions for UserModalTabs
+  const institutionsQuery = useQuery({
+    queryKey: ['regionadmin-institutions', currentUser?.institution?.id],
+    queryFn: async () => {
+      try {
+        const result = await regionAdminService.getInstitutions();
+        return result.institutions || [];
+      } catch (error) {
+        console.error('Failed to fetch institutions:', error);
+        return [];
+      }
+    },
+    staleTime: 1000 * 60 * 10,
+  });
+
+  // Fetch departments for UserModalTabs
+  const departmentsQuery = useQuery({
+    queryKey: ['regionadmin-departments', currentUser?.institution?.id],
+    queryFn: async () => {
+      try {
+        const result = await regionAdminService.getDepartments();
+        return result.departments || [];
+      } catch (error) {
+        console.error('Failed to fetch departments:', error);
+        return [];
+      }
+    },
+    staleTime: 1000 * 60 * 10,
+  });
+
+  // Fetch available roles for UserModalTabs
+  const rolesQuery = useQuery({
+    queryKey: ['regionadmin-roles'],
+    queryFn: async () => {
+      try {
+        // For RegionAdmin, available roles are: RegionAdmin, RegionOperator, SektorAdmin, SchoolAdmin
+        return [
+          { id: 3, name: 'regionadmin', display_name: 'RegionAdmin' },
+          { id: 4, name: 'regionoperator', display_name: 'RegionOperator' },
+          { id: 5, name: 'sektoradmin', display_name: 'SektorAdmin' },
+          { id: 6, name: 'schooladmin', display_name: 'SchoolAdmin' },
+        ];
+      } catch (error) {
+        console.error('Failed to fetch roles:', error);
+        return [];
+      }
+    },
+    staleTime: 1000 * 60 * 30,
+  });
 
   const handleOpenPermissions = (user: RegionalUser) => {
     setSelectedOperator(user);
@@ -49,6 +102,40 @@ export default function RegionAdminUsers() {
   const handleClosePermissions = () => {
     setPermissionsModalOpen(false);
     setSelectedOperator(null);
+  };
+
+  const handleOpenUserModal = (user?: RegionalUser) => {
+    console.log('🔓 Opening UserModalTabs...', { user });
+    setSelectedUser(user || null);
+    setUserModalOpen(true);
+  };
+
+  const handleCloseUserModal = () => {
+    setUserModalOpen(false);
+    setSelectedUser(null);
+  };
+
+  const handleSaveUser = async (userData: any) => {
+    try {
+      if (selectedUser) {
+        // Update existing user
+        await regionAdminService.updateUser(selectedUser.id, userData);
+      } else {
+        // Create new user
+        await regionAdminService.createUser(userData);
+      }
+
+      // Refresh the user lists
+      operatorsQuery.refetch();
+      sektorAdminsQuery.refetch();
+      schoolAdminsQuery.refetch();
+      teachersQuery.refetch();
+
+      handleCloseUserModal();
+    } catch (error) {
+      console.error('User save error:', error);
+      throw error;
+    }
   };
 
   // Helper function to fetch users by role (not a hook)
@@ -194,7 +281,7 @@ export default function RegionAdminUsers() {
           <p className="text-muted-foreground mb-4">
             Bu kateqoriyada hələ istifadəçi yoxdur.
           </p>
-          <Button>
+          <Button onClick={() => handleOpenUserModal()}>
             <UserPlus className="h-4 w-4 mr-2" />
             Yeni İstifadəçi Əlavə Et
           </Button>
@@ -234,7 +321,11 @@ export default function RegionAdminUsers() {
               </TableCell>
               <TableCell>
                 <div className="flex space-x-2">
-                  <Button variant="ghost" size="sm">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleOpenUserModal(user)}
+                  >
                     Redaktə
                   </Button>
                   <Button variant="ghost" size="sm">
@@ -275,7 +366,7 @@ export default function RegionAdminUsers() {
             <Download className="h-4 w-4 mr-2" />
             İxrac Et
           </Button>
-          <Button>
+          <Button onClick={() => handleOpenUserModal()}>
             <Plus className="h-4 w-4 mr-2" />
             Yeni İstifadəçi
           </Button>
@@ -406,6 +497,18 @@ export default function RegionAdminUsers() {
         operatorId={permissionsModalOpen && selectedOperator ? selectedOperator.id : null}
         open={permissionsModalOpen}
         onClose={handleClosePermissions}
+      />
+
+      <UserModalTabs
+        open={userModalOpen}
+        onClose={handleCloseUserModal}
+        onSave={handleSaveUser}
+        user={selectedUser}
+        currentUserRole={currentUser?.role?.name || 'regionadmin'}
+        availableInstitutions={institutionsQuery.data || []}
+        availableDepartments={departmentsQuery.data || []}
+        availableRoles={rolesQuery.data || []}
+        loadingOptions={institutionsQuery.isLoading || departmentsQuery.isLoading || rolesQuery.isLoading}
       />
     </div>
   );

@@ -6,11 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Institution;
 use App\Models\Department;
+use App\Models\RegionOperatorPermission;
 use App\Services\RegionAdmin\RegionAdminUserService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Spatie\Permission\Models\Role;
 use Carbon\Carbon;
@@ -164,7 +166,13 @@ class RegionAdminUserController extends Controller
                 'nullable',
                 'integer',
                 'exists:departments,id'
-            ]
+            ],
+            // RegionOperator permissions (optional)
+            'can_manage_surveys' => 'sometimes|boolean',
+            'can_manage_tasks' => 'sometimes|boolean',
+            'can_manage_documents' => 'sometimes|boolean',
+            'can_manage_folders' => 'sometimes|boolean',
+            'can_manage_links' => 'sometimes|boolean',
         ]);
         
         if ($validator->fails()) {
@@ -223,7 +231,31 @@ class RegionAdminUserController extends Controller
             if ($role) {
                 $newUser->assignRole($role);
             }
-            
+
+            // Create RegionOperator permissions if role is regionoperator
+            if ($data['role_name'] === 'regionoperator') {
+                RegionOperatorPermission::create([
+                    'user_id' => $newUser->id,
+                    'can_manage_surveys' => $data['can_manage_surveys'] ?? false,
+                    'can_manage_tasks' => $data['can_manage_tasks'] ?? false,
+                    'can_manage_documents' => $data['can_manage_documents'] ?? false,
+                    'can_manage_folders' => $data['can_manage_folders'] ?? false,
+                    'can_manage_links' => $data['can_manage_links'] ?? false,
+                ]);
+
+                Log::info('RegionOperator permissions created on user creation', [
+                    'admin_id' => $user->id,
+                    'operator_id' => $newUser->id,
+                    'permissions' => [
+                        'can_manage_surveys' => $data['can_manage_surveys'] ?? false,
+                        'can_manage_tasks' => $data['can_manage_tasks'] ?? false,
+                        'can_manage_documents' => $data['can_manage_documents'] ?? false,
+                        'can_manage_folders' => $data['can_manage_folders'] ?? false,
+                        'can_manage_links' => $data['can_manage_links'] ?? false,
+                    ],
+                ]);
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'User created successfully',
@@ -245,22 +277,36 @@ class RegionAdminUserController extends Controller
     {
         $user = $request->user();
         $userRegionId = $user->institution_id;
-        
+
         // Get allowed institutions
         $region = Institution::find($userRegionId);
         $allowedInstitutionIds = $region->getAllChildrenIds();
-        
+
         $targetUser = User::whereIn('institution_id', $allowedInstitutionIds)
             ->with(['roles', 'institution', 'department'])
             ->find($id);
-            
+
         if (!$targetUser) {
             return response()->json(['message' => 'User not found in your region'], 404);
         }
-        
+
+        $userData = $targetUser->toArray();
+
+        // Add permissions for RegionOperator role
+        if ($targetUser->hasRole('regionoperator')) {
+            $permissions = RegionOperatorPermission::where('user_id', $targetUser->id)->first();
+            $userData['permissions'] = $permissions ? [
+                'can_manage_surveys' => $permissions->can_manage_surveys,
+                'can_manage_tasks' => $permissions->can_manage_tasks,
+                'can_manage_documents' => $permissions->can_manage_documents,
+                'can_manage_folders' => $permissions->can_manage_folders,
+                'can_manage_links' => $permissions->can_manage_links,
+            ] : null;
+        }
+
         return response()->json([
             'success' => true,
-            'data' => $targetUser
+            'data' => $userData
         ]);
     }
 
@@ -301,7 +347,13 @@ class RegionAdminUserController extends Controller
                 'integer',
                 'exists:departments,id'
             ],
-            'is_active' => 'sometimes|boolean'
+            'is_active' => 'sometimes|boolean',
+            // RegionOperator permissions (optional)
+            'can_manage_surveys' => 'sometimes|boolean',
+            'can_manage_tasks' => 'sometimes|boolean',
+            'can_manage_documents' => 'sometimes|boolean',
+            'can_manage_folders' => 'sometimes|boolean',
+            'can_manage_links' => 'sometimes|boolean',
         ]);
         
         if ($validator->fails()) {
@@ -343,7 +395,10 @@ class RegionAdminUserController extends Controller
             }
             
             $targetUser->update($data);
-            
+
+            // Get old role before updating
+            $oldRoleName = $targetUser->roles->first()?->name;
+
             // Update role if provided
             if (isset($data['role_name'])) {
                 $role = Role::where('name', $data['role_name'])->where('guard_name', 'sanctum')->first();
@@ -351,7 +406,43 @@ class RegionAdminUserController extends Controller
                     $targetUser->syncRoles([$role]);
                 }
             }
-            
+
+            // ✅ Role Change Handling: Clean up permissions if role changed FROM regionoperator TO something else
+            if ($oldRoleName === 'regionoperator' && $targetRoleName !== 'regionoperator') {
+                RegionOperatorPermission::where('user_id', $targetUser->id)->delete();
+
+                Log::info('RegionOperator permissions removed due to role change', [
+                    'admin_id' => $user->id,
+                    'operator_id' => $targetUser->id,
+                    'old_role' => $oldRoleName,
+                    'new_role' => $targetRoleName,
+                    'timestamp' => now()->toDateTimeString(),
+                ]);
+            }
+
+            // Update/Create RegionOperator permissions if role is regionoperator
+            if ($targetRoleName === 'regionoperator') {
+                $permissionData = [];
+                if (isset($data['can_manage_surveys'])) $permissionData['can_manage_surveys'] = $data['can_manage_surveys'];
+                if (isset($data['can_manage_tasks'])) $permissionData['can_manage_tasks'] = $data['can_manage_tasks'];
+                if (isset($data['can_manage_documents'])) $permissionData['can_manage_documents'] = $data['can_manage_documents'];
+                if (isset($data['can_manage_folders'])) $permissionData['can_manage_folders'] = $data['can_manage_folders'];
+                if (isset($data['can_manage_links'])) $permissionData['can_manage_links'] = $data['can_manage_links'];
+
+                if (!empty($permissionData)) {
+                    RegionOperatorPermission::updateOrCreate(
+                        ['user_id' => $targetUser->id],
+                        $permissionData
+                    );
+
+                    Log::info('RegionOperator permissions updated via user update', [
+                        'admin_id' => $user->id,
+                        'operator_id' => $targetUser->id,
+                        'updated_permissions' => $permissionData,
+                    ]);
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'User updated successfully',

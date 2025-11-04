@@ -5,7 +5,13 @@
 
 import { useCallback } from 'react';
 import { z } from 'zod';
-import { WORKPLACE_TYPES, GENDER_OPTIONS, IS_ACTIVE_OPTIONS, ROLE_TYPES } from '../utils/constants';
+import {
+  WORKPLACE_TYPES,
+  GENDER_OPTIONS,
+  IS_ACTIVE_OPTIONS,
+  ROLE_TYPES,
+  REGION_OPERATOR_PERMISSIONS
+} from '../utils/constants';
 import type { UserModalMode } from '../utils/constants';
 
 // Field creation helper
@@ -169,6 +175,16 @@ export function useUserModalFields(params: {
         options: IS_ACTIVE_OPTIONS,
         defaultValue: 'true',
       }),
+      // RegionOperator səlahiyyətləri - Minimalist inline checkboxlar
+      ...(isRegionalOperatorRole(selectedRole)
+        ? REGION_OPERATOR_PERMISSIONS.map(perm =>
+            createField(perm.key, `${perm.icon} ${perm.label}`, 'checkbox', {
+              required: false,
+              defaultValue: user?.permissions?.[perm.key] ?? false, // ✅ Edit mode pre-fill
+            })
+          )
+        : []
+      ),
     ];
   }, [
     availableRoles, availableInstitutions, availableDepartments, loadingOptions,

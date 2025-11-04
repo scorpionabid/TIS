@@ -2,6 +2,7 @@ import { useState, Suspense, lazy, memo, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { User, CreateUserData, UpdateUserData, userService } from "@/services/users";
 import { sektorAdminService } from "@/services/sektoradmin";
+import { regionAdminService } from "@/services/regionadmin";
 import { apiClient } from "@/services/api";
 import { storageHelpers } from "@/utils/helpers";
 import { useToast } from "@/hooks/use-toast";
@@ -15,8 +16,8 @@ import { ModalFallback } from "@/components/common/ModalFallback";
 // Performance monitoring import removed for speed
 
 // Lazy load modals for better performance
-const UserModal = lazy(() => import("@/components/modals/UserModal").then(module => ({
-  default: module.UserModal
+const UserModalTabs = lazy(() => import("@/components/modals/UserModal").then(module => ({
+  default: module.UserModalTabs
 })));
 
 const DeleteConfirmationModal = lazy(() => import("@/components/modals/DeleteConfirmationModal").then(module => ({
@@ -71,6 +72,55 @@ export const UserManagement = memo(() => {
     queryFn: () => userService.getFilterOptions(),
     enabled: !!currentUser,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
+  // Fetch filtered institutions for UserModalTabs (RegionAdmin-specific)
+  const institutionsQuery = useQuery({
+    queryKey: ['modal-institutions', currentUser?.role, currentUser?.institution?.id, filterOptions],
+    queryFn: async () => {
+      if (currentUser?.role?.name === 'regionadmin') {
+        const result = await regionAdminService.getInstitutions();
+        return result.institutions || [];
+      }
+      // For SuperAdmin, use all institutions from filter options
+      return filterOptions?.institutions || [];
+    },
+    enabled: !!currentUser && (currentUser?.role?.name === 'regionadmin' || !!filterOptions),
+    staleTime: 1000 * 60 * 10,
+  });
+
+  // Fetch filtered departments for UserModalTabs (RegionAdmin-specific)
+  const departmentsQuery = useQuery({
+    queryKey: ['modal-departments', currentUser?.role, currentUser?.institution?.id],
+    queryFn: async () => {
+      if (currentUser?.role?.name === 'regionadmin') {
+        const result = await regionAdminService.getDepartments();
+        return result.departments || [];
+      }
+      // For SuperAdmin, departments will be fetched based on selected institution
+      return [];
+    },
+    enabled: !!currentUser,
+    staleTime: 1000 * 60 * 10,
+  });
+
+  // Available roles for UserModalTabs
+  const rolesQuery = useQuery({
+    queryKey: ['modal-roles', currentUser?.role, filterOptions],
+    queryFn: async () => {
+      if (currentUser?.role?.name === 'regionadmin') {
+        return [
+          { id: 3, name: 'regionadmin', display_name: 'RegionAdmin' },
+          { id: 4, name: 'regionoperator', display_name: 'RegionOperator' },
+          { id: 5, name: 'sektoradmin', display_name: 'SektorAdmin' },
+          { id: 6, name: 'schooladmin', display_name: 'SchoolAdmin' },
+        ];
+      }
+      // For SuperAdmin, return all roles
+      return filterOptions?.roles || [];
+    },
+    enabled: !!currentUser && (currentUser?.role?.name === 'regionadmin' || !!filterOptions),
+    staleTime: 1000 * 60 * 10,
   });
 
   const {
@@ -448,11 +498,16 @@ export const UserManagement = memo(() => {
       {/* Modals with Suspense */}
       {isModalOpen && (
         <Suspense fallback={<ModalFallback />}>
-          <UserModal
+          <UserModalTabs
             open={isModalOpen}
             onClose={handleCloseModal}
             onSave={handleUserSubmit}
             user={selectedUser}
+            currentUserRole={currentUser?.role?.name || 'superadmin'}
+            availableInstitutions={institutionsQuery.data || []}
+            availableDepartments={departmentsQuery.data || []}
+            availableRoles={rolesQuery.data || []}
+            loadingOptions={institutionsQuery.isLoading || departmentsQuery.isLoading || rolesQuery.isLoading}
           />
         </Suspense>
       )}

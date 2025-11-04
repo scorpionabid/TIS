@@ -89,6 +89,26 @@ class User extends Authenticatable
     }
 
     /**
+     * The "booted" method of the model.
+     * Handles cascade delete for RegionOperator permissions
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function ($user) {
+            // Cascade delete RegionOperator permissions if user has regionoperator role
+            if ($user->hasRole('regionoperator')) {
+                RegionOperatorPermission::where('user_id', $user->id)->delete();
+
+                \Illuminate\Support\Facades\Log::info('RegionOperator permissions deleted with user', [
+                    'user_id' => $user->id,
+                    'username' => $user->username,
+                    'deleted_at' => now()->toDateTimeString(),
+                ]);
+            }
+        });
+    }
+
+    /**
      * Get the role that the user belongs to.
      */
     public function role(): BelongsTo

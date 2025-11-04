@@ -8,32 +8,76 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class RegionOperatorPermissionController extends Controller
 {
-    private const MODULE_FIELDS = [
-        'can_manage_surveys' => [
+    // NEW: Granular CRUD-based permission fields (25 permissions)
+    private const CRUD_PERMISSION_FIELDS = [
+        // Surveys (5)
+        'can_view_surveys',
+        'can_create_surveys',
+        'can_edit_surveys',
+        'can_delete_surveys',
+        'can_publish_surveys',
+        // Tasks (5)
+        'can_view_tasks',
+        'can_create_tasks',
+        'can_edit_tasks',
+        'can_delete_tasks',
+        'can_assign_tasks',
+        // Documents (5)
+        'can_view_documents',
+        'can_upload_documents',
+        'can_edit_documents',
+        'can_delete_documents',
+        'can_share_documents',
+        // Folders (5)
+        'can_view_folders',
+        'can_create_folders',
+        'can_edit_folders',
+        'can_delete_folders',
+        'can_manage_folder_access',
+        // Links (5)
+        'can_view_links',
+        'can_create_links',
+        'can_edit_links',
+        'can_delete_links',
+        'can_share_links',
+    ];
+
+    // Module metadata for frontend
+    private const MODULE_METADATA = [
+        'surveys' => [
             'label' => 'Sorğular',
-            'description' => 'Sorğu yaratma, redaktə və təsdiq axınlarında iştirak səlahiyyəti.',
+            'description' => 'Sorğu yaratma, redaktə və dərc etmə',
+            'icon' => '📊',
         ],
-        'can_manage_tasks' => [
+        'tasks' => [
             'label' => 'Tapşırıqlar',
-            'description' => 'Tapşırıq yaratma, bölüşdürmə və icra nəzarəti funksiyaları.',
+            'description' => 'Tapşırıq yaratma və təyin etmə',
+            'icon' => '✓',
         ],
-        'can_manage_documents' => [
+        'documents' => [
             'label' => 'Sənədlər',
-            'description' => 'Sənəd yükləmə və idarəetmə əməliyyatları.',
+            'description' => 'Sənəd yükləmə və paylaşma',
+            'icon' => '📄',
         ],
-        'can_manage_folders' => [
+        'folders' => [
             'label' => 'Qovluqlar',
-            'description' => 'Regional və departament qovluqlarının struktur idarəetməsi.',
+            'description' => 'Qovluq strukturu idarəetməsi',
+            'icon' => '📁',
         ],
-        'can_manage_links' => [
+        'links' => [
             'label' => 'Bağlantılar',
-            'description' => 'Link paylaşımı və resurs bağlantılarının idarə olunması.',
+            'description' => 'Link paylaşımı və idarəetmə',
+            'icon' => '🔗',
         ],
     ];
 
+    /**
+     * Show RegionOperator permissions with granular CRUD permissions
+     */
     public function show(Request $request, User $user): JsonResponse
     {
         $regionAdmin = $request->user();
@@ -50,9 +94,10 @@ class RegionOperatorPermissionController extends Controller
             return response()->json(['message' => "Bu istifadəçi sizin regiona aid deyil"], 403);
         }
 
+        // Get or create permission record with CRUD defaults
         $permission = RegionOperatorPermission::firstOrCreate(
             ['user_id' => $user->id],
-            array_fill_keys(array_keys(self::MODULE_FIELDS), false)
+            array_fill_keys(self::CRUD_PERMISSION_FIELDS, false)
         );
 
         return response()->json([
@@ -63,11 +108,15 @@ class RegionOperatorPermissionController extends Controller
                 'institution' => $user->institution?->name,
                 'department' => $user->department?->name,
             ],
-            'permissions' => $permission->only(array_keys(self::MODULE_FIELDS)),
-            'modules' => self::MODULE_FIELDS,
+            // Return all 25 CRUD permissions
+            'permissions' => $permission->only(self::CRUD_PERMISSION_FIELDS),
+            'modules' => self::MODULE_METADATA,
         ]);
     }
 
+    /**
+     * Update RegionOperator permissions with granular CRUD validation
+     */
     public function update(Request $request, User $user): JsonResponse
     {
         $regionAdmin = $request->user();
@@ -84,13 +133,13 @@ class RegionOperatorPermissionController extends Controller
             return response()->json(['message' => "Bu istifadəçi sizin regiona aid deyil"], 403);
         }
 
-        $validator = Validator::make($request->all(), [
-            'can_manage_surveys' => 'sometimes|boolean',
-            'can_manage_tasks' => 'sometimes|boolean',
-            'can_manage_documents' => 'sometimes|boolean',
-            'can_manage_folders' => 'sometimes|boolean',
-            'can_manage_links' => 'sometimes|boolean',
-        ]);
+        // Validate all 25 CRUD permission fields
+        $validationRules = [];
+        foreach (self::CRUD_PERMISSION_FIELDS as $field) {
+            $validationRules[$field] = 'sometimes|boolean';
+        }
+
+        $validator = Validator::make($request->all(), $validationRules);
 
         if ($validator->fails()) {
             return response()->json([
@@ -99,20 +148,54 @@ class RegionOperatorPermissionController extends Controller
             ], 422);
         }
 
+        // Get or create permission record
         $permission = RegionOperatorPermission::firstOrCreate(
             ['user_id' => $user->id],
-            array_fill_keys(array_keys(self::MODULE_FIELDS), false)
+            array_fill_keys(self::CRUD_PERMISSION_FIELDS, false)
         );
 
+        // Store old permissions for audit log
+        $oldPermissions = $permission->only(self::CRUD_PERMISSION_FIELDS);
+
+        // Update with validated data
         $permission->fill($validator->validated());
         $permission->save();
 
+        // Get new permissions
+        $newPermissions = $permission->only(self::CRUD_PERMISSION_FIELDS);
+
+        // Calculate changes for audit log
+        $changes = array_filter(
+            array_diff_assoc($newPermissions, $oldPermissions),
+            fn($value) => $value !== null
+        );
+
+        // Audit log: CRUD Permission changes
+        Log::channel('audit')->info('RegionOperator CRUD permissions updated', [
+            'action' => 'crud_permission_update',
+            'admin_id' => $regionAdmin->id,
+            'admin_username' => $regionAdmin->username,
+            'operator_id' => $user->id,
+            'operator_username' => $user->username,
+            'old_permissions' => $oldPermissions,
+            'new_permissions' => $newPermissions,
+            'changes' => $changes,
+            'changes_count' => count($changes),
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'timestamp' => now()->toDateTimeString(),
+        ]);
+
         return response()->json([
             'message' => 'Səlahiyyətlər yeniləndi',
-            'permissions' => $permission->only(array_keys(self::MODULE_FIELDS)),
+            'permissions' => $newPermissions,
+            'changes_count' => count($changes),
         ]);
     }
 
+    /**
+     * Check if target user is in RegionAdmin's regional scope
+     */
     private function isUserInRegion(User $regionAdmin, User $targetUser): bool
     {
         $region = $regionAdmin->institution;

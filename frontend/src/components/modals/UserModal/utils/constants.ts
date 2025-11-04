@@ -138,6 +138,265 @@ export const ROLE_TYPES = {
   REGIONAL_OPERATOR: 'regionoperator',
 };
 
+// RegionOperator Permission Modules (Minimalist - DEPRECATED)
+// These are kept for backward compatibility only
+export const REGION_OPERATOR_PERMISSIONS = [
+  { key: 'can_manage_surveys', label: 'Sorğular', icon: '📊' },
+  { key: 'can_manage_tasks', label: 'Tapşırıqlar', icon: '✓' },
+  { key: 'can_manage_documents', label: 'Sənədlər', icon: '📄' },
+  { key: 'can_manage_folders', label: 'Qovluqlar', icon: '📁' },
+  { key: 'can_manage_links', label: 'Bağlantılar', icon: '🔗' },
+] as const;
+
+// NEW: Granular CRUD-based Permissions (25 permissions)
+export const CRUD_PERMISSIONS = {
+  surveys: {
+    label: 'Sorğular',
+    icon: '📊',
+    description: 'Sorğu yaratma, redaktə və dərc etmə',
+    actions: [
+      { key: 'can_view_surveys', label: 'Görüntüləmə', icon: '👁️', description: 'Sorğuları görə bilər' },
+      { key: 'can_create_surveys', label: 'Yaratma', icon: '➕', description: 'Yeni sorğu yarada bilər' },
+      { key: 'can_edit_surveys', label: 'Redaktə', icon: '✏️', description: 'Sorğuları redaktə edə bilər' },
+      { key: 'can_delete_surveys', label: 'Silmə', icon: '🗑️', description: 'Sorğuları silə bilər' },
+      { key: 'can_publish_surveys', label: 'Dərc etmə', icon: '🚀', description: 'Sorğuları dərc edə bilər' },
+    ],
+  },
+  tasks: {
+    label: 'Tapşırıqlar',
+    icon: '✓',
+    description: 'Tapşırıq yaratma və təyin etmə',
+    actions: [
+      { key: 'can_view_tasks', label: 'Görüntüləmə', icon: '👁️', description: 'Tapşırıqları görə bilər' },
+      { key: 'can_create_tasks', label: 'Yaratma', icon: '➕', description: 'Yeni tapşırıq yarada bilər' },
+      { key: 'can_edit_tasks', label: 'Redaktə', icon: '✏️', description: 'Tapşırıqları redaktə edə bilər' },
+      { key: 'can_delete_tasks', label: 'Silmə', icon: '🗑️', description: 'Tapşırıqları silə bilər' },
+      { key: 'can_assign_tasks', label: 'Təyin etmə', icon: '👤', description: 'Tapşırıqları təyin edə bilər' },
+    ],
+  },
+  documents: {
+    label: 'Sənədlər',
+    icon: '📄',
+    description: 'Sənəd yükləmə və paylaşma',
+    actions: [
+      { key: 'can_view_documents', label: 'Görüntüləmə', icon: '👁️', description: 'Sənədləri görə bilər' },
+      { key: 'can_upload_documents', label: 'Yükləmə', icon: '⬆️', description: 'Sənəd yükləyə bilər' },
+      { key: 'can_edit_documents', label: 'Redaktə', icon: '✏️', description: 'Sənədləri redaktə edə bilər' },
+      { key: 'can_delete_documents', label: 'Silmə', icon: '🗑️', description: 'Sənədləri silə bilər' },
+      { key: 'can_share_documents', label: 'Paylaşma', icon: '🔗', description: 'Sənədləri paylaşa bilər' },
+    ],
+  },
+  folders: {
+    label: 'Qovluqlar',
+    icon: '📁',
+    description: 'Qovluq strukturu idarəetməsi',
+    actions: [
+      { key: 'can_view_folders', label: 'Görüntüləmə', icon: '👁️', description: 'Qovluqları görə bilər' },
+      { key: 'can_create_folders', label: 'Yaratma', icon: '➕', description: 'Yeni qovluq yarada bilər' },
+      { key: 'can_edit_folders', label: 'Redaktə', icon: '✏️', description: 'Qovluqları redaktə edə bilər' },
+      { key: 'can_delete_folders', label: 'Silmə', icon: '🗑️', description: 'Qovluqları silə bilər' },
+      { key: 'can_manage_folder_access', label: 'İcazə idarəsi', icon: '🔐', description: 'Qovluq icazələrini idarə edə bilər' },
+    ],
+  },
+  links: {
+    label: 'Bağlantılar',
+    icon: '🔗',
+    description: 'Link paylaşımı və idarəetmə',
+    actions: [
+      { key: 'can_view_links', label: 'Görüntüləmə', icon: '👁️', description: 'Linkləri görə bilər' },
+      { key: 'can_create_links', label: 'Yaratma', icon: '➕', description: 'Yeni link yarada bilər' },
+      { key: 'can_edit_links', label: 'Redaktə', icon: '✏️', description: 'Linkləri redaktə edə bilər' },
+      { key: 'can_delete_links', label: 'Silmə', icon: '🗑️', description: 'Linkləri silə bilər' },
+      { key: 'can_share_links', label: 'Paylaşma', icon: '🔗', description: 'Linkləri paylaşa bilər' },
+    ],
+  },
+} as const;
+
+// NEW: CRUD-based Permission Templates (Quick Selection)
+export const PERMISSION_TEMPLATES_CRUD = {
+  viewer: {
+    label: '👁️ Görüntüləyici',
+    description: 'Yalnız görüntüləmə',
+    permissions: {
+      // Surveys
+      can_view_surveys: true,
+      can_create_surveys: false,
+      can_edit_surveys: false,
+      can_delete_surveys: false,
+      can_publish_surveys: false,
+      // Tasks
+      can_view_tasks: true,
+      can_create_tasks: false,
+      can_edit_tasks: false,
+      can_delete_tasks: false,
+      can_assign_tasks: false,
+      // Documents
+      can_view_documents: true,
+      can_upload_documents: false,
+      can_edit_documents: false,
+      can_delete_documents: false,
+      can_share_documents: false,
+      // Folders
+      can_view_folders: true,
+      can_create_folders: false,
+      can_edit_folders: false,
+      can_delete_folders: false,
+      can_manage_folder_access: false,
+      // Links
+      can_view_links: true,
+      can_create_links: false,
+      can_edit_links: false,
+      can_delete_links: false,
+      can_share_links: false,
+    },
+  },
+  editor: {
+    label: '✏️ Redaktor',
+    description: 'Görüntüləmə + Redaktə',
+    permissions: {
+      // Surveys
+      can_view_surveys: true,
+      can_create_surveys: false,
+      can_edit_surveys: true,
+      can_delete_surveys: false,
+      can_publish_surveys: false,
+      // Tasks
+      can_view_tasks: true,
+      can_create_tasks: false,
+      can_edit_tasks: true,
+      can_delete_tasks: false,
+      can_assign_tasks: false,
+      // Documents
+      can_view_documents: true,
+      can_upload_documents: false,
+      can_edit_documents: true,
+      can_delete_documents: false,
+      can_share_documents: true,
+      // Folders
+      can_view_folders: true,
+      can_create_folders: false,
+      can_edit_folders: true,
+      can_delete_folders: false,
+      can_manage_folder_access: false,
+      // Links
+      can_view_links: true,
+      can_create_links: false,
+      can_edit_links: true,
+      can_delete_links: false,
+      can_share_links: true,
+    },
+  },
+  manager: {
+    label: '⚙️ Menecer',
+    description: 'Görüntüləmə + Yaratma + Redaktə',
+    permissions: {
+      // Surveys
+      can_view_surveys: true,
+      can_create_surveys: true,
+      can_edit_surveys: true,
+      can_delete_surveys: false,
+      can_publish_surveys: true,
+      // Tasks
+      can_view_tasks: true,
+      can_create_tasks: true,
+      can_edit_tasks: true,
+      can_delete_tasks: false,
+      can_assign_tasks: true,
+      // Documents
+      can_view_documents: true,
+      can_upload_documents: true,
+      can_edit_documents: true,
+      can_delete_documents: false,
+      can_share_documents: true,
+      // Folders
+      can_view_folders: true,
+      can_create_folders: true,
+      can_edit_folders: true,
+      can_delete_folders: false,
+      can_manage_folder_access: true,
+      // Links
+      can_view_links: true,
+      can_create_links: true,
+      can_edit_links: true,
+      can_delete_links: false,
+      can_share_links: true,
+    },
+  },
+  full: {
+    label: '🔓 Tam səlahiyyət',
+    description: 'Bütün səlahiyyətlər',
+    permissions: {
+      // Surveys
+      can_view_surveys: true,
+      can_create_surveys: true,
+      can_edit_surveys: true,
+      can_delete_surveys: true,
+      can_publish_surveys: true,
+      // Tasks
+      can_view_tasks: true,
+      can_create_tasks: true,
+      can_edit_tasks: true,
+      can_delete_tasks: true,
+      can_assign_tasks: true,
+      // Documents
+      can_view_documents: true,
+      can_upload_documents: true,
+      can_edit_documents: true,
+      can_delete_documents: true,
+      can_share_documents: true,
+      // Folders
+      can_view_folders: true,
+      can_create_folders: true,
+      can_edit_folders: true,
+      can_delete_folders: true,
+      can_manage_folder_access: true,
+      // Links
+      can_view_links: true,
+      can_create_links: true,
+      can_edit_links: true,
+      can_delete_links: true,
+      can_share_links: true,
+    },
+  },
+} as const;
+
+// OLD: Simple Permission Templates (DEPRECATED - kept for backward compatibility)
+export const PERMISSION_TEMPLATES = {
+  minimal: {
+    label: '📋 Minimal',
+    description: 'Yalnız sorğular',
+    permissions: {
+      can_manage_surveys: true,
+      can_manage_tasks: false,
+      can_manage_documents: false,
+      can_manage_folders: false,
+      can_manage_links: false,
+    },
+  },
+  standard: {
+    label: '⚙️ Standart',
+    description: 'Sorğu + Tapşırıq',
+    permissions: {
+      can_manage_surveys: true,
+      can_manage_tasks: true,
+      can_manage_documents: false,
+      can_manage_folders: false,
+      can_manage_links: false,
+    },
+  },
+  full: {
+    label: '🔓 Tam',
+    description: 'Bütün səlahiyyətlər',
+    permissions: {
+      can_manage_surveys: true,
+      can_manage_tasks: true,
+      can_manage_documents: true,
+      can_manage_folders: true,
+      can_manage_links: true,
+    },
+  },
+} as const;
+
 // Workplace types
 export const WORKPLACE_TYPES = [
   { label: 'Əsas iş yeri (bu məktəbdə)', value: 'primary' },

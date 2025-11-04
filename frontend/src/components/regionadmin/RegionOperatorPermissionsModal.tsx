@@ -118,6 +118,20 @@ export const RegionOperatorPermissionsModal = ({
               </p>
             </div>
 
+            {/* Empty State Warning */}
+            {localState && Object.values(localState).every(v => !v) && (
+              <div className="rounded-lg border-2 border-dashed border-orange-200 bg-orange-50 p-6 text-center">
+                <ShieldCheck className="mx-auto h-12 w-12 text-orange-400/70" />
+                <p className="mt-3 text-sm font-medium text-orange-900">
+                  Heç bir səlahiyyət verilməyib
+                </p>
+                <p className="text-xs text-orange-700 mt-2 max-w-md mx-auto">
+                  RegionOperator hal-hazırda heç bir modul üçün səlahiyyətə malik deyil.
+                  Aşağıdakı modulları aktivləşdirərək səlahiyyətlər təyin edin.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-4">
               {MODULE_KEYS.map((key) => (
                 <div key={key} className="rounded-lg border bg-card p-4">
