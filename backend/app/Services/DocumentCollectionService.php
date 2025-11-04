@@ -7,6 +7,7 @@ use App\Models\Document;
 use App\Models\FolderAuditLog;
 use App\Models\User;
 use App\Models\Institution;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -17,7 +18,7 @@ class DocumentCollectionService
     /**
      * Create regional folders from templates for a specific institution
      */
-    public function createRegionalFolders(User $user, Institution $institution, array $folderTemplates = null, array $targetInstitutionIds = []): array
+    public function createRegionalFolders(User $user, Institution $institution, ?array $folderTemplates = null, array $targetInstitutionIds = []): array
     {
         $folderTemplates = $folderTemplates ?? DocumentCollection::REGIONAL_TEMPLATES;
         $createdFolders = [];
@@ -25,35 +26,13 @@ class DocumentCollectionService
         DB::beginTransaction();
         try {
             foreach ($folderTemplates as $key => $name) {
-                $folder = DocumentCollection::create([
-                    'name' => $name,
-                    'description' => "Regional folder for {$name}",
-                    'collection_type' => 'folder',
-                    'scope' => DocumentCollection::SCOPE_REGIONAL,
-                    'folder_key' => $key,
-                    'is_system_folder' => true,
-                    'owner_institution_id' => $institution->id,
-                    'owner_institution_level' => $institution->level,
-                    'institution_id' => $institution->id,
-                    'created_by' => $user->id,
-                    'allow_school_upload' => true,
-                    'is_locked' => false,
-                ]);
-
-                // Attach target institutions if provided
-                if (!empty($targetInstitutionIds)) {
-                    $folder->targetInstitutions()->sync($targetInstitutionIds);
-                }
-
-                // Log folder creation
-                $this->logFolderAction($folder, $user, 'created', null, [
-                    'name' => $folder->name,
-                    'scope' => $folder->scope,
-                    'folder_key' => $folder->folder_key,
-                    'target_institutions_count' => count($targetInstitutionIds),
-                ]);
-
-                $createdFolders[] = $folder;
+                $createdFolders[] = $this->createFolderFromTemplate(
+                    $user,
+                    $institution,
+                    $key,
+                    $name,
+                    $targetInstitutionIds
+                );
             }
 
             DB::commit();
@@ -191,12 +170,13 @@ class DocumentCollectionService
 
         // RegionAdmin can manage folders they own or in their region
         if ($user->hasRole('regionadmin')) {
-            return $folder->owner_institution_id === $user->institution_id
-                || $folder->user_id === $user->id;
+            if ($folder->owner_institution_id === $user->institution_id) {
+                return true;
+            }
         }
 
-        // Folder owner can manage their own folders
-        if ($folder->user_id === $user->id && !$folder->is_locked) {
+        // Folder creator can manage their folders even if ownership changed (unless locked)
+        if ($folder->created_by === $user->id && !$folder->is_locked) {
             return true;
         }
 
@@ -208,49 +188,21 @@ class DocumentCollectionService
      */
     public function bulkDownloadFolder(DocumentCollection $folder, User $user): string
     {
-        $zipFileName = "folder_{$folder->id}_{$folder->name}_" . time() . ".zip";
-        $zipFilePath = storage_path("app/temp/{$zipFileName}");
+        $documents = $this->collectDocumentsForBulkDownload($folder, $user);
 
-        // Ensure temp directory exists
-        if (!file_exists(storage_path('app/temp'))) {
-            mkdir(storage_path('app/temp'), 0755, true);
-        }
+        $this->guardBulkDownload($documents);
 
-        $zip = new ZipArchive();
+        $zipFilePath = $this->makeZipFilePath($folder);
 
-        if ($zip->open($zipFilePath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            throw new \Exception("Cannot create ZIP file");
-        }
-
-        // Get documents for user's institution if SchoolAdmin, otherwise all documents
-        $documents = $folder->documents()->whereNull('deleted_at');
-
-        if ($user->hasRole('schooladmin')) {
-            $documents = $documents->where('institution_id', $user->institution_id);
-        }
-
-        $documents = $documents->get();
-
-        foreach ($documents as $document) {
-            // Use 'local' disk explicitly since documents are stored there
-            $filePath = Storage::disk('local')->path($document->file_path);
-
-            if (file_exists($filePath)) {
-                // Organize by institution name if multi-institution view
-                $institutionName = $document->institution?->name ?? 'Unknown';
-                $fileName = $document->original_filename ?? $document->stored_filename ?? 'document';
-
-                $zip->addFile($filePath, "{$institutionName}/{$fileName}");
-            }
-        }
-
-        $zip->close();
+        $this->buildZipArchive($zipFilePath, $documents);
 
         // Log bulk download action
         $this->logFolderAction($folder, $user, 'bulk_downloaded', null, [
             'documents_count' => $documents->count(),
-            'zip_file' => $zipFileName,
+            'zip_file' => basename($zipFilePath),
         ]);
+
+        $this->scheduleZipCleanup($zipFilePath);
 
         return $zipFilePath;
     }
@@ -288,17 +240,18 @@ class DocumentCollectionService
         // Base query for documents in this folder
         $documentsQuery = $folder->documents()
             ->whereNull('documents.deleted_at')
-            ->with(['institution', 'uploader']);
-
-        // SchoolAdmin sees only their own institution's documents
-        if ($user->hasRole('schooladmin')) {
-            $documentsQuery->where('documents.institution_id', $user->institution_id);
-        }
-
-        // Apply file type filter
-        if ($fileType) {
-            $documentsQuery->where('documents.file_type', $fileType);
-        }
+            ->with(['institution', 'uploader'])
+            ->when($user->hasRole('schooladmin'), function ($query) use ($user) {
+                $query->where('documents.institution_id', $user->institution_id);
+            })
+            ->when($fileType, function ($query) use ($fileType) {
+                $query->where('documents.file_type', $fileType);
+            })
+            ->when($search, function ($query) use ($search) {
+                $query->whereHas('institution', function ($institutionQuery) use ($search) {
+                    $institutionQuery->where('name', 'like', '%' . $search . '%');
+                });
+            });
 
         // Get all documents matching filters
         $allDocuments = $documentsQuery->get();
@@ -444,64 +397,22 @@ class DocumentCollectionService
             'file_name' => $file->getClientOriginalName(),
         ]);
 
+        $uploadContext = $this->validateUploadRequest($folder, $file, $user);
+
         DB::beginTransaction();
         try {
-            // Store the file
             \Log::info('Storing file to storage');
             $path = $file->store('documents', 'local');
             \Log::info('File stored', ['path' => $path]);
 
-            // Create document record
-            $originalFilename = $file->getClientOriginalName();
-            $fileExtension = $file->getClientOriginalExtension();
+            if (!$path || !Storage::disk('local')->exists($path)) {
+                throw new \RuntimeException('Fayl saxlanılarkən xəta baş verdi.');
+            }
 
-            \Log::info('Creating document record', [
-                'original_filename' => $originalFilename,
-                'extension' => $fileExtension,
-            ]);
+            $document = $this->persistUploadedDocument($folder, $file, $path, $user, $uploadContext);
 
-            // Get target institution IDs from relationship
-            $targetInstitutionIds = $folder->targetInstitutions()->pluck('institutions.id')->toArray();
+            $this->attachDocumentToFolder($folder, $document, $user);
 
-            \Log::info('Creating document with accessible_institutions', [
-                'target_institution_ids' => $targetInstitutionIds,
-                'folder_id' => $folder->id,
-            ]);
-
-            $document = Document::create([
-                'title' => pathinfo($originalFilename, PATHINFO_FILENAME), // Filename without extension
-                'original_filename' => $originalFilename,
-                'stored_filename' => basename($path),
-                'file_path' => $path,
-                'file_extension' => $fileExtension,
-                'file_size' => $file->getSize(),
-                'mime_type' => $file->getMimeType(),
-                'file_type' => $this->getFileType($fileExtension),
-                'uploaded_by' => $user->id,
-                'institution_id' => $user->institution_id,
-                'category' => 'other',
-                'status' => 'active',
-                'is_downloadable' => true,
-                'is_viewable_online' => true,
-                'published_at' => now(),
-                'cascade_deletable' => true, // Can be deleted with folder
-                'accessible_institutions' => $targetInstitutionIds, // Allow folder owner and target institutions to access
-            ]);
-
-            \Log::info('Document created', ['document_id' => $document->id]);
-
-            // Attach document to folder via pivot table
-            \Log::info('Attaching document to folder via pivot table');
-            $folder->documents()->attach($document->id, [
-                'added_by' => $user->id,
-                'sort_order' => $folder->documents()->count() + 1,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            \Log::info('Document attached to folder');
-
-            // Log document upload to audit trail
             \Log::info('Creating audit log');
             $this->logFolderAction($folder, $user, 'document_uploaded', null, [
                 'document_id' => $document->id,
@@ -532,6 +443,270 @@ class DocumentCollectionService
             }
             throw $e;
         }
+    }
+
+    private function createFolderFromTemplate(
+        User $user,
+        Institution $institution,
+        string $templateKey,
+        string $name,
+        array $targetInstitutionIds
+    ): DocumentCollection {
+        $folder = DocumentCollection::create([
+            'name' => $name,
+            'description' => "Regional folder for {$name}",
+            'collection_type' => 'folder',
+            'scope' => DocumentCollection::SCOPE_REGIONAL,
+            'folder_key' => $templateKey,
+            'is_system_folder' => true,
+            'owner_institution_id' => $institution->id,
+            'owner_institution_level' => $institution->level,
+            'institution_id' => $institution->id,
+            'created_by' => $user->id,
+            'allow_school_upload' => true,
+            'is_locked' => false,
+        ]);
+
+        if (!empty($targetInstitutionIds)) {
+            $folder->targetInstitutions()->sync($targetInstitutionIds);
+        }
+
+        $this->logFolderAction($folder, $user, 'created', null, [
+            'name' => $folder->name,
+            'scope' => $folder->scope,
+            'folder_key' => $folder->folder_key,
+            'target_institutions_count' => count($targetInstitutionIds),
+        ]);
+
+        return $folder;
+    }
+
+    private function collectDocumentsForBulkDownload(DocumentCollection $folder, User $user): Collection
+    {
+        $documentsQuery = $folder->documents()->whereNull('documents.deleted_at');
+
+        if ($user->hasRole('schooladmin')) {
+            $documentsQuery->where('documents.institution_id', $user->institution_id);
+        }
+
+        return $documentsQuery->with(['institution'])->get();
+    }
+
+    private function guardBulkDownload(Collection $documents): void
+    {
+        if ($documents->isEmpty()) {
+            throw new \RuntimeException('Folderdə yüklənəcək sənəd tapılmadı.');
+        }
+
+        $maxMb = (int) config('documents.max_bulk_zip_mb', 512);
+        $totalSizeBytes = $documents->sum('file_size');
+        $limitBytes = $maxMb * 1024 * 1024;
+
+        if ($totalSizeBytes > $limitBytes) {
+            throw new \RuntimeException("ZIP faylı üçün maksimum ölçü {$maxMb}MB-dir.");
+        }
+    }
+
+    private function makeZipFilePath(DocumentCollection $folder): string
+    {
+        $zipFileName = "folder_{$folder->id}_" . time() . ".zip";
+        $tempDirectory = storage_path('app/temp');
+
+        if (!file_exists($tempDirectory)) {
+            mkdir($tempDirectory, 0755, true);
+        }
+
+        return $tempDirectory . DIRECTORY_SEPARATOR . $zipFileName;
+    }
+
+    private function buildZipArchive(string $zipFilePath, Collection $documents): void
+    {
+        $zip = new ZipArchive();
+
+        if ($zip->open($zipFilePath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            throw new \RuntimeException('ZIP faylı yaradılmadı.');
+        }
+
+        foreach ($documents as $document) {
+            $filePath = Storage::disk('local')->path($document->file_path);
+
+            if (!file_exists($filePath)) {
+                continue;
+            }
+
+            $institutionName = $document->institution?->name ?? 'Unknown';
+            $fileName = $document->original_filename ?? $document->stored_filename ?? 'document';
+
+            $zip->addFile($filePath, "{$institutionName}/{$fileName}");
+        }
+
+        $zip->close();
+    }
+
+    private function scheduleZipCleanup(string $zipFilePath): void
+    {
+        register_shutdown_function(static function () use ($zipFilePath) {
+            if (file_exists($zipFilePath)) {
+                @unlink($zipFilePath);
+            }
+        });
+    }
+
+    private function validateUploadRequest(DocumentCollection $folder, UploadedFile $file, User $user): array
+    {
+        $this->assertAllowedMimeType($file);
+        $this->assertUploadWithinUserLimit($file, $user);
+
+        $fileHash = $this->calculateFileHash($file);
+
+        if ($this->folderHasDuplicate($folder, $file->getClientOriginalName(), $fileHash)) {
+            \Log::warning('Duplicate document upload blocked', [
+                'folder_id' => $folder->id,
+                'user_id' => $user->id,
+                'file_name' => $file->getClientOriginalName(),
+            ]);
+            throw new \RuntimeException('Bu fayl artıq folderdə mövcuddur.');
+        }
+
+        return [
+            'file_hash' => $fileHash,
+            'max_allowed_bytes' => $this->determineUserUploadLimitBytes($user),
+        ];
+    }
+
+    private function assertAllowedMimeType(UploadedFile $file): void
+    {
+        $mimeType = $file->getMimeType();
+        $extension = strtolower($file->getClientOriginalExtension());
+
+        if (!in_array($mimeType, Document::ALLOWED_MIME_TYPES, true)) {
+            throw new \RuntimeException('Bu fayl növü dəstəklənmir.');
+        }
+
+        if (!in_array($extension, Document::ALLOWED_EXTENSIONS, true)) {
+            throw new \RuntimeException('Bu fayl uzantısı üçün yükləməyə icazə verilmir.');
+        }
+    }
+
+    private function assertUploadWithinUserLimit(UploadedFile $file, User $user): void
+    {
+        $limitBytes = $this->determineUserUploadLimitBytes($user);
+
+        if ($file->getSize() > $limitBytes) {
+            $limitMb = $this->bytesToMegabytes($limitBytes);
+            throw new \RuntimeException("Fayl ölçüsü {$limitMb}MB həddini aşır.");
+        }
+    }
+
+    private function determineUserUploadLimitBytes(User $user): int
+    {
+        $defaultLimit = Document::MAX_FILE_SIZE;
+
+        $roleNames = collect($user->roles ?? [])
+            ->pluck('name')
+            ->map(fn ($role) => strtolower((string) $role))
+            ->filter()
+            ->values();
+
+        if ($roleNames->isEmpty()) {
+            return $defaultLimit;
+        }
+
+        $limits = $roleNames->map(function ($role) {
+            return Document::ROLE_FILE_SIZE_LIMITS[$role] ?? null;
+        })->filter()->values();
+
+        if ($limits->isEmpty()) {
+            return $defaultLimit;
+        }
+
+        return (int) $limits->min();
+    }
+
+    private function calculateFileHash(UploadedFile $file): ?string
+    {
+        $realPath = $file->getRealPath();
+
+        if ($realPath && file_exists($realPath)) {
+            return hash_file('sha256', $realPath);
+        }
+
+        return null;
+    }
+
+    private function folderHasDuplicate(DocumentCollection $folder, string $originalFilename, ?string $fileHash): bool
+    {
+        return $folder->documents()
+            ->whereNull('documents.deleted_at')
+            ->where(function ($query) use ($originalFilename, $fileHash) {
+                $query->where('documents.original_filename', $originalFilename);
+
+                if ($fileHash) {
+                    $query->orWhere('documents.file_hash', $fileHash);
+                }
+            })
+            ->exists();
+    }
+
+    private function bytesToMegabytes(int $bytes): int
+    {
+        return (int) ceil($bytes / 1024 / 1024);
+    }
+
+    private function persistUploadedDocument(
+        DocumentCollection $folder,
+        UploadedFile $file,
+        string $path,
+        User $user,
+        array $uploadContext
+    ): Document {
+        $originalFilename = $file->getClientOriginalName();
+        $fileExtension = $file->getClientOriginalExtension();
+
+        \Log::info('Creating document record', [
+            'original_filename' => $originalFilename,
+            'extension' => $fileExtension,
+        ]);
+
+        $targetInstitutionIds = $folder->targetInstitutions()->pluck('institutions.id')->toArray();
+
+        \Log::info('Creating document with accessible_institutions', [
+            'target_institution_ids' => $targetInstitutionIds,
+            'folder_id' => $folder->id,
+        ]);
+
+        return Document::create([
+            'title' => pathinfo($originalFilename, PATHINFO_FILENAME),
+            'original_filename' => $originalFilename,
+            'stored_filename' => basename($path),
+            'file_path' => $path,
+            'file_extension' => $fileExtension,
+            'file_size' => $file->getSize(),
+            'mime_type' => $file->getMimeType(),
+            'file_type' => $this->getFileType($fileExtension),
+            'uploaded_by' => $user->id,
+            'institution_id' => $user->institution_id,
+            'category' => 'other',
+            'status' => 'active',
+            'is_downloadable' => true,
+            'is_viewable_online' => true,
+            'published_at' => now(),
+            'cascade_deletable' => true,
+            'file_hash' => $uploadContext['file_hash'] ?? null,
+            'accessible_institutions' => $targetInstitutionIds,
+        ]);
+    }
+
+    private function attachDocumentToFolder(DocumentCollection $folder, Document $document, User $user): void
+    {
+        \Log::info('Attaching document to folder via pivot table');
+        $folder->documents()->attach($document->id, [
+            'added_by' => $user->id,
+            'sort_order' => $folder->documents()->count() + 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        \Log::info('Document attached to folder');
     }
 
     /**

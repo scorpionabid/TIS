@@ -109,7 +109,8 @@ class Document extends Model
     ];
 
     // PRD-2: File size limits - Role-based limits
-    const MAX_FILE_SIZE = 10485760; // 10MB in bytes (default)
+    const MAX_SIZE_MB = 50;
+    const MAX_FILE_SIZE = self::MAX_SIZE_MB * 1024 * 1024;
     const ROLE_FILE_SIZE_LIMITS = [
         'superadmin' => 52428800,    // 50MB
         'regionadmin' => 52428800,   // 50MB

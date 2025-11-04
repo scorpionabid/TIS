@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import documentCollectionService from '../../services/documentCollectionService';
 import type { DocumentCollection, Document } from '../../types/documentCollection';
-import { X, FileText, Download, Building2, User, Upload, Trash2, Archive, Search, ChevronDown, ChevronRight, SlidersHorizontal, Loader2, Layers } from 'lucide-react';
+import { X, FileText, Download, Building2, User, Upload, Trash2, Archive, Search, ChevronDown, ChevronRight, SlidersHorizontal, Loader2, Layers, AlertCircle } from 'lucide-react';
 import { FileUploadZone } from './FileUploadZone';
 import { formatFileSize as utilFormatFileSize, getFileIcon } from '../../utils/fileValidation';
 import { getFolderUploadPermission, isUserSchoolAdmin } from '@/utils/permissions';
@@ -69,9 +69,10 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
   const { toast } = useToast();
   const [institutions, setInstitutions] = useState<InstitutionGroup[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
   const [showUploadZone, setShowUploadZone] = useState(false);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -94,11 +95,15 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
     [user, folder]
   );
   const canUpload = uploadPermission.allowed;
+  const permissionWarning = !canUpload ? uploadPermission.reason ?? null : null;
+  const uploadLimitBytes = uploadPermission.maxSizeMb
+    ? uploadPermission.maxSizeMb * 1024 * 1024
+    : undefined;
 
   const loadDocuments = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
+      setListError(null);
 
       const params: any = {
         page: currentPage,
@@ -121,7 +126,11 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
       setMeta(response.meta);
     } catch (err) {
       console.error('Error loading documents:', err);
-      setError('Sənədlər yüklənərkən xəta baş verdi');
+      const message =
+        (err as any)?.response?.data?.message ||
+        (err as Error)?.message ||
+        'Sənədlər yüklənərkən xəta baş verdi';
+      setListError(message);
     } finally {
       setLoading(false);
     }
@@ -202,11 +211,18 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
     try {
       await documentCollectionService.uploadDocument(folder.id, file);
       await loadDocuments();
+      setUploadError(null);
     } catch (error: any) {
       console.error('File upload failed:', error);
+      const message =
+        error?.response?.data?.message ||
+        permissionWarning ||
+        error?.message ||
+        'Fayl yüklənərkən xəta baş verdi';
+      setUploadError(message);
       toast({
         title: 'Fayl yüklənmədi',
-        description: error.response?.data?.message || error.message || 'Fayl yüklənərkən xəta baş verdi',
+        description: message,
         variant: 'destructive',
       });
     }
@@ -373,6 +389,10 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
     );
   };
 
+  const handleRetryLoad = () => {
+    loadDocuments();
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] flex flex-col">
@@ -412,22 +432,31 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
 
             <div className="flex items-center gap-3">
               {user && (
-                <button
-                  onClick={() => {
-                    if (!canUpload) return;
-                    setShowUploadZone(!showUploadZone);
-                  }}
-                  disabled={!canUpload}
-                  title={!canUpload ? uploadPermission.reason : undefined}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                    canUpload
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  <Upload size={20} />
-                  {showUploadZone ? 'Gizlət' : 'Yüklə'}
-                </button>
+                <div className="flex flex-col items-end gap-2">
+                  <button
+                    onClick={() => {
+                      if (!canUpload) {
+                        setUploadError(permissionWarning || null);
+                        return;
+                      }
+                      setShowUploadZone(!showUploadZone);
+                    }}
+                    disabled={!canUpload}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                      canUpload
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    <Upload size={20} />
+                    {showUploadZone ? 'Gizlət' : 'Yüklə'}
+                  </button>
+                  {uploadPermission.maxSizeMb && (
+                    <span className="text-xs text-gray-500">
+                      Maksimum fayl ölçüsü: {uploadPermission.maxSizeMb} MB
+                    </span>
+                  )}
+                </div>
               )}
 
               {meta && meta.total_documents > 0 && (
@@ -535,10 +564,37 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6">
+          {(permissionWarning || uploadError) && (
+            <div className="mb-4 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <AlertCircle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
+              <div className="flex-1 text-sm text-red-800">
+                <p>{uploadError || permissionWarning}</p>
+                {uploadError && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setUploadError(null)}
+                      className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-700 underline"
+                    >
+                      Xəbəri bağla
+                    </button>
+                    <button
+                      onClick={() => {
+                        setUploadError(null);
+                        setShowUploadZone(true);
+                      }}
+                      className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-700 underline"
+                    >
+                      Yenidən cəhd et
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           {/* Upload Zone */}
           {showUploadZone && canUpload && (
             <div className="mb-6">
-              <FileUploadZone onUpload={handleUpload} />
+              <FileUploadZone onUpload={handleUpload} maxSize={uploadLimitBytes} />
             </div>
           )}
 
@@ -549,9 +605,15 @@ const FolderDocumentsViewOptimizedV2: React.FC<FolderDocumentsViewOptimizedV2Pro
                 <p className="text-gray-600">Yüklənir...</p>
               </div>
             </div>
-          ) : error ? (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-              {error}
+          ) : listError ? (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex items-center justify-between gap-4">
+              <span>{listError}</span>
+              <button
+                onClick={handleRetryLoad}
+                className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+              >
+                Yenidən yoxla
+              </button>
             </div>
           ) : sectorGroups.length === 0 && !showUploadZone ? (
             <div className="text-center py-12 bg-gray-50 rounded-lg">

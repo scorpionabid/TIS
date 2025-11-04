@@ -32,7 +32,8 @@ const RegionalFolderManager: React.FC = () => {
     data: folders = [],
     isLoading,
     isFetching,
-    error: queryError
+    error: queryError,
+    refetch
   } = useQuery({
     queryKey: ['document-collections'],
     queryFn: async () => {
@@ -119,9 +120,13 @@ const RegionalFolderManager: React.FC = () => {
       documentCollectionService.downloadFile(blob, fileName);
     } catch (err) {
       console.error('Error downloading folder:', err);
+      const message =
+        (err as any)?.response?.data?.message ||
+        (err as Error)?.message ||
+        'ZIP faylını hazırlamaq mümkün olmadı. Yenidən cəhd edin.';
       toast({
         title: 'Yükləmə alınmadı',
-        description: 'ZIP faylını hazırlamaq mümkün olmadı. Yenidən cəhd edin.',
+        description: message,
         variant: 'destructive'
       });
     }
@@ -157,26 +162,23 @@ const RegionalFolderManager: React.FC = () => {
     );
   }
 
-  if (isLoading && folders.length === 0) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (queryErrorMessage) {
-    return (
-      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-        {queryErrorMessage}
-      </div>
-    );
-  }
+  const isInitialLoad = isLoading && folders.length === 0;
 
   const showCreateButton = canUserCreateRegionalFolder(user);
 
   return (
     <div className="space-y-6">
+      {queryErrorMessage && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex flex-col gap-3">
+          <span>{queryErrorMessage}</span>
+          <button
+            onClick={() => refetch()}
+            className="self-start px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm"
+          >
+            Yenidən cəhd et
+          </button>
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
@@ -212,7 +214,33 @@ const RegionalFolderManager: React.FC = () => {
       </div>
 
       {/* Folders Grid */}
-      {!hasFolders ? (
+      {isInitialLoad ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div
+              key={index}
+              className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm animate-pulse space-y-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 bg-gray-200 rounded-lg" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-3/4" />
+                  <div className="h-3 bg-gray-100 rounded w-1/2" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="h-3 bg-gray-100 rounded w-full" />
+                <div className="h-3 bg-gray-100 rounded w-5/6" />
+                <div className="h-3 bg-gray-100 rounded w-2/3" />
+              </div>
+              <div className="flex gap-2">
+                <div className="h-8 bg-gray-200 rounded w-20" />
+                <div className="h-8 bg-gray-200 rounded w-20" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : !hasFolders ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg">
           <Folder size={48} className="mx-auto text-gray-400 mb-4" />
           <p className="text-gray-600 mb-4">Hələ folder yaradılmayıb</p>

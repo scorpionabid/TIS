@@ -120,7 +120,17 @@ export const isUserSchoolAdmin = (user?: MaybeUser | null): boolean => {
 export interface FolderUploadPermission {
   allowed: boolean;
   reason?: string;
+  reasonCode?:
+    | 'missing-user'
+    | 'folder-locked'
+    | 'uploads-disabled'
+    | 'missing-institution'
+    | 'no-targets'
+    | 'institution-not-allowed';
+  maxSizeMb?: number;
 }
+
+const DEFAULT_MAX_UPLOAD_MB = 50;
 
 export const getFolderUploadPermission = (
   user: MaybeUser | null | undefined,
@@ -129,14 +139,16 @@ export const getFolderUploadPermission = (
   if (!user || !folder) {
     return {
       allowed: false,
-      reason: 'İstifadəçi məlumatları tapılmadı'
+      reason: 'İstifadəçi məlumatları tapılmadı. Zəhmət olmasa yenidən daxil olun.',
+      reasonCode: 'missing-user'
     };
   }
 
   if (folder.is_locked) {
     return {
       allowed: false,
-      reason: 'Folder kilidlidir'
+      reason: 'Folder kilidlidir. Administrator kilidi açmadan yükləmə mümkün deyil.',
+      reasonCode: 'folder-locked'
     };
   }
 
@@ -145,7 +157,8 @@ export const getFolderUploadPermission = (
   if (!folder.allow_school_upload && !isAdminUploader) {
     return {
       allowed: false,
-      reason: 'Bu folder üçün yükləmə deaktiv edilib'
+      reason: 'Bu folder üçün məktəb yükləməsi deaktiv edilib. Administrator icazəsi tələb olunur.',
+      reasonCode: 'uploads-disabled'
     };
   }
 
@@ -153,30 +166,33 @@ export const getFolderUploadPermission = (
   if (!userInstitutionId && !isAdminUploader) {
     return {
       allowed: false,
-      reason: 'Müəssisə məlumatı tapılmadı'
+      reason: 'Müəssisə məlumatı tapılmadı. Profildə institusiya seçilməlidir.',
+      reasonCode: 'missing-institution'
     };
   }
 
   if (isAdminUploader) {
-    return { allowed: true };
+    return { allowed: true, maxSizeMb: DEFAULT_MAX_UPLOAD_MB };
   }
 
   const targetIds = getTargetInstitutionIds(folder);
   if (targetIds.length === 0) {
     return {
       allowed: false,
-      reason: 'Bu folder üçün hədəf müəssisə seçilməyib'
+      reason: 'Bu folder üçün hədəf müəssisə seçilməyib. Administrator təyin etməlidir.',
+      reasonCode: 'no-targets'
     };
   }
 
   if (!userInstitutionId || !targetIds.includes(userInstitutionId)) {
     return {
       allowed: false,
-      reason: 'Sizin müəssisə hədəf siyahısında deyil'
+      reason: 'Sizin müəssisə hədəf siyahısında deyil. Administrator icazə verməlidir.',
+      reasonCode: 'institution-not-allowed'
     };
   }
 
-  return { allowed: true };
+  return { allowed: true, maxSizeMb: DEFAULT_MAX_UPLOAD_MB };
 };
 
 export const canUserUploadToFolder = (user: MaybeUser | null | undefined, folder: FolderLike): boolean => {

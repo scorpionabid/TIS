@@ -882,6 +882,61 @@ Xəta tapıldıqda aşağıdakı formatda raport hazırlayın:
 
 ---
 
+## 4️⃣ Regional Resurslar (Folder və Sənəd İdarəetməsi)
+
+### 4.1 Regional Folder Yaratmaq
+
+**Rol:** RegionAdmin
+
+1. `Regional Folderlər` ekranını açın.
+2. `Yeni Folder Yarat` düyməsinə klikləyin, institusiya və hədəf məktəbləri seçin.
+3. Xülasə pəncərəsində yeni folderi təsdiqləyin.
+4. Uğur tostu göründüyünü və folderin siyahıda göründüyünü yoxlayın.
+
+**Gözlənilən nəticə:** ✅ Yeni folder siyahıya əlavə olunur və audit log-a qeyd düşür.
+
+### 4.2 Sənəd Yükləmək (Regional + Məktəb ssenarisi)
+
+**Rol:** RegionAdmin və hədəf məktəbdən SchoolAdmin
+
+1. RegionAdmin kimi seçilən folderi açın, `Yüklə` düyməsinə basın və 50MB-dan kiçik fayl əlavə edin.
+2. Yükləmənin uğurlu mesajını (toast) və sənədin siyahıda göründüyünü təsdiqləyin.
+3. SchoolAdmin hesabı ilə daxil olun, folderə gedin və eyni folderə yükləmə edin.
+4. SchoolAdmin icazəsi yoxdursa (hədəf siyahısına daxil edilməyib), bloklayan mesajın göstərildiyini təsdiqləyin.
+
+**Gözlənilən nəticə:** ✅ İcazəsi olan istifadəçilər üçün yükləmə uğurludur; icazəsiz məktəb üçün helper mesajı göstərilir.
+
+### 4.3 Folderi ZIP kimi endirmək
+
+**Rol:** RegionAdmin
+
+1. Folder kartında `Yüklə` (ZIP) əməliyyatını başladın.
+2. ZIP faylının endirildiyini və sənədlərin institusiya adına görə qovluqlarda təşkil olunduğunu yoxlayın.
+3. Endirmədən sonra serverdə `storage/app/temp` qovluğunu yoxlayın — ZIP faylı avtomatik silinməlidir.
+
+**Gözlənilən nəticə:** ✅ ZIP yaradılır, məzmun düzgün təşkil edilir və müvəqqəti fayl təmizlənir.
+
+### 4.4 Limitdən böyük fayl yükləmək
+
+**Rol:** RegionAdmin
+
+1. 50MB-dan böyük test faylı seçin və folderə yükləməyə cəhd edin.
+2. Backend-dən gələn “Fayl ölçüsü 50MB həddini aşır” xəbərdarlığının həm toast, həm də upload xəbərdarlığında göründüyünü təsdiqləyin.
+
+**Gözlənilən nəticə:** ✅ Yükləmə bloklanır və istifadəçiyə ölçü limiti barədə aydın mesaj göstərilir.
+
+### 4.5 Eyni faylı təkrar yükləməyə cəhd
+
+**Rol:** RegionAdmin
+
+1. Eyni faylı ardıcıl iki dəfə eyni folderə yükləməyə çalışın.
+2. İkinci cəhddə sistemin “Bu fayl artıq folderdə mövcuddur” mesajını qaytardığını və yükləməni dayandırdığını təsdiqləyin.
+3. ZIP yükləməsi və sənəd siyahısı dəyişməz qalmalıdır.
+
+**Gözlənilən nəticə:** ✅ Təkrar yükləmə qarşısı alınır və istifadəçiyə aydın xəbərdarlıq göstərilir.
+
+---
+
 ## ✅ Uğurlu Test Meyarları
 
 Test prosesi aşağıdakı hallarda uğurlu sayılır:

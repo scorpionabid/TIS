@@ -2,8 +2,8 @@
  * File Upload Validation Utilities
  */
 
-// Maximum file size: 100MB (in bytes)
-export const MAX_FILE_SIZE = 100 * 1024 * 1024;
+// Maximum file size aligned with backend constraint: 50MB (in bytes)
+export const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 // Allowed file types with their MIME types and extensions
 export const ALLOWED_FILE_TYPES = {
@@ -37,15 +37,21 @@ export interface FileValidationResult {
   error?: string;
 }
 
+export interface FileValidationOptions {
+  maxSize?: number;
+}
+
 /**
  * Validate file before upload
  */
-export function validateFile(file: File): FileValidationResult {
+export function validateFile(file: File, options: FileValidationOptions = {}): FileValidationResult {
+  const maxSize = options.maxSize ?? MAX_FILE_SIZE;
+
   // Check file size
-  if (file.size > MAX_FILE_SIZE) {
+  if (file.size > maxSize) {
     return {
       valid: false,
-      error: `Fayl ölçüsü maksimum ${formatFileSize(MAX_FILE_SIZE)} olmalıdır. Seçilmiş fayl: ${formatFileSize(file.size)}`,
+      error: `Fayl ölçüsü maksimum ${formatFileSize(maxSize)} olmalıdır. Seçilmiş fayl: ${formatFileSize(file.size)}`,
     };
   }
 

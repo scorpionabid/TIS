@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Upload, X, FileText, AlertCircle, CheckCircle } from 'lucide-react';
-import { validateFile, formatFileSize, getFileIcon } from '../../utils/fileValidation';
+import { validateFile, formatFileSize, getFileIcon, MAX_FILE_SIZE } from '../../utils/fileValidation';
 
 interface FileUploadZoneProps {
   onUpload: (file: File) => Promise<void>;
@@ -11,6 +11,7 @@ interface FileUploadZoneProps {
 export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   onUpload,
   disabled = false,
+  maxSize,
 }) => {
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -19,6 +20,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const effectiveMaxSize = maxSize ?? MAX_FILE_SIZE;
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -35,6 +37,15 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
     e.stopPropagation();
     setDragActive(false);
 
+    if (disabled || uploading) {
+      return;
+    }
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 1) {
+      setError('Eyni anda yalnız bir fayl yükləyə bilərsiniz.');
+      return;
+    }
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFile(e.dataTransfer.files[0]);
     }
@@ -47,16 +58,21 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   };
 
   const handleFile = async (file: File) => {
+    if (disabled || uploading) {
+      return;
+    }
+
     setError(null);
     setSuccess(false);
-    setSelectedFile(file);
 
     // Validate file
-    const validation = validateFile(file);
+    const validation = validateFile(file, { maxSize: effectiveMaxSize });
     if (!validation.valid) {
       setError(validation.error || 'Fayl yüklənə bilməz');
       return;
     }
+
+    setSelectedFile(file);
 
     // Start upload
     setUploading(true);
@@ -142,7 +158,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
                 PDF, Word, Excel, PowerPoint, Şəkil və ya Arxiv faylları
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                Maksimum fayl ölçüsü: 100 MB
+                Maksimum fayl ölçüsü: {formatFileSize(effectiveMaxSize)}
               </p>
             </div>
           </div>

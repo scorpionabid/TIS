@@ -23,6 +23,10 @@ class DocumentCollectionController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
+            \Log::info('DocumentCollectionController@index', [
+                'user_id' => $request->user()->id ?? null,
+            ]);
+
             $folders = $this->service->getAccessibleFolders($request->user());
 
             return response()->json([
@@ -30,6 +34,11 @@ class DocumentCollectionController extends Controller
                 'data' => $folders,
             ]);
         } catch (\Exception $e) {
+            \Log::error('DocumentCollectionController@index failed', [
+                'user_id' => $request->user()->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch folders',
@@ -130,10 +139,20 @@ class DocumentCollectionController extends Controller
         }
 
         try {
+            \Log::info('DocumentCollectionController@createRegionalFolders', [
+                'user_id' => $request->user()->id ?? null,
+                'institution_id' => $request->input('institution_id'),
+                'target_institutions' => $request->input('target_institutions', []),
+            ]);
+
             $institution = \App\Models\Institution::findOrFail($request->institution_id);
 
             // Check permission
             if (!$request->user()->hasRole(['superadmin', 'regionadmin'])) {
+                \Log::warning('DocumentCollectionController@createRegionalFolders unauthorized', [
+                'user_id' => $request->user()->id ?? null,
+                'institution_id' => $request->input('institution_id'),
+            ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized to create regional folders',
@@ -152,12 +171,22 @@ class DocumentCollectionController extends Controller
                 $folder->load('targetInstitutions');
             }
 
+            \Log::info('DocumentCollectionController@createRegionalFolders success', [
+                'user_id' => $request->user()->id ?? null,
+                'created_folders' => collect($folders)->pluck('id'),
+            ]);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Regional folders created successfully',
                 'data' => $folders,
             ], 201);
         } catch (\Exception $e) {
+            \Log::error('DocumentCollectionController@createRegionalFolders failed', [
+                'user_id' => $request->user()->id ?? null,
+                'institution_id' => $request->input('institution_id'),
+                'error' => $e->getMessage(),
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create regional folders',
@@ -173,6 +202,10 @@ class DocumentCollectionController extends Controller
     {
         // Check permission
         if (!$this->service->canManageFolder($request->user(), $folder)) {
+            \Log::warning('DocumentCollectionController@update unauthorized', [
+                'folder_id' => $folder->id,
+                'user_id' => $request->user()->id ?? null,
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized to update this folder',
@@ -196,6 +229,11 @@ class DocumentCollectionController extends Controller
         }
 
         try {
+            \Log::info('DocumentCollectionController@update', [
+                'folder_id' => $folder->id,
+                'user_id' => $request->user()->id ?? null,
+            ]);
+
             $updatedFolder = $this->service->updateFolder(
                 $folder,
                 $request->only(['name', 'description', 'allow_school_upload', 'is_locked']),
@@ -203,12 +241,22 @@ class DocumentCollectionController extends Controller
                 $request->input('reason')
             );
 
+            \Log::info('DocumentCollectionController@update success', [
+                'folder_id' => $folder->id,
+                'user_id' => $request->user()->id ?? null,
+            ]);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Folder updated successfully',
                 'data' => $updatedFolder,
             ]);
         } catch (\Exception $e) {
+            \Log::error('DocumentCollectionController@update failed', [
+                'folder_id' => $folder->id,
+                'user_id' => $request->user()->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update folder',
@@ -224,6 +272,10 @@ class DocumentCollectionController extends Controller
     {
         // Check permission
         if (!$this->service->canManageFolder($request->user(), $folder)) {
+            \Log::warning('DocumentCollectionController@destroy unauthorized', [
+                'folder_id' => $folder->id,
+                'user_id' => $request->user()->id ?? null,
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized to delete this folder',
@@ -243,17 +295,32 @@ class DocumentCollectionController extends Controller
         }
 
         try {
+            \Log::info('DocumentCollectionController@destroy', [
+                'folder_id' => $folder->id,
+                'user_id' => $request->user()->id ?? null,
+            ]);
+
             $this->service->deleteFolder(
                 $folder,
                 $request->user(),
                 $request->input('reason')
             );
 
+            \Log::info('DocumentCollectionController@destroy success', [
+                'folder_id' => $folder->id,
+                'user_id' => $request->user()->id ?? null,
+            ]);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Folder and its contents deleted successfully',
             ]);
         } catch (\Exception $e) {
+            \Log::error('DocumentCollectionController@destroy failed', [
+                'folder_id' => $folder->id,
+                'user_id' => $request->user()->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete folder',
@@ -268,10 +335,38 @@ class DocumentCollectionController extends Controller
     public function bulkDownload(Request $request, DocumentCollection $folder): mixed
     {
         try {
+            \Log::info('DocumentCollectionController@bulkDownload', [
+                'folder_id' => $folder->id,
+                'user_id' => $request->user()->id ?? null,
+            ]);
+
             $zipPath = $this->service->bulkDownloadFolder($folder, $request->user());
 
-            return response()->download($zipPath)->deleteFileAfterSend(true);
+            \Log::info('DocumentCollectionController@bulkDownload success', [
+                'folder_id' => $folder->id,
+                'user_id' => $request->user()->id ?? null,
+                'zip_path' => $zipPath,
+            ]);
+
+            return response()->download($zipPath);
+        } catch (\RuntimeException $e) {
+            \Log::warning('DocumentCollectionController@bulkDownload validation issue', [
+                'folder_id' => $folder->id,
+                'user_id' => $request->user()->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
         } catch (\Exception $e) {
+            \Log::error('DocumentCollectionController@bulkDownload failed', [
+                'folder_id' => $folder->id ?? null,
+                'user_id' => $request->user()->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create ZIP file',
@@ -288,11 +383,20 @@ class DocumentCollectionController extends Controller
         try {
             // Check permission
             if (!$this->service->canManageFolder($request->user(), $folder)) {
+                \Log::warning('DocumentCollectionController@auditLogs unauthorized', [
+                    'folder_id' => $folder->id,
+                    'user_id' => $request->user()->id ?? null,
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized to view audit logs',
                 ], 403);
             }
+
+            \Log::info('DocumentCollectionController@auditLogs', [
+                'folder_id' => $folder->id,
+                'user_id' => $request->user()->id ?? null,
+            ]);
 
             $logs = $folder->auditLogs()
                 ->with('user:id,name,email')
@@ -304,6 +408,11 @@ class DocumentCollectionController extends Controller
                 'data' => $logs,
             ]);
         } catch (\Exception $e) {
+            \Log::error('DocumentCollectionController@auditLogs failed', [
+                'folder_id' => $folder->id,
+                'user_id' => $request->user()->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch audit logs',
@@ -358,6 +467,11 @@ class DocumentCollectionController extends Controller
             ]);
 
             if (!$isTargetInstitution) {
+                \Log::warning('uploadDocument unauthorized institution', [
+                    'folder_id' => $folder->id,
+                    'user_id' => $user->id,
+                    'institution_id' => $userInstitutionId,
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Your institution is not authorized to upload to this folder',
@@ -381,6 +495,17 @@ class DocumentCollectionController extends Controller
                 'message' => 'Document uploaded successfully',
                 'data' => $document,
             ], 201);
+        } catch (\RuntimeException $e) {
+            \Log::warning('uploadDocument validation error', [
+                'folder_id' => $folder->id,
+                'user_id' => $request->user()->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
         } catch (\Exception $e) {
             \Log::error('uploadDocument exception', [
                 'error' => $e->getMessage(),
