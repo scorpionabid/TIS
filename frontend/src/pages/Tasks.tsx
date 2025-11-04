@@ -119,6 +119,28 @@ export default function Tasks() {
   const currentTabLabel = availableTabs.find((tab) => tab.value === activeTab)?.label ?? '';
 
   // Filtering and Sorting logic - MOVED BEFORE SECURITY CHECK
+  const stats = useMemo(() => {
+    const source = Array.isArray(rawTasks) ? rawTasks : [];
+
+    const total = source.length;
+    const pending = source.filter(task => task.status === 'pending').length;
+    const inProgress = source.filter(task => task.status === 'in_progress').length;
+    const completed = source.filter(task => task.status === 'completed').length;
+    const overdue = source.filter(task => {
+      if (!task.deadline) return false;
+      const deadlineDate = new Date(task.deadline);
+      return deadlineDate < new Date() && task.status !== 'completed';
+    }).length;
+
+    return {
+      total,
+      pending,
+      in_progress: inProgress,
+      completed,
+      overdue,
+    };
+  }, [rawTasks]);
+
   const tasks = useMemo(() => {
     // If not authorized, return empty array
     if (!hasAccess) return [];
@@ -130,8 +152,9 @@ export default function Tasks() {
         task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (task.description && task.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (task.assignee?.name && task.assignee.name.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
-    }
+  );
+}
+
 
     // Apply status filter
     if (statusFilter !== 'all') {
@@ -911,24 +934,3 @@ export default function Tasks() {
     </div>
   );
 }
-  const stats = useMemo(() => {
-    const source = Array.isArray(rawTasks) ? rawTasks : [];
-
-    const total = source.length;
-    const pending = source.filter(task => task.status === 'pending').length;
-    const inProgress = source.filter(task => task.status === 'in_progress').length;
-    const completed = source.filter(task => task.status === 'completed').length;
-    const overdue = source.filter(task => {
-      if (!task.deadline) return false;
-      const deadlineDate = new Date(task.deadline);
-      return deadlineDate < new Date() && task.status !== 'completed';
-    }).length;
-
-    return {
-      total,
-      pending,
-      in_progress: inProgress,
-      completed,
-      overdue,
-    };
-  }, [rawTasks]);
