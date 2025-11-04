@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Clock, CheckCircle, Filter, Search } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, Clock, CheckCircle, Filter, Search, Loader2 } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { taskService, Task } from "@/services/tasks";
+import { taskService, Task, UpdateTaskData } from "@/services/tasks";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,11 +11,15 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   categoryLabels,
   priorityLabels,
   statusLabels,
 } from "@/components/tasks/config/taskFormFields";
+import { useToast } from "@/hooks/use-toast";
 
 const formatDate = (dateString?: string) => {
   if (!dateString) return "-";
@@ -49,10 +53,16 @@ const getPriorityBadgeVariant = (priority: string) => {
 
 const AssignedTasks = () => {
   const { currentUser } = useAuth();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<"region" | "sector">("region");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [isDecisionOpen, setIsDecisionOpen] = useState(false);
+  const [decisionTask, setDecisionTask] = useState<Task | null>(null);
+  const [decisionReason, setDecisionReason] = useState("");
+  const [pendingTaskId, setPendingTaskId] = useState<number | null>(null);
 
   const hasAccess = currentUser
     ? ["superadmin", "regionadmin", "sektoradmin", "schooladmin"].includes(currentUser.role)
@@ -124,6 +134,105 @@ const AssignedTasks = () => {
       }).length,
     };
   }, [tasks]);
+
+  const decisionMutation = useMutation({
+    mutationFn: async ({
+      task,
+      status,
+      reason,
+    }: {
+      task: Task;
+      status: Task["status"];
+      reason?: string;
+    }) => {
+      const payload: UpdateTaskData = {
+        status,
+      };
+
+      const trimmedReason = reason?.trim();
+      if (trimmedReason) {
+        payload.notes = trimmedReason;
+        payload.completion_notes = trimmedReason;
+      }
+
+      return taskService.update(task.id, payload);
+    },
+    onSuccess: (_, variables) => {
+      const isCompleted = variables.status === "completed";
+      toast({
+        title: isCompleted ? "Tapşırıq tamamlandı" : "Tapşırıq icra edilmədi",
+        description: isCompleted
+          ? "Tapşırıq icra olundu kimi qeyd edildi."
+          : "Tapşırıq icra edilmədi və səbəb qeyd edildi.",
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["assigned-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      closeDecisionDialog();
+    },
+    onSettled: () => {
+      setPendingTaskId(null);
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : "Əməliyyat zamanı xəta baş verdi.";
+      toast({
+        title: "Əməliyyat uğursuz oldu",
+        description: message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const closeDecisionDialog = () => {
+    if (decisionMutation.isPending) {
+      return;
+    }
+    setIsDecisionOpen(false);
+    setDecisionTask(null);
+    setDecisionReason("");
+  };
+
+  const canDecide = (task: Task) => !["completed", "cancelled"].includes(task.status);
+
+  const handleMarkCompleted = (task: Task) => {
+    if (!canDecide(task)) return;
+
+    setPendingTaskId(task.id);
+    decisionMutation.mutate({
+      task,
+      status: "completed",
+    });
+  };
+
+  const openNotCompletedDialog = (task: Task) => {
+    if (!canDecide(task)) return;
+    setDecisionTask(task);
+    setDecisionReason("");
+    setIsDecisionOpen(true);
+  };
+
+  const submitNotCompleted = () => {
+    if (!decisionTask) return;
+
+    const trimmedReason = decisionReason.trim();
+    if (trimmedReason.length < 5) {
+      toast({
+        title: "Səbəb tələb olunur",
+        description: "Zəhmət olmasa ən azı 5 simvol uzunluğunda səbəb daxil edin.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    decisionMutation.mutate({
+      task: decisionTask,
+      status: "cancelled",
+      reason: trimmedReason,
+    });
+    setPendingTaskId(decisionTask.id);
+  };
+
+  const isDecisionInvalid = decisionReason.trim().length < 5;
 
   if (!hasAccess) {
     return (
@@ -281,12 +390,13 @@ const AssignedTasks = () => {
               <TableHead>Status</TableHead>
               <TableHead>Son tarix</TableHead>
               <TableHead>İrəliləyiş</TableHead>
+              <TableHead className="text-right w-[220px]">Əməliyyat</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredTasks.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                   Bu kriteriyalara uyğun tapşırıq tapılmadı.
                 </TableCell>
               </TableRow>
@@ -325,12 +435,87 @@ const AssignedTasks = () => {
                       <span className="text-xs text-muted-foreground">{task.progress}%</span>
                     </div>
                   </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleMarkCompleted(task)}
+                        disabled={!canDecide(task) || decisionMutation.isPending}
+                      >
+                        {decisionMutation.isPending && pendingTaskId === task.id ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : null}
+                        İcra edildi
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openNotCompletedDialog(task)}
+                        disabled={!canDecide(task) || decisionMutation.isPending}
+                      >
+                        İcra edilmədi
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
       </div>
+
+      <Dialog
+        open={isDecisionOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setIsDecisionOpen(true);
+            return;
+          }
+          closeDecisionDialog();
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Tapşırıq icra edilmədi</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="decision-reason">Səbəb</Label>
+              <Textarea
+                id="decision-reason"
+                rows={4}
+                value={decisionReason}
+                onChange={(event) => setDecisionReason(event.target.value)}
+                placeholder="Niyə icra edilmədiyini izah edin..."
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Səbəb ən azı 5 simvol olmalıdır.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={closeDecisionDialog}
+              disabled={decisionMutation.isPending}
+            >
+              Ləğv et
+            </Button>
+            <Button
+              onClick={submitNotCompleted}
+              disabled={isDecisionInvalid || decisionMutation.isPending}
+            >
+              {decisionMutation.isPending && pendingTaskId === decisionTask?.id ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Səbəbi göndər
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

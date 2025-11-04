@@ -98,6 +98,7 @@ export interface UpdateTaskData {
   deadline?: string;
   progress?: number;
   notes?: string;
+  completion_notes?: string;
 }
 
 export interface TaskFilters extends PaginationParams {
@@ -220,57 +221,6 @@ class TaskService extends BaseService<Task> {
   async getAssignedToMe(filters?: TaskFilters) {
     const response = await apiClient.get<Task[]>(`${this.baseEndpoint}/assigned-to-me`, filters);
     return response as any; // PaginatedResponse
-  }
-
-  async getStats(filters?: Partial<TaskFilters>, userRole?: string) {
-    console.log('🔍 TaskService.getStats called', { filters, userRole });
-    try {
-      const tasksResponse = await this.getAll(filters, false);
-      const tasksArray = Array.isArray(tasksResponse.data)
-        ? tasksResponse.data
-        : (tasksResponse as any)?.data;
-
-      if (!Array.isArray(tasksArray)) {
-        console.warn('⚠️ TaskService.getStats received unexpected response structure');
-        return {
-          total: 0,
-          pending: 0,
-          in_progress: 0,
-          completed: 0,
-          overdue: 0,
-          by_priority: { low: 0, medium: 0, high: 0, urgent: 0 },
-          completion_rate: 0,
-          average_completion_time: 0,
-        };
-      }
-
-      const stats: TaskStats = {
-        total: tasksArray.length,
-        pending: tasksArray.filter(t => t.status === 'pending').length,
-        in_progress: tasksArray.filter(t => t.status === 'in_progress').length,
-        completed: tasksArray.filter(t => t.status === 'completed').length,
-        overdue: tasksArray.filter(t => {
-          if (!t.deadline) return false;
-          return new Date(t.deadline) < new Date() && t.status !== 'completed';
-        }).length,
-        by_priority: {
-          low: tasksArray.filter(t => t.priority === 'low').length,
-          medium: tasksArray.filter(t => t.priority === 'medium').length,
-          high: tasksArray.filter(t => t.priority === 'high').length,
-          urgent: tasksArray.filter(t => t.priority === 'urgent').length,
-        },
-        completion_rate: tasksArray.length > 0
-          ? (tasksArray.filter(t => t.status === 'completed').length / tasksArray.length) * 100
-          : 0,
-        average_completion_time: 0,
-      };
-
-      console.log('✅ TaskService.getStats calculated from tasks:', stats);
-      return stats;
-    } catch (error) {
-      console.error('❌ TaskService.getStats failed:', error);
-      throw error;
-    }
   }
 }
 

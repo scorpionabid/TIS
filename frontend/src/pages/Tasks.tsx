@@ -109,14 +109,6 @@ export default function Tasks() {
 
   const rawTasks = Array.isArray(tasksResponse?.data) ? tasksResponse.data : [];
 
-  const { data: taskStats } = useQuery({
-    queryKey: ['task-stats', activeTab, currentUser?.role],
-    queryFn: () => taskService.getStats({ origin_scope: activeTab }, currentUser?.role),
-    enabled:
-      hasAccess &&
-      ((activeTab === 'region' && canSeeRegionTab) || (activeTab === 'sector' && canSeeSectorTab)),
-  });
-
   const canCreateRegionTask = currentUser ? ['superadmin', 'regionadmin'].includes(currentUser.role) : false;
   const canCreateSectorTask = currentUser ? ['superadmin', 'sektoradmin'].includes(currentUser.role) : false;
   const showCreateButton =
@@ -383,7 +375,6 @@ export default function Tasks() {
       }
       
       await queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      await queryClient.invalidateQueries({ queryKey: ['task-stats'] });
       handleCloseModal();
     } catch (error) {
       console.error("[Tasks] Save əməliyyatı alınmadı", error);
@@ -418,7 +409,6 @@ export default function Tasks() {
       });
       
       await queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      await queryClient.invalidateQueries({ queryKey: ['task-stats'] });
 
       console.log("[Tasks] Silmə əməliyyatı tamamlandı", { taskId: task.id });
     } catch (error) {
@@ -599,7 +589,7 @@ export default function Tasks() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Aktiv tapşırıqlar</p>
-                <p className="text-2xl font-bold">{taskStats?.in_progress || 0}</p>
+                <p className="text-2xl font-bold">{stats.in_progress}</p>
               </div>
               <Clock className="h-8 w-8 text-orange-500" />
             </div>
@@ -611,7 +601,7 @@ export default function Tasks() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Tamamlanmış</p>
-                <p className="text-2xl font-bold">{taskStats?.completed || 0}</p>
+                <p className="text-2xl font-bold">{stats.completed}</p>
               </div>
               <CheckCircle className="h-8 w-8 text-green-500" />
             </div>
@@ -623,7 +613,7 @@ export default function Tasks() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Gecikmiş</p>
-                <p className="text-2xl font-bold">{taskStats?.overdue || 0}</p>
+                <p className="text-2xl font-bold">{stats.overdue}</p>
               </div>
               <AlertTriangle className="h-8 w-8 text-red-500" />
             </div>
@@ -635,7 +625,7 @@ export default function Tasks() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Ümumi</p>
-                <p className="text-2xl font-bold">{taskStats?.total || 0}</p>
+                <p className="text-2xl font-bold">{stats.total}</p>
               </div>
               <Calendar className="h-8 w-8 text-blue-500" />
             </div>
@@ -921,3 +911,24 @@ export default function Tasks() {
     </div>
   );
 }
+  const stats = useMemo(() => {
+    const source = Array.isArray(rawTasks) ? rawTasks : [];
+
+    const total = source.length;
+    const pending = source.filter(task => task.status === 'pending').length;
+    const inProgress = source.filter(task => task.status === 'in_progress').length;
+    const completed = source.filter(task => task.status === 'completed').length;
+    const overdue = source.filter(task => {
+      if (!task.deadline) return false;
+      const deadlineDate = new Date(task.deadline);
+      return deadlineDate < new Date() && task.status !== 'completed';
+    }).length;
+
+    return {
+      total,
+      pending,
+      in_progress: inProgress,
+      completed,
+      overdue,
+    };
+  }, [rawTasks]);
