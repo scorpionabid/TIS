@@ -35,6 +35,13 @@ export function SektorAdminTab({
     inst => inst.level === 3 || inst.type?.toLowerCase().includes('sektor')
   );
 
+  console.log('🏢 SektorAdminTab:', {
+    availableInstitutionsCount: availableInstitutions?.length,
+    sectorInstitutionsCount: sectorInstitutions?.length,
+    sampleInstitution: availableInstitutions?.[0],
+    sampleSector: sectorInstitutions?.[0]
+  });
+
   // Fields for SektorAdmin
   const fields = [
     {

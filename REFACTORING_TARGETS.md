@@ -76,6 +76,8 @@ Non-code large files (locks, databases, logs, documentation) are excluded becaus
   - `tests/Support/SeedsDefaultRolesAndPermissions.php` — rol/icazə seedlərini paylaşan util.
   - `tests/Feature/Auth/LoginTest.php`, `MeEndpointTest.php`, `TokenLifecycleTest.php` — autentifikasiya və token dövriyyəsi ssenariləri.
   - `tests/Feature/Institutions/InstitutionListingTest.php` — icazə filtrlərini yoxlayır.
+  - `tests/Feature/Surveys/SurveyManagementTest.php`, `SurveyResponseFlowTest.php`, `SurveyStatusTransitionsTest.php`, `SurveyAnalyticsTest.php`, `SurveyNotificationTest.php`, `SurveyApprovalFlowTest.php` — sorğu CRUD, status çevrilmələri, cavab toplama, analitika, bildiriş və approval/bulk axınlarını yoxlayır.
+  - `tests/Feature/Documents/DocumentCollectionRegionalCreationTest.php`, `DocumentCollectionManagementTest.php`, `DocumentCollectionAccessTest.php` — qovluq şablonlarının yaradılması, auditli yeniləmə/silmə və rol əsaslı sənəd siyahılamasını təsdiqləyir.
   - `tests/Unit/Services/Auth/LoginServiceTest.php`, `LogoutServiceTest.php` — servis davranışı (successful, rotation, logout, validation).
 - Testləri çalışdırmaq üçün:
   ```bash

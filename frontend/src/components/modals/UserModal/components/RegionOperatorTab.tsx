@@ -41,6 +41,22 @@ export function RegionOperatorTab({
 }: RegionOperatorTabProps) {
   const [hasSelectedPermissions, setHasSelectedPermissions] = useState(false);
 
+  // Filter departments based on selected institution
+  const selectedInstitutionId = formData.institution_id ? parseInt(formData.institution_id) : null;
+  const filteredDepartments = selectedInstitutionId
+    ? availableDepartments.filter(dept => dept.institution_id === selectedInstitutionId)
+    : [];
+
+  console.log('⚙️ RegionOperatorTab:', {
+    availableInstitutionsCount: availableInstitutions?.length,
+    availableDepartmentsCount: availableDepartments?.length,
+    selectedInstitutionId,
+    filteredDepartmentsCount: filteredDepartments.length,
+    sampleInstitution: availableInstitutions?.[0],
+    sampleDepartment: availableDepartments?.[0],
+    loadingOptions
+  });
+
   // Check if at least one CRUD permission is selected (NEW: 25 permissions)
   useEffect(() => {
     const hasAnyCRUD = Object.values(CRUD_PERMISSIONS).some(module =>
@@ -48,6 +64,17 @@ export function RegionOperatorTab({
     );
     setHasSelectedPermissions(hasAnyCRUD);
   }, [formData]);
+
+  // Clear department selection when institution changes
+  useEffect(() => {
+    if (formData.institution_id && formData.department_id) {
+      const selectedDept = availableDepartments.find(d => d.id.toString() === formData.department_id);
+      if (selectedDept && selectedDept.institution_id !== selectedInstitutionId) {
+        // Clear department if it doesn't belong to selected institution
+        setFormData({ ...formData, department_id: '' });
+      }
+    }
+  }, [formData.institution_id]);
 
   // Basic fields for RegionOperator (without permission checkboxes)
   const basicFields = [
@@ -122,19 +149,44 @@ export function RegionOperatorTab({
       placeholder: '12 rəqəmə qədər',
     },
     {
+      name: 'institution_id',
+      label: 'Müəssisə',
+      type: 'select',
+      required: true,
+      options: availableInstitutions.map(inst => ({
+        label: `${inst.name}${inst.type ? ` (${inst.type})` : ''}`,
+        value: inst.id.toString(),
+      })),
+      placeholder: loadingOptions ? 'Müəssisələr yüklənir...' : 'Müəssisə seçin',
+      disabled: loadingOptions || availableInstitutions.length === 0,
+      helperText: '✓ Əvvəl müəssisə seçin, sonra departament',
+      onChange: (value: string) => {
+        // Clear department when institution changes
+        setFormData({ ...formData, institution_id: value, department_id: '' });
+      },
+    },
+    {
       name: 'department_id',
       label: 'Departament',
       type: 'select',
       required: true,
-      options: availableDepartments.map(dept => ({
-        label: `${dept.name} (${dept.institution?.name ?? 'Müəssisə'})`,
+      options: filteredDepartments.map(dept => ({
+        label: dept.name,
         value: dept.id.toString(),
       })),
-      placeholder: loadingOptions ? 'Departamentlər yüklənir...' : 'Departament seçin',
-      disabled: loadingOptions || availableDepartments.length === 0,
-      helperText: availableDepartments.length === 0
-        ? '⚠️ Region üzrə aktiv departament tapılmadı'
-        : '✓ RegionOperator üçün departament məcburidir',
+      placeholder: !selectedInstitutionId
+        ? '⚠️ Əvvəl müəssisə seçin'
+        : loadingOptions
+          ? 'Departamentlər yüklənir...'
+          : filteredDepartments.length === 0
+            ? '⚠️ Bu müəssisədə departament yoxdur'
+            : 'Departament seçin',
+      disabled: loadingOptions || !selectedInstitutionId || filteredDepartments.length === 0,
+      helperText: !selectedInstitutionId
+        ? '⚠️ Müəssisə seçildikdən sonra aktiv olacaq'
+        : filteredDepartments.length === 0
+          ? '⚠️ Bu müəssisədə aktiv departament tapılmadı'
+          : `✓ ${filteredDepartments.length} departament mövcuddur`,
     },
     {
       name: 'is_active',

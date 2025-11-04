@@ -35,6 +35,13 @@ export function RegionAdminTab({
     inst => inst.level === 2 || inst.type?.toLowerCase().includes('region')
   );
 
+  console.log('🏛️ RegionAdminTab:', {
+    availableInstitutionsCount: availableInstitutions?.length,
+    regionalInstitutionsCount: regionalInstitutions?.length,
+    sampleInstitution: availableInstitutions?.[0],
+    sampleRegional: regionalInstitutions?.[0]
+  });
+
   // Fields for RegionAdmin
   const fields = [
     {

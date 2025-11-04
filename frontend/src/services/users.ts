@@ -580,26 +580,30 @@ class UserService {
   async getFilterOptions(): Promise<{
     roles: Array<{ value: string; label: string }>;
     statuses: Array<{ value: string; label: string }>;
-    institutions: Array<{ id: number; name: string }>;
+    institutions: Array<{ id: number; name: string; level?: number; type?: string }>;
+    departments: Array<{ id: number; name: string; department_type?: string; institution_id?: number; institution?: { id: number; name: string } }>;
   }> {
     try {
       const response = await apiClient.get<{
         roles: Array<{ value: string; label: string }>;
         statuses: Array<{ value: string; label: string }>;
-        institutions: Array<{ id: number; name: string }>;
+        institutions: Array<{ id: number; name: string; level?: number; type?: string }>;
+        departments: Array<{ id: number; name: string; department_type?: string; institution_id?: number; institution?: { id: number; name: string } }>;
       }>('/users/filter-options');
 
       return response.data || {
         roles: [],
         statuses: [],
-        institutions: []
+        institutions: [],
+        departments: []
       };
     } catch (error) {
       console.error('Filter options fetch failed:', error);
       return {
         roles: [],
         statuses: [],
-        institutions: []
+        institutions: [],
+        departments: []
       };
     }
   }

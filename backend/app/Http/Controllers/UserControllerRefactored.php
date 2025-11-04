@@ -554,8 +554,37 @@ class UserControllerRefactored extends BaseController
                 return [
                     'id' => $institution['id'],
                     'name' => $institution['name'],
+                    'level' => $institution['level'] ?? null,
+                    'type' => $institution['type'] ?? null,
                 ];
             })->values();
+
+            // Get available departments based on user permissions
+            // For SuperAdmin: all active departments
+            // For RegionAdmin: departments in their region
+            $userRole = $currentUser->roles->first()?->name;
+            if ($userRole === 'superadmin') {
+                $departments = \App\Models\Department::where('is_active', true)
+                    ->with('institution:id,name')
+                    ->select('id', 'name', 'department_type', 'institution_id')
+                    ->orderBy('name')
+                    ->get()
+                    ->map(function($dept) {
+                        return [
+                            'id' => $dept->id,
+                            'name' => $dept->name,
+                            'department_type' => $dept->department_type,
+                            'institution_id' => $dept->institution_id,
+                            'institution' => $dept->institution ? [
+                                'id' => $dept->institution->id,
+                                'name' => $dept->institution->name,
+                            ] : null,
+                        ];
+                    });
+            } else {
+                // For other roles, departments will be fetched via specific endpoints
+                $departments = collect([]);
+            }
 
             // Static status options
             $statuses = [
@@ -569,6 +598,7 @@ class UserControllerRefactored extends BaseController
                     'roles' => $roles,
                     'statuses' => $statuses,
                     'institutions' => $institutions,
+                    'departments' => $departments,
                 ]
             ]);
 

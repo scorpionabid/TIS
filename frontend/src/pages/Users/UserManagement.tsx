@@ -91,16 +91,16 @@ export const UserManagement = memo(() => {
 
   // Fetch filtered departments for UserModalTabs (RegionAdmin-specific)
   const departmentsQuery = useQuery({
-    queryKey: ['modal-departments', currentUser?.role, currentUser?.institution?.id],
+    queryKey: ['modal-departments', currentUser?.role, currentUser?.institution?.id, filterOptions],
     queryFn: async () => {
       if (currentUser?.role?.name === 'regionadmin') {
         const result = await regionAdminService.getDepartments();
         return result.departments || [];
       }
-      // For SuperAdmin, departments will be fetched based on selected institution
-      return [];
+      // For SuperAdmin, use departments from filter options (backend provides all active departments)
+      return filterOptions?.departments || [];
     },
-    enabled: !!currentUser,
+    enabled: !!currentUser && (currentUser?.role?.name === 'regionadmin' || !!filterOptions),
     staleTime: 1000 * 60 * 10,
   });
 
