@@ -9,7 +9,6 @@ use Illuminate\Http\JsonResponse;
  * 
  * This controller has been refactored and split into specialized controllers:
  * - SchoolDashboardController: Dashboard, stats, notifications, quick actions
- * - SchoolTaskController: Task management and progress tracking
  * - SchoolClassController: Class/Grade management
  * - SchoolTeacherController: Teacher management
  * - SchoolStudentController: Student management and enrollment
@@ -28,7 +27,6 @@ class SchoolAdminController extends Controller
             'message' => 'This controller has been refactored into specialized controllers',
             'new_controllers' => [
                 'dashboard' => 'School\SchoolDashboardController',
-                'tasks' => 'School\SchoolTaskController',
                 'classes' => 'School\SchoolClassController',
                 'teachers' => 'School\SchoolTeacherController',
                 'students' => 'School\SchoolStudentController',

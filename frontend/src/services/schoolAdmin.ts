@@ -1,7 +1,6 @@
 import { BaseService, BaseEntity, PaginationParams } from './BaseService';
 import { apiClient, ApiResponse } from './api';
 import { Survey, SurveyResponse } from './surveys';
-import { Task } from './tasks';
 import { Student } from './students';
 
 // SchoolAdmin Dashboard interfaces
@@ -143,24 +142,6 @@ export interface TemplateInfo {
   headers: string[];
 }
 
-
-// School-specific task interfaces
-export interface SchoolTask extends Task {
-  assigned_by_name?: string;
-  assigned_to_names?: string[];
-  completion_rate?: number;
-  subtasks_count?: number;
-  completed_subtasks_count?: number;
-}
-
-export interface SchoolTaskFilters extends PaginationParams {
-  status?: Task['status'];
-  priority?: Task['priority'];
-  assigned_to?: number;
-  category?: string;
-  due_date_from?: string;
-  due_date_to?: string;
-}
 
 // Note: Class management has been moved to grades.ts service
 
@@ -321,59 +302,6 @@ class SchoolAdminService {
   async getRecentDocumentsList(limit: number = 10): Promise<RecentDocument[]> {
     const response = await apiClient.get<{data: RecentDocument[]}>(`${this.baseEndpoint}/dashboard/recent-documents`, { limit });
     return response.data?.data || response.data || [] as any;
-  }
-
-
-  // Task management methods
-  async getSchoolTasks(filters?: SchoolTaskFilters): Promise<SchoolTask[]> {
-    // Backend has /schooladmin/tasks/assigned endpoint (see dashboards.php:231)
-    // Backend returns: { success: true, data: [...tasks], message: string }
-    const response = await apiClient.get<SchoolTask[]>(`${this.baseEndpoint}/tasks/assigned`, filters);
-    // apiClient already extracts response.data, so we get tasks array directly
-    return (response.data || response || []) as SchoolTask[];
-  }
-
-  async updateTaskStatus(taskId: number, status: Task['status'], notes?: string, progress?: number): Promise<SchoolTask> {
-    // Backend expects: comment (required), progress_percentage (required)
-    // Map frontend params to backend contract
-    const response = await apiClient.put<SchoolTask>(`${this.baseEndpoint}/tasks/${taskId}/progress`, {
-      comment: notes || 'Status yeniləndi',  // Backend requires comment
-      progress_percentage: progress ?? 0     // Backend requires progress_percentage
-    });
-    return response.data || response as any;
-  }
-
-  async getTaskDetails(taskId: number): Promise<SchoolTask> {
-    const response = await apiClient.get<SchoolTask>(`${this.baseEndpoint}/tasks/${taskId}/details`);
-    return response.data || response as any;
-  }
-
-  async addTaskProgress(taskId: number, progress: number, notes?: string): Promise<void> {
-    // Backend expects: comment (required), progress_percentage (required)
-    await apiClient.put(`${this.baseEndpoint}/tasks/${taskId}/progress`, {
-      comment: notes || 'İrəliləmə qeydə alındı',
-      progress_percentage: progress
-    });
-  }
-
-  async submitTaskForApproval(taskId: number, notes: string): Promise<SchoolTask> {
-    // Backend expects: final_comment (optional), deliverables (optional)
-    const response = await apiClient.post<SchoolTask>(`${this.baseEndpoint}/tasks/${taskId}/submit`, {
-      final_comment: notes
-    });
-    return response.data || response as any;
-  }
-
-  async assignTask(data: {
-    title: string;
-    description: string;
-    assigned_to: number[];
-    due_date: string;
-    priority: Task['priority'];
-    category?: string;
-  }): Promise<SchoolTask> {
-    const response = await apiClient.post<SchoolTask>(`${this.baseEndpoint}/tasks`, data);
-    return response.data || response as any;
   }
 
   // Note: Class management methods moved to grades.ts service
@@ -632,8 +560,6 @@ export const schoolAdminKeys = {
   pendingSurveys: () => [...schoolAdminKeys.dashboard(), 'pendingSurveys'] as const,
   todayPriority: () => [...schoolAdminKeys.dashboard(), 'todayPriority'] as const,
   recentDocuments: () => [...schoolAdminKeys.dashboard(), 'recentDocuments'] as const,
-  tasks: () => [...schoolAdminKeys.all, 'tasks'] as const,
-  task: (id: number) => [...schoolAdminKeys.tasks(), id] as const,
   classes: () => [...schoolAdminKeys.all, 'classes'] as const,
   class: (id: number) => [...schoolAdminKeys.classes(), id] as const,
   teachers: () => [...schoolAdminKeys.all, 'teachers'] as const,

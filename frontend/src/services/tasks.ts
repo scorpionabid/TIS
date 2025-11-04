@@ -189,57 +189,6 @@ class TaskService extends BaseService<Task> {
     }
   }
 
-  async updateStatus(id: number, status: Task['status'], notes?: string) {
-    const response = await apiClient.put(`${this.baseEndpoint}/${id}/status`, {
-      status,
-      notes
-    });
-    return response.data;
-  }
-
-  async updateProgress(id: number, progress: number, notes?: string) {
-    const response = await apiClient.put(`${this.baseEndpoint}/${id}/progress`, {
-      progress,
-      notes
-    });
-    return response.data;
-  }
-
-  async addComment(id: number, comment: string) {
-    const response = await apiClient.post(`${this.baseEndpoint}/${id}/comments`, {
-      comment
-    });
-    return response.data;
-  }
-
-  async getComments(id: number) {
-    const response = await apiClient.get(`${this.baseEndpoint}/${id}/comments`);
-    return response.data || [];
-  }
-
-  async bulkAssign(taskData: Omit<CreateTaskData, 'assigned_to'> & { assigned_to: number[] }) {
-    const response = await apiClient.post(`${this.baseEndpoint}/bulk-assign`, taskData);
-    return response.data;
-  }
-
-  async bulkUpdateStatus(taskIds: number[], status: Task['status']) {
-    const response = await apiClient.put(`${this.baseEndpoint}/bulk-status`, {
-      task_ids: taskIds,
-      status
-    });
-    return response.data;
-  }
-
-  async getMyTasks(filters?: Omit<TaskFilters, 'assigned_to'>) {
-    const response = await apiClient.get<Task[]>(`${this.baseEndpoint}/my-tasks`, filters);
-    return response as any; // PaginatedResponse
-  }
-
-  async getAssignedByMe(filters?: Omit<TaskFilters, 'assigned_by'>) {
-    const response = await apiClient.get<Task[]>(`${this.baseEndpoint}/assigned-by-me`, filters);
-    return response as any; // PaginatedResponse
-  }
-
   async getCreationContext(): Promise<TaskCreationContext> {
     const response = await apiClient.get(`${this.baseEndpoint}/creation-context`);
     return (response.data?.data ?? response.data) as TaskCreationContext;
@@ -322,19 +271,6 @@ class TaskService extends BaseService<Task> {
       console.error('❌ TaskService.getStats failed:', error);
       throw error;
     }
-  }
-
-  async downloadAttachment(taskId: number, attachmentId: number) {
-    const response = await fetch(`${(apiClient as any).baseURL}${this.baseEndpoint}/${taskId}/attachments/${attachmentId}`, {
-      method: 'GET',
-      headers: (apiClient as any).getHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error('Download failed');
-    }
-
-    return response.blob();
   }
 }
 
