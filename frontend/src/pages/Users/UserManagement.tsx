@@ -74,33 +74,31 @@ export const UserManagement = memo(() => {
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
-  // Fetch filtered institutions for UserModalTabs (RegionAdmin-specific)
+  // Fetch filtered institutions for UserModalTabs
+  // For ALL roles, institutions come from filterOptions (backend provides appropriate filtered data)
   const institutionsQuery = useQuery({
     queryKey: ['modal-institutions', currentUser?.role, currentUser?.institution?.id, filterOptions],
     queryFn: async () => {
-      if (currentUser?.role?.name === 'regionadmin') {
-        const result = await regionAdminService.getInstitutions();
-        return result.institutions || [];
-      }
-      // For SuperAdmin, use all institutions from filter options
-      return filterOptions?.institutions || [];
+      // For ALL roles (SuperAdmin, RegionAdmin), institutions come from filterOptions
+      // Backend automatically filters based on user's permissions
+      const institutions = filterOptions?.institutions || [];
+      return institutions;
     },
-    enabled: !!currentUser && (currentUser?.role?.name === 'regionadmin' || !!filterOptions),
+    enabled: !!filterOptions, // Only run after filterOptions is loaded
     staleTime: 1000 * 60 * 10,
   });
 
-  // Fetch filtered departments for UserModalTabs (RegionAdmin-specific)
+  // Fetch filtered departments for UserModalTabs
+  // For ALL roles, departments come from filterOptions (backend provides appropriate filtered data)
   const departmentsQuery = useQuery({
     queryKey: ['modal-departments', currentUser?.role, currentUser?.institution?.id, filterOptions],
     queryFn: async () => {
-      if (currentUser?.role?.name === 'regionadmin') {
-        const result = await regionAdminService.getDepartments();
-        return result.departments || [];
-      }
-      // For SuperAdmin, use departments from filter options (backend provides all active departments)
-      return filterOptions?.departments || [];
+      // For ALL roles (SuperAdmin, RegionAdmin), departments come from filterOptions
+      // Backend automatically filters based on user's permissions
+      const departments = filterOptions?.departments || [];
+      return departments;
     },
-    enabled: !!currentUser && (currentUser?.role?.name === 'regionadmin' || !!filterOptions),
+    enabled: !!filterOptions, // Only run after filterOptions is loaded
     staleTime: 1000 * 60 * 10,
   });
 
@@ -109,15 +107,22 @@ export const UserManagement = memo(() => {
     queryKey: ['modal-roles', currentUser?.role, filterOptions],
     queryFn: async () => {
       if (currentUser?.role?.name === 'regionadmin') {
+        // RegionAdmin cannot create another RegionAdmin (security)
         return [
-          { id: 3, name: 'regionadmin', display_name: 'RegionAdmin' },
           { id: 4, name: 'regionoperator', display_name: 'RegionOperator' },
           { id: 5, name: 'sektoradmin', display_name: 'SektorAdmin' },
           { id: 6, name: 'schooladmin', display_name: 'SchoolAdmin' },
         ];
       }
-      // For SuperAdmin, return all roles
-      return filterOptions?.roles || [];
+      // For SuperAdmin, transform filterOptions.roles format
+      // Backend returns: { value: "regionadmin", label: "RegionAdmin" }
+      // Frontend needs: { id: 3, name: "regionadmin", display_name: "RegionAdmin" }
+      const roles = filterOptions?.roles || [];
+      return roles.map((role: any, index: number) => ({
+        id: index + 1, // Temporary ID (will be looked up from backend later)
+        name: role.value,
+        display_name: role.label,
+      }));
     },
     enabled: !!currentUser && (currentUser?.role?.name === 'regionadmin' || !!filterOptions),
     staleTime: 1000 * 60 * 10,
@@ -503,7 +508,7 @@ export const UserManagement = memo(() => {
             onClose={handleCloseModal}
             onSave={handleUserSubmit}
             user={selectedUser}
-            currentUserRole={currentUser?.role?.name || 'superadmin'}
+            currentUserRole={currentUser?.role?.name || currentUser?.role || 'unknown'}
             availableInstitutions={institutionsQuery.data || []}
             availableDepartments={departmentsQuery.data || []}
             availableRoles={rolesQuery.data || []}

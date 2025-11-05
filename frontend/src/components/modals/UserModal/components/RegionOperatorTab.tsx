@@ -47,16 +47,6 @@ export function RegionOperatorTab({
     ? availableDepartments.filter(dept => dept.institution_id === selectedInstitutionId)
     : [];
 
-  console.log('⚙️ RegionOperatorTab:', {
-    availableInstitutionsCount: availableInstitutions?.length,
-    availableDepartmentsCount: availableDepartments?.length,
-    selectedInstitutionId,
-    filteredDepartmentsCount: filteredDepartments.length,
-    sampleInstitution: availableInstitutions?.[0],
-    sampleDepartment: availableDepartments?.[0],
-    loadingOptions
-  });
-
   // Check if at least one CRUD permission is selected (NEW: 25 permissions)
   useEffect(() => {
     const hasAnyCRUD = Object.values(CRUD_PERMISSIONS).some(module =>

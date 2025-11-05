@@ -561,26 +561,42 @@ class UserControllerRefactored extends BaseController
 
             // Get available departments based on user permissions
             // For SuperAdmin: all active departments
-            // For RegionAdmin: departments in their region
+            // For RegionAdmin: departments in their regional institutions
             $userRole = $currentUser->roles->first()?->name;
+
+            // Department mapping helper
+            $mapDepartment = function($dept) {
+                return [
+                    'id' => $dept->id,
+                    'name' => $dept->name,
+                    'department_type' => $dept->department_type,
+                    'institution_id' => $dept->institution_id,
+                    'institution' => $dept->institution ? [
+                        'id' => $dept->institution->id,
+                        'name' => $dept->institution->name,
+                    ] : null,
+                ];
+            };
+
             if ($userRole === 'superadmin') {
                 $departments = \App\Models\Department::where('is_active', true)
                     ->with('institution:id,name')
                     ->select('id', 'name', 'department_type', 'institution_id')
                     ->orderBy('name')
                     ->get()
-                    ->map(function($dept) {
-                        return [
-                            'id' => $dept->id,
-                            'name' => $dept->name,
-                            'department_type' => $dept->department_type,
-                            'institution_id' => $dept->institution_id,
-                            'institution' => $dept->institution ? [
-                                'id' => $dept->institution->id,
-                                'name' => $dept->institution->name,
-                            ] : null,
-                        ];
-                    });
+                    ->map($mapDepartment);
+            } elseif ($userRole === 'regionadmin') {
+                // RegionAdmin: departments only in their regional institutions
+                $userRegionId = $currentUser->institution_id;
+                $regionalInstitutionIds = $this->permissionService->getRegionalInstitutions($userRegionId);
+
+                $departments = \App\Models\Department::where('is_active', true)
+                    ->whereIn('institution_id', $regionalInstitutionIds)
+                    ->with('institution:id,name')
+                    ->select('id', 'name', 'department_type', 'institution_id')
+                    ->orderBy('name')
+                    ->get()
+                    ->map($mapDepartment);
             } else {
                 // For other roles, departments will be fetched via specific endpoints
                 $departments = collect([]);

@@ -351,8 +351,9 @@ class UserPermissionService extends BaseService
 
     /**
      * Get all institutions in user's region
+     * Made public for use in controllers
      */
-    private function getRegionalInstitutions($regionId)
+    public function getRegionalInstitutions($regionId)
     {
         // Get all institutions under this region (sectors and schools)
         $regionInstitutions = Institution::where(function($q) use ($regionId) {
