@@ -18,7 +18,7 @@ export const ROLE_TAB_CONFIG: Record<string, RoleTabConfig> = {
     label: 'RegionAdmin',
     icon: 'Shield',
     description: 'Regional administrator yaradın',
-    allowedForRoles: ['superadmin', 'regionadmin'],
+    allowedForRoles: ['superadmin'], // Only SuperAdmin can create RegionAdmin
     targetRoleName: 'regionadmin',
   },
   regionoperator: {

@@ -8,6 +8,7 @@ import { BasicInfoTab } from './BasicInfoTab';
 import { InstitutionAssignmentTab } from './InstitutionAssignmentTab';
 import { SchedulingTab } from './SchedulingTab';
 import { PreviewTab } from './PreviewTab';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AssessmentTypeModalProps {
   isOpen: boolean;
@@ -25,9 +26,12 @@ export default function AssessmentTypeModal({
   assessmentType, 
   onSuccess,
   mode = 'basic',
-  showInstitutionAssignment = false,
+  showInstitutionAssignment,
   showScheduling = false
 }: AssessmentTypeModalProps) {
+  const { hasRole } = useAuth();
+  const shouldShowInstitutionAssignment = showInstitutionAssignment ?? hasRole(['superadmin', 'regionadmin']);
+
   const {
     // State
     loading,
@@ -63,7 +67,7 @@ export default function AssessmentTypeModal({
   } = useAssessmentTypeForm(assessmentType, onSuccess, onClose);
 
   const tabs = ['basic'];
-  if (showInstitutionAssignment) tabs.push('institutions');
+  if (shouldShowInstitutionAssignment) tabs.push('institutions');
   if (showScheduling) tabs.push('scheduling');
   if (mode === 'enhanced') tabs.push('preview');
 
@@ -79,7 +83,7 @@ export default function AssessmentTypeModal({
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
             <TabsTrigger value="basic">Əsas Məlumat</TabsTrigger>
-            {showInstitutionAssignment && (
+            {shouldShowInstitutionAssignment && (
               <TabsTrigger value="institutions">Müəssisələr</TabsTrigger>
             )}
             {showScheduling && (
@@ -101,7 +105,7 @@ export default function AssessmentTypeModal({
             />
           </TabsContent>
 
-          {showInstitutionAssignment && (
+          {shouldShowInstitutionAssignment && (
             <TabsContent value="institutions" className="mt-6">
               <InstitutionAssignmentTab
                 institutions={institutions}

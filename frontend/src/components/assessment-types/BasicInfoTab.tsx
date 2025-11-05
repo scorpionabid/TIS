@@ -3,9 +3,7 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Checkbox } from '../ui/checkbox';
-import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Plus, Minus } from 'lucide-react';
 import { CreateAssessmentTypeData } from '../../services/assessmentTypes';
 
 interface CriteriaEntry {
@@ -30,8 +28,6 @@ export const BasicInfoTab = ({
   removeCriteria,
   updateCriteria
 }: BasicInfoTabProps) => {
-  const totalWeight = criteria.reduce((sum, criterion) => sum + criterion.weight, 0);
-
   return (
     <div className="space-y-6">
       {/* Basic Information */}
@@ -53,19 +49,18 @@ export const BasicInfoTab = ({
             
             <div className="space-y-2">
               <Label htmlFor="category">Kateqoriya</Label>
-              <Select 
-                value={formData.category} 
+              <Select
+                value={formData.category}
                 onValueChange={(value) => setFormData({ ...formData, category: value as any })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Kateqoriya seçin" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="academic">Akademik</SelectItem>
-                  <SelectItem value="behavioral">Davranış</SelectItem>
-                  <SelectItem value="skill">Bacarıq</SelectItem>
-                  <SelectItem value="project">Layihə</SelectItem>
-                  <SelectItem value="portfolio">Portfel</SelectItem>
+                  <SelectItem value="ksq">KSQ (Kiçik Summativ)</SelectItem>
+                  <SelectItem value="bsq">BSQ (Böyük Summativ)</SelectItem>
+                  <SelectItem value="monitoring">Monitoring</SelectItem>
+                  <SelectItem value="diagnostic">Diaqnostik</SelectItem>
                   <SelectItem value="custom">Xüsusi</SelectItem>
                 </SelectContent>
               </Select>
@@ -98,8 +93,8 @@ export const BasicInfoTab = ({
 
             <div className="space-y-2">
               <Label htmlFor="scoring_method">Qiymətləndirmə Metodu</Label>
-              <Select 
-                value={formData.scoring_method} 
+              <Select
+                value={formData.scoring_method}
                 onValueChange={(value) => setFormData({ ...formData, scoring_method: value as any })}
               >
                 <SelectTrigger>
@@ -108,7 +103,7 @@ export const BasicInfoTab = ({
                 <SelectContent>
                   <SelectItem value="percentage">Faiz (%)</SelectItem>
                   <SelectItem value="points">Bal</SelectItem>
-                  <SelectItem value="grade">Qiymət</SelectItem>
+                  <SelectItem value="grades">Qiymət (A, B, C...)</SelectItem>
                   <SelectItem value="pass_fail">Keçdi/Qaldı</SelectItem>
                 </SelectContent>
               </Select>
@@ -126,64 +121,7 @@ export const BasicInfoTab = ({
         </CardContent>
       </Card>
 
-      {/* Criteria Management */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center justify-between">
-            Qiymətləndirmə Meyarları
-            <span className={`text-sm ${totalWeight === 100 ? 'text-green-600' : 'text-orange-600'}`}>
-              Cəmi Çəki: {totalWeight}%
-            </span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {criteria.map((criterion, index) => (
-            <div key={index} className="flex items-center gap-2 p-3 border rounded-lg">
-              <div className="flex-1">
-                <Input
-                  placeholder="Meyar adı"
-                  value={criterion.name}
-                  onChange={(e) => updateCriteria(index, 'name', e.target.value)}
-                />
-              </div>
-              <div className="w-24">
-                <Input
-                  type="number"
-                  placeholder="Çəki %"
-                  value={criterion.weight}
-                  onChange={(e) => updateCriteria(index, 'weight', parseInt(e.target.value) || 0)}
-                  min="0"
-                  max="100"
-                />
-              </div>
-              {criteria.length > 1 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => removeCriteria(index)}
-                >
-                  <Minus className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          ))}
-          
-          <Button
-            variant="outline"
-            onClick={addCriteria}
-            className="w-full"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Yeni Meyar Əlavə Et
-          </Button>
-          
-          {totalWeight !== 100 && (
-            <div className="text-sm text-orange-600 bg-orange-50 p-2 rounded">
-              Qeyd: Bütün meyarların çəki cəmi 100% olmalıdır.
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Meyarlar hazırda istifadə olunmur */}
     </div>
   );
 };

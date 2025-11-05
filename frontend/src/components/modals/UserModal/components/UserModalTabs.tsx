@@ -44,6 +44,7 @@ export function UserModalTabs({
     open,
     currentUserRole,
     availableRolesCount: availableRoles?.length,
+    availableRoles: availableRoles,
     availableInstitutionsCount: availableInstitutions?.length,
     availableDepartmentsCount: availableDepartments?.length
   });

@@ -29,10 +29,13 @@ class AssessmentTypeController extends Controller
         if ($user->hasRole('superadmin')) {
             // SuperAdmin can see all assessment types
         } elseif ($user->hasRole('regionadmin')) {
-            // RegionAdmin can see global types and their institution's types
+            // RegionAdmin can see global types, their institution's types and assigned ones
             $query->where(function ($q) use ($user) {
-                $q->whereNull('institution_id') // Global types
-                  ->orWhere('institution_id', $user->institution_id); // Their institution's types
+                $q->whereNull('institution_id')
+                  ->orWhere('institution_id', $user->institution_id)
+                  ->orWhereHas('assignedInstitutions', function ($assigned) use ($user) {
+                      $assigned->where('institutions.id', $user->institution_id);
+                  });
             });
         } else {
             // Other roles can only see their institution's types
@@ -85,11 +88,11 @@ class AssessmentTypeController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
-            'category' => ['required', Rule::in(['ksq', 'bsq', 'custom'])],
+            'category' => ['required', Rule::in(['ksq', 'bsq', 'monitoring', 'diagnostic', 'custom'])],
             'is_active' => 'boolean',
             'criteria' => 'nullable|array',
             'max_score' => 'required|integer|min:1|max:1000',
-            'scoring_method' => ['required', Rule::in(['percentage', 'points', 'grades'])],
+            'scoring_method' => ['required', Rule::in(['percentage', 'points', 'grades', 'pass_fail'])],
             'grade_levels' => 'nullable|array',
             'subjects' => 'nullable|array',
             'institution_id' => 'nullable|exists:institutions,id',
@@ -138,7 +141,7 @@ class AssessmentTypeController extends Controller
         $assessmentType = AssessmentType::create($data);
         
         // Handle institution assignments if provided
-        if (isset($data['institution_assignments']) && !empty($data['institution_assignments'])) {
+        if (isset($data['institution_assignments'])) {
             $assessmentType->assignToInstitutions(
                 $data['institution_assignments'], 
                 $user, 
@@ -198,11 +201,11 @@ class AssessmentTypeController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
-            'category' => ['required', Rule::in(['ksq', 'bsq', 'custom'])],
+            'category' => ['required', Rule::in(['ksq', 'bsq', 'monitoring', 'diagnostic', 'custom'])],
             'is_active' => 'boolean',
             'criteria' => 'nullable|array',
             'max_score' => 'required|integer|min:1|max:1000',
-            'scoring_method' => ['required', Rule::in(['percentage', 'points', 'grades'])],
+            'scoring_method' => ['required', Rule::in(['percentage', 'points', 'grades', 'pass_fail'])],
             'grade_levels' => 'nullable|array',
             'subjects' => 'nullable|array',
             'institution_id' => 'nullable|exists:institutions,id',
@@ -305,15 +308,19 @@ class AssessmentTypeController extends Controller
             ->select('id', 'name', 'category', 'institution_id');
 
         // Apply access control
-        if ($user->hasRole('superadmin')) {
-            // SuperAdmin can see all
-        } elseif ($user->hasRole('regionadmin')) {
-            $query->where(function ($q) use ($user) {
-                $q->whereNull('institution_id')
-                  ->orWhere('institution_id', $user->institution_id);
+        if (!$user->hasRole('superadmin')) {
+            $institutionId = $user->institution_id;
+
+            $query->where(function ($q) use ($institutionId) {
+                $q->whereNull('institution_id');
+
+                if ($institutionId) {
+                    $q->orWhere('institution_id', $institutionId)
+                      ->orWhereHas('assignedInstitutions', function ($assigned) use ($institutionId) {
+                          $assigned->where('institutions.id', $institutionId);
+                      });
+                }
             });
-        } else {
-            $query->forInstitution($user->institution_id);
         }
 
         // Filter by category if requested
@@ -435,12 +442,24 @@ class AssessmentTypeController extends Controller
         }
 
         if ($user->hasRole('regionadmin')) {
-            if ($assessmentType->institution_id === null) return true; // Global types
-            return $assessmentType->institution_id === $user->institution_id;
+            if ($assessmentType->institution_id === null) {
+                return true;
+            }
+
+            if ($assessmentType->institution_id === $user->institution_id) {
+                return true;
+            }
+
+            return $assessmentType->assignedInstitutions()
+                ->where('institutions.id', $user->institution_id)
+                ->exists();
         }
 
         // For other roles, check if it's accessible to their institution
         return $assessmentType->institution_id === null || 
-               $assessmentType->institution_id === $user->institution_id;
+               $assessmentType->institution_id === $user->institution_id ||
+               $assessmentType->assignedInstitutions()
+                   ->where('institutions.id', $user->institution_id)
+                   ->exists();
     }
 }

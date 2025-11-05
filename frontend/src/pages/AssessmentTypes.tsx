@@ -1,6 +1,12 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +17,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -19,48 +32,317 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { 
-  Plus, 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Plus,
   Search,
   Filter,
   Loader2,
-  Globe,
-  School,
   FileText,
-  Award,
   MoreHorizontal,
   Edit,
   Trash2,
-  Power
+  Power,
+  Layers3,
+  ListChecks,
+  ClipboardList
 } from "lucide-react";
-import { assessmentTypeService, AssessmentType, AssessmentTypeFilters } from '@/services/assessmentTypes';
+import {
+  assessmentTypeService,
+  AssessmentType,
+  AssessmentTypeFilters,
+  AssessmentStage,
+  AssessmentResultField
+} from '@/services/assessmentTypes';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import AssessmentTypeModal from '@/components/modals/AssessmentTypeModal';
 
+const defaultStageForm: Partial<AssessmentStage> = {
+  name: '',
+  roman_numeral: '',
+  description: '',
+  display_order: 1,
+  is_active: true,
+};
+
+const defaultResultFieldForm: Partial<AssessmentResultField> = {
+  label: '',
+  field_key: '',
+  input_type: 'number',
+  scope: 'class',
+  aggregation: 'sum',
+  is_required: false,
+  display_order: 1,
+};
+
 export default function AssessmentTypes() {
-  const [filters, setFilters] = useState<AssessmentTypeFilters>({
-    per_page: 15
-  });
+  const [filters, setFilters] = useState<AssessmentTypeFilters>({ per_page: 15 });
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAssessmentType, setSelectedAssessmentType] = useState<AssessmentType | undefined>();
+  const [activeTab, setActiveTab] = useState<'types' | 'stages' | 'resultFields'>('types');
+  const [selectedTypeId, setSelectedTypeId] = useState<number | null>(null);
+
+  const [stageModalOpen, setStageModalOpen] = useState(false);
+  const [editingStage, setEditingStage] = useState<AssessmentStage | null>(null);
+  const [stageForm, setStageForm] = useState<Partial<AssessmentStage>>(defaultStageForm);
+
+  const [fieldModalOpen, setFieldModalOpen] = useState(false);
+  const [editingField, setEditingField] = useState<AssessmentResultField | null>(null);
+  const [fieldForm, setFieldForm] = useState<Partial<AssessmentResultField>>(defaultResultFieldForm);
 
   const { toast } = useToast();
-  const { currentUser, hasRole } = useAuth();
+  const { hasRole } = useAuth();
+  const queryClient = useQueryClient();
 
-  // Check if user has access permissions
   const hasAccess = hasRole(['superadmin', 'regionadmin']);
 
-  // Fetch assessment types data - use enabled prop for conditional fetching
   const { data: assessmentTypes, isLoading, error, refetch } = useQuery({
     queryKey: ['assessment-types', filters],
     queryFn: () => assessmentTypeService.getAssessmentTypes(filters),
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
     enabled: hasAccess,
   });
 
-  // Check if user has permission to access this page
+  const typeOptions = useMemo(() => {
+    if (!assessmentTypes?.data) return [];
+    return assessmentTypes.data.map(type => ({ value: type.id, label: type.name }));
+  }, [assessmentTypes]);
+
+  useEffect(() => {
+    if (!selectedTypeId && typeOptions.length > 0) {
+      setSelectedTypeId(typeOptions[0].value);
+    }
+  }, [selectedTypeId, typeOptions]);
+
+  const { data: stages, isLoading: stagesLoading, error: stagesError } = useQuery({
+    queryKey: ['assessment-stages', selectedTypeId],
+    queryFn: () => assessmentTypeService.getStages(selectedTypeId!),
+    enabled: activeTab === 'stages' && !!selectedTypeId,
+    staleTime: 0,
+  });
+
+  const { data: resultFields, isLoading: fieldsLoading, error: fieldsError } = useQuery({
+    queryKey: ['assessment-result-fields', selectedTypeId],
+    queryFn: () => assessmentTypeService.getResultFields(selectedTypeId!),
+    enabled: activeTab === 'resultFields' && !!selectedTypeId,
+    staleTime: 0,
+  });
+
+  const ALL_VALUE = 'all';
+
+  const handleFilterChange = (key: keyof AssessmentTypeFilters, value: any) => {
+    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
+  };
+
+  const handleSearch = () => {
+    setFilters(prev => ({ ...prev, search: searchTerm, page: 1 }));
+  };
+
+  const handleClearFilters = () => {
+    setFilters({ per_page: 15 });
+    setSearchTerm('');
+  };
+
+  const handleCreateAssessmentType = () => {
+    setSelectedAssessmentType(undefined);
+    setIsModalOpen(true);
+  };
+
+  const handleEditAssessmentType = (assessmentType: AssessmentType) => {
+    setSelectedAssessmentType(assessmentType);
+    setIsModalOpen(true);
+  };
+
+  const handleAssessmentTypeSuccess = () => {
+    refetch();
+    queryClient.invalidateQueries({
+      predicate: (query) => {
+        const key = query.queryKey[0];
+        return key === 'assessment-result-fields' || key === 'assessment-stages';
+      }
+    });
+    toast({
+      title: 'Uğurlu əməliyyat',
+      description: 'Qiymətləndirmə növü uğurla saxlanıldı.',
+    });
+  };
+
+  const handleDeleteAssessmentType = async (id: number) => {
+    try {
+      await assessmentTypeService.deleteAssessmentType(id);
+      refetch();
+      toast({ title: 'Silindi', description: 'Qiymətləndirmə növü silindi.' });
+    } catch (err: any) {
+      toast({
+        title: 'Silmə xətası',
+        description: err.message || 'Qiymətləndirmə növü silinərkən problem yarandı.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleToggleAssessmentTypeStatus = async (id: number) => {
+    try {
+      await assessmentTypeService.toggleAssessmentTypeStatus(id);
+      refetch();
+      toast({ title: 'Status dəyişildi', description: 'Qiymətləndirmə növü aktivliyi yeniləndi.' });
+    } catch (err: any) {
+      toast({
+        title: 'Status xətası',
+        description: err.message || 'Status dəyişdirilərkən problem yarandı.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const openStageModal = (stage?: AssessmentStage) => {
+    if (stage) {
+      setEditingStage(stage);
+      setStageForm({
+        name: stage.name,
+        roman_numeral: stage.roman_numeral ?? '',
+        description: stage.description ?? '',
+        display_order: stage.display_order,
+        is_active: stage.is_active,
+      });
+    } else {
+      setEditingStage(null);
+      setStageForm(defaultStageForm);
+    }
+    setStageModalOpen(true);
+  };
+
+  const submitStageForm = async () => {
+    if (!selectedTypeId) return;
+
+    try {
+      const payload = {
+        name: stageForm.name,
+        roman_numeral: stageForm.roman_numeral || null,
+        description: stageForm.description || null,
+        display_order: stageForm.display_order ?? 1,
+        is_active: stageForm.is_active ?? true,
+      };
+
+      if (editingStage) {
+        await assessmentTypeService.updateStage(selectedTypeId, editingStage.id, payload);
+        toast({ title: 'Mərhələ yeniləndi', description: `${payload.name} məlumatları saxlanıldı.` });
+      } else {
+        await assessmentTypeService.createStage(selectedTypeId, payload);
+        toast({ title: 'Yeni mərhələ', description: `${payload.name} əlavə edildi.` });
+      }
+
+      setStageModalOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['assessment-stages', selectedTypeId] });
+    } catch (err: any) {
+      toast({
+        title: 'Mərhələ saxlanılmadı',
+        description: err.message || 'Məlumatı saxlayarkən problem yarandı.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const confirmStageDelete = async (stage: AssessmentStage) => {
+    if (!selectedTypeId) return;
+    const confirmed = window.confirm(`${stage.name} mərhələsini silmək istəyirsiniz?`);
+    if (!confirmed) return;
+
+    try {
+      await assessmentTypeService.deleteStage(selectedTypeId, stage.id);
+      toast({ title: 'Mərhələ silindi', description: `${stage.name} uğurla silindi.` });
+      queryClient.invalidateQueries({ queryKey: ['assessment-stages', selectedTypeId] });
+    } catch (err: any) {
+      toast({
+        title: 'Silmə xətası',
+        description: err.message || 'Mərhələ silinərkən problem yarandı.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const openFieldModal = (field?: AssessmentResultField) => {
+    if (field) {
+      setEditingField(field);
+      setFieldForm({
+        label: field.label,
+        field_key: field.field_key,
+        input_type: field.input_type,
+        scope: field.scope,
+        aggregation: field.aggregation,
+        is_required: field.is_required,
+        display_order: field.display_order,
+      });
+    } else {
+      setEditingField(null);
+      setFieldForm(defaultResultFieldForm);
+    }
+    setFieldModalOpen(true);
+  };
+
+  const submitFieldForm = async () => {
+    if (!selectedTypeId) return;
+
+    try {
+      const payload = {
+        label: fieldForm.label,
+        field_key: fieldForm.field_key || undefined,
+        input_type: fieldForm.input_type ?? 'number',
+        scope: fieldForm.scope ?? 'class',
+        aggregation: fieldForm.aggregation ?? 'sum',
+        is_required: fieldForm.is_required ?? false,
+        display_order: fieldForm.display_order ?? 1,
+      };
+
+      if (editingField) {
+        await assessmentTypeService.updateResultField(selectedTypeId, editingField.id, payload);
+        toast({ title: 'Sahə yeniləndi', description: `${payload.label} məlumatları saxlanıldı.` });
+      } else {
+        await assessmentTypeService.createResultField(selectedTypeId, payload);
+        toast({ title: 'Yeni sahə', description: `${payload.label} əlavə edildi.` });
+      }
+
+      setFieldModalOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['assessment-result-fields', selectedTypeId] });
+    } catch (err: any) {
+      toast({
+        title: 'Saxlama xətası',
+        description: err.message || 'Sahə saxlanılarkən problem yarandı.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const confirmFieldDelete = async (field: AssessmentResultField) => {
+    if (!selectedTypeId) return;
+    const confirmed = window.confirm(`${field.label} sahəsini silmək istəyirsiniz?`);
+    if (!confirmed) return;
+
+    try {
+      await assessmentTypeService.deleteResultField(selectedTypeId, field.id);
+      toast({ title: 'Sahə silindi', description: `${field.label} uğurla silindi.` });
+      queryClient.invalidateQueries({ queryKey: ['assessment-result-fields', selectedTypeId] });
+    } catch (err: any) {
+      toast({
+        title: 'Silmə xətası',
+        description: err.message || 'Sahə silinərkən problem yarandı.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (!hasAccess) {
     return (
       <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
@@ -77,88 +359,13 @@ export default function AssessmentTypes() {
     );
   }
 
-  // Handle filter changes
-  const handleFilterChange = (key: keyof AssessmentTypeFilters, value: any) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value,
-      page: 1 // Reset to first page when filters change
-    }));
-  };
-
-  const handleSearch = () => {
-    setFilters(prev => ({
-      ...prev,
-      search: searchTerm,
-      page: 1
-    }));
-  };
-
-  const handleClearFilters = () => {
-    setFilters({ per_page: 15 });
-    setSearchTerm('');
-  };
-
-  // Assessment Type handlers
-  const handleCreateAssessmentType = () => {
-    setSelectedAssessmentType(undefined);
-    setIsModalOpen(true);
-  };
-
-  const handleEditAssessmentType = (assessmentType: AssessmentType) => {
-    setSelectedAssessmentType(assessmentType);
-    setIsModalOpen(true);
-  };
-
-  const handleAssessmentTypeSuccess = () => {
-    refetch();
-    toast({
-      title: 'Uğurlu əməliyyat',
-      description: 'Assessment type uğurla saxlanıldı.',
-    });
-  };
-
-  const handleDeleteAssessmentType = async (id: number) => {
-    try {
-      await assessmentTypeService.deleteAssessmentType(id);
-      refetch();
-      toast({
-        title: 'Silindi',
-        description: 'Assessment type uğurla silindi.',
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Silmə xətası',
-        description: error.message || 'Assessment type silinərkən problem yarandı.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleToggleAssessmentTypeStatus = async (id: number) => {
-    try {
-      await assessmentTypeService.toggleAssessmentTypeStatus(id);
-      refetch();
-      toast({
-        title: 'Status dəyişildi',
-        description: 'Assessment type statusu uğurla dəyişildi.',
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Status dəyişikliyi xətası',
-        description: error.message || 'Status dəyişərkən problem yarandı.',
-        variant: 'destructive',
-      });
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
         <div className="flex justify-center items-center min-h-[400px]">
           <div className="flex flex-col items-center space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="text-lg text-muted-foreground">Qiymətləndirmə növləri yüklənir...</p>
+            <p className="text-lg text-muted-foreground">Qiymətləndirmə strukturu yüklənir...</p>
           </div>
         </div>
       </div>
@@ -166,7 +373,6 @@ export default function AssessmentTypes() {
   }
 
   if (error) {
-    console.error('Assessment types fetch error:', error);
     return (
       <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
         <div className="flex justify-center items-center min-h-[400px]">
@@ -174,7 +380,7 @@ export default function AssessmentTypes() {
             <FileText className="h-12 w-12 text-destructive mx-auto" />
             <div>
               <h3 className="text-lg font-semibold">Xəta baş verdi</h3>
-              <p className="text-muted-foreground">Qiymətləndirmə növləri yüklənərkən problem yarandı.</p>
+              <p className="text-muted-foreground">Qiymətləndirmə məlumatları yüklənərkən problem yarandı.</p>
               <p className="text-sm text-muted-foreground mt-2">
                 Error: {error instanceof Error ? error.message : 'Bilinməyən xəta'}
               </p>
@@ -188,263 +394,556 @@ export default function AssessmentTypes() {
 
   return (
     <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
-      {/* <QuickAuth /> */}
-      
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Qiymətləndirmə Növləri</h1>
-          <p className="text-muted-foreground">KSQ, BSQ və xüsusi qiymətləndirmə növlərini idarə edin</p>
+          <h1 className="text-3xl font-bold text-foreground">Qiymətləndirmə Konfiqurasiyası</h1>
+          <p className="text-muted-foreground">Növ, mərhələ və nəticə göstəricilərini idarə edin</p>
         </div>
-        <Button onClick={handleCreateAssessmentType}>
-          <Plus className="h-4 w-4 mr-2" />
-          Yeni Qiymətləndirmə Növü
-        </Button>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Filter className="h-5 w-5" />
-            <span>Filterləmə</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <Label htmlFor="search">Axtarış</Label>
-              <div className="flex space-x-2">
-                <Input
-                  id="search"
-                  placeholder="Ad və ya təsvir üzrə axtar..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                />
-                <Button size="icon" variant="outline" onClick={handleSearch}>
-                  <Search className="h-4 w-4" />
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="types" className="flex items-center gap-2">
+            <ClipboardList className="h-4 w-4" />
+            Növlər
+          </TabsTrigger>
+          <TabsTrigger value="stages" className="flex items-center gap-2">
+            <Layers3 className="h-4 w-4" />
+            Mərhələlər
+          </TabsTrigger>
+          <TabsTrigger value="resultFields" className="flex items-center gap-2">
+            <ListChecks className="h-4 w-4" />
+            Nəticə sahələri
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="types" className="pt-4 space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Qiymətləndirmə Növləri</span>
+                <Button onClick={handleCreateAssessmentType}>
+                  <Plus className="h-4 w-4 mr-2" />Yeni Növ
+                </Button>
+              </CardTitle>
+              <CardDescription>Region üzrə istifadə ediləcək qiymətləndirmə kateqoriyalarını yaradın.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="md:col-span-2">
+                  <Label>Axtarış</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Ad və ya təsvir"
+                      value={searchTerm}
+                      onChange={(event) => setSearchTerm(event.target.value)}
+                    />
+                    <Button onClick={handleSearch}>
+                      <Search className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <Label>Kateqoriya</Label>
+                  <Select
+                    value={filters.category ?? ALL_VALUE}
+                    onValueChange={(value) =>
+                      handleFilterChange('category', value === ALL_VALUE ? undefined : value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Hamısı" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL_VALUE}>Hamısı</SelectItem>
+                      {assessmentTypeService.getCategories().map(item => (
+                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Status</Label>
+                  <Select
+                    value={
+                      filters.is_active === undefined ? ALL_VALUE : String(filters.is_active)
+                    }
+                    onValueChange={(value) =>
+                      handleFilterChange(
+                        'is_active',
+                        value === ALL_VALUE ? undefined : value === 'true'
+                      )
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Hamısı" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL_VALUE}>Hamısı</SelectItem>
+                      <SelectItem value="true">Aktiv</SelectItem>
+                      <SelectItem value="false">Deaktiv</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={handleClearFilters}>
+                  <Filter className="h-4 w-4 mr-2" /> Filtrləri sıfırla
                 </Button>
               </div>
-            </div>
 
-            <div>
-              <Label htmlFor="category">Kateqoriya</Label>
-              <Select 
-                value={filters.category || 'all'} 
-                onValueChange={(value) => handleFilterChange('category', value === 'all' ? undefined : value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Hamısı" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Hamısı</SelectItem>
-                  <SelectItem value="ksq">KSQ</SelectItem>
-                  <SelectItem value="bsq">BSQ</SelectItem>
-                  <SelectItem value="custom">Xüsusi</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Ad</TableHead>
+                      <TableHead>Kateqoriya</TableHead>
+                      <TableHead>Təyinat</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Əməliyyatlar</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {assessmentTypes?.data?.map(type => (
+                      <TableRow key={type.id}>
+                        <TableCell>
+                          <div className="font-semibold">{type.name}</div>
+                          <div className="text-sm text-muted-foreground">{type.description}</div>
+                        </TableCell>
+                        <TableCell>{type.category_label}</TableCell>
+                        <TableCell>
+                          {type.institution_id
+                            ? <Badge variant="secondary">Təşkilata özəl</Badge>
+                            : <Badge variant="outline">Regional</Badge>
+                          }
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={type.is_active ? 'default' : 'outline'}>
+                            {type.is_active ? 'Aktiv' : 'Deaktiv'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleEditAssessmentType(type)}>
+                                <Edit className="h-4 w-4 mr-2" />Redaktə et
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleToggleAssessmentTypeStatus(type.id)}>
+                                <Power className="h-4 w-4 mr-2" />
+                                {type.is_active ? 'Deaktiv et' : 'Aktiv et'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDeleteAssessmentType(type.id)} className="text-destructive">
+                                <Trash2 className="h-4 w-4 mr-2" /> Sil
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-            <div>
-              <Label htmlFor="status">Status</Label>
-              <Select 
-                value={filters.is_active === undefined ? 'all' : filters.is_active.toString()} 
-                onValueChange={(value) => handleFilterChange('is_active', value === 'all' ? undefined : value === 'true')}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Hamısı" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Hamısı</SelectItem>
-                  <SelectItem value="true">Aktiv</SelectItem>
-                  <SelectItem value="false">Deaktiv</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+        <TabsContent value="stages" className="pt-4 space-y-4">
+          <Card>
+            <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <CardTitle>Mərhələlər</CardTitle>
+                <CardDescription>KSQ/BSQ kimi mərhələləri roman rəqəmləri ilə təşkil edin.</CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select
+                  value={selectedTypeId ? selectedTypeId.toString() : ''}
+                  onValueChange={(value) => setSelectedTypeId(Number(value))}
+                >
+                  <SelectTrigger className="min-w-[220px]">
+                    <SelectValue placeholder="Növ seçin" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {typeOptions.map(option => (
+                      <SelectItem key={option.value} value={option.value.toString()}>{option.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button onClick={() => openStageModal()} disabled={!selectedTypeId}>
+                  <Plus className="h-4 w-4 mr-2" />Yeni mərhələ
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!selectedTypeId && (
+                <div className="text-center py-8 text-muted-foreground">
+                  Əvvəlcə qiymətləndirmə növü seçin.
+                </div>
+              )}
 
-            <div className="flex items-end">
-              <Button variant="outline" onClick={handleClearFilters}>
-                Təmizlə
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+              {selectedTypeId && stagesLoading && (
+                <div className="flex justify-center py-10">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              )}
 
-      {/* Assessment Types Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Award className="h-5 w-5" />
-            <span>Qiymətləndirmə Növləri</span>
-          </CardTitle>
-          <CardDescription>
-            Ümumi {assessmentTypes?.total || 0} qiymətləndirmə növü
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {assessmentTypes?.data && assessmentTypes.data.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Ad</TableHead>
-                  <TableHead>Kateqoriya</TableHead>
-                  <TableHead>Maksimum Bal</TableHead>
-                  <TableHead>Qiymətləndirmə Metodu</TableHead>
-                  <TableHead>Təşkilat</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Yaradılma Tarixi</TableHead>
-                  <TableHead>Əməliyyatlar</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {assessmentTypes.data.map((assessmentType) => (
-                  <TableRow key={assessmentType.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{assessmentType.name}</p>
-                        {assessmentType.description && (
-                          <p className="text-sm text-muted-foreground truncate max-w-[200px]">
-                            {assessmentType.description}
-                          </p>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={
-                        assessmentType.category === 'ksq' ? 'default' :
-                        assessmentType.category === 'bsq' ? 'secondary' : 'outline'
-                      }>
-                        {assessmentType.category_label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{assessmentType.max_score}</TableCell>
-                    <TableCell>{assessmentType.scoring_method_label}</TableCell>
-                    <TableCell>
-                      {assessmentType.institution ? (
-                        <div className="flex items-center space-x-1">
-                          <School className="h-3 w-3" />
-                          <span className="text-sm">{assessmentType.institution.name}</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center space-x-1">
-                          <Globe className="h-3 w-3" />
-                          <span className="text-sm">Sistem geneli</span>
-                        </div>
+              {selectedTypeId && stagesError && (
+                <div className="text-center py-8 text-destructive">
+                  Mərhələlər yüklənərkən problem yarandı.
+                </div>
+              )}
+
+              {selectedTypeId && !stagesLoading && !stagesError && (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Ad</TableHead>
+                        <TableHead>Roma rəqəmi</TableHead>
+                        <TableHead>Sıra</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Əməliyyatlar</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {stages && stages.length > 0 ? stages.map(stage => (
+                        <TableRow key={stage.id}>
+                          <TableCell>
+                            <div className="font-semibold">{stage.name}</div>
+                            {stage.description && (
+                              <div className="text-sm text-muted-foreground">{stage.description}</div>
+                            )}
+                          </TableCell>
+                          <TableCell>{stage.roman_numeral || '—'}</TableCell>
+                          <TableCell>{stage.display_order}</TableCell>
+                          <TableCell>
+                            <Badge variant={stage.is_active ? 'default' : 'outline'}>
+                              {stage.is_active ? 'Aktiv' : 'Deaktiv'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openStageModal(stage)}>
+                                  <Edit className="h-4 w-4 mr-2" />Redaktə et
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => confirmStageDelete(stage)} className="text-destructive">
+                                  <Trash2 className="h-4 w-4 mr-2" />Sil
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      )) : (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                            Mərhələ əlavə edilməmişdir.
+                          </TableCell>
+                        </TableRow>
                       )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex justify-center">
-                        <div 
-                          className={`h-3 w-3 rounded-full ${
-                            assessmentType.is_active ? 'bg-green-500' : 'bg-yellow-500'
-                          }`}
-                          title={assessmentType.is_active ? 'Aktiv' : 'Deaktiv'}
-                          aria-label={assessmentType.is_active ? 'Aktiv' : 'Deaktiv'}
-                        />
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {new Date(assessmentType.created_at).toLocaleDateString('az-AZ')}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <span className="sr-only">Əməliyyatlar</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem 
-                              onClick={() => handleEditAssessmentType(assessmentType)}
-                              className="cursor-pointer"
-                            >
-                              <Edit className="mr-2 h-4 w-4" />
-                              <span>Redaktə et</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => handleToggleAssessmentTypeStatus(assessmentType.id)}
-                              className="cursor-pointer"
-                            >
-                              {assessmentType.is_active ? (
-                                <>
-                                  <Power className="mr-2 h-4 w-4 text-yellow-600" />
-                                  <span>Deaktiv et</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Power className="mr-2 h-4 w-4 text-green-600" />
-                                  <span>Aktiv et</span>
-                                </>
-                              )}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => handleDeleteAssessmentType(assessmentType.id)}
-                              className="cursor-pointer text-red-600 focus:text-red-600"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              <span>Sil</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center py-8">
-              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">Hələ qiymətləndirmə növü yaradılmayıb</p>
-              <Button onClick={handleCreateAssessmentType} className="mt-4">
-                <Plus className="h-4 w-4 mr-2" />
-                İlk Qiymətləndirmə Növünü Yarat
-              </Button>
-            </div>
-          )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          {/* Pagination */}
-          {assessmentTypes && assessmentTypes.last_page > 1 && (
-            <div className="flex justify-between items-center mt-6">
-              <p className="text-sm text-muted-foreground">
-                {assessmentTypes.from}-{assessmentTypes.to} / {assessmentTypes.total} qeyd
-              </p>
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={assessmentTypes.current_page === 1}
-                  onClick={() => handleFilterChange('page', assessmentTypes.current_page - 1)}
+        <TabsContent value="resultFields" className="pt-4 space-y-4">
+          <Card>
+            <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <CardTitle>Nəticə göstəriciləri</CardTitle>
+                <CardDescription>Toplanacaq məlumat sütunlarını müəyyən edin.</CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select
+                  value={selectedTypeId ? selectedTypeId.toString() : ''}
+                  onValueChange={(value) => setSelectedTypeId(Number(value))}
                 >
-                  Əvvəlki
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={assessmentTypes.current_page === assessmentTypes.last_page}
-                  onClick={() => handleFilterChange('page', assessmentTypes.current_page + 1)}
-                >
-                  Növbəti
+                  <SelectTrigger className="min-w-[220px]">
+                    <SelectValue placeholder="Növ seçin" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {typeOptions.map(option => (
+                      <SelectItem key={option.value} value={option.value.toString()}>{option.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button onClick={() => openFieldModal()} disabled={!selectedTypeId}>
+                  <Plus className="h-4 w-4 mr-2" />Yeni sahə
                 </Button>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </CardHeader>
+            <CardContent>
+              {!selectedTypeId && (
+                <div className="text-center py-8 text-muted-foreground">
+                  Əvvəlcə qiymətləndirmə növü seçin.
+                </div>
+              )}
 
-      {/* Assessment Type Modal */}
+              {selectedTypeId && fieldsLoading && (
+                <div className="flex justify-center py-10">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              )}
+
+              {selectedTypeId && fieldsError && (
+                <div className="text-center py-8 text-destructive">
+                  Nəticə sahələri yüklənərkən problem yarandı.
+                </div>
+              )}
+
+              {selectedTypeId && !fieldsLoading && !fieldsError && (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Label</TableHead>
+                        <TableHead>Açar</TableHead>
+                        <TableHead>Tip</TableHead>
+                        <TableHead>Sahə</TableHead>
+                        <TableHead>Toplama</TableHead>
+                        <TableHead>Vacib</TableHead>
+                        <TableHead>Sıra</TableHead>
+                        <TableHead className="text-right">Əməliyyatlar</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {resultFields && resultFields.length > 0 ? resultFields.map(field => (
+                        <TableRow key={field.id}>
+                          <TableCell>{field.label}</TableCell>
+                          <TableCell>{field.field_key}</TableCell>
+                          <TableCell>{field.input_type}</TableCell>
+                          <TableCell>{field.scope === 'class' ? 'Sinif' : 'Ümumi'}</TableCell>
+                          <TableCell>{field.aggregation}</TableCell>
+                          <TableCell>
+                            <Badge variant={field.is_required ? 'default' : 'outline'}>
+                              {field.is_required ? 'Bəli' : 'Xeyr'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{field.display_order}</TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openFieldModal(field)}>
+                                  <Edit className="h-4 w-4 mr-2" />Redaktə et
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => confirmFieldDelete(field)} className="text-destructive">
+                                  <Trash2 className="h-4 w-4 mr-2" />Sil
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      )) : (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
+                            Nəticə sahəsi əlavə edilməyib.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
       <AssessmentTypeModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         assessmentType={selectedAssessmentType}
         onSuccess={handleAssessmentTypeSuccess}
-        mode={hasRole('regionadmin') ? 'enhanced' : 'basic'}
-        showInstitutionAssignment={hasRole(['superadmin', 'regionadmin'])}
-        showScheduling={hasRole(['superadmin', 'regionadmin'])}
+        showInstitutionAssignment
       />
+
+      <Dialog open={stageModalOpen} onOpenChange={setStageModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingStage ? 'Mərhələni redaktə et' : 'Yeni mərhələ'}</DialogTitle>
+            <DialogDescription>
+              {editingStage ? 'Mövcud mərhələnin məlumatlarını yeniləyin.' : 'Yeni qiymətləndirmə mərhələsi əlavə edin.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Mərhələ adı</Label>
+              <Input
+                value={stageForm.name ?? ''}
+                onChange={(e) => setStageForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Məs: I mərhələ"
+              />
+            </div>
+            <div>
+              <Label>Roma rəqəmi</Label>
+              <Input
+                value={stageForm.roman_numeral ?? ''}
+                onChange={(e) => setStageForm(prev => ({ ...prev, roman_numeral: e.target.value }))}
+                placeholder="I, II, III ..."
+              />
+            </div>
+            <div>
+              <Label>Təsvir</Label>
+              <Textarea
+                value={stageForm.description ?? ''}
+                onChange={(e) => setStageForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Qısa izah"
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Sıra</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={stageForm.display_order ?? 1}
+                  onChange={(e) => setStageForm(prev => ({ ...prev, display_order: Number(e.target.value) }))}
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <Label>Aktiv</Label>
+                  <p className="text-sm text-muted-foreground">Mərhələ istifadə üçün açıq olsun</p>
+                </div>
+                <Switch
+                  checked={stageForm.is_active ?? true}
+                  onCheckedChange={(checked) => setStageForm(prev => ({ ...prev, is_active: checked }))}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStageModalOpen(false)}>Bağla</Button>
+            <Button onClick={submitStageForm} disabled={!stageForm.name?.trim()}>
+              {editingStage ? 'Yenilə' : 'Yarat'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={fieldModalOpen} onOpenChange={setFieldModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingField ? 'Nəticə sahəsini redaktə et' : 'Yeni nəticə sahəsi'}</DialogTitle>
+            <DialogDescription>
+              Məktəblərdən toplanacaq göstəricinin parametrlərini daxil edin.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Sahə adı</Label>
+              <Input
+                value={fieldForm.label ?? ''}
+                onChange={(e) => setFieldForm(prev => ({ ...prev, label: e.target.value }))}
+                placeholder="Məs: İki alanların sayı"
+              />
+            </div>
+            <div>
+              <Label>Açar (istəyə bağlı)</Label>
+              <Input
+                value={fieldForm.field_key ?? ''}
+                onChange={(e) => setFieldForm(prev => ({ ...prev, field_key: e.target.value }))}
+                placeholder="auto_iki_sayi"
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label>Tip</Label>
+                <Select
+                  value={fieldForm.input_type ?? 'number'}
+                  onValueChange={(value) => setFieldForm(prev => ({ ...prev, input_type: value as AssessmentResultField['input_type'] }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="number">Tam ədəd</SelectItem>
+                    <SelectItem value="decimal">Ondalıq</SelectItem>
+                    <SelectItem value="text">Mətn</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Sahə</Label>
+                <Select
+                  value={fieldForm.scope ?? 'class'}
+                  onValueChange={(value) => setFieldForm(prev => ({ ...prev, scope: value as AssessmentResultField['scope'] }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="class">Sinif üzrə</SelectItem>
+                    <SelectItem value="overall">Ümumi sessiya</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Toplama</Label>
+                <Select
+                  value={fieldForm.aggregation ?? 'sum'}
+                  onValueChange={(value) => setFieldForm(prev => ({ ...prev, aggregation: value as AssessmentResultField['aggregation'] }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sum">Cəm</SelectItem>
+                    <SelectItem value="average">Orta</SelectItem>
+                    <SelectItem value="max">Maksimum</SelectItem>
+                    <SelectItem value="min">Minimum</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Sıra</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={fieldForm.display_order ?? 1}
+                  onChange={(e) => setFieldForm(prev => ({ ...prev, display_order: Number(e.target.value) }))}
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <Label>Vacib sahə</Label>
+                  <p className="text-sm text-muted-foreground">Məktəbadmin bu sahəni mütləq doldurmalıdır</p>
+                </div>
+                <Switch
+                  checked={fieldForm.is_required ?? false}
+                  onCheckedChange={(checked) => setFieldForm(prev => ({ ...prev, is_required: checked }))}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFieldModalOpen(false)}>Bağla</Button>
+            <Button onClick={submitFieldForm} disabled={!fieldForm.label?.trim()}>
+              {editingField ? 'Yenilə' : 'Yarat'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

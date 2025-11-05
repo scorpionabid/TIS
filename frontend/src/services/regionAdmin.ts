@@ -116,6 +116,47 @@ class RegionAdminService {
     return this.unwrap(response);
   }
 
+  /**
+   * Get institutions for UserModalTabs
+   * Returns institutions filtered by RegionAdmin's access
+   */
+  async getInstitutions(): Promise<{ institutions: any[] }> {
+    try {
+      const result = await this.getRegionInstitutions();
+      return {
+        institutions: result.institutions || []
+      };
+    } catch (error) {
+      console.error('regionAdminService.getInstitutions error:', error);
+      return { institutions: [] };
+    }
+  }
+
+  /**
+   * Get departments for UserModalTabs
+   * Returns departments filtered by RegionAdmin's access
+   */
+  async getDepartments(): Promise<{ departments: any[] }> {
+    try {
+      const response = await apiClient.get<any>(`${this.basePath}/departments`);
+      const payload = this.unwrap(response);
+      const departments = this.extractCollection(payload, ['departments', 'data', 'items']);
+
+      console.log('🔧 regionAdminService.getDepartments:', {
+        payload,
+        departments,
+        count: departments.length
+      });
+
+      return {
+        departments: departments || []
+      };
+    } catch (error) {
+      console.error('regionAdminService.getDepartments error:', error);
+      return { departments: [] };
+    }
+  }
+
   private unwrap<T>(response: ApiResponse<T> | any): any {
     if (!response) {
       return null;

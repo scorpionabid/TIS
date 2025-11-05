@@ -200,8 +200,8 @@ class Grade extends Model
      */
     public function subjects()
     {
-        return $this->belongsToMany(Subject::class, 'teacher_subjects', 'grade_id', 'subject_id')
-                    ->withPivot(['teacher_id', 'weekly_hours', 'academic_year_id', 'is_active'])
+        return $this->belongsToMany(Subject::class, 'grade_subjects', 'grade_id', 'subject_id')
+                    ->withPivot(['teacher_id', 'weekly_hours', 'is_teaching_activity', 'is_extracurricular', 'is_club', 'is_split_groups', 'group_count', 'calculated_hours', 'notes'])
                     ->withTimestamps();
     }
 

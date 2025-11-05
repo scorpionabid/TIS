@@ -92,6 +92,30 @@ class AssessmentType extends Model
     }
 
     /**
+     * Get stages for this assessment type
+     */
+    public function stages(): HasMany
+    {
+        return $this->hasMany(AssessmentStage::class)->orderBy('display_order');
+    }
+
+    /**
+     * Get result fields for this assessment type
+     */
+    public function resultFields(): HasMany
+    {
+        return $this->hasMany(AssessmentResultField::class)->orderBy('display_order');
+    }
+
+    /**
+     * Get school assessments created from this type
+     */
+    public function schoolAssessments(): HasMany
+    {
+        return $this->hasMany(SchoolAssessment::class);
+    }
+
+    /**
      * Get assigned institutions for this assessment type
      */
     public function assignedInstitutions(): BelongsToMany
@@ -172,7 +196,10 @@ class AssessmentType extends Model
     {
         return $query->where(function ($q) use ($institutionId) {
             $q->where('institution_id', $institutionId)
-              ->orWhereNull('institution_id'); // Global types
+              ->orWhereNull('institution_id') // Global types
+              ->orWhereHas('assignedInstitutions', function ($assignments) use ($institutionId) {
+                  $assignments->where('institutions.id', $institutionId);
+              });
         });
     }
 
@@ -184,6 +211,8 @@ class AssessmentType extends Model
         return match($this->category) {
             'ksq' => 'Kiçik Summativ Qiymətləndirmə',
             'bsq' => 'Böyük Summativ Qiymətləndirmə',
+            'monitoring' => 'Monitoring',
+            'diagnostic' => 'Diaqnostik Qiymətləndirmə',
             'custom' => 'Xüsusi Qiymətləndirmə',
             default => 'Bilinməyən'
         };
@@ -198,6 +227,7 @@ class AssessmentType extends Model
             'percentage' => 'Faiz (%)',
             'points' => 'Bal',
             'grades' => 'Qiymət (A, B, C...)',
+            'pass_fail' => 'Keçdi/Qaldı',
             default => 'Bilinməyən'
         };
     }

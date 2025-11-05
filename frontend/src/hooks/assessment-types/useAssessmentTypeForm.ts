@@ -7,6 +7,7 @@ import {
 } from '../../services/assessmentTypes';
 import { institutionService } from '../../services/institutions';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface CriteriaEntry {
   name: string;
@@ -30,6 +31,8 @@ export const useAssessmentTypeForm = (
   onClose?: () => void
 ) => {
   const { toast } = useToast();
+  const { currentUser, hasRole } = useAuth();
+  const isRegionAdmin = hasRole(['regionadmin']);
   
   const [loading, setLoading] = useState(false);
   const [loadingInstitutions, setLoadingInstitutions] = useState(false);
@@ -57,9 +60,76 @@ export const useAssessmentTypeForm = (
     institution_id: null,
   });
 
-  // Initialize form data when assessmentType prop changes
-  useEffect(() => {
-    if (assessmentType) {
+useEffect(() => {
+  let isMounted = true;
+
+  const initializeCreateForm = () => {
+    setSelectedTab('basic');
+    const defaultInstitutions = isRegionAdmin && currentUser?.institution?.id
+      ? [currentUser.institution.id]
+      : [];
+
+    setFormData({
+      name: '',
+      description: '',
+      category: 'custom',
+      is_active: true,
+      criteria: {},
+      max_score: 100,
+      scoring_method: 'percentage',
+      grade_levels: [],
+      subjects: [],
+      institution_id: isRegionAdmin ? (currentUser?.institution?.id ?? null) : null,
+    });
+    setCriteria([{ name: '', weight: 0 }]);
+    setSelectedInstitutions(defaultInstitutions);
+  };
+
+  const initializeEditForm = async () => {
+    if (!assessmentType) return;
+
+    setSelectedTab('basic');
+
+    try {
+      const detail = await assessmentTypeService.getAssessmentType(assessmentType.id);
+      if (!isMounted) return;
+
+      setFormData({
+        name: detail.name,
+        description: detail.description || '',
+        category: detail.category,
+        is_active: detail.is_active,
+        criteria: detail.criteria || {},
+        max_score: detail.max_score || 100,
+        scoring_method: detail.scoring_method || 'percentage',
+        grade_levels: detail.grade_levels || [],
+        subjects: detail.subjects || [],
+        institution_id: detail.institution_id,
+      });
+
+      if (detail.criteria && typeof detail.criteria === 'object' && Object.keys(detail.criteria).length > 0) {
+        const criteriaEntries = Object.entries(detail.criteria).map(([name, weight]) => ({
+          name,
+          weight: Number(weight)
+        }));
+        setCriteria(criteriaEntries);
+      } else {
+        setCriteria([{ name: '', weight: 0 }]);
+      }
+
+      const assigned = (detail.assigned_institutions ?? detail.assignedInstitutions ?? [])
+        .map((inst: any) => inst.id)
+        .filter((id: number | undefined) => !!id) as number[];
+
+      if (detail.institution_id && !assigned.includes(detail.institution_id)) {
+        assigned.push(detail.institution_id);
+      }
+
+      setSelectedInstitutions(assigned);
+    } catch (error) {
+      console.error('Failed to load assessment type details:', error);
+      if (!isMounted) return;
+
       setFormData({
         name: assessmentType.name,
         description: assessmentType.description || '',
@@ -73,7 +143,6 @@ export const useAssessmentTypeForm = (
         institution_id: assessmentType.institution_id,
       });
 
-      // Initialize criteria from assessmentType.criteria object
       if (assessmentType.criteria && typeof assessmentType.criteria === 'object') {
         const criteriaEntries = Object.entries(assessmentType.criteria).map(([name, weight]) => ({
           name,
@@ -81,19 +150,36 @@ export const useAssessmentTypeForm = (
         }));
         setCriteria(criteriaEntries.length > 0 ? criteriaEntries : [{ name: '', weight: 0 }]);
       }
+
+      const fallbackAssigned: number[] = [];
+      if (assessmentType.institution_id) {
+        fallbackAssigned.push(assessmentType.institution_id);
+      }
+      setSelectedInstitutions(fallbackAssigned);
     }
-  }, [assessmentType]);
+  };
+
+  if (assessmentType) {
+    initializeEditForm();
+  } else {
+    initializeCreateForm();
+  }
+
+  return () => {
+    isMounted = false;
+  };
+}, [assessmentType, isRegionAdmin, currentUser?.institution?.id]);
 
   // Load institutions
   useEffect(() => {
     const loadInstitutions = async () => {
       setLoadingInstitutions(true);
       try {
-        const response = await institutionService.getInstitutions();
-        console.log('🏫 useAssessmentTypeForm: institutions response:', response);
-        // Handle paginated response format: response.data.data
+        const response = await institutionService.getAll({
+          per_page: 1000,
+          include_trashed: false,
+        });
         const institutionsData = response?.data?.data || response?.data || response || [];
-        console.log('🏫 useAssessmentTypeForm: setting institutions:', institutionsData);
         setInstitutions(Array.isArray(institutionsData) ? institutionsData : []);
       } catch (error) {
         console.error('❌ Failed to load institutions:', error);
@@ -138,10 +224,25 @@ export const useAssessmentTypeForm = (
       }
     });
 
-    const submitData = {
+    const submitData: CreateAssessmentTypeData | UpdateAssessmentTypeData = {
       ...formData,
       criteria: criteriaObject,
     };
+
+    (submitData as any).institution_assignments = selectedInstitutions;
+
+    if (!assessmentType && isRegionAdmin) {
+      submitData.institution_id = currentUser?.institution?.id ?? submitData.institution_id;
+    }
+
+    if (isRegionAdmin && !submitData.institution_id) {
+      toast({
+        title: 'Xəta',
+        description: 'Qiymətləndirmə növü üçün təşkilat seçilməlidir',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setLoading(true);
     try {
@@ -152,7 +253,7 @@ export const useAssessmentTypeForm = (
           description: "Qiymətləndirmə növü yeniləndi",
         });
       } else {
-        await assessmentTypeService.createAssessmentType(submitData);
+        await assessmentTypeService.createAssessmentType(submitData as CreateAssessmentTypeData);
         toast({
           title: "Uğurlu", 
           description: "Qiymətləndirmə növü yaradıldı",

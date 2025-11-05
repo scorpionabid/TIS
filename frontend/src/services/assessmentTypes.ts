@@ -5,11 +5,11 @@ export interface AssessmentType {
   id: number;
   name: string;
   description?: string;
-  category: 'ksq' | 'bsq' | 'custom';
+  category: 'ksq' | 'bsq' | 'monitoring' | 'diagnostic' | 'custom';
   is_active: boolean;
   criteria?: Record<string, number>;
   max_score: number;
-  scoring_method: 'percentage' | 'points' | 'grades';
+  scoring_method: 'percentage' | 'points' | 'grades' | 'pass_fail';
   grade_levels?: string[];
   subjects?: string[];
   created_by: number;
@@ -31,7 +31,7 @@ export interface AssessmentType {
 }
 
 export interface AssessmentTypeFilters {
-  category?: 'ksq' | 'bsq' | 'custom';
+  category?: 'ksq' | 'bsq' | 'monitoring' | 'diagnostic' | 'custom';
   is_active?: boolean;
   search?: string;
   per_page?: number;
@@ -41,14 +41,15 @@ export interface AssessmentTypeFilters {
 export interface CreateAssessmentTypeData {
   name: string;
   description?: string;
-  category: 'ksq' | 'bsq' | 'custom';
+  category: 'ksq' | 'bsq' | 'monitoring' | 'diagnostic' | 'custom';
   is_active?: boolean;
   criteria?: Record<string, number>;
   max_score: number;
-  scoring_method: 'percentage' | 'points' | 'grades';
+  scoring_method: 'percentage' | 'points' | 'grades' | 'pass_fail';
   grade_levels?: string[];
   subjects?: string[];
   institution_id?: number;
+  institution_assignments?: number[];
 }
 
 export type UpdateAssessmentTypeData = Partial<CreateAssessmentTypeData>;
@@ -68,6 +69,33 @@ export interface AssessmentTypeDropdownItem {
   name: string;
   category: string;
   institution_id?: number;
+}
+
+export interface AssessmentStage {
+  id: number;
+  assessment_type_id: number;
+  name: string;
+  roman_numeral?: string;
+  description?: string;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AssessmentResultField {
+  id: number;
+  assessment_type_id: number;
+  field_key: string;
+  label: string;
+  input_type: 'number' | 'decimal' | 'text';
+  scope: 'class' | 'overall';
+  aggregation: 'sum' | 'average' | 'max' | 'min';
+  is_required: boolean;
+  options?: any[] | null;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
 }
 
 class AssessmentTypeService {
@@ -233,24 +261,32 @@ class AssessmentTypeService {
   /**
    * Get dropdown list of active assessment types
    */
-  async getAssessmentTypesDropdown(category?: 'ksq' | 'bsq' | 'custom'): Promise<AssessmentTypeDropdownItem[]> {
+  async getAssessmentTypesDropdown(category?: string): Promise<AssessmentTypeDropdownItem[]> {
     try {
-      // Use the main getAssessmentTypes method instead of non-existent dropdown endpoint
-      const filters: AssessmentTypeFilters = {
-        is_active: true,
-        category: category,
-        per_page: 100 // Get all active types
-      };
-      
-      const response = await this.getAssessmentTypes(filters);
+      const params = new URLSearchParams();
+      if (category) {
+        params.append('category', category);
+      }
+
+      const queryString = params.toString();
+      const url = queryString ? `${this.baseURL}/dropdown?${queryString}` : `${this.baseURL}/dropdown`;
+      const response = await apiClient.get(url);
+
+      if (!response.success) {
+        throw new Error(response.message || 'Assessment types dropdown yüklənərkən xəta baş verdi');
+      }
+
+      const list = Array.isArray(response.data) ? response.data : [];
 
       // Convert to dropdown format
-      return (response.data || []).map(assessmentType => ({
-        id: assessmentType.id,
-        name: assessmentType.name,
-        category: assessmentType.category,
-        institution_id: assessmentType.institution_id
-      }));
+      return list
+        .filter(item => item?.id && item?.name)
+        .map(assessmentType => ({
+          id: assessmentType.id,
+          name: assessmentType.name,
+          category: assessmentType.category,
+          institution_id: assessmentType.institution_id
+        }));
     } catch (error: any) {
       console.error('Error fetching assessment types dropdown:', error);
       throw new Error(
@@ -268,6 +304,8 @@ class AssessmentTypeService {
     return [
       { value: 'ksq', label: 'Kiçik Summativ Qiymətləndirmə' },
       { value: 'bsq', label: 'Böyük Summativ Qiymətləndirmə' },
+      { value: 'monitoring', label: 'Monitoring' },
+      { value: 'diagnostic', label: 'Diaqnostik Qiymətləndirmə' },
       { value: 'custom', label: 'Xüsusi Qiymətləndirmə' }
     ];
   }
@@ -279,7 +317,8 @@ class AssessmentTypeService {
     return [
       { value: 'percentage', label: 'Faiz (%)' },
       { value: 'points', label: 'Bal' },
-      { value: 'grades', label: 'Qiymət (A, B, C...)' }
+      { value: 'grades', label: 'Qiymət (A, B, C...)' },
+      { value: 'pass_fail', label: 'Keçdi/Qalmadı' }
     ];
   }
 
@@ -317,6 +356,84 @@ class AssessmentTypeService {
       console.error('Error loading subjects:', error);
       // Fallback to empty array if subjects can't be loaded
       return [];
+    }
+  }
+
+  async getStages(assessmentTypeId: number): Promise<AssessmentStage[]> {
+    try {
+      const response = await apiClient.get(`/assessment-types/${assessmentTypeId}/stages`);
+      return response.data?.data ?? response.data ?? [];
+    } catch (error: any) {
+      console.error('Error fetching assessment stages:', error);
+      throw new Error(error.response?.data?.message || 'Mərhələlər yüklənərkən xəta baş verdi');
+    }
+  }
+
+  async createStage(assessmentTypeId: number, payload: Partial<AssessmentStage>): Promise<AssessmentStage> {
+    try {
+      const response = await apiClient.post(`/assessment-types/${assessmentTypeId}/stages`, payload);
+      return response.data?.data ?? response.data;
+    } catch (error: any) {
+      console.error('Error creating assessment stage:', error);
+      throw new Error(error.response?.data?.message || 'Mərhələ yaradılarkən xəta baş verdi');
+    }
+  }
+
+  async updateStage(assessmentTypeId: number, stageId: number, payload: Partial<AssessmentStage>): Promise<AssessmentStage> {
+    try {
+      const response = await apiClient.put(`/assessment-types/${assessmentTypeId}/stages/${stageId}`, payload);
+      return response.data?.data ?? response.data;
+    } catch (error: any) {
+      console.error('Error updating assessment stage:', error);
+      throw new Error(error.response?.data?.message || 'Mərhələ yenilənərkən xəta baş verdi');
+    }
+  }
+
+  async deleteStage(assessmentTypeId: number, stageId: number): Promise<void> {
+    try {
+      await apiClient.delete(`/assessment-types/${assessmentTypeId}/stages/${stageId}`);
+    } catch (error: any) {
+      console.error('Error deleting assessment stage:', error);
+      throw new Error(error.response?.data?.message || 'Mərhələ silinərkən xəta baş verdi');
+    }
+  }
+
+  async getResultFields(assessmentTypeId: number): Promise<AssessmentResultField[]> {
+    try {
+      const response = await apiClient.get(`/assessment-types/${assessmentTypeId}/result-fields`);
+      return response.data?.data ?? response.data ?? [];
+    } catch (error: any) {
+      console.error('Error fetching assessment result fields:', error);
+      throw new Error(error.response?.data?.message || 'Nəticə sahələri yüklənərkən xəta baş verdi');
+    }
+  }
+
+  async createResultField(assessmentTypeId: number, payload: Partial<AssessmentResultField>): Promise<AssessmentResultField> {
+    try {
+      const response = await apiClient.post(`/assessment-types/${assessmentTypeId}/result-fields`, payload);
+      return response.data?.data ?? response.data;
+    } catch (error: any) {
+      console.error('Error creating assessment result field:', error);
+      throw new Error(error.response?.data?.message || 'Nəticə sahəsi yaradılarkən xəta baş verdi');
+    }
+  }
+
+  async updateResultField(assessmentTypeId: number, fieldId: number, payload: Partial<AssessmentResultField>): Promise<AssessmentResultField> {
+    try {
+      const response = await apiClient.put(`/assessment-types/${assessmentTypeId}/result-fields/${fieldId}`, payload);
+      return response.data?.data ?? response.data;
+    } catch (error: any) {
+      console.error('Error updating assessment result field:', error);
+      throw new Error(error.response?.data?.message || 'Nəticə sahəsi yenilənərkən xəta baş verdi');
+    }
+  }
+
+  async deleteResultField(assessmentTypeId: number, fieldId: number): Promise<void> {
+    try {
+      await apiClient.delete(`/assessment-types/${assessmentTypeId}/result-fields/${fieldId}`);
+    } catch (error: any) {
+      console.error('Error deleting assessment result field:', error);
+      throw new Error(error.response?.data?.message || 'Nəticə sahəsi silinərkən xəta baş verdi');
     }
   }
 

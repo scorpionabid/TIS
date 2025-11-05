@@ -122,21 +122,22 @@ export const improvedNavigationConfig: MenuGroup[] = [
             id: 'gradebook',
             label: 'Qiymət Dəftəri',
             path: '/school/gradebook',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]
+          },
+          {
+            id: 'school-assessments-manage',
+            label: 'Qiymətləndirmə İdarəetməsi',
+            path: '/school/assessments',
+            icon: TrendingUp,
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
+            description: 'Qiymətləndirmə kampaniyalarını yaradın və izləyin'
           },
           {
             id: 'assessment-results',
-            label: 'Nəticələr və Analiz',
+            label: 'Məktəb StatistikasI',
             path: '/assessments/results',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]
-          },
-          {
-            id: 'school-assessments-hub',
-            label: 'Məktəb Qiymətləndirmə Hub-ı',
-            path: '/school/assessments',
-            icon: TrendingUp,
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM],
-            description: 'Vahid qiymətləndirmə sistemi - KSQ, BSQ və adi qiymətləndirmələr'
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
+            description: 'Tip və mərhələyə görə nəticələr'
           },
           {
             id: 'assessment-types',

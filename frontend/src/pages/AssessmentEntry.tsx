@@ -1,720 +1,725 @@
-import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { 
-  PlusCircle, 
-  Save,
-  Loader2,
-  Users,
-  School,
-  Target,
-  AlertTriangle,
-  CheckCircle,
-  Search,
-  Filter
-} from "lucide-react";
-import { assessmentTypeService, AssessmentType } from '@/services/assessmentTypes';
-import { institutionService } from '@/services/institutions';
-import { subjectService } from '@/services/subjects';
-import { studentService, Student } from '@/services/students';
-import { assessmentEntryService, AssessmentEntryForm } from '@/services/assessmentEntries';
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, Save, CheckCircle, ClipboardList, Layers3, Edit, Trash2, Download } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { AssessmentResultField } from '@/services/assessmentTypes';
+import { schoolAssessmentService, SchoolAssessment, ClassAssessmentResult, ClassResultPayload } from '@/services/schoolAssessments';
+import { gradeService, Grade } from '@/services/grades';
 import { useToast } from '@/hooks/use-toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BulkEntryInterface } from '@/components/assessment/BulkEntryInterface';
-import { ExcelImportExport } from '@/components/assessment/ExcelImportExport';
 import { useAuth } from '@/contexts/AuthContext';
-import { apiClient } from '@/services/api';
+import { useAutoSave } from '@/hooks/useAutoSave';
 
-
-interface AssessmentEntry {
-  student_id: number;
-  score: number;
-  notes?: string;
-}
-
-interface AssessmentEntryForm {
-  assessment_type_id: number;
-  institution_id: number;
-  assessment_date: string;
-  grade_level?: string;
-  subject?: string;
-  entries: AssessmentEntry[];
-}
+const defaultClassForm: ClassResultPayload = {
+  class_label: '',
+  grade_level: '',
+  subject: '',
+  student_count: undefined,
+  participant_count: undefined,
+  results: {},
+};
 
 export default function AssessmentEntry() {
-  const [selectedInstitution, setSelectedInstitution] = useState<number | null>(null);
-  const [selectedAssessmentType, setSelectedAssessmentType] = useState<AssessmentType | null>(null);
-  const [selectedGradeLevel, setSelectedGradeLevel] = useState<string>('');
-  const [selectedClassName, setSelectedClassName] = useState<string>('');
-  const [selectedSubject, setSelectedSubject] = useState<string>('');
-  const [assessmentDate, setAssessmentDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [assessmentEntries, setAssessmentEntries] = useState<Map<number, AssessmentEntry>>(new Map());
-  const [selectedTab, setSelectedTab] = useState('individual');
+  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
+  const [selectedGradeId, setSelectedGradeId] = useState<number | null>(null);
+  const [classForm, setClassForm] = useState<ClassResultPayload>(defaultClassForm);
+  const [activeTab, setActiveTab] = useState<'form' | 'results'>('form');
+  const [editingResultId, setEditingResultId] = useState<number | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [resultToDelete, setResultToDelete] = useState<ClassAssessmentResult | null>(null);
+  const [showDraftRecoveryDialog, setShowDraftRecoveryDialog] = useState(false);
+  const [lastAutoSaveTime, setLastAutoSaveTime] = useState<Date | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { currentUser } = useAuth();
+  const { hasRole, currentUser } = useAuth();
 
-  // Helper function to safely validate SelectItem values
-  const getSafeSelectValue = (value: any): string => {
-    if (!value) return '';
-    const stringValue = String(value).trim();
-    return stringValue === '' || stringValue === 'undefined' || stringValue === 'null' ? '' : stringValue;
-  };
-
-  // Helper function to validate items for SelectItem
-  const isValidSelectItem = (item: any): boolean => {
-    return item && item.id && item.name && getSafeSelectValue(item.id) !== '';
-  };
-
-  // Fetch institutions (only schools and preschools where students exist)
-  const { data: institutionsResponse, isLoading: institutionsLoading } = useQuery({
-    queryKey: ['student-institutions-dropdown'],
-    queryFn: () => {
-      console.log('🏢 AssessmentEntry: Fetching student institutions (schools & preschools)...');
-      const token = apiClient.getToken();
-      console.log('🔑 AssessmentEntry: Current token exists:', !!token);
-      console.log('👤 AssessmentEntry: Current user:', JSON.stringify({ 
-        name: currentUser?.name, 
-        role: currentUser?.role,
-        permissions: currentUser?.permissions?.slice(0, 5) 
-      }));
-      return institutionService.getStudentInstitutions({ per_page: 100 });
-    },
-    staleTime: 1000 * 60 * 10,
-    onSuccess: (data) => {
-      console.log('✅ AssessmentEntry: Student institutions loaded successfully:', data?.data?.length || 0, 'items');
-    },
-    onError: (error) => {
-      console.error('❌ AssessmentEntry: Failed to load student institutions:', error);
-      console.error('❌ AssessmentEntry: Student institutions API call failed - this might cause logout');
-    }
-  });
-
-  // Extract institutions array from response
-  const institutions = institutionsResponse?.data || [];
-
-  // Auto-select school admin's institution
-  useEffect(() => {
-    if (currentUser?.role === 'schooladmin' && currentUser?.institution?.id && !selectedInstitution && institutions.length > 0) {
-      const userInstitutionId = currentUser.institution.id;
-      // Check if the user's institution exists in the institutions list
-      const userInstitutionExists = institutions.some(inst => inst.id === userInstitutionId);
-      if (userInstitutionExists) {
-        console.log('🏫 Auto-selecting school admin institution:', userInstitutionId, currentUser.institution.name);
-        setSelectedInstitution(userInstitutionId);
-      }
-    }
-  }, [currentUser, institutions, selectedInstitution]);
-
-  // Fetch assessment types
-  const { data: assessmentTypes, isLoading: assessmentTypesLoading } = useQuery({
-    queryKey: ['assessment-types-dropdown'],
-    queryFn: () => {
-      console.log('📋 AssessmentEntry: Fetching assessment types...');
-      const token = apiClient.getToken();
-      console.log('🔑 AssessmentEntry: Token check before assessment types call:', !!token);
-      console.log('👤 AssessmentEntry: User permissions for assessment-types:', 
-        currentUser?.permissions?.filter(p => p.includes('assessment')) || []
-      );
-      return assessmentTypeService.getAssessmentTypesDropdown();
-    },
-    staleTime: 1000 * 60 * 10,
-    onSuccess: (data) => {
-      console.log('✅ AssessmentEntry: Assessment types loaded successfully:', data?.length || 0, 'items');
-      data?.forEach(type => {
-        console.log(`  - ${type.name} (${type.category}) - ID: ${type.id}`);
-      });
-    },
-    onError: (error) => {
-      console.error('❌ AssessmentEntry: Failed to load assessment types:', error);
-      console.error('❌ AssessmentEntry: Assessment types API call failed - this LIKELY causes logout for school1_admin');
-    }
-  });
-
-  // Fetch all students for selected institution (we'll filter by class on frontend)
-  const { data: studentsData, isLoading: studentsLoading, refetch: refetchStudents } = useQuery({
-    queryKey: ['students', selectedInstitution, selectedGradeLevel, searchTerm],
-    queryFn: async () => {
-      if (!selectedInstitution) return null;
-      
-      const filters = {
-        grade_level: (selectedGradeLevel && selectedGradeLevel !== 'all') ? selectedGradeLevel : undefined,
-        search: searchTerm || undefined,
-        per_page: 100
-      };
-      
-      return studentService.getStudentsByInstitution(selectedInstitution, filters);
-    },
-    enabled: !!selectedInstitution,
+  const { data: sessionsData, isLoading: sessionsLoading, refetch: refetchSessions } = useQuery({
+    queryKey: ['school-assessments'],
+    queryFn: () => schoolAssessmentService.getAssessments({ per_page: 50 }),
     staleTime: 1000 * 60 * 5,
   });
 
-  // Get available classes for the selected institution and grade level
-  const { data: availableClasses = [] } = useQuery({
-    queryKey: ['available-classes', selectedInstitution, selectedGradeLevel],
+  const sessions: SchoolAssessment[] = useMemo(() => {
+    const raw = sessionsData?.data ?? sessionsData;
+    return Array.isArray(raw) ? raw : raw?.data ?? [];
+  }, [sessionsData]);
+
+  // Fetch grades for the institution
+  const { data: gradesData, isLoading: gradesLoading } = useQuery({
+    queryKey: ['grades', currentUser?.institution?.id],
     queryFn: async () => {
-      if (!selectedInstitution) return [];
-      
-      // Get unique classes from students data  
-      const allStudents = await studentService.getStudentsByInstitution(selectedInstitution, { per_page: 1000 });
-      const students = allStudents?.data?.students || [];
-      
-      // Filter by grade level if selected
-      const filteredStudents = selectedGradeLevel && selectedGradeLevel !== 'all' 
-        ? students.filter(s => s.grade_level?.toString() === selectedGradeLevel)
-        : students;
-      
-      // Get unique grade+class combinations
-      const classSet = new Set();
-      filteredStudents.forEach(student => {
-        if (student.grade_level && student.class_name) {
-          classSet.add(`${student.grade_level}${student.class_name}`);
-        }
-      });
-      
-      return Array.from(classSet).sort();
+      if (!currentUser?.institution?.id) return null;
+      const response = await gradeService.getGrades({ institution_id: currentUser.institution.id });
+      return response.data;
     },
-    enabled: !!selectedInstitution,
-    staleTime: 1000 * 60 * 10,
+    enabled: !!currentUser?.institution?.id && !!selectedSessionId,
+    staleTime: 1000 * 60 * 5,
   });
 
-  const allStudents = studentsData?.students || [];
-  
-  // Filter students by selected class name (frontend filtering)
-  const students = React.useMemo(() => {
-    if (!selectedClassName || selectedClassName === 'all') {
-      return allStudents;
-    }
-    
-    // Parse selected class (e.g., "9A" -> grade: 9, class: "A")
-    const match = selectedClassName.match(/^(\d+)([A-Z])$/);
-    if (!match) return allStudents;
-    
-    const [, gradeLevel, className] = match;
-    return allStudents.filter(student => 
-      student.grade_level?.toString() === gradeLevel && 
-      student.class_name === className
-    );
-  }, [allStudents, selectedClassName]);
+  const grades: Grade[] = useMemo(() => {
+    return Array.isArray(gradesData) ? gradesData : [];
+  }, [gradesData]);
 
-  // Submit assessment entries mutation
-  const submitAssessmentMutation = useMutation({
-    mutationFn: async (data: AssessmentEntryForm) => {
-      return assessmentEntryService.submitAssessmentEntries(data);
+  // Fetch subjects for selected grade
+  const { data: subjectsData, isLoading: subjectsLoading } = useQuery({
+    queryKey: ['grade-subjects', selectedGradeId],
+    queryFn: async () => {
+      if (!selectedGradeId) return null;
+      const { apiClient } = await import('@/services/api');
+      const response = await apiClient.get(`/grades/${selectedGradeId}/subjects`);
+      return response.data?.data ?? response.data ?? response;
     },
-    onSuccess: (response) => {
-      const { data, warnings } = response;
-      
-      toast({
-        title: 'Uğurlu əməliyyat',
-        description: `${data.created_count} qiymətləndirmə uğurla saxlanıldı.`,
-      });
-      
-      // Show warnings if any
-      if (warnings && warnings.length > 0) {
-        setTimeout(() => {
-          toast({
-            title: 'Xəbərdarlıq',
-            description: `${data.error_count} xəta baş verdi. Xəbərdarlıqları yoxlayın.`,
-            variant: 'destructive',
-          });
-        }, 1000);
+    enabled: !!selectedGradeId,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const subjects = useMemo(() => {
+    if (!subjectsData) return [];
+    return Array.isArray(subjectsData) ? subjectsData : [];
+  }, [subjectsData]);
+
+  const { data: selectedSession, isLoading: sessionLoading } = useQuery({
+    queryKey: ['school-assessment', selectedSessionId],
+    queryFn: () => schoolAssessmentService.getAssessment(selectedSessionId!),
+    enabled: !!selectedSessionId,
+  });
+
+  const resultFields: AssessmentResultField[] = useMemo(
+    () => selectedSession?.assessment_type?.result_fields ?? [],
+    [selectedSession]
+  );
+
+  const initializeClassForm = useCallback(() => {
+    const baseResults: Record<string, any> = {};
+    resultFields.forEach(field => {
+      baseResults[field.field_key] = '';
+    });
+    setClassForm({ ...defaultClassForm, results: baseResults });
+  }, [resultFields]);
+
+  useEffect(() => {
+    if (sessions.length > 0 && !selectedSessionId) {
+      setSelectedSessionId(sessions[0].id);
+    }
+  }, [sessions, selectedSessionId]);
+
+  useEffect(() => {
+    if (selectedSessionId && !sessionLoading) {
+      initializeClassForm();
+    }
+  }, [selectedSessionId, sessionLoading, initializeClassForm]);
+
+  // Auto-save setup
+  const autoSaveKey = `assessment-entry-draft-${selectedSessionId}-${currentUser?.id}`;
+
+  const { saveNow, clearSavedData, getSavedData } = useAutoSave({
+    key: autoSaveKey,
+    data: {
+      classForm,
+      selectedGradeId,
+      editingResultId,
+    },
+    interval: 30000, // 30 seconds
+    enabled: !!selectedSessionId && activeTab === 'form',
+    onSave: () => {
+      setLastAutoSaveTime(new Date());
+    },
+  });
+
+  // Check for draft data on mount
+  useEffect(() => {
+    if (!selectedSessionId) return;
+
+    const savedDraft = getSavedData();
+    if (savedDraft && savedDraft.data) {
+      const timeSinceLastSave = Date.now() - (savedDraft.timestamp || 0);
+      const fiveMinutes = 5 * 60 * 1000;
+
+      // Only show recovery dialog if draft is less than 5 minutes old
+      if (timeSinceLastSave < fiveMinutes) {
+        setShowDraftRecoveryDialog(true);
+      } else {
+        clearSavedData();
       }
-      
-      // Reset form
-      setAssessmentEntries(new Map());
-    },
-    onError: (error: any) => {
+    }
+  }, [selectedSessionId, getSavedData, clearSavedData]);
+
+  const handleRecoverDraft = () => {
+    const savedDraft = getSavedData();
+    if (savedDraft?.data) {
+      setClassForm(savedDraft.data.classForm || defaultClassForm);
+      setSelectedGradeId(savedDraft.data.selectedGradeId || null);
+      setEditingResultId(savedDraft.data.editingResultId || null);
       toast({
-        title: 'Xəta',
-        description: error.message || 'Qiymətləndirmələr saxlanılarkən xəta baş verdi.',
-        variant: 'destructive',
+        title: 'Draft bərpa edildi',
+        description: 'Tamamlanmamış data bərpa olundu.',
       });
     }
-  });
-
-  // Handle assessment type selection
-  const handleAssessmentTypeChange = (assessmentTypeId: string) => {
-    const assessmentType = assessmentTypes?.find(t => t.id.toString() === assessmentTypeId);
-    setSelectedAssessmentType(assessmentType || null);
-    setAssessmentEntries(new Map()); // Clear existing entries
+    setShowDraftRecoveryDialog(false);
   };
 
-  // Handle institution selection
-  const handleInstitutionChange = (institutionId: string) => {
-    setSelectedInstitution(parseInt(institutionId));
-    setAssessmentEntries(new Map()); // Clear existing entries
+  const handleDiscardDraft = () => {
+    clearSavedData();
+    setShowDraftRecoveryDialog(false);
+    toast({
+      title: 'Draft silindi',
+      description: 'Tamamlanmamış data silindi.',
+    });
   };
 
-  // Handle score entry
-  const handleScoreChange = (studentId: number, score: string) => {
-    const numScore = parseFloat(score);
-    if (isNaN(numScore)) {
-      // Remove entry if score is invalid
-      const newEntries = new Map(assessmentEntries);
-      newEntries.delete(studentId);
-      setAssessmentEntries(newEntries);
-      return;
-    }
-
-    const maxScore = selectedAssessmentType?.max_score || 100;
-    if (numScore < 0 || numScore > maxScore) {
-      toast({
-        title: 'Yanlış bal',
-        description: `Bal 0 ilə ${maxScore} arasında olmalıdır.`,
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const newEntries = new Map(assessmentEntries);
-    const existingEntry = newEntries.get(studentId) || { student_id: studentId, score: 0 };
-    newEntries.set(studentId, { ...existingEntry, score: numScore });
-    setAssessmentEntries(newEntries);
+  const handleClassFormChange = (key: keyof ClassResultPayload, value: any) => {
+    setClassForm(prev => ({ ...prev, [key]: value }));
   };
 
-  // Handle notes change
-  const handleNotesChange = (studentId: number, notes: string) => {
-    const newEntries = new Map(assessmentEntries);
-    const existingEntry = newEntries.get(studentId) || { student_id: studentId, score: 0 };
-    newEntries.set(studentId, { ...existingEntry, notes });
-    setAssessmentEntries(newEntries);
+  const handleResultChange = (fieldKey: string, value: any) => {
+    setClassForm(prev => ({
+      ...prev,
+      results: {
+        ...prev.results,
+        [fieldKey]: value,
+      }
+    }));
   };
 
-  // Handle form submission
-  const handleSubmit = () => {
-    if (!selectedInstitution || !selectedAssessmentType) {
-      toast({
-        title: 'Məlumat eksikliği',
-        description: 'Təşkilat və qiymətləndirmə növü seçilməlidir.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (assessmentEntries.size === 0) {
-      toast({
-        title: 'Məlumat eksikliği',
-        description: 'Ən azı bir şagird üçün qiymət daxil edilməlidir.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const formData: AssessmentEntryForm = {
-      assessment_type_id: selectedAssessmentType.id,
-      institution_id: selectedInstitution,
-      assessment_date: assessmentDate,
-      grade_level: (selectedGradeLevel && selectedGradeLevel !== 'all') ? selectedGradeLevel : undefined,
-      subject: (selectedSubject && selectedSubject !== 'all') ? selectedSubject : undefined,
-      entries: Array.from(assessmentEntries.values())
+  const handleSaveResults = async () => {
+    if (!selectedSessionId) return;
+    const payload: ClassResultPayload = {
+      class_label: classForm.class_label,
+      grade_level: classForm.grade_level || undefined,
+      subject: classForm.subject || undefined,
+      student_count: classForm.student_count ? Number(classForm.student_count) : undefined,
+      participant_count: classForm.participant_count ? Number(classForm.participant_count) : undefined,
+      results: classForm.results,
     };
 
-    submitAssessmentMutation.mutate(formData);
+    if (!payload.class_label?.trim()) {
+      toast({ title: 'Məlumat çatışmır', description: 'Sinif etiketi mütləqdir', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      await schoolAssessmentService.saveClassResult(selectedSessionId, payload);
+      toast({ title: 'Yadda saxlanıldı', description: `${payload.class_label} nəticələri saxlanıldı.` });
+      queryClient.invalidateQueries({ queryKey: ['school-assessment', selectedSessionId] });
+      clearSavedData(); // Clear draft after successful save
+      setActiveTab('results');
+      initializeClassForm();
+      setEditingResultId(null);
+      setSelectedGradeId(null);
+    } catch (err: any) {
+      toast({ title: 'Xəta', description: err.message || 'Nəticələr saxlanılmadı.', variant: 'destructive' });
+    }
   };
 
-  // Students are already filtered by the API
-  const filteredStudents = students;
+  const handleCompleteAssessment = async () => {
+    if (!selectedSessionId) return;
+    try {
+      await schoolAssessmentService.completeAssessment(selectedSessionId);
+      toast({ title: 'Tamamlandı', description: 'Qiymətləndirmə statusu yeniləndi.' });
+      queryClient.invalidateQueries({ queryKey: ['school-assessment', selectedSessionId] });
+      refetchSessions();
+    } catch (err: any) {
+      toast({ title: 'Xəta', description: err.message || 'Status yenilənmədi.', variant: 'destructive' });
+    }
+  };
 
-  const gradeLevels = assessmentTypeService.getGradeLevels();
-  
-  // Load subjects dynamically
-  const { data: subjectsResponse } = useQuery({
-    queryKey: ['assessment-entry-subjects'],
-    queryFn: () => subjectService.getSubjects(),
-  });
-  const subjects = (subjectsResponse?.data || []).map((subject: any) => ({ 
-    id: subject.id,
-    value: subject.name, 
-    label: subject.name 
-  }));
+  const handleEditResult = (result: ClassAssessmentResult) => {
+    // Find the grade that matches the result
+    const matchingGrade = grades.find(g => g.name === result.class_label);
+    if (matchingGrade) {
+      setSelectedGradeId(matchingGrade.id);
+    }
+
+    setEditingResultId(result.id);
+    setClassForm({
+      class_label: result.class_label,
+      grade_level: result.grade_level ?? '',
+      subject: result.subject ?? '',
+      student_count: result.student_count ?? undefined,
+      participant_count: result.participant_count ?? undefined,
+      results: result.metadata ?? {},
+    });
+    setActiveTab('form');
+    toast({ title: 'Redaktə rejimi', description: 'Nəticəni redaktə edin və yenidən saxlayın.' });
+  };
+
+  const handleDeleteClick = (result: ClassAssessmentResult) => {
+    setResultToDelete(result);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedSessionId || !resultToDelete) return;
+
+    try {
+      await schoolAssessmentService.deleteClassResult(selectedSessionId, resultToDelete.id);
+      toast({ title: 'Silindi', description: 'Nəticə uğurla silindi.' });
+      queryClient.invalidateQueries({ queryKey: ['school-assessment', selectedSessionId] });
+      setDeleteDialogOpen(false);
+      setResultToDelete(null);
+    } catch (err: any) {
+      toast({ title: 'Xəta', description: err.message || 'Nəticə silinmədi.', variant: 'destructive' });
+    }
+  };
+
+  const handleExport = async () => {
+    if (!selectedSessionId) return;
+
+    setIsExporting(true);
+    try {
+      const blob = await schoolAssessmentService.exportToExcel(selectedSessionId);
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+
+      // Generate filename
+      const assessment = sessions.find(s => s.id === selectedSessionId);
+      const fileName = `${assessment?.assessment_type?.name || 'Qiymetlendirme'}_${assessment?.stage?.name || 'Merhele'}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      link.setAttribute('download', fileName);
+
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+
+      // Cleanup
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({ title: 'Excel yükləndi', description: 'Nəticələr uğurla Excel faylına köçürüldü.' });
+    } catch (err: any) {
+      toast({ title: 'Xəta', description: err.message || 'Excel yüklənmədi.', variant: 'destructive' });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const classResults: ClassAssessmentResult[] = selectedSession?.class_results ?? [];
+
+  // Validation errors
+  const validationErrors = useMemo(() => {
+    const errors: Record<string, string> = {};
+
+    // Check if participant count exceeds student count
+    const studentCount = Number(classForm.student_count) || 0;
+    const participantCount = Number(classForm.participant_count) || 0;
+
+    if (participantCount > studentCount && studentCount > 0) {
+      errors.participant_count = 'İştirakçı sayı şagird sayından çox ola bilməz';
+    }
+
+    // Check required result fields
+    resultFields.forEach(field => {
+      if (field.is_required && !classForm.results[field.field_key]) {
+        errors[field.field_key] = `${field.label} tələb olunur`;
+      }
+    });
+
+    return errors;
+  }, [classForm, resultFields]);
+
+  const hasValidationErrors = Object.keys(validationErrors).length > 0;
 
   return (
     <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
-      
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Qiymətləndirmə Daxil Etmə</h1>
-          <p className="text-muted-foreground">Şagirdlər üçün qiymətləndirmə nəticələrini daxil edin</p>
-        </div>
-      </div>
 
-      {/* Selection Form */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Target className="h-5 w-5" />
-            <span>Qiymətləndirmə Parametrləri</span>
-          </CardTitle>
-          <CardDescription>
-            Əvvəlcə təşkilat və qiymətləndirmə növünü seçin
-          </CardDescription>
+          <CardTitle>Qiymətləndirmə seçimi</CardTitle>
+          <CardDescription>Nəticə daxil etmək üçün qiymətləndirməni seçin.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="institution">Təşkilat *</Label>
-              <Select 
-                value={selectedInstitution?.toString() || ''} 
-                onValueChange={handleInstitutionChange}
-                disabled={institutionsLoading || currentUser?.role === 'schooladmin'}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Təşkilat seçin" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.isArray(institutions) && institutions
-                    .filter(isValidSelectItem)
-                    .map((institution) => {
-                      const safeValue = getSafeSelectValue(institution.id);
-                      return safeValue ? (
-                        <SelectItem key={institution.id} value={safeValue}>
-                          {institution.name}
-                        </SelectItem>
-                      ) : null;
-                    })}
-                </SelectContent>
-              </Select>
+          {sessionsLoading ? (
+            <div className="flex justify-center py-6">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
-
-            <div>
-              <Label htmlFor="assessment_type">Qiymətləndirmə Növü *</Label>
-              <Select 
-                value={selectedAssessmentType?.id.toString() || ''} 
-                onValueChange={handleAssessmentTypeChange}
-                disabled={assessmentTypesLoading}
+          ) : sessions.length > 0 ? (
+            <div className="space-y-2">
+              <Label>Qiymətləndirmə</Label>
+              <Select
+                value={selectedSessionId?.toString() ?? ''}
+                onValueChange={(value) => setSelectedSessionId(Number(value))}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Növ seçin" />
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Qiymətləndirmə seçin" />
                 </SelectTrigger>
                 <SelectContent>
-                  {assessmentTypes?.filter(isValidSelectItem).map((type) => {
-                    const safeValue = getSafeSelectValue(type.id);
-                    return safeValue ? (
-                      <SelectItem key={type.id} value={safeValue}>
-                        {type.name}
+                  {sessions.map(session => {
+                    const title = session.generated_title || session.title || session.assessment_type?.name || 'Qiymətləndirmə';
+                    const date = session.scheduled_date
+                      ? ` (${new Date(session.scheduled_date).toLocaleDateString('az-AZ')})`
+                      : '';
+                    return (
+                      <SelectItem key={session.id} value={session.id.toString()}>
+                        {title + date}
                       </SelectItem>
-                    ) : null;
+                    );
                   })}
                 </SelectContent>
               </Select>
             </div>
-
-            <div>
-              <Label htmlFor="assessment_date">Tarix *</Label>
-              <Input
-                id="assessment_date"
-                type="date"
-                value={assessmentDate}
-                onChange={(e) => setAssessmentDate(e.target.value)}
-              />
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">
+                Qiymətləndirmə tapılmadı. Zəhmət olmasa əvvəlcə "Məktəb Qiymətləndirmə Sistemi" səhifəsindən qiymətləndirmə yaradın.
+              </p>
             </div>
-
-            <div>
-              <Label htmlFor="grade_level">Sinif Səviyyəsi</Label>
-              <Select 
-                value={selectedGradeLevel} 
-                onValueChange={(value) => {
-                  setSelectedGradeLevel(value);
-                  setSelectedClassName(''); // Reset class selection when grade changes
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sinif səviyyəsi seçin" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Hamısı</SelectItem>
-                  {gradeLevels.map((grade) => (
-                    <SelectItem key={grade.value} value={grade.value}>
-                      {grade.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="class_name">Sinif</Label>
-              <Select 
-                value={selectedClassName} 
-                onValueChange={setSelectedClassName}
-                disabled={!selectedInstitution}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sinif seçin" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Hamısı</SelectItem>
-                  {availableClasses.map((className) => (
-                    <SelectItem key={className} value={className}>
-                      {className}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="subject">Fənn</Label>
-              <Select 
-                value={selectedSubject} 
-                onValueChange={setSelectedSubject}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Fənn seçin" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Hamısı</SelectItem>
-                  {subjects.map((subject) => (
-                    <SelectItem key={`subject-${subject.id}-${subject.value}`} value={subject.value}>
-                      {subject.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="search">Şagird Axtarışı</Label>
-              <div className="flex space-x-2">
-                <Input
-                  id="search"
-                  placeholder="Ad və ya nömrə..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <Button size="icon" variant="outline" onClick={() => refetchStudents()}>
-                  <Search className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Assessment Type Info */}
-      {selectedAssessmentType && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <CheckCircle className="h-5 w-5" />
-              <span>Seçilmiş Qiymətləndirmə Növü</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <Label>Ad</Label>
-                <p className="font-medium">{selectedAssessmentType.name}</p>
-              </div>
-              <div>
-                <Label>Kateqoriya</Label>
-                <Badge>{selectedAssessmentType.category_label}</Badge>
-              </div>
-              <div>
-                <Label>Maksimum Bal</Label>
-                <p className="font-medium">{selectedAssessmentType.max_score}</p>
-              </div>
-              <div>
-                <Label>Qiymətləndirmə Metodu</Label>
-                <p className="font-medium">{selectedAssessmentType.scoring_method_label}</p>
-              </div>
-            </div>
-            {selectedAssessmentType.description && (
-              <div className="mt-4">
-                <Label>Təsvir</Label>
-                <p className="text-sm text-muted-foreground">{selectedAssessmentType.description}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      {selectedSessionId && (
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
+          <TabsList>
+            <TabsTrigger value="form" className="flex items-center gap-2">
+              <ClipboardList className="h-4 w-4" />
+              Nəticə formu
+            </TabsTrigger>
+            <TabsTrigger value="results" className="flex items-center gap-2">
+              <Layers3 className="h-4 w-4" />
+              Daxil edilmiş nəticələr
+            </TabsTrigger>
+          </TabsList>
 
-      {/* Data Entry Methods */}
-      {selectedInstitution && selectedAssessmentType && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Users className="h-5 w-5" />
-              <span>Qiymətləndirmə Daxil Etmə</span>
-            </CardTitle>
-            <CardDescription>
-              {studentsData?.pagination?.total || filteredStudents.length} şagird • {assessmentEntries.size} qiymət daxil edilib
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="individual">Fərdi Daxiletmə</TabsTrigger>
-                <TabsTrigger value="bulk">Kütləvi Daxiletmə</TabsTrigger>
-                <TabsTrigger value="excel">Excel Import/Export</TabsTrigger>
-              </TabsList>
+          <TabsContent value="form" className="pt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Sinif nəticələrinin daxil edilməsi</CardTitle>
+                <CardDescription>Seçilmiş qiymətləndirmə üçün nəticələri qeyd edin.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {sessionLoading ? (
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Sinif *</Label>
+                        <Select
+                          value={selectedGradeId?.toString() ?? ''}
+                          onValueChange={(value) => {
+                            const gradeId = Number(value);
+                            setSelectedGradeId(gradeId);
+                            const selectedGrade = grades.find(g => g.id === gradeId);
+                            if (selectedGrade) {
+                              handleClassFormChange('class_label', selectedGrade.name);
+                              handleClassFormChange('grade_level', selectedGrade.class_level.toString());
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={gradesLoading ? "Yüklənir..." : "Sinif seçin"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {grades.length > 0 ? (
+                              grades.map(grade => (
+                                <SelectItem key={grade.id} value={grade.id.toString()}>
+                                  {grade.display_name || grade.full_name || grade.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="__no_grades" disabled>
+                                Sinif tapılmadı
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Fənn *</Label>
+                        <Select
+                          value={classForm.subject ?? ''}
+                          onValueChange={(value) => handleClassFormChange('subject', value)}
+                          disabled={!selectedGradeId || subjectsLoading}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={
+                              !selectedGradeId ? "Əvvəl sinif seçin" :
+                              subjectsLoading ? "Yüklənir..." :
+                              "Fənn seçin"
+                            } />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {subjects.length > 0 ? (
+                              subjects.map((subj: any) => (
+                                <SelectItem key={subj.subject_id || subj.id} value={subj.subject_name || subj.name}>
+                                  {subj.subject_name || subj.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="__no_subjects" disabled>
+                                Bu sinif üçün fənn tapılmadı
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Şagird sayı</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={classForm.student_count ?? ''}
+                          onChange={(e) => handleClassFormChange('student_count', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label>İştirakçı sayı</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={classForm.participant_count ?? ''}
+                          onChange={(e) => handleClassFormChange('participant_count', e.target.value)}
+                          className={validationErrors.participant_count ? 'border-destructive' : ''}
+                        />
+                        {validationErrors.participant_count && (
+                          <p className="text-xs text-destructive mt-1">{validationErrors.participant_count}</p>
+                        )}
+                      </div>
+                    </div>
 
-              <TabsContent value="individual" className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <p className="text-sm text-muted-foreground">
-                    Hər şagird üçün ayrıca qiymət daxil edin
-                  </p>
-                  <Button 
-                    onClick={handleSubmit}
-                    disabled={submitAssessmentMutation.isPending || assessmentEntries.size === 0}
-                  >
-                    {submitAssessmentMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Save className="h-4 w-4 mr-2" />
-                    )}
-                    Saxla
-                  </Button>
-                </div>
-            {studentsLoading ? (
-              <div className="flex justify-center items-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin" />
-                <span className="ml-2">Şagirdlər yüklənir...</span>
-              </div>
-            ) : filteredStudents.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Şagird</TableHead>
-                    <TableHead>Nömrə</TableHead>
-                    <TableHead>Sinif</TableHead>
-                    <TableHead>Bal (0-{selectedAssessmentType.max_score})</TableHead>
-                    <TableHead>Qeydlər</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredStudents.map((student) => {
-                    const entry = assessmentEntries.get(student.id);
-                    const hasScore = entry && entry.score > 0;
-                    
-                    return (
-                      <TableRow key={student.id}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{student.name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              Sinif səviyyəsi: {student.grade_level}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell>{student.student_number}</TableCell>
-                        <TableCell>{student.class_name}</TableCell>
-                        <TableCell>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {resultFields.map(field => (
+                        <div key={field.id}>
+                          <Label>
+                            {field.label}
+                            {field.is_required && <span className="text-destructive"> *</span>}
+                          </Label>
                           <Input
-                            type="number"
-                            min="0"
-                            max={selectedAssessmentType.max_score}
-                            step="0.1"
-                            placeholder="Bal"
-                            value={entry?.score || ''}
-                            onChange={(e) => handleScoreChange(student.id, e.target.value)}
-                            className="w-24"
+                            type={field.input_type === 'text' ? 'text' : 'number'}
+                            value={classForm.results[field.field_key] ?? ''}
+                            onChange={(e) => handleResultChange(field.field_key, e.target.value)}
+                            placeholder={field.scope === 'overall' ? 'Ümumi göstərici' : 'Sinif üzrə dəyər'}
+                            className={validationErrors[field.field_key] ? 'border-destructive' : ''}
                           />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            placeholder="Qeydlər..."
-                            value={entry?.notes || ''}
-                            onChange={(e) => handleNotesChange(student.id, e.target.value)}
-                            className="w-32"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {hasScore ? (
-                            <Badge variant="default">
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Daxil edilib
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline">
-                              Gözləyir
-                            </Badge>
+                          {validationErrors[field.field_key] && (
+                            <p className="text-xs text-destructive mt-1">{validationErrors[field.field_key]}</p>
                           )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="text-center py-8">
-                <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">
-                  {searchTerm ? 'Axtarış nəticəsində şagird tapılmadı' : 'Bu təşkilatda şagird tapılmadı'}
-                </p>
-              </div>
-            )}
-              </TabsContent>
+                        </div>
+                      ))}
+                    </div>
 
-              <TabsContent value="bulk" className="space-y-4">
-                <BulkEntryInterface
-                  institutionId={selectedInstitution}
-                  assessmentTypeId={selectedAssessmentType.id}
-                  assessmentType={selectedAssessmentType}
-                  assessmentDate={assessmentDate}
-                  gradeLevel={selectedGradeLevel || undefined}
-                  className={undefined}
-                  onSave={(entries) => {
-                    toast({
-                      title: 'Kütləvi daxiletmə tamamlandı',
-                      description: `${entries.length} qiymətləndirmə saxlanıldı`,
-                    });
-                    // Refresh the individual tab data
-                    refetchStudents();
-                  }}
-                />
-              </TabsContent>
+                    {hasValidationErrors && (
+                      <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
+                        Formu saxlamaq üçün bütün tələb olunan sahələri doldurun və xətaları düzəldin.
+                      </div>
+                    )}
 
-              <TabsContent value="excel" className="space-y-4">
-                <ExcelImportExport
-                  selectedInstitution={selectedInstitution}
-                  selectedAssessmentType={selectedAssessmentType.id}
-                  onImportComplete={(result) => {
-                    toast({
-                      title: 'Excel import tamamlandı',
-                      description: `${result.successful_imports} qiymətləndirmə uğurla import edildi`,
-                    });
-                    // Refresh the individual tab data
-                    refetchStudents();
-                  }}
-                />
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+                    <div className="flex items-center justify-end gap-2">
+                      <Button variant="outline" onClick={initializeClassForm}>Təmizlə</Button>
+                      <Button onClick={handleSaveResults} disabled={hasValidationErrors}>
+                        <Save className="h-4 w-4 mr-2" /> Saxla
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="results" className="pt-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Daxil edilmiş nəticələr</CardTitle>
+                    <CardDescription>Siniflər üzrə daxil edilən bütün göstəricilər.</CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    {classResults.length > 0 && (
+                      <Button
+                        variant="outline"
+                        onClick={handleExport}
+                        disabled={isExporting}
+                      >
+                        {isExporting ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Yüklənir...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-4 w-4 mr-2" />
+                            Excel-ə köçür
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    {hasRole(['superadmin', 'regionadmin', 'schooladmin']) && (
+                      <Button variant="outline" onClick={handleCompleteAssessment}>
+                        <CheckCircle className="h-4 w-4 mr-2" /> Tamamlandı kimi işarələ
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {sessionLoading ? (
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  </div>
+                ) : classResults.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-8">
+                    Hələ nəticə daxil edilməyib.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Sinif</TableHead>
+                          <TableHead>Fənn</TableHead>
+                          <TableHead>Şagird / İştirak</TableHead>
+                          {resultFields.map(field => (
+                            <TableHead key={field.id}>{field.label}</TableHead>
+                          ))}
+                          <TableHead>Tarix</TableHead>
+                          <TableHead className="text-right">Əməliyyatlar</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {classResults.map(result => (
+                          <TableRow key={result.id}>
+                            <TableCell>
+                              <div className="font-semibold">{result.class_label}</div>
+                              <div className="text-sm text-muted-foreground">{result.grade_level || '—'}</div>
+                            </TableCell>
+                            <TableCell>{result.subject || '—'}</TableCell>
+                            <TableCell>
+                              {result.student_count ?? '—'} / {result.participant_count ?? '—'}
+                            </TableCell>
+                            {resultFields.map(field => (
+                              <TableCell key={`${result.id}-${field.field_key}`}>
+                                {result.metadata?.[field.field_key] ?? '—'}
+                              </TableCell>
+                            ))}
+                            <TableCell>{result.recorded_at ? new Date(result.recorded_at).toLocaleString('az-AZ', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditResult(result)}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteClick(result)}
+                                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       )}
 
-      {/* Instructions */}
-      {!selectedInstitution || !selectedAssessmentType ? (
-        <Card>
-          <CardContent className="px-4 py-6">
-            <div className="text-center">
-              <PlusCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Qiymətləndirmə daxil etməyə başlayın</h3>
-              <p className="text-muted-foreground">
-                Əvvəlcə təşkilat və qiymətləndirmə növünü seçin, sonra şagirdlər üçün qiymətlər daxil edin.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Nəticəni silmək istədiyinizdən əminsiniz?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu əməliyyat geri qaytarıla bilməz. {resultToDelete?.class_label} - {resultToDelete?.subject} nəticəsi silinəcək.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Ləğv et</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Sil
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Draft Recovery Dialog */}
+      <AlertDialog open={showDraftRecoveryDialog} onOpenChange={setShowDraftRecoveryDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tamamlanmamış data tapıldı</AlertDialogTitle>
+            <AlertDialogDescription>
+              Əvvəllər tamamlanmamış qiymətləndirmə data-sı tapıldı. Bərpa etmək istəyirsiniz?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleDiscardDraft}>Xeyr, sil</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRecoverDraft}>
+              Bəli, bərpa et
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Auto-save Indicator */}
+      {lastAutoSaveTime && activeTab === 'form' && (
+        <div className="fixed bottom-4 right-4 bg-primary/10 text-primary text-xs px-3 py-2 rounded-md shadow-md flex items-center gap-2">
+          <CheckCircle className="h-3 w-3" />
+          Avtomatik saxlanıldı: {lastAutoSaveTime.toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' })}
+        </div>
+      )}
+
     </div>
   );
 }

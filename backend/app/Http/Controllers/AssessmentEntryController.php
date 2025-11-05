@@ -488,12 +488,24 @@ class AssessmentEntryController extends Controller
         }
 
         if ($user->hasRole('regionadmin')) {
-            if ($assessmentType->institution_id === null) return true; // Global types
-            return $assessmentType->institution_id === $user->institution_id;
+            if ($assessmentType->institution_id === null) {
+                return true;
+            }
+
+            if ($assessmentType->institution_id === $user->institution_id) {
+                return true;
+            }
+
+            return $assessmentType->assignedInstitutions()
+                ->where('institutions.id', $user->institution_id)
+                ->exists();
         }
 
         return $assessmentType->institution_id === null || 
-               $assessmentType->institution_id === $user->institution_id;
+               $assessmentType->institution_id === $user->institution_id ||
+               $assessmentType->assignedInstitutions()
+                   ->where('institutions.id', $user->institution_id)
+                   ->exists();
     }
 
     /**

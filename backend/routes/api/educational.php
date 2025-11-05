@@ -15,7 +15,11 @@ use App\Http\Controllers\StudentControllerRefactored as StudentController;
 use App\Http\Controllers\SchoolEventController;
 use App\Http\Controllers\TeacherPerformanceController;
 use App\Http\Controllers\AssessmentController;
+use App\Http\Controllers\AssessmentResultFieldController;
+use App\Http\Controllers\AssessmentStageController;
 use App\Http\Controllers\AssessmentTypeController;
+use App\Http\Controllers\SchoolAssessmentController;
+use App\Http\Controllers\SchoolAssessmentReportController;
 use App\Http\Controllers\UnifiedAssessmentController;
 use App\Http\Controllers\API\RegionAssessmentController;
 use App\Http\Controllers\API\RegionalScheduleController;
@@ -394,16 +398,43 @@ Route::prefix('unified-assessments')->middleware('permission:assessments.read')-
 Route::prefix('assessment-types')->middleware('auth:sanctum')->group(function () {
     Route::get('/', [AssessmentTypeController::class, 'index'])->middleware('permission:assessment-types.read');
     Route::post('/', [AssessmentTypeController::class, 'store'])->middleware('permission:assessment-types.create');
+    Route::get('/dropdown', [AssessmentTypeController::class, 'dropdown'])->middleware('permission:assessment-types.read');
     Route::get('/{assessmentType}', [AssessmentTypeController::class, 'show'])->middleware('permission:assessment-types.read');
-    Route::put('/{assessmentType}', [AssessmentTypeController::class, 'update'])->middleware('permission:assessment_types.write');
-    Route::delete('/{assessmentType}', [AssessmentTypeController::class, 'destroy'])->middleware('permission:assessment_types.write');
+    Route::put('/{assessmentType}', [AssessmentTypeController::class, 'update'])->middleware('role:superadmin|regionadmin|schooladmin');
+    Route::delete('/{assessmentType}', [AssessmentTypeController::class, 'destroy'])->middleware('role:superadmin|regionadmin|schooladmin');
     Route::get('/by-institution/{institution}', [AssessmentTypeController::class, 'getByInstitution'])->middleware('permission:assessment-types.read');
     Route::post('/bulk-create', [AssessmentTypeController::class, 'bulkCreate'])->middleware('permission:assessment_types.bulk');
-    
+
     // Institution assignment routes
     Route::post('/{assessmentType}/institutions', [AssessmentTypeController::class, 'assignInstitutions'])->middleware('permission:assessment_types.assign');
     Route::delete('/{assessmentType}/institutions/{institution}', [AssessmentTypeController::class, 'unassignInstitution'])->middleware('permission:assessment_types.assign');
     Route::get('/{assessmentType}/institutions', [AssessmentTypeController::class, 'getAssignedInstitutions']);
+});
+
+Route::prefix('assessment-types/{assessmentType}/stages')->middleware('auth:sanctum')->group(function () {
+    Route::get('/', [AssessmentStageController::class, 'index'])->middleware('permission:assessment-types.read');
+    Route::post('/', [AssessmentStageController::class, 'store'])->middleware('permission:assessment-types.create');
+    Route::put('/{assessmentStage}', [AssessmentStageController::class, 'update'])->middleware('role:superadmin|regionadmin|schooladmin');
+    Route::delete('/{assessmentStage}', [AssessmentStageController::class, 'destroy'])->middleware('role:superadmin|regionadmin|schooladmin');
+});
+
+Route::prefix('assessment-types/{assessmentType}/result-fields')->middleware('auth:sanctum')->group(function () {
+    Route::get('/', [AssessmentResultFieldController::class, 'index'])->middleware('permission:assessment-types.read');
+    Route::post('/', [AssessmentResultFieldController::class, 'store'])->middleware('permission:assessment-types.create');
+    Route::put('/{assessmentResultField}', [AssessmentResultFieldController::class, 'update'])->middleware('role:superadmin|regionadmin|schooladmin');
+    Route::delete('/{assessmentResultField}', [AssessmentResultFieldController::class, 'destroy'])->middleware('role:superadmin|regionadmin|schooladmin');
+});
+
+Route::prefix('school-assessments')->middleware('auth:sanctum')->group(function () {
+    Route::get('/', [SchoolAssessmentController::class, 'index'])->middleware('role:superadmin|regionadmin|schooladmin');
+    Route::post('/', [SchoolAssessmentController::class, 'store'])->middleware('role:superadmin|regionadmin|schooladmin');
+    Route::get('/reports/summary', SchoolAssessmentReportController::class)->middleware('role:superadmin|regionadmin|schooladmin');
+    Route::get('/reports/summary/export', [SchoolAssessmentReportController::class, 'export'])->middleware('role:superadmin|regionadmin|schooladmin');
+    Route::get('/{schoolAssessment}', [SchoolAssessmentController::class, 'show'])->middleware('role:superadmin|regionadmin|schooladmin');
+    Route::get('/{schoolAssessment}/export', [SchoolAssessmentController::class, 'export'])->middleware('role:superadmin|regionadmin|schooladmin');
+    Route::post('/{schoolAssessment}/class-results', [SchoolAssessmentController::class, 'storeClassResults'])->middleware('role:superadmin|regionadmin|schooladmin');
+    Route::delete('/{schoolAssessment}/class-results/{classResult}', [SchoolAssessmentController::class, 'deleteClassResult'])->middleware('role:superadmin|regionadmin|schooladmin');
+    Route::post('/{schoolAssessment}/complete', [SchoolAssessmentController::class, 'complete'])->middleware('role:superadmin|regionadmin|schooladmin');
 });
 
 // Assessment Student Management
