@@ -454,6 +454,8 @@ export default function AssessmentEntry() {
                             if (selectedGrade) {
                               handleClassFormChange('class_label', selectedGrade.name);
                               handleClassFormChange('grade_level', selectedGrade.class_level.toString());
+                              // Avtomatik olaraq database-dəki şagird sayını daxil et
+                              handleClassFormChange('student_count', selectedGrade.student_count ?? 0);
                             }
                           }}
                         >
