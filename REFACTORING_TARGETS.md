@@ -1,19 +1,99 @@
-# Refactoring Priority Files (1000+ lines)
+# Refactoring Priority Files (1000+ lines) - UPDATED 2025-11-06
 
-The following source files exceed 1000 lines and should be prioritised for refactoring or cleanup.
+**Status:** PRODUCTION ACTIVE - Refaktorinq ehtiyatlı şəkildə həyata keçirilməlidir
+**İlgili Sənəd:** [REFACTORING_ROADMAP_2025.md](./REFACTORING_ROADMAP_2025.md) - Dəqiq mərhələli plan üçün
 
-- backend/app/Http/Controllers/Grade/GradeUnifiedController.php — ~1450 lines; break controller logic into specialised actions/services.
-- backend/app/Services/SurveyAnalyticsService.php — ~1450 lines; split analytics workflows into dedicated modules.
-- backend/app/Services/SurveyApprovalService.php — ~1280 lines; isolate approval steps into smaller collaborating services.
-- backend/app/Services/GradeManagementService.php — ~1100 lines; separate grade lifecycle responsibilities into focused classes.
-- backend/app/Services/SurveyCrudService.php — ~1010 lines; distribute CRUD helpers across narrower service layers.
-- backend/app/Services/Import/ImportOrchestrator.php — ~1030 lines; modularise import stages and shared utilities.
-- backend/app/Services/LinkSharingService.php — ~1000 lines; extract link, permission, and audit logic into helper components.
-- frontend/src/services/superAdmin.ts — ~1030 lines; split API clients by domain (users, institutions, reports, etc.).
-- frontend/src/components/modals/InstitutionModalStandardized.tsx.backup — ~1960 lines; confirm necessity or refactor into smaller UI subcomponents.
-- frontend/src/components/modals/UserModal.tsx.backup — ~1100 lines; remove if redundant or decompose into reusable form fragments.
+---
 
-Non-code large files (locks, databases, logs, documentation) are excluded because they do not require refactoring.
+## 🔴 ACTIVE REFACTOR TARGETS (1000+ lines)
+
+Aşağıdakı fayllar 1000 sətirdən çoxdur və refaktor prioritetinə malikdir:
+
+### Backend Services & Controllers
+
+| Fayl | Cari Sətir | Hədəf | Prioritet | Status |
+|------|-----------|-------|-----------|--------|
+| `backend/app/Services/SurveyAnalyticsService.php` | 1453 | <500 | 🔴 P1 | Qismən refaktor edilib - modulyar servislər var |
+| `backend/app/Http/Controllers/Grade/GradeUnifiedController.php` | 1451 | <500 | 🔴 P1 | Refaktor gözlənilir - GradeStatsController mövcud |
+| `backend/app/Services/SurveyApprovalService.php` | 1283 | <500 | 🟠 P2 | Qismən modular - Bridge və Notification ayrılıb |
+| `backend/app/Services/GradeManagementService.php` | 1102 | <500 | 🟠 P2 | Refaktor gözlənilir - ClassAnalytics mövcud |
+| `backend/app/Services/Import/ImportOrchestrator.php` | 1027 | <500 | 🟡 P3 | Yaxşı modularlaşıb - yalnız sadələşdirmə lazım |
+| `backend/app/Services/SurveyCrudService.php` | 1012 | <500 | 🟡 P3 | Filtering SurveyTargeting-ə köçürülməlidir |
+| `backend/app/Services/LinkSharingService.php` | 1000 | <500 | 🟡 P4 | LinkAnalytics və DocumentSharing ayrılıb |
+
+### Frontend Services
+
+| Fayl | Cari Sətir | Hədəf | Prioritet | Status |
+|------|-----------|-------|-----------|--------|
+| `frontend/src/services/superAdmin.ts` | 1035 | <500 | 🟠 P2 | Domain-based split tələb olunur |
+
+---
+
+## ✅ Refaktor Edilmiş / Silinmiş Fayllar
+
+### Artıq Silinməli Backup Fayllar
+
+| Fayl | Səbəb | Tədbir |
+|------|-------|--------|
+| ~~`frontend/src/components/modals/InstitutionModalStandardized.tsx.backup`~~ | ❌ Tapılmadı - artıq silinib | ✅ TƏMİZ |
+| ~~`frontend/src/components/modals/UserModal.tsx.backup`~~ | ❌ Tapılmadı - artıq silinib | ✅ TƏMİZ |
+| `frontend/src/components/modals/UserModal/UserModal.DEPRECATED.tsx` | Modulyar versiya aktiv | 🗑️ SİL |
+| `frontend/src/components/grades/GradeCreateDialog.tsx.backup` | Aktiv versiya mövcud | 🗑️ SİL |
+| `frontend/src/components/modals/InstitutionModal.tsx.backup` | Standardlaşdırılıb | 🗑️ SİL |
+| `frontend/src/components/approval/survey-results/SurveyResultsTab.tsx.backup` | Yeni versiya aktiv | 🗑️ SİL |
+
+---
+
+## 📊 Mövcud Modulyar Servislər (Refaktor Üçün Hazır Infrastruktur)
+
+### ✅ Analytics Modulları
+- `backend/app/Services/Analytics/HierarchicalAnalyticsService.php` ✅
+- `backend/app/Services/ClassAnalyticsService.php` ✅
+- `backend/app/Services/ReportAnalyticsService.php` ✅
+- `backend/app/Services/PerformanceAnalyticsService.php` ✅
+- `backend/app/Services/LinkAnalyticsService.php` ✅
+- `backend/app/Services/ApprovalAnalyticsService.php` ✅
+
+### ✅ Import Modulları
+- `backend/app/Services/Import/InstitutionExcelParserService.php` ✅
+- `backend/app/Services/Import/ImportErrorAnalyzerService.php` ✅
+- `backend/app/Services/Import/InstitutionAdminCreatorService.php` ✅
+- `backend/app/Services/Import/InstitutionTypeProcessorFactory.php` ✅
+
+### ✅ Schedule Modulları
+- `backend/app/Services/RoomScheduleService.php` ✅
+- `backend/app/Services/Schedule/AdvancedConflictResolver.php` ✅
+
+### ✅ Survey Modulları
+- `backend/app/Services/SurveyApprovalBridge.php` ✅
+- `backend/app/Services/SurveyNotificationService.php` ✅
+- `backend/app/Services/SurveyTargetingService.php` ✅
+- `backend/app/Services/SurveyResponseCacheService.php` ✅
+
+### ✅ Grade Modulları
+- `backend/app/Http/Controllers/Grade/GradeStatsController.php` ✅
+- `backend/app/Http/Controllers/Grade/GradeCRUDController.php` ✅
+- `backend/app/Http/Controllers/Grade/GradeStudentController.php` ✅
+
+---
+
+## 📝 Qeyd: Kod təmizliyi və refaktor üçün qeyri-kod fayllar istisna edilmişdir
+
+Aşağıdakı böyük fayllar refaktor tələb etmir:
+- `backend/composer.lock` (dependency lock)
+- `backend/database/database*.sqlite` (database fayllar)
+- `database-backups/*.sqlite` (backup fayllar)
+- `frontend/package-lock.json` (dependency lock)
+- `phpunit-unit.log` (log fayllar)
+- Documentation və markdown fayllar (*.md)
+
+---
+
+**Son Yenilənmə:** 2025-11-06
+**Növbəti Review:** Hər sprint sonunda (həftəlik)
+**Əlaqəli Sənədlər:**
+- [REFACTORING_ROADMAP_2025.md](./REFACTORING_ROADMAP_2025.md) - Dəqiq icra planı
+- [files_over_500_lines.txt](./files_over_500_lines.txt) - Tam fayl siyahısı
 
 ## Dərin Refaktoring Qeydləri
 

@@ -1,209 +1,361 @@
-CLAUDE.md
-DEPLOYMENT_GUIDE.md
-MANUAL_TEST_GUIDE.md
-REGIONADMIN_CLASSES_IMPROVEMENT_PLAN.md
-REGIONOPERATOR_DEPLOYMENT_PLAN.md
-backend/ATİS_API_Collection.postman.json
-backend/app/Http/Controllers/API/ApprovalApiController.php
-backend/app/Http/Controllers/API/ApprovalApiControllerRefactored.php
-backend/app/Http/Controllers/API/AssessmentExcelController.php
-backend/app/Http/Controllers/API/AttendanceRecordApiController.php
-backend/app/Http/Controllers/API/BulkAssessmentController.php
-backend/app/Http/Controllers/AssessmentController.php
-backend/app/Http/Controllers/AssessmentEntryController.php
-backend/app/Http/Controllers/ClassAttendanceController.php
-backend/app/Http/Controllers/DepartmentController.php
-backend/app/Http/Controllers/DocumentControllerRefactored.php
-backend/app/Http/Controllers/Grade/GradeCRUDController.php
-backend/app/Http/Controllers/Grade/GradeStudentController.php
-backend/app/Http/Controllers/Grade/GradeUnifiedController.php
-backend/app/Http/Controllers/ImportController.php
-backend/app/Http/Controllers/Institution/InstitutionBulkController.php
-backend/app/Http/Controllers/Institution/InstitutionCRUDController.php
-backend/app/Http/Controllers/InstitutionController.php
-backend/app/Http/Controllers/InstitutionHierarchyController.php
-backend/app/Http/Controllers/PreschoolController.php
-backend/app/Http/Controllers/Psychology/PsychologyAssessmentController.php
-backend/app/Http/Controllers/Psychology/PsychologySessionController.php
-backend/app/Http/Controllers/RegionAdmin/RegionAdminClassController.php
-backend/app/Http/Controllers/RegionAdmin/RegionAdminInstitutionController.php
-backend/app/Http/Controllers/RegionAdmin/RegionAdminUserController.php
-backend/app/Http/Controllers/RegionAdmin/RegionTeacherController.php
-backend/app/Http/Controllers/ReportsController.php
-backend/app/Http/Controllers/RoomControllerRefactored.php
-backend/app/Http/Controllers/ScheduleControllerRefactored.php
-backend/app/Http/Controllers/School/SchoolTeacherController.php
-backend/app/Http/Controllers/SchoolAttendanceController.php
-backend/app/Http/Controllers/SchoolStaff/SchoolStaffDashboardController.php
-backend/app/Http/Controllers/SuperAdminDashboardController.php
-backend/app/Http/Controllers/SurveyApprovalController.php
-backend/app/Http/Controllers/SurveyController.php
-backend/app/Http/Controllers/TaskControllerRefactored.php
-backend/app/Http/Controllers/UnifiedAssessmentController.php
-backend/app/Http/Controllers/UserBulkController.php
-backend/app/Http/Controllers/UserControllerRefactored.php
-backend/app/Models/AcademicAssessment.php
-backend/app/Models/AcademicCalendar.php
-backend/app/Models/AccountLockout.php
-backend/app/Models/DailyAttendanceSummary.php
-backend/app/Models/Document.php
-backend/app/Models/Grade.php
-backend/app/Models/Institution.php
-backend/app/Models/MaintenanceRecord.php
-backend/app/Models/Schedule.php
-backend/app/Models/ScheduleConflict.php
-backend/app/Models/ScheduleSession.php
-backend/app/Models/SecurityIncident.php
-backend/app/Models/Survey.php
-backend/app/Models/SurveyQuestion.php
-backend/app/Models/Task.php
-backend/app/Models/TeacherAvailability.php
-backend/app/Models/TeacherEvaluation.php
-backend/app/Models/TeacherSubject.php
-backend/app/Models/User.php
-backend/app/Services/ApprovalAnalyticsService.php
-backend/app/Services/ApprovalWorkflowService.php
-backend/app/Services/DocumentActivityService.php
-backend/app/Services/DocumentCollectionService.php
-backend/app/Services/DocumentPermissionService.php
-backend/app/Services/GradeManagementService.php
-backend/app/Services/Import/ImportOrchestrator.php
-backend/app/Services/Import/InstitutionExcelTemplateService.php
-backend/app/Services/Import/InstitutionImportOrchestrator.php
-backend/app/Services/InventoryCrudService.php
-backend/app/Services/InventoryMaintenanceService.php
-backend/app/Services/LinkSharingService.php
-backend/app/Services/NotificationService.php
-backend/app/Services/RegionAdmin/RegionTeacherService.php
-backend/app/Services/RegionOperator/RegionOperatorDashboardService.php
-backend/app/Services/ReportCrudService.php
-backend/app/Services/ReportGenerationService.php
-backend/app/Services/Schedule/AdvancedScheduleOptimizer.php
-backend/app/Services/Schedule/ScheduleGenerationEngine.php
-backend/app/Services/ScheduleCrudService.php
-backend/app/Services/ScheduleGenerationService.php
-backend/app/Services/ScheduleValidationService.php
-backend/app/Services/SectorAnalyticsService.php
-backend/app/Services/StudentEnrollmentService.php
-backend/app/Services/StudentManagementService.php
-backend/app/Services/SurveyAnalyticsService.php
-backend/app/Services/SurveyApprovalService.php
-backend/app/Services/SurveyBulkService.php
-backend/app/Services/SurveyCrudService.php
-backend/app/Services/SurveyResponseService.php
-backend/app/Services/SurveyStatusService.php
-backend/app/Services/TaskAssignmentService.php
-backend/app/Services/TaskPermissionService.php
-backend/app/Services/TaskStatisticsService.php
-backend/app/Services/TeacherPerformanceService.php
-backend/app/Services/UserBulkService.php
-backend/app/Services/UserCrudService.php
-backend/app/Services/UserUtilityService.php
-backend/composer.lock
-backend/database/database.sqlite
-backend/database/database.sqlite.backup-20250903
-backend/database/database_backup_20250914_224550.sqlite
-backend/database/database_backup_20250927_170400.sqlite
-backend/database/database_backup_20250929_173147.sqlite
-backend/database/database_backup_20251030_095751_pre_reset.sqlite
-backend/database/database_before_restore_20251003_195720.sqlite
-backend/database/seeders/TestDataSeeder.php
-backend/routes/api/educational.php
-backend/tests/Feature/Api/UserApiIntegrationTest.php
-backend/tests/Feature/AssessmentControllerTest.php
-backend/tests/Feature/DepartmentTest.php
-backend/tests/Feature/EndToEndWorkflowTest.php
-backend/tests/Feature/InventoryTransactionControllerTest.php
-backend/tests/Feature/ScheduleControllerTest.php
-backend/tests/Feature/StudentApiTest.php
-database-backups/production_359institutions_20251003.sqlite
-documentation/02_technical_specs/Technical_Requirements_v2.0_Enhanced.md
-documentation/04_database_design/DB-4_Melumat_Toplama_ve_Sorgu_Cedvelleri.md
-documentation/04_database_design/DB-6_Sistem_Infrastrukturu_ve_Texniki_Cedveller.md
-frontend/TASK_MODAL_IMPROVEMENTS.md
-frontend/package-lock.json
-frontend/public/favicon.ico
-frontend/src/App.tsx
-frontend/src/components/approval/ApprovalDashboard.tsx
-frontend/src/components/approval/ResponseDetailModal.tsx
-frontend/src/components/approval/SurveyApprovalDashboard.tsx
-frontend/src/components/approval/deprecated/InstitutionResponsesTable.tsx
-frontend/src/components/approval/deprecated/SurveyResponsesTab.tsx
-frontend/src/components/assessment/BulkEntryInterface.tsx
-frontend/src/components/common/DataTableVirtualized.tsx
-frontend/src/components/curriculum/CurriculumTab.tsx
-frontend/src/components/dashboard/MuavinDashboard.tsx
-frontend/src/components/dashboard/RegionAssessmentDashboard.tsx
-frontend/src/components/dashboard/TesarrufatDashboard.tsx
-frontend/src/components/dashboard/UBRDashboard.tsx
-frontend/src/components/documents/FolderDocumentsView.tsx
-frontend/src/components/documents/FolderDocumentsViewOptimized.tsx
-frontend/src/components/documents/FolderDocumentsViewOptimizedV2.tsx
-frontend/src/components/forms/FormBuilder.tsx
-frontend/src/components/grades/GradeCreateDialog.tsx
-frontend/src/components/grades/GradeCreateDialog.tsx.backup
-frontend/src/components/grades/GradeCreateDialogSimplified.tsx
-frontend/src/components/grades/configurations/gradeConfig.tsx
-frontend/src/components/hierarchy/HierarchyModal.tsx
-frontend/src/components/modals/InstitutionImportExportModal.tsx
-frontend/src/components/modals/InstitutionModalStandardized.tsx
-frontend/src/components/modals/InstitutionModalStandardized.tsx.backup
-frontend/src/components/modals/ProfileEditModal.tsx
-frontend/src/components/modals/SurveyModal.tsx
-frontend/src/components/modals/TaskModalStandardized.tsx
-frontend/src/components/modals/TeacherModal/index.tsx
-frontend/src/components/modals/UserModal.tsx.backup
-frontend/src/components/modals/archive/DocumentShareModal.tsx
-frontend/src/components/modals/archive/LinkEditModal.tsx
-frontend/src/components/modals/configurations/modalFieldConfig.tsx
-frontend/src/components/modals/institution/InstitutionFormFields.tsx
-frontend/src/components/modals/institution/useInstitutionValidation.tsx
-frontend/src/components/regionadmin/RegionAdminDashboard.tsx
-frontend/src/components/regionoperator/RegionOperatorDashboard.tsx
-frontend/src/components/schedules/RegionalSchedulesDashboard.tsx
-frontend/src/components/schedules/ScheduleComparisonTool.tsx
-frontend/src/components/schedules/components/ConflictsList.tsx
-frontend/src/components/schedules/components/ScheduleSettings.tsx
-frontend/src/components/students/configurations/studentConfig.tsx
-frontend/src/components/surveys/SurveyResponseForm.tsx
-frontend/src/components/teachers/regionadmin/RegionTeacherManager.tsx
-frontend/src/components/ui/sidebar.tsx
-frontend/src/config/navigation.ts
-frontend/src/contexts/WebSocketContext.tsx
-frontend/src/pages/Analytics.tsx
-frontend/src/pages/AssessmentEntry.tsx
-frontend/src/pages/AssessmentResults.tsx
-frontend/src/pages/Departments.tsx
-frontend/src/pages/Hierarchy.tsx
-frontend/src/pages/MyResources.tsx
-frontend/src/pages/Notifications.tsx
-frontend/src/pages/Preschools.tsx
-frontend/src/pages/Reports.tsx
-frontend/src/pages/Resources.tsx
-frontend/src/pages/SchoolAssessments.tsx
-frontend/src/pages/SchoolWorkload.tsx
-frontend/src/pages/Settings.tsx
-frontend/src/pages/SubjectManagement.tsx
-frontend/src/pages/Surveys.tsx
-frontend/src/pages/Tasks.tsx
-frontend/src/pages/archive/Links.tsx
-frontend/src/pages/my-surveys/MyResponses.tsx
-frontend/src/pages/regionadmin/RegionClassManagement.tsx
-frontend/src/pages/school/BulkAttendanceEntry.tsx
-frontend/src/services/analytics.ts
-frontend/src/services/apiOptimized.ts
-frontend/src/services/assessments.ts
-frontend/src/services/grades.ts
-frontend/src/services/institutions.ts
-frontend/src/services/notification.ts
-frontend/src/services/regionAdminTeachers.ts
-frontend/src/services/resources.ts
-frontend/src/services/schedule.ts
-frontend/src/services/schoolAdmin.ts
-frontend/src/services/students.ts
-frontend/src/services/superAdmin.ts
-frontend/src/services/surveyApproval.ts
-frontend/src/services/unifiedAssessments.ts
-frontend/src/services/users.ts
-frontend/src/utils/helpers.ts
-phpunit-unit.log
+# ATİS Files Over 500 Lines - 2025-11-06 Snapshot
+
+## Backend Controllers (500+ lines)
+
+### API Controllers
+- backend/app/Http/Controllers/API/ApprovalApiController.php (992 sətir)
+- backend/app/Http/Controllers/API/ApprovalApiControllerRefactored.php (907 sətir)
+- backend/app/Http/Controllers/API/AssessmentExcelController.php
+- backend/app/Http/Controllers/API/AttendanceRecordApiController.php
+- backend/app/Http/Controllers/API/BulkAssessmentController.php
+
+### Grade Controllers
+- backend/app/Http/Controllers/Grade/GradeUnifiedController.php (1451 sətir) ⚠️ REFACTOR PRIORITY 1
+- backend/app/Http/Controllers/Grade/GradeCRUDController.php (527 sətir)
+- backend/app/Http/Controllers/Grade/GradeStudentController.php (529 sətir)
+
+### Main Controllers
+- backend/app/Http/Controllers/AssessmentController.php
+- backend/app/Http/Controllers/AssessmentEntryController.php
+- backend/app/Http/Controllers/ClassAttendanceController.php
+- backend/app/Http/Controllers/DepartmentController.php
+- backend/app/Http/Controllers/DocumentCollectionController.php
+- backend/app/Http/Controllers/DocumentControllerRefactored.php (820 sətir)
+- backend/app/Http/Controllers/ImportController.php
+- backend/app/Http/Controllers/InstitutionController.php
+- backend/app/Http/Controllers/InstitutionHierarchyController.php
+- backend/app/Http/Controllers/PreschoolController.php
+- backend/app/Http/Controllers/ReportsController.php
+- backend/app/Http/Controllers/RoomControllerRefactored.php
+- backend/app/Http/Controllers/ScheduleControllerRefactored.php (824 sətir)
+- backend/app/Http/Controllers/SchoolAttendanceController.php
+- backend/app/Http/Controllers/SurveyApprovalController.php
+- backend/app/Http/Controllers/SurveyController.php
+- backend/app/Http/Controllers/TaskControllerRefactored.php (824 sətir)
+- backend/app/Http/Controllers/UnifiedAssessmentController.php
+- backend/app/Http/Controllers/UserBulkController.php
+- backend/app/Http/Controllers/UserControllerRefactored.php
+
+### Institution Controllers
+- backend/app/Http/Controllers/Institution/InstitutionBulkController.php (883 sətir)
+- backend/app/Http/Controllers/Institution/InstitutionCRUDController.php
+
+### Psychology Controllers
+- backend/app/Http/Controllers/Psychology/PsychologyAssessmentController.php
+- backend/app/Http/Controllers/Psychology/PsychologySessionController.php
+
+### RegionAdmin Controllers
+- backend/app/Http/Controllers/RegionAdmin/RegionAdminClassController.php
+- backend/app/Http/Controllers/RegionAdmin/RegionAdminInstitutionController.php
+- backend/app/Http/Controllers/RegionAdmin/RegionAdminUserController.php
+- backend/app/Http/Controllers/RegionAdmin/RegionTeacherController.php (808 sətir)
+
+### School Controllers
+- backend/app/Http/Controllers/School/SchoolTeacherController.php (826 sətir)
+
+### Dashboard Controllers
+- backend/app/Http/Controllers/SchoolStaff/SchoolStaffDashboardController.php
+- backend/app/Http/Controllers/SuperAdminDashboardController.php
+
+---
+
+## Backend Models (500+ lines)
+
+- backend/app/Models/AcademicAssessment.php
+- backend/app/Models/AcademicCalendar.php
+- backend/app/Models/AccountLockout.php
+- backend/app/Models/DailyAttendanceSummary.php
+- backend/app/Models/Document.php
+- backend/app/Models/Grade.php
+- backend/app/Models/Institution.php
+- backend/app/Models/MaintenanceRecord.php
+- backend/app/Models/Schedule.php
+- backend/app/Models/ScheduleConflict.php
+- backend/app/Models/ScheduleSession.php
+- backend/app/Models/SecurityIncident.php
+- backend/app/Models/Survey.php
+- backend/app/Models/SurveyQuestion.php
+- backend/app/Models/Task.php
+- backend/app/Models/TeacherAvailability.php
+- backend/app/Models/TeacherEvaluation.php
+- backend/app/Models/TeacherSubject.php
+- backend/app/Models/User.php
+
+---
+
+## Backend Services (500+ lines)
+
+### 🔴 CRITICAL REFACTOR TARGETS (1000+ lines)
+- backend/app/Services/SurveyAnalyticsService.php (1453 sətir) ⚠️ PRIORITY 1
+- backend/app/Services/SurveyApprovalService.php (1283 sətir) ⚠️ PRIORITY 1
+- backend/app/Services/GradeManagementService.php (1102 sətir) ⚠️ PRIORITY 2
+- backend/app/Services/Import/ImportOrchestrator.php (1027 sətir) ⚠️ PRIORITY 3
+- backend/app/Services/SurveyCrudService.php (1012 sətir) ⚠️ PRIORITY 3
+- backend/app/Services/LinkSharingService.php (1000 sətir) ⚠️ PRIORITY 4
+
+### Approval Services
+- backend/app/Services/ApprovalAnalyticsService.php
+- backend/app/Services/ApprovalWorkflowService.php
+
+### Document Services
+- backend/app/Services/DocumentActivityService.php
+- backend/app/Services/DocumentCollectionService.php (797 sətir)
+- backend/app/Services/DocumentPermissionService.php
+
+### Import Services
+- backend/app/Services/Import/InstitutionExcelTemplateService.php (778 sətir)
+- backend/app/Services/Import/InstitutionImportOrchestrator.php
+
+### Inventory Services
+- backend/app/Services/InventoryCrudService.php
+- backend/app/Services/InventoryMaintenanceService.php
+
+### Notification & Report Services
+- backend/app/Services/NotificationService.php
+
+### RegionAdmin Services
+- backend/app/Services/RegionAdmin/RegionTeacherService.php
+
+### RegionOperator Services
+- backend/app/Services/RegionOperator/RegionOperatorDashboardService.php
+
+### Report Services
+- backend/app/Services/ReportCrudService.php
+- backend/app/Services/ReportGenerationService.php
+
+### Schedule Services
+- backend/app/Services/Schedule/AdvancedScheduleOptimizer.php
+- backend/app/Services/Schedule/ScheduleGenerationEngine.php (835 sətir)
+- backend/app/Services/ScheduleCrudService.php
+- backend/app/Services/ScheduleGenerationService.php
+- backend/app/Services/ScheduleValidationService.php
+
+### Sector Services
+- backend/app/Services/SectorAnalyticsService.php
+
+### Student Services
+- backend/app/Services/StudentEnrollmentService.php
+- backend/app/Services/StudentManagementService.php
+
+### Survey Services
+- backend/app/Services/SurveyBulkService.php (620 sətir)
+- backend/app/Services/SurveyResponseService.php (655 sətir)
+- backend/app/Services/SurveyStatusService.php (601 sətir)
+
+### Task Services
+- backend/app/Services/TaskAssignmentService.php
+- backend/app/Services/TaskPermissionService.php
+- backend/app/Services/TaskStatisticsService.php
+
+### Teacher Services
+- backend/app/Services/TeacherPerformanceService.php
+
+### User Services
+- backend/app/Services/UserBulkService.php
+- backend/app/Services/UserCrudService.php
+- backend/app/Services/UserUtilityService.php
+
+---
+
+## Database & Routes (500+ lines)
+
+- backend/database/seeders/TestDataSeeder.php
+- backend/routes/api/educational.php
+
+---
+
+## Frontend Pages (500+ lines)
+
+### Assessment Pages
+- frontend/src/pages/AssessmentEntry.tsx
+- frontend/src/pages/AssessmentResults.tsx (901 sətir)
+- frontend/src/pages/AssessmentTypes.tsx (949 sətir) ⚠️ Refactor needed
+
+### Main Pages
+- frontend/src/App.tsx
+- frontend/src/pages/Analytics.tsx
+- frontend/src/pages/AssignedTasks.tsx (512 sətir)
+- frontend/src/pages/Departments.tsx
+- frontend/src/pages/Hierarchy.tsx
+- frontend/src/pages/MyResources.tsx
+- frontend/src/pages/Notifications.tsx
+- frontend/src/pages/Preschools.tsx
+- frontend/src/pages/Reports.tsx
+- frontend/src/pages/Resources.tsx
+- frontend/src/pages/SchoolWorkload.tsx
+- frontend/src/pages/Settings.tsx
+- frontend/src/pages/SubjectManagement.tsx
+- frontend/src/pages/Surveys.tsx
+- frontend/src/pages/Tasks.tsx (936 sətir)
+
+### User Pages
+- frontend/src/pages/Users/UserManagement.tsx
+
+### Archive Pages
+- frontend/src/pages/archive/Links.tsx
+
+### My Surveys Pages
+- frontend/src/pages/my-surveys/MyResponses.tsx
+
+### RegionAdmin Pages
+- frontend/src/pages/regionadmin/RegionAdminUsers.tsx
+- frontend/src/pages/regionadmin/RegionClassManagement.tsx (931 sətir)
+
+### School Pages
+- frontend/src/pages/school/BulkAttendanceEntry.tsx (790 sətir)
+
+---
+
+## Frontend Components (500+ lines)
+
+### Approval Components
+- frontend/src/components/approval/ApprovalDashboard.tsx
+- frontend/src/components/approval/ResponseDetailModal.tsx
+- frontend/src/components/approval/SurveyApprovalDashboard.tsx (782 sətir)
+- frontend/src/components/approval/deprecated/InstitutionResponsesTable.tsx
+- frontend/src/components/approval/deprecated/SurveyResponsesTab.tsx
+
+### Assessment Components
+- frontend/src/components/assessment/BulkEntryInterface.tsx
+
+### Common Components
+- frontend/src/components/common/DataTableVirtualized.tsx
+
+### Curriculum Components
+- frontend/src/components/curriculum/CurriculumTab.tsx
+
+### Dashboard Components
+- frontend/src/components/dashboard/MuavinDashboard.tsx
+- frontend/src/components/dashboard/RegionAssessmentDashboard.tsx
+- frontend/src/components/dashboard/TesarrufatDashboard.tsx
+- frontend/src/components/dashboard/UBRDashboard.tsx
+
+### Document Components
+- frontend/src/components/documents/FolderDocumentsView.tsx
+- frontend/src/components/documents/FolderDocumentsViewOptimized.tsx
+- frontend/src/components/documents/FolderDocumentsViewOptimizedV2.tsx (814 sətir)
+
+### Form Components
+- frontend/src/components/forms/FormBuilder.tsx
+
+### Grade Components
+- frontend/src/components/grades/GradeCreateDialog.tsx (967 sətir) ⚠️ Refactor needed
+- frontend/src/components/grades/GradeCreateDialogSimplified.tsx
+- frontend/src/components/grades/configurations/gradeConfig.tsx
+
+### Hierarchy Components
+- frontend/src/components/hierarchy/HierarchyModal.tsx
+
+### Modal Components
+- frontend/src/components/modals/InstitutionImportExportModal.tsx
+- frontend/src/components/modals/InstitutionModalStandardized.tsx (558 sətir)
+- frontend/src/components/modals/ProfileEditModal.tsx
+- frontend/src/components/modals/SurveyModal.tsx
+- frontend/src/components/modals/TaskModalStandardized.tsx
+- frontend/src/components/modals/TeacherModal/index.tsx (937 sətir)
+- frontend/src/components/modals/archive/DocumentShareModal.tsx
+- frontend/src/components/modals/archive/LinkEditModal.tsx
+- frontend/src/components/modals/configurations/modalFieldConfig.tsx
+- frontend/src/components/modals/institution/InstitutionFormFields.tsx
+- frontend/src/components/modals/institution/useInstitutionValidation.tsx
+
+### RegionAdmin Components
+- frontend/src/components/regionadmin/RegionAdminDashboard.tsx
+
+### RegionOperator Components
+- frontend/src/components/regionoperator/RegionOperatorDashboard.tsx
+
+### Schedule Components
+- frontend/src/components/schedules/RegionalSchedulesDashboard.tsx
+- frontend/src/components/schedules/ScheduleComparisonTool.tsx
+- frontend/src/components/schedules/components/ConflictsList.tsx
+- frontend/src/components/schedules/components/ScheduleSettings.tsx
+
+### Student Components
+- frontend/src/components/students/configurations/studentConfig.tsx
+
+### Survey Components
+- frontend/src/components/surveys/SurveyResponseForm.tsx (775 sətir)
+
+### Teacher Components
+- frontend/src/components/teachers/regionadmin/RegionTeacherManager.tsx
+
+### UI Components
+- frontend/src/components/ui/sidebar.tsx
+
+---
+
+## Frontend Services (500+ lines)
+
+### 🔴 CRITICAL REFACTOR TARGET
+- frontend/src/services/superAdmin.ts (1035 sətir) ⚠️ PRIORITY 2
+
+### Regular Services
+- frontend/src/services/analytics.ts
+- frontend/src/services/apiOptimized.ts (828 sətir)
+- frontend/src/services/assessmentTypes.ts (589 sətir)
+- frontend/src/services/assessments.ts
+- frontend/src/services/grades.ts
+- frontend/src/services/institutions.ts
+- frontend/src/services/notification.ts
+- frontend/src/services/regionAdminTeachers.ts
+- frontend/src/services/resources.ts
+- frontend/src/services/schedule.ts
+- frontend/src/services/schoolAdmin.ts
+- frontend/src/services/students.ts
+- frontend/src/services/surveyApproval.ts
+- frontend/src/services/unifiedAssessments.ts
+- frontend/src/services/users.ts
+
+---
+
+## Frontend Configuration & Context (500+ lines)
+
+- frontend/src/config/navigation.ts
+- frontend/src/contexts/WebSocketContext.tsx
+
+---
+
+## Frontend Utils (500+ lines)
+
+- frontend/src/utils/helpers.ts
+
+---
+
+## Summary Statistics
+
+**Backend:**
+- Controllers: 39 fayllar (500+ sətir)
+- Models: 19 fayllar (500+ sətir)
+- Services: 46 fayllar (500+ sətir)
+  - 🔴 6 kritik fayl (1000+ sətir) - refactor priority
+
+**Frontend:**
+- Pages: 23 fayllar (500+ sətir)
+- Components: 44 fayllar (500+ sətir)
+- Services: 18 fayllar (500+ sətir)
+  - 🔴 1 kritik fayl (1000+ sətir) - refactor priority
+
+**TOTAL: ~189 files over 500 lines**
+
+**REFACTOR PRIORITY TARGETS: 8 files (1000+ lines)**
+
+---
+
+## Excluded Files (Non-Source Code)
+
+Aşağıdakı fayllar siyahıya daxil edilməyib çünki refaktor tələb etmir:
+- backend/composer.lock
+- backend/database/database*.sqlite (database files)
+- database-backups/*.sqlite (backup files)
+- frontend/package-lock.json
+- frontend/public/favicon.ico
+- phpunit-unit.log
+- *.md (documentation files)
+- BULK_ATTENDANCE_*.md (analysis documents)
+
+---
+
+**Generated:** 2025-11-06
+**Next Update:** Weekly or after major refactoring sprint
+**Related:** See REFACTORING_ROADMAP_2025.md for detailed plan
