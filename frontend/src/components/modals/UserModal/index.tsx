@@ -12,4 +12,5 @@
 export { UserModalTabs } from './components/UserModalTabs';
 
 // Legacy export for backward compatibility (Teacher/Student modals)
-export { default as UserModal } from './UserModal.DEPRECATED';
+// REMOVED: UserModal.DEPRECATED.tsx was deleted in Sprint 0 cleanup
+// export { default as UserModal } from './UserModal.DEPRECATED';
