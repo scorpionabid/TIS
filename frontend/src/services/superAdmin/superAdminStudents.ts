@@ -7,13 +7,47 @@ import { handleArrayResponse, handleApiResponseWithError } from '@/utils/apiResp
 import { logger } from '@/utils/logger';
 import type { SchoolStudent, CreateStudentData, PaginationParams } from './types';
 
-export const getStudents = async (params?: PaginationParams): Promise<SchoolStudent[]> => {
+export const getStudents = async (params?: PaginationParams & {
+  class_id?: number;
+  status?: string;
+  search?: string;
+}): Promise<SchoolStudent[]> => {
   try {
-    const response = await apiClient.get<SchoolStudent[]>('/students', params);
+    logger.debug('SuperAdmin fetching students', {
+      component: 'SuperAdminStudentsService',
+      action: 'getStudents',
+      data: { params }
+    });
+
+    const response = await apiClient.get<{data: {students: SchoolStudent[]; pagination: any}; success: boolean}>('/students', params);
+
+    // Handle unified API response format
+    if (response.data?.data?.students) {
+      const students = response.data.data.students.map(student => ({
+        id: student.id,
+        student_id: student.student_number || '',
+        first_name: student.first_name || '',
+        last_name: student.last_name || '',
+        email: student.email || '',
+        date_of_birth: student.date_of_birth,
+        gender: student.gender as 'male' | 'female',
+        grade_level: student.current_grade_level,
+        class_name: student.class_name,
+        enrollment_status: student.status as 'active' | 'inactive' | 'transferred' | 'graduated',
+        enrollment_date: student.enrollment_date,
+        address: student.address,
+      }));
+
+      logger.debug(`Successfully mapped ${students.length} students`);
+      return students;
+    }
+
+    // Fallback to safe array extraction
     return handleArrayResponse<SchoolStudent>(response, 'SuperAdminStudentsService.getStudents');
+
   } catch (error) {
-    logger.error('Failed to fetch students', error);
-    throw error;
+    logger.error('Failed to fetch students as SuperAdmin', error);
+    return []; // Safe fallback for students
   }
 };
 
