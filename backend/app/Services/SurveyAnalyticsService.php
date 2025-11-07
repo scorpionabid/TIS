@@ -11,18 +11,22 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Collection;
 use App\Services\Analytics\HierarchicalAnalyticsService;
 use App\Services\SurveyAnalytics\Domains\Question\QuestionAnalyticsService;
+use App\Services\SurveyTargetingService;
 
 class SurveyAnalyticsService
 {
     protected HierarchicalAnalyticsService $hierarchicalService;
     protected QuestionAnalyticsService $questionService;
+    protected SurveyTargetingService $targetingService;
 
     public function __construct(
         HierarchicalAnalyticsService $hierarchicalService,
-        QuestionAnalyticsService $questionService
+        QuestionAnalyticsService $questionService,
+        SurveyTargetingService $targetingService
     ) {
         $this->hierarchicalService = $hierarchicalService;
         $this->questionService = $questionService;
+        $this->targetingService = $targetingService;
     }
     /**
      * Get comprehensive survey statistics
@@ -73,22 +77,22 @@ class SurveyAnalyticsService
     
     /**
      * Estimate survey recipients
+     * Delegated to SurveyTargetingService
      */
     public function estimateRecipients(array $targetingRules): array
     {
-        // Will be delegated to SurveyTargetingService in Phase 3
-        $query = User::where('is_active', true);
+        $user = Auth::user();
 
-        // TODO: Delegate to SurveyTargetingService
-        $totalCount = $query->count();
+        // Delegate to SurveyTargetingService for recipient estimation
+        $result = $this->targetingService->estimateRecipients($targetingRules, $user);
 
-        return [
-            'total_recipients' => $totalCount,
-            'breakdown' => [],
-            'targeting_rules' => $targetingRules,
+        // Add analytics-specific calculations
+        $totalCount = $result['total_users'] ?? 0;
+
+        return array_merge($result, [
             'estimated_responses' => $this->estimateResponseCount($totalCount, $targetingRules),
             'estimated_duration' => $this->estimateSurveyDuration($totalCount)
-        ];
+        ]);
     }
     
     /**
