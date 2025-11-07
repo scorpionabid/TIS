@@ -639,4 +639,97 @@ class GradeStudentController extends Controller
             'operation' => $operation,
         ];
     }
+
+    /**
+     * Update student enrollment status in a grade.
+     * Created for Sprint 6 Phase 3 delegation from GradeUnifiedController.
+     */
+    public function updateStudentStatus(Request $request, Grade $grade, $studentId): JsonResponse
+    {
+        $validator = Validator::make(array_merge($request->all(), ['student_id' => $studentId]), [
+            'student_id' => 'required|exists:users,id',
+            'status' => 'required|in:active,inactive,transferred,graduated,suspended',
+            'notes' => 'sometimes|string|max:500',
+            'effective_date' => 'sometimes|date',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $user = $request->user();
+
+        // Check regional access
+        if (!$user->hasRole('superadmin')) {
+            $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
+            if (!in_array($grade->institution_id, $accessibleInstitutions)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu sinif üçün icazəniz yoxdur',
+                ], 403);
+            }
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $enrollment = StudentEnrollment::where('student_id', $studentId)
+                ->where('grade_id', $grade->id)
+                ->first();
+
+            if (!$enrollment) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Şagird bu sinifdə qeydiyyatda deyil',
+                ], 404);
+            }
+
+            $status = $request->get('status');
+            $notes = $request->get('notes');
+            $effectiveDate = $request->get('effective_date', now());
+
+            $enrollment->update([
+                'status' => $status,
+                'notes' => $notes,
+                'updated_at' => $effectiveDate,
+            ]);
+
+            // If status changed to withdrawn/graduated, set withdrawal date
+            if (in_array($status, ['withdrawn', 'graduated', 'transferred'])) {
+                $enrollment->update(['withdrawal_date' => $effectiveDate]);
+            }
+
+            // Update grade student count for active students
+            $grade->update([
+                'student_count' => StudentEnrollment::where('grade_id', $grade->id)
+                    ->where('status', 'active')
+                    ->count()
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Tələbə statusu uğurla yeniləndi',
+                'data' => [
+                    'enrollment' => $enrollment->fresh(),
+                    'grade_student_count' => $grade->fresh()->student_count,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Tələbə statusu yenilənərkən səhv baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
 }

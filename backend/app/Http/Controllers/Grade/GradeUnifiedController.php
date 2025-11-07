@@ -99,61 +99,13 @@ class GradeUnifiedController extends Controller
 
     /**
      * Get students enrolled in the specified grade
+     *
+     * DELEGATED to GradeStudentController::getStudents() (Sprint 6 Phase 3)
      */
     public function students(Request $request, Grade $grade): JsonResponse
     {
-        try {
-            $user = Auth::user();
-            
-            if (!$this->gradeService->canUserAccessGrade($user, $grade)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Bu sinifin şagird siyahısına giriş icazəniz yoxdur',
-                ], 403);
-            }
-
-            $validator = Validator::make($request->all(), [
-                'enrollment_status' => 'sometimes|in:active,inactive,transferred,graduated,all',
-                'include_profile' => 'sometimes|boolean',
-                'page' => 'sometimes|integer|min:1',
-                'per_page' => 'sometimes|integer|min:1|max:100',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
-
-            $filters = $request->only(['enrollment_status']);
-            $options = [
-                'include_profile' => $request->boolean('include_profile', true),
-                'per_page' => $request->get('per_page', 20),
-            ];
-
-            $result = $this->enrollmentService->getStudentsForGrade($grade, $filters, $options);
-
-            return response()->json([
-                'success' => true,
-                'data' => $result,
-                'message' => 'Sinif şagird siyahısı uğurla alındı',
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Grade students error: ' . $e->getMessage(), [
-                'user_id' => Auth::id(),
-                'grade_id' => $grade->id,
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Şagird siyahısı alınarkən səhv baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
-            ], 500);
-        }
+        $controller = app(GradeStudentController::class);
+        return $controller->getStudents($request, $grade);
     }
 
     /**
@@ -316,295 +268,46 @@ class GradeUnifiedController extends Controller
 
     /**
      * Enroll a single student into a grade
+     *
+     * DELEGATED to GradeStudentController::assignStudents() (Sprint 6 Phase 3)
      */
     public function enrollStudent(Request $request, Grade $grade): JsonResponse
     {
-        try {
-            $validator = Validator::make($request->all(), [
-                'student_id' => 'required|exists:users,id',
-                'enrollment_date' => 'sometimes|date',
-                'notes' => 'sometimes|string|max:500',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
-
-            $user = Auth::user();
-            
-            // Check permissions
-            if (!$user->can('grades.manage_students')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Tələbə idarə etmək üçün icazəniz yoxdur',
-                ], 403);
-            }
-
-            $studentId = $request->get('student_id');
-            $enrollmentDate = $request->get('enrollment_date', now());
-            $notes = $request->get('notes');
-
-            $result = $this->enrollmentService->enrollStudentInGrade(
-                $studentId,
-                $grade->id,
-                $enrollmentDate,
-                $notes
-            );
-
-            if (!$result['success']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $result['message'],
-                ], 400);
-            }
-
-            Log::info('Student enrolled successfully', [
-                'grade_id' => $grade->id,
-                'student_id' => $studentId,
-                'enrolled_by' => $user->id,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Tələbə uğurla sinifə əlavə edildi',
-                'data' => $result['data']
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Student enrollment error: ' . $e->getMessage(), [
-                'grade_id' => $grade->id,
-                'request' => $request->all(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Tələbə əlavə edilərkən səhv baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
-            ], 500);
-        }
+        $controller = app(GradeStudentController::class);
+        return $controller->assignStudents($request, $grade);
     }
 
     /**
      * Enroll multiple students into a grade
+     *
+     * DELEGATED to GradeStudentController::bulkUpdateEnrollments() (Sprint 6 Phase 3)
      */
     public function enrollMultipleStudents(Request $request, Grade $grade): JsonResponse
     {
-        try {
-            $validator = Validator::make($request->all(), [
-                'student_ids' => 'required|array|min:1',
-                'student_ids.*' => 'required|exists:users,id',
-                'enrollment_date' => 'sometimes|date',
-                'notes' => 'sometimes|string|max:500',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
-
-            $user = Auth::user();
-            
-            // Check permissions
-            if (!$user->can('grades.manage_students')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Tələbə idarə etmək üçün icazəniz yoxdur',
-                ], 403);
-            }
-
-            $studentIds = $request->get('student_ids');
-            $enrollmentDate = $request->get('enrollment_date', now());
-            $notes = $request->get('notes');
-
-            $results = $this->enrollmentService->enrollMultipleStudentsInGrade(
-                $studentIds,
-                $grade->id,
-                $enrollmentDate,
-                $notes
-            );
-
-            Log::info('Multiple students enrollment completed', [
-                'grade_id' => $grade->id,
-                'student_count' => count($studentIds),
-                'successful' => $results['successful'],
-                'failed' => $results['failed'],
-                'enrolled_by' => $user->id,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => $results['successful'] . ' tələbə uğurla əlavə edildi' .
-                           ($results['failed'] > 0 ? ', ' . $results['failed'] . ' tələbə əlavə edilə bilmədi' : ''),
-                'data' => $results
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Multiple students enrollment error: ' . $e->getMessage(), [
-                'grade_id' => $grade->id,
-                'request' => $request->all(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Tələbələr əlavə edilərkən səhv baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
-            ], 500);
-        }
+        $controller = app(GradeStudentController::class);
+        return $controller->bulkUpdateEnrollments($request);
     }
 
     /**
      * Remove a student from a grade
+     *
+     * DELEGATED to GradeStudentController::removeStudent() (Sprint 6 Phase 3)
      */
     public function unenrollStudent(Request $request, Grade $grade, $studentId): JsonResponse
     {
-        try {
-            $user = Auth::user();
-            
-            // Check permissions
-            if (!$user->can('grades.manage_students')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Tələbə idarə etmək üçün icazəniz yoxdur',
-                ], 403);
-            }
-
-            $validator = Validator::make(['student_id' => $studentId], [
-                'student_id' => 'required|exists:users,id',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Keçərsiz tələbə ID',
-                ], 422);
-            }
-
-            $result = $this->enrollmentService->unenrollStudentFromGrade(
-                $studentId,
-                $grade->id,
-                $request->get('reason', 'Removed by admin')
-            );
-
-            if (!$result['success']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $result['message'],
-                ], 400);
-            }
-
-            Log::info('Student unenrolled successfully', [
-                'grade_id' => $grade->id,
-                'student_id' => $studentId,
-                'removed_by' => $user->id,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Tələbə sinifdən uğurla çıxarıldı',
-                'data' => $result['data']
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Student unenrollment error: ' . $e->getMessage(), [
-                'grade_id' => $grade->id,
-                'student_id' => $studentId,
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Tələbə çıxarılarkən səhv baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
-            ], 500);
-        }
+        $controller = app(GradeStudentController::class);
+        return $controller->removeStudent($request, $grade, $studentId);
     }
 
     /**
      * Update student enrollment status in a grade
+     *
+     * DELEGATED to GradeStudentController::updateStudentStatus() (Sprint 6 Phase 3)
      */
     public function updateStudentStatus(Request $request, Grade $grade, $studentId): JsonResponse
     {
-        try {
-            $validator = Validator::make(array_merge($request->all(), ['student_id' => $studentId]), [
-                'student_id' => 'required|exists:users,id',
-                'status' => 'required|in:active,inactive,transferred,graduated,suspended',
-                'notes' => 'sometimes|string|max:500',
-                'effective_date' => 'sometimes|date',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
-
-            $user = Auth::user();
-            
-            // Check permissions
-            if (!$user->can('grades.manage_students')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Tələbə statusu dəyişmək üçün icazəniz yoxdur',
-                ], 403);
-            }
-
-            $status = $request->get('status');
-            $notes = $request->get('notes');
-            $effectiveDate = $request->get('effective_date', now());
-
-            $result = $this->enrollmentService->updateStudentEnrollmentStatus(
-                $studentId,
-                $grade->id,
-                $status,
-                $effectiveDate,
-                $notes
-            );
-
-            if (!$result['success']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $result['message'],
-                ], 400);
-            }
-
-            Log::info('Student status updated successfully', [
-                'grade_id' => $grade->id,
-                'student_id' => $studentId,
-                'new_status' => $status,
-                'updated_by' => $user->id,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Tələbə statusu uğurla yeniləndi',
-                'data' => $result['data']
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Student status update error: ' . $e->getMessage(), [
-                'grade_id' => $grade->id,
-                'student_id' => $studentId,
-                'request' => $request->all(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Tələbə statusu yenilənərkən səhv baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
-            ], 500);
-        }
+        $controller = app(GradeStudentController::class);
+        return $controller->updateStudentStatus($request, $grade, $studentId);
     }
 
     /**
