@@ -44,350 +44,57 @@ class GradeUnifiedController extends Controller
 
     /**
      * Display a listing of grades with advanced filtering and pagination
+     *
+     * DELEGATED to GradeCRUDController::index() (Sprint 6 Phase 2)
      */
     public function index(Request $request): JsonResponse
     {
-        try {
-            $validator = Validator::make($request->all(), [
-                'institution_id' => 'sometimes|exists:institutions,id',
-                'class_level' => 'sometimes|integer|min:0|max:12',
-                'academic_year_id' => 'sometimes|exists:academic_years,id',
-                'room_id' => 'sometimes|exists:rooms,id',
-                'homeroom_teacher_id' => 'sometimes|exists:users,id',
-                'specialty' => 'sometimes|string|max:100',
-                'grade_category' => 'sometimes|string|max:50',
-                'education_program' => 'sometimes|in:umumi,xususi,mektebde_ferdi,evde_ferdi',
-                'tag_ids' => 'sometimes|array',
-                'tag_ids.*' => 'exists:grade_tags,id',
-                'is_active' => 'sometimes|boolean',
-                'has_room' => 'sometimes|boolean',
-                'has_teacher' => 'sometimes|boolean',
-                'capacity_status' => 'sometimes|in:available,full,over_capacity,no_room',
-                'search' => 'sometimes|string|max:255',
-                'page' => 'sometimes|integer|min:1',
-                'per_page' => 'sometimes|integer|min:1|max:100',
-                'include' => 'sometimes|string',
-                'sort_by' => 'sometimes|in:name,class_level,capacity,student_count,created_at',
-                'sort_direction' => 'sometimes|in:asc,desc',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
-
-            $user = Auth::user();
-            $filters = $request->only([
-                'institution_id', 'class_level', 'academic_year_id',
-                'room_id', 'homeroom_teacher_id', 'specialty', 'grade_category',
-                'education_program', 'tag_ids', 'is_active',
-                'has_room', 'has_teacher', 'capacity_status', 'search'
-            ]);
-
-            $options = [
-                'per_page' => $request->get('per_page', 20),
-                'include' => $request->get('include', ''),
-                'sort_by' => $request->get('sort_by', 'class_level'),
-                'sort_direction' => $request->get('sort_direction', 'asc'),
-            ];
-
-            $result = $this->gradeService->getGradesForUser($user, $filters, $options);
-
-            return response()->json([
-                'success' => true,
-                'data' => $result['data'], // Direct grades array
-                'pagination' => $result['pagination'] ?? null,
-                'meta' => $result['meta'] ?? null,
-                'message' => count($result['data']) . ' sinif tapıldı',
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Grade index error: ' . $e->getMessage(), [
-                'user_id' => Auth::id(),
-                'request' => $request->all(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Sinif siyahısı alınarkən səhv baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
-            ], 500);
-        }
+        $controller = app(GradeCRUDController::class);
+        return $controller->index($request);
     }
 
     /**
      * Store a newly created grade
+     *
+     * DELEGATED to GradeCRUDController::store() (Sprint 6 Phase 2)
      */
     public function store(Request $request): JsonResponse
     {
-        try {
-            $validator = Validator::make($request->all(), [
-                'name' => [
-                    'required',
-                    'string',
-                    'max:10',
-// Smart validation will handle pattern checking
-                ],
-                'class_level' => 'required|integer|min:0|max:12',
-                'academic_year_id' => 'required|exists:academic_years,id',
-                'institution_id' => 'sometimes|exists:institutions,id',
-                'room_id' => 'nullable|exists:rooms,id',
-                'homeroom_teacher_id' => 'nullable|exists:users,id',
-                'specialty' => 'nullable|string|max:100',
-                'grade_category' => 'nullable|string|max:50',
-                'education_program' => 'nullable|in:umumi,xususi,mektebde_ferdi,evde_ferdi',
-                'student_count' => 'nullable|integer|min:0|max:500',
-                'male_student_count' => 'nullable|integer|min:0|max:500',
-                'female_student_count' => 'nullable|integer|min:0|max:500',
-                'tag_ids' => 'nullable|array',
-                'tag_ids.*' => 'exists:grade_tags,id',
-                'is_active' => 'sometimes|boolean',
-                'metadata' => 'nullable|array',
-            ], [
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
-
-            $user = Auth::user();
-            $data = $validator->validated();
-            
-            // Set institution_id from user if not provided (for school-level users)
-            if (!isset($data['institution_id']) && $user->institution_id) {
-                $data['institution_id'] = $user->institution_id;
-            }
-
-            // Use GradeNamingEngine for smart validation
-            $validation = $this->namingEngine->validateName(
-                $data['name'],
-                $data['institution_id'],
-                $data['class_level'],
-                $data['academic_year_id']
-            );
-
-            if (!$validation['valid']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $validation['message'],
-                    'errors' => [
-                        'name' => [$validation['message']]
-                    ],
-                ], 422);
-            }
-
-            $grade = $this->gradeService->createGrade($user, $data);
-
-            return response()->json([
-                'success' => true,
-                'data' => $this->gradeService->formatGradeResponse($grade),
-                'message' => 'Sinif uğurla yaradıldı',
-            ], 201);
-
-        } catch (ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-                'errors' => $e->errors(),
-            ], 422);
-        } catch (\Exception $e) {
-            Log::error('Grade creation error: ' . $e->getMessage(), [
-                'user_id' => Auth::id(),
-                'request' => $request->all(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Sinif yaradılarkən səhv baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
-            ], 500);
-        }
+        $controller = app(GradeCRUDController::class);
+        return $controller->store($request);
     }
 
     /**
      * Display the specified grade with detailed information
+     *
+     * DELEGATED to GradeCRUDController::show() (Sprint 6 Phase 2)
      */
     public function show(Request $request, Grade $grade): JsonResponse
     {
-        try {
-            $user = Auth::user();
-            
-            // Check access permission
-            if (!$this->gradeService->canUserAccessGrade($user, $grade)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Bu sinifin məlumatlarına giriş icazəniz yoxdur',
-                ], 403);
-            }
-
-            $includeOptions = $request->get('include', 'room,teacher,students,subjects,performance');
-            $gradeDetails = $this->gradeService->getGradeDetails($grade, $includeOptions);
-
-            return response()->json([
-                'success' => true,
-                'data' => $gradeDetails,
-                'message' => 'Sinif məlumatları uğurla alındı',
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Grade show error: ' . $e->getMessage(), [
-                'user_id' => Auth::id(),
-                'grade_id' => $grade->id,
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Sinif məlumatları alınarkən səhv baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
-            ], 500);
-        }
+        $controller = app(GradeCRUDController::class);
+        return $controller->show($request, $grade);
     }
 
     /**
      * Update the specified grade
+     *
+     * DELEGATED to GradeCRUDController::update() (Sprint 6 Phase 2)
      */
     public function update(Request $request, Grade $grade): JsonResponse
     {
-        try {
-            $user = Auth::user();
-            
-            // Check modification permission
-            if (!$this->gradeService->canUserModifyGrade($user, $grade)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Bu sinifi yeniləmək icazəniz yoxdur',
-                ], 403);
-            }
-
-            $validator = Validator::make($request->all(), [
-                'name' => [
-                    'sometimes',
-                    'string',
-                    'max:10',
-// Smart validation will handle pattern checking
-                ],
-                'class_level' => 'sometimes|integer|min:0|max:12',
-                'room_id' => 'sometimes|nullable|exists:rooms,id',
-                'homeroom_teacher_id' => 'sometimes|nullable|exists:users,id',
-                'specialty' => 'sometimes|nullable|string|max:100',
-                'student_count' => 'sometimes|nullable|integer|min:0|max:500',
-                'is_active' => 'sometimes|boolean',
-                'metadata' => 'sometimes|nullable|array',
-            ], [
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
-
-            $data = $validator->validated();
-            
-            // Use GradeNamingEngine for smart validation during update
-            if (isset($data['name']) && $data['name'] !== $grade->name) {
-                $validation = $this->namingEngine->validateName(
-                    $data['name'],
-                    $grade->institution_id,
-                    isset($data['class_level']) ? $data['class_level'] : $grade->class_level,
-                    $grade->academic_year_id,
-                    $grade->id // Exclude current grade
-                );
-
-                if (!$validation['valid']) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => $validation['message'],
-                        'errors' => [
-                            'name' => [$validation['message']]
-                        ],
-                    ], 422);
-                }
-            }
-            
-            $updatedGrade = $this->gradeService->updateGrade($user, $grade, $data);
-
-            return response()->json([
-                'success' => true,
-                'data' => $this->gradeService->formatGradeResponse($updatedGrade),
-                'message' => 'Sinif məlumatları uğurla yeniləndi',
-            ]);
-
-        } catch (ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-                'errors' => $e->errors(),
-            ], 422);
-        } catch (\Exception $e) {
-            Log::error('Grade update error: ' . $e->getMessage(), [
-                'user_id' => Auth::id(),
-                'grade_id' => $grade->id,
-                'request' => $request->all(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Sinif yenilənərkən səhv baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
-            ], 500);
-        }
+        $controller = app(GradeCRUDController::class);
+        return $controller->update($request, $grade);
     }
 
     /**
      * Soft delete the specified grade
+     *
+     * DELEGATED to GradeCRUDController::destroy() (Sprint 6 Phase 2)
      */
     public function destroy(Request $request, Grade $grade): JsonResponse
     {
-        try {
-            $user = Auth::user();
-            
-            // Check deletion permission
-            if (!$this->gradeService->canUserDeleteGrade($user, $grade)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Bu sinifi silmək icazəniz yoxdur',
-                ], 403);
-            }
-
-            $this->gradeService->deactivateGrade($user, $grade);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Sinif uğurla deaktiv edildi',
-            ]);
-
-        } catch (ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 422);
-        } catch (\Exception $e) {
-            Log::error('Grade deletion error: ' . $e->getMessage(), [
-                'user_id' => Auth::id(),
-                'grade_id' => $grade->id,
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Sinif silinərkən səhv baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
-            ], 500);
-        }
+        $controller = app(GradeCRUDController::class);
+        return $controller->destroy($request, $grade);
     }
 
     /**
