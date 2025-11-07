@@ -216,4 +216,97 @@ class SurveyNotificationService
             ['days_left' => $daysLeft]
         );
     }
+
+    /**
+     * Notify submitter/respondent that their response was rejected
+     *
+     * Delegated from SurveyApprovalService (Sprint 7 Phase 2)
+     */
+    public function notifySubmitterAboutRejection(
+        \App\Models\DataApprovalRequest $approvalRequest,
+        \App\Models\SurveyResponse $response,
+        User $approver,
+        ?string $reason
+    ): void {
+        $approvalRequest->loadMissing(['submitter', 'institution']);
+        $response->loadMissing(['institution', 'respondent']);
+        $response->loadMissing('survey');
+
+        $recipient = $approvalRequest->submitter ?? $response->respondent;
+
+        if (!$recipient instanceof User) {
+            return;
+        }
+
+        // Avoid notifying the same user who performed the rejection
+        if ($recipient->id === $approver->id) {
+            return;
+        }
+
+        $additionalData = [
+            'survey_id' => $response->survey_id,
+            'institution_name' => $response->institution->name ?? '',
+            'rejector_name' => $approver->name ?? $approver->username ?? $approver->email,
+            'rejection_reason' => $reason ?? 'Səbəb qeyd edilməyib',
+            'status' => 'rejected',
+            'submitted_by' => $approvalRequest->submitter->name ?? null,
+            'response_id' => $response->id,
+        ];
+
+        try {
+            $notification = new \App\Notifications\SurveyApprovalNotification(
+                $approvalRequest,
+                'approval_rejected',
+                $additionalData
+            );
+
+            if (method_exists($notification, 'afterCommit')) {
+                $notification->afterCommit();
+            }
+
+            \Illuminate\Support\Facades\Notification::sendNow($recipient, $notification);
+        } catch (\Throwable $e) {
+            \Log::warning('Failed to send survey rejection notification', [
+                'approval_request_id' => $approvalRequest->id,
+                'response_id' => $response->id,
+                'recipient_id' => $recipient->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        try {
+            $title = 'Survey cavabınız rədd edildi';
+            $message = sprintf(
+                '%s sorğusunun cavabı %s tərəfindən rədd edildi. Səbəb: %s',
+                $response->survey->title ?? 'Survey',
+                $approver->name ?? $approver->username ?? 'Naməlum',
+                $reason ?? 'Səbəb qeyd edilməyib'
+            );
+
+            $this->notificationService->send([
+                'user_id' => $recipient->id,
+                'title' => $title,
+                'message' => $message,
+                'type' => 'survey_approval_rejected',
+                'channel' => 'in_app',
+                'priority' => 'high',
+                'related_type' => Survey::class,
+                'related_id' => $response->survey_id,
+                'metadata' => [
+                    'survey_id' => $response->survey_id,
+                    'response_id' => $response->id,
+                    'rejection_reason' => $reason,
+                    'rejector_id' => $approver->id,
+                    'rejector_name' => $approver->name ?? $approver->username ?? null,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            \Log::warning('Failed to create in-app rejection notification', [
+                'approval_request_id' => $approvalRequest->id,
+                'response_id' => $response->id,
+                'recipient_id' => $recipient->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
 }
