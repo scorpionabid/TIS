@@ -25,7 +25,7 @@ Aşağıdakı fayllar 1000 sətirdən çoxdur və refaktor prioritetinə malikdi
 
 | Fayl | Cari Sətir | Hədəf | Prioritet | Status |
 |------|-----------|-------|-----------|--------|
-| `frontend/src/services/superAdmin.ts` | 1035 | <500 | 🟠 P2 | Domain-based split tələb olunur |
+| ~~`frontend/src/services/superAdmin.ts`~~ | ~~1036~~ | **14** | <500 | 🟠 P2 | ✅ **Sprint 9 TAMAMLANDI** - 13 domain servisi, 98.6% azalma (main file) |
 
 ---
 
