@@ -582,105 +582,29 @@ class GradeUnifiedController extends Controller
     /**
      * Get comprehensive statistics for grades
      */
+    /**
+     * Get grade statistics
+     *
+     * DELEGATED to GradeStatsController::statistics() (Sprint 6 Phase 1)
+     */
     public function statistics(Request $request): JsonResponse
     {
-        try {
-            $user = Auth::user();
-
-            $validator = Validator::make($request->all(), [
-                'institution_id' => 'sometimes|exists:institutions,id',
-                'academic_year_id' => 'sometimes|exists:academic_years,id',
-                'include_trends' => 'sometimes|boolean',
-                'date_from' => 'sometimes|date',
-                'date_to' => 'sometimes|date|after_or_equal:date_from',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
-
-            $filters = $request->only(['institution_id', 'academic_year_id', 'date_from', 'date_to']);
-            $options = [
-                'include_trends' => $request->boolean('include_trends', false),
-            ];
-
-            $statistics = $this->gradeService->getGradeStatistics($user, $filters, $options);
-
-            return response()->json([
-                'success' => true,
-                'data' => $statistics,
-                'message' => 'Sinif statistikaları uğurla alındı',
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Grade statistics error: ' . $e->getMessage(), [
-                'user_id' => Auth::id(),
-                'request' => $request->all(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Statistikalar alınarkən səhv baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
-            ], 500);
-        }
+        $controller = app(GradeStatsController::class);
+        return $controller->statistics($request);
     }
 
     /**
      * Get capacity and utilization reports
      */
+    /**
+     * Get capacity and utilization reports
+     *
+     * DELEGATED to GradeStatsController::capacityAnalysis() (Sprint 6 Phase 1)
+     */
     public function capacityReport(Request $request): JsonResponse
     {
-        try {
-            $user = Auth::user();
-
-            $validator = Validator::make($request->all(), [
-                'institution_id' => 'sometimes|exists:institutions,id',
-                'academic_year_id' => 'sometimes|exists:academic_years,id',
-                'threshold' => 'sometimes|numeric|min:0|max:100',
-                'include_projections' => 'sometimes|boolean',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
-
-            $filters = $request->only(['institution_id', 'academic_year_id']);
-            $options = [
-                'threshold' => $request->get('threshold', 85),
-                'include_projections' => $request->boolean('include_projections', false),
-            ];
-
-            $report = $this->gradeService->getCapacityReport($user, $filters, $options);
-
-            return response()->json([
-                'success' => true,
-                'data' => $report,
-                'message' => 'Kapasitə hesabatı uğurla alındı',
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Capacity report error: ' . $e->getMessage(), [
-                'user_id' => Auth::id(),
-                'request' => $request->all(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Kapasitə hesabatı alınarkən səhv baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
-            ], 500);
-        }
+        $controller = app(GradeStatsController::class);
+        return $controller->capacityAnalysis($request);
     }
 
     /**
@@ -1182,11 +1106,17 @@ class GradeUnifiedController extends Controller
     /**
      * Get comprehensive analytics for a grade
      */
+    /**
+     * Get analytics for a specific grade
+     *
+     * SIMPLIFIED (Sprint 6 Phase 1) - Delegates to performanceTrends for system-wide data
+     * Grade-specific analytics kept minimal for now
+     */
     public function getAnalytics(Request $request, Grade $grade): JsonResponse
     {
         try {
             $user = Auth::user();
-            
+
             // Check permissions
             if (!$user->can('grades.analytics')) {
                 return response()->json([
@@ -1197,40 +1127,13 @@ class GradeUnifiedController extends Controller
 
             // Get student statistics
             $studentStats = $this->enrollmentService->getGradeStudentStatistics($grade->id);
-            
-            // Calculate capacity analysis
+
+            // Basic capacity analysis
             $capacityAnalysis = [
                 'current_capacity' => $grade->student_count,
                 'max_capacity' => $grade->room ? $grade->room->capacity : null,
                 'utilization_rate' => $grade->utilization_rate ?? 0,
                 'capacity_status' => $grade->capacity_status,
-                'recommendations' => []
-            ];
-
-            // Add recommendations based on capacity
-            if ($capacityAnalysis['utilization_rate'] > 95) {
-                $capacityAnalysis['recommendations'][] = 'Sinif həddindən çox doludur, yeni otaq tapılmalıdır';
-            } elseif ($capacityAnalysis['utilization_rate'] < 60) {
-                $capacityAnalysis['recommendations'][] = 'Sinif az istifadə olunur, tələbə qeydiyyatını artırmaq olar';
-            }
-
-            if (!$grade->room_id) {
-                $capacityAnalysis['recommendations'][] = 'Sinif üçün otaq təyin edilməyib';
-            }
-
-            if (!$grade->homeroom_teacher_id) {
-                $capacityAnalysis['recommendations'][] = 'Sinif rəhbəri təyin edilməyib';
-            }
-
-            // Performance metrics (mock data for now)
-            $performanceMetrics = [
-                'enrollment_trend' => [
-                    ['month' => 'Sentyabr', 'enrolled' => 25, 'withdrawn' => 2],
-                    ['month' => 'Oktyabr', 'enrolled' => 3, 'withdrawn' => 1],
-                    ['month' => 'Noyabr', 'enrolled' => 1, 'withdrawn' => 0],
-                ],
-                'retention_rate' => 95.5,
-                'average_class_size_comparison' => $grade->student_count
             ];
 
             // Resource allocation
@@ -1238,49 +1141,13 @@ class GradeUnifiedController extends Controller
                 'has_room' => !is_null($grade->room_id),
                 'room_capacity' => $grade->room ? $grade->room->capacity : null,
                 'has_teacher' => !is_null($grade->homeroom_teacher_id),
-                'teacher_workload' => $grade->homeroom_teacher ? 85 : null // Mock percentage
             ];
-
-            // Generate alerts
-            $alerts = [];
-            
-            if ($capacityAnalysis['utilization_rate'] > 100) {
-                $alerts[] = [
-                    'type' => 'error',
-                    'message' => 'Sinif tutumu həddindən çox aşılmışdır',
-                    'action_required' => true
-                ];
-            }
-
-            if (!$grade->room_id) {
-                $alerts[] = [
-                    'type' => 'warning',
-                    'message' => 'Sinif üçün otaq təyin edilməyib',
-                    'action_required' => true
-                ];
-            }
-
-            if (!$grade->homeroom_teacher_id) {
-                $alerts[] = [
-                    'type' => 'warning',
-                    'message' => 'Sinif rəhbəri təyin edilməyib',
-                    'action_required' => true
-                ];
-            }
 
             $analytics = [
                 'student_statistics' => $studentStats,
                 'capacity_analysis' => $capacityAnalysis,
-                'performance_metrics' => $performanceMetrics,
                 'resource_allocation' => $resourceAllocation,
-                'alerts' => $alerts
             ];
-
-            Log::info('Grade analytics retrieved', [
-                'grade_id' => $grade->id,
-                'user_id' => $user->id,
-                'analytics_keys' => array_keys($analytics)
-            ]);
 
             return response()->json([
                 'success' => true,
