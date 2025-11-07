@@ -47,9 +47,9 @@ services:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
       - ./frontend/index.html:/app/index.html
-      - ./frontend/node_modules:/app/node_modules
       - ./frontend/package.json:/app/package.json
       - ./frontend/package-lock.json:/app/package-lock.json
+      - frontend_node_modules:/app/node_modules
     depends_on:
       - backend
     networks:
@@ -78,4 +78,6 @@ networks:
 
 volumes:
   redis_data:
+    driver: local
+  frontend_node_modules:
     driver: local
