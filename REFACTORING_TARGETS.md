@@ -11,15 +11,15 @@ Aşağıdakı fayllar 1000 sətirdən çoxdur və refaktor prioritetinə malikdi
 
 ### Backend Services & Controllers
 
-| Fayl | Cari Sətir | Hədəf | Prioritet | Status |
-|------|-----------|-------|-----------|--------|
-| `backend/app/Services/SurveyAnalyticsService.php` | 1453 | <500 | 🔴 P1 | Qismən refaktor edilib - modulyar servislər var |
-| `backend/app/Http/Controllers/Grade/GradeUnifiedController.php` | 1451 | <500 | 🔴 P1 | Refaktor gözlənilir - GradeStatsController mövcud |
-| `backend/app/Services/SurveyApprovalService.php` | 1283 | <500 | 🟠 P2 | Qismən modular - Bridge və Notification ayrılıb |
-| `backend/app/Services/GradeManagementService.php` | 1102 | <500 | 🟠 P2 | Refaktor gözlənilir - ClassAnalytics mövcud |
-| `backend/app/Services/Import/ImportOrchestrator.php` | 1027 | <500 | 🟡 P3 | Yaxşı modularlaşıb - yalnız sadələşdirmə lazım |
-| `backend/app/Services/SurveyCrudService.php` | 1012 | <500 | 🟡 P3 | Filtering SurveyTargeting-ə köçürülməlidir |
-| `backend/app/Services/LinkSharingService.php` | 1000 | <500 | 🟡 P4 | LinkAnalytics və DocumentSharing ayrılıb |
+| Fayl | Orijinal | Cari | Hədəf | Prioritet | Status |
+|------|----------|-------|-------|-----------|--------|
+| ~~`backend/app/Services/SurveyAnalyticsService.php`~~ | ~~1453~~ | **1227** | <500 | 🔴 P1 | ✅ **Sprint 5 TAMAMLANDI** - 3 servis inteqrasiyası, 15.5% azalma |
+| ~~`backend/app/Services/Import/ImportOrchestrator.php`~~ | ~~1027~~ | **305** | <500 | 🟡 P3 | ✅ **Sprint 2 TAMAMLANDI** - 28 domain servisi, 70.3% azalma |
+| ~~`backend/app/Services/SurveyCrudService.php`~~ | ~~1012~~ | **250** | <500 | 🟡 P3 | ✅ **Sprint 3 TAMAMLANDI** - 5 domain servisi, 75.3% azalma |
+| ~~`backend/app/Services/LinkSharingService.php`~~ | ~~1000~~ | **156** | <500 | 🟡 P4 | ✅ **Sprint 4 TAMAMLANDI** - 7 domain servisi, 84.4% azalma |
+| `backend/app/Http/Controllers/Grade/GradeUnifiedController.php` | 1451 | 1451 | <500 | 🔴 P1 | ⏳ Növbəti - GradeStatsController mövcud |
+| `backend/app/Services/SurveyApprovalService.php` | 1283 | 1283 | <500 | 🟠 P2 | ⏳ Gözləyir - Bridge və Notification ayrılıb |
+| `backend/app/Services/GradeManagementService.php` | 1102 | 1102 | <500 | 🟠 P2 | ⏳ Gözləyir - ClassAnalytics mövcud |
 
 ### Frontend Services
 
