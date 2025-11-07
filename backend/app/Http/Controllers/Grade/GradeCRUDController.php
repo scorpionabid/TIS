@@ -689,4 +689,150 @@ class GradeCRUDController extends Controller
 
         return round(($grade->student_count / $grade->room->capacity) * 100, 2);
     }
+
+    /**
+     * Duplicate an existing grade with optional modifications.
+     * Created for Sprint 6 Phase 4 delegation from GradeUnifiedController.
+     */
+    public function duplicate(Request $request, Grade $grade): JsonResponse
+    {
+        try {
+            $user = $request->user();
+
+            // Authorization check
+            if (!$user->hasPermissionTo('grades.create')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu əməliyyat üçün icazəniz yoxdur'
+                ], 403);
+            }
+
+            // Validate input
+            $validator = Validator::make($request->all(), [
+                'name' => 'required|string|max:10',
+                'class_level' => 'sometimes|integer|min:0|max:12',
+                'copy_subjects' => 'sometimes|boolean',
+                'academic_year_id' => 'sometimes|exists:academic_years,id',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validasiya xətası',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            // Determine the target class level and academic year
+            $targetClassLevel = $request->has('class_level') ? $request->class_level : $grade->class_level;
+            $targetAcademicYearId = $request->has('academic_year_id') ? $request->academic_year_id : $grade->academic_year_id;
+
+            // Check for duplicate grade
+            $existingGrade = Grade::where('name', $request->name)
+                ->where('class_level', $targetClassLevel)
+                ->where('academic_year_id', $targetAcademicYearId)
+                ->where('institution_id', $grade->institution_id)
+                ->first();
+
+            if ($existingGrade) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "{$targetClassLevel}-{$request->name} sinfi artıq mövcuddur",
+                    'errors' => [
+                        'name' => ["Bu sinif adı artıq istifadə olunur"]
+                    ]
+                ], 422);
+            }
+
+            // Create new grade with copied data
+            $newGradeData = $grade->toArray();
+            unset($newGradeData['id']);
+            unset($newGradeData['created_at']);
+            unset($newGradeData['updated_at']);
+            unset($newGradeData['student_count']);
+            unset($newGradeData['capacity_status']);
+            unset($newGradeData['utilization_rate']);
+
+            // Apply modifications
+            $newGradeData['name'] = $request->name;
+
+            if ($request->has('class_level')) {
+                $newGradeData['class_level'] = $request->class_level;
+            }
+
+            if ($request->has('academic_year_id')) {
+                $newGradeData['academic_year_id'] = $request->academic_year_id;
+            }
+
+            // Reset teacher and room assignments
+            $newGradeData['homeroom_teacher_id'] = null;
+            $newGradeData['room_id'] = null;
+
+            // Create the new grade
+            $newGrade = Grade::create($newGradeData);
+
+            // Copy subjects if requested (default: true)
+            if ($request->get('copy_subjects', true)) {
+                $gradeSubjects = \DB::table('grade_subjects')
+                    ->where('grade_id', $grade->id)
+                    ->get();
+
+                foreach ($gradeSubjects as $gradeSubject) {
+                    \DB::table('grade_subjects')->insert([
+                        'grade_id' => $newGrade->id,
+                        'subject_id' => $gradeSubject->subject_id,
+                        'weekly_hours' => $gradeSubject->weekly_hours,
+                        'is_teaching_activity' => $gradeSubject->is_teaching_activity,
+                        'is_extracurricular' => $gradeSubject->is_extracurricular,
+                        'is_club' => $gradeSubject->is_club,
+                        'is_split_groups' => $gradeSubject->is_split_groups,
+                        'group_count' => $gradeSubject->group_count,
+                        'teacher_id' => null, // Reset teacher assignment
+                        'notes' => $gradeSubject->notes,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+
+            // Load relationships
+            $newGrade->load([
+                'institution',
+                'academicYear',
+                'homeroomTeacher',
+                'room',
+            ]);
+
+            // Refresh to get computed attributes
+            $newGrade->refresh();
+
+            Log::info('Grade duplicated successfully', [
+                'original_grade_id' => $grade->id,
+                'original_class_level' => $grade->class_level,
+                'new_grade_id' => $newGrade->id,
+                'new_class_level' => $newGrade->class_level,
+                'user_id' => $user->id,
+                'copied_subjects' => $request->get('copy_subjects', true),
+                'class_level_changed' => $request->has('class_level') && $request->class_level !== $grade->class_level,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $newGrade,
+                'message' => 'Sinif uğurla kopyalandı'
+            ], 201);
+
+        } catch (\Exception $e) {
+            Log::error('Grade duplicate error: ' . $e->getMessage(), [
+                'grade_id' => $grade->id,
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Sinif kopyalanarkən xəta baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
 }
