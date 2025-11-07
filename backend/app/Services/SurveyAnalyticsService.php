@@ -10,14 +10,19 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Collection;
 use App\Services\Analytics\HierarchicalAnalyticsService;
+use App\Services\SurveyAnalytics\Domains\Question\QuestionAnalyticsService;
 
 class SurveyAnalyticsService
 {
     protected HierarchicalAnalyticsService $hierarchicalService;
+    protected QuestionAnalyticsService $questionService;
 
-    public function __construct(HierarchicalAnalyticsService $hierarchicalService)
-    {
+    public function __construct(
+        HierarchicalAnalyticsService $hierarchicalService,
+        QuestionAnalyticsService $questionService
+    ) {
         $this->hierarchicalService = $hierarchicalService;
+        $this->questionService = $questionService;
     }
     /**
      * Get comprehensive survey statistics
@@ -217,26 +222,11 @@ class SurveyAnalyticsService
     
     /**
      * Get question-level statistics
+     * Delegated to QuestionAnalyticsService
      */
     protected function getQuestionStats(Survey $survey): array
     {
-        $questions = $survey->questions;
-        $responses = $survey->responses;
-        
-        $questionStats = [];
-        foreach ($questions as $index => $question) {
-            $questionStats[] = [
-                'question_index' => $index,
-                'question_text' => $question['question'],
-                'question_type' => $question['type'],
-                'response_count' => $this->getQuestionResponseCount($responses, $index),
-                'skip_rate' => $this->getQuestionSkipRate($responses, $index),
-                'answer_distribution' => $this->getAnswerDistribution($responses, $index, $question['type']),
-                'average_rating' => $this->getAverageRating($responses, $index, $question['type'])
-            ];
-        }
-        
-        return $questionStats;
+        return $this->questionService->getQuestionStats($survey);
     }
     
     /**
@@ -885,6 +875,7 @@ class SurveyAnalyticsService
 
     /**
      * Get dropout points
+     * Uses QuestionAnalyticsService for question response counts
      */
     protected function getDropoutPoints(Survey $survey): array
     {
@@ -893,7 +884,7 @@ class SurveyAnalyticsService
 
         $dropoutRates = [];
         foreach ($questions as $index => $question) {
-            $answeredCount = $this->getQuestionResponseCount($responses, $index);
+            $answeredCount = $this->questionService->getQuestionResponseCount($responses, $index);
             $dropoutRate = $responses->count() > 0
                 ? round((($responses->count() - $answeredCount) / $responses->count()) * 100, 2)
                 : 0;
@@ -906,76 +897,6 @@ class SurveyAnalyticsService
         return $dropoutRates;
     }
 
-    /**
-     * Get question response count
-     */
-    protected function getQuestionResponseCount(Collection $responses, int $questionIndex): int
-    {
-        return $responses->filter(function($response) use ($questionIndex) {
-            $answers = $response->responses ?? [];
-            return isset($answers[$questionIndex]) && !empty($answers[$questionIndex]);
-        })->count();
-    }
-
-    /**
-     * Get question skip rate
-     */
-    protected function getQuestionSkipRate(Collection $responses, int $questionIndex): float
-    {
-        $total = $responses->count();
-        if ($total == 0) return 0;
-
-        $answered = $this->getQuestionResponseCount($responses, $questionIndex);
-        return round((($total - $answered) / $total) * 100, 2);
-    }
-
-    /**
-     * Get answer distribution
-     */
-    protected function getAnswerDistribution(Collection $responses, int $questionIndex, string $questionType): array
-    {
-        if ($questionType === 'rating' || $questionType === 'scale') {
-            return $responses
-                ->pluck("responses.$questionIndex")
-                ->filter()
-                ->countBy()
-                ->toArray();
-        }
-
-        if ($questionType === 'multiple_choice' || $questionType === 'checkbox') {
-            $distribution = [];
-            foreach ($responses as $response) {
-                $answer = $response->responses[$questionIndex] ?? null;
-                if (is_array($answer)) {
-                    foreach ($answer as $choice) {
-                        $distribution[$choice] = ($distribution[$choice] ?? 0) + 1;
-                    }
-                } elseif ($answer) {
-                    $distribution[$answer] = ($distribution[$answer] ?? 0) + 1;
-                }
-            }
-            return $distribution;
-        }
-
-        return [];
-    }
-
-    /**
-     * Get average rating
-     */
-    protected function getAverageRating(Collection $responses, int $questionIndex, string $questionType): ?float
-    {
-        if (!in_array($questionType, ['rating', 'scale', 'number'])) {
-            return null;
-        }
-
-        $ratings = $responses
-            ->pluck("responses.$questionIndex")
-            ->filter()
-            ->filter(fn($val) => is_numeric($val));
-
-        return $ratings->isEmpty() ? null : round($ratings->average(), 2);
-    }
 
     /**
      * Calculate engagement score
@@ -1076,21 +997,11 @@ class SurveyAnalyticsService
 
     /**
      * Get completion by question
+     * Delegated to QuestionAnalyticsService
      */
     protected function getCompletionByQuestion(Survey $survey): array
     {
-        $questions = $survey->questions;
-        $responses = $survey->responses;
-
-        $completion = [];
-        foreach ($questions as $index => $question) {
-            $completion[] = [
-                'question_index' => $index,
-                'completion_rate' => $this->getQuestionResponseCount($responses, $index)
-            ];
-        }
-
-        return $completion;
+        return $this->questionService->getCompletionByQuestion($survey);
     }
 
     /**
