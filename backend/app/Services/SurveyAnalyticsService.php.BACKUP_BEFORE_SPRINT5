@@ -62,8 +62,16 @@ class SurveyAnalyticsService
      */
     public function getDashboardStatistics(): array
     {
-        // Placeholder - can be implemented with DashboardAnalyticsService
-        return [];
+        $userInstitutionId = Auth::user()->institution_id;
+        
+        return [
+            'overview' => $this->getDashboardOverview($userInstitutionId),
+            'recent_surveys' => $this->getRecentSurveys($userInstitutionId),
+            'top_performing' => $this->getTopPerformingSurveys($userInstitutionId),
+            'activity_trends' => $this->getActivityTrends($userInstitutionId),
+            'response_rates' => $this->getResponseRates($userInstitutionId),
+            'user_participation' => $this->getUserParticipation($userInstitutionId)
+        ];
     }
     
     /**
@@ -71,18 +79,21 @@ class SurveyAnalyticsService
      */
     public function estimateRecipients(array $targetingRules): array
     {
-        // Will be delegated to SurveyTargetingService in Phase 3
         $query = User::where('is_active', true);
-
-        // TODO: Delegate to SurveyTargetingService
+        
+        // Apply targeting rules
+        $this->applyTargetingRules($query, $targetingRules);
+        
         $totalCount = $query->count();
-
+        $breakdown = $this->getRecipientBreakdown($query);
+        
         return [
             'total_recipients' => $totalCount,
-            'breakdown' => [],
+            'breakdown' => $breakdown,
             'targeting_rules' => $targetingRules,
             'estimated_responses' => $this->estimateResponseCount($totalCount, $targetingRules),
-            'estimated_duration' => $this->estimateSurveyDuration($totalCount)
+            'estimated_duration' => $this->estimateSurveyDuration($totalCount),
+            'recommendations' => $this->getTargetingRecommendations($totalCount, $breakdown)
         ];
     }
     
@@ -174,7 +185,9 @@ class SurveyAnalyticsService
         return [
             'by_role' => $responses->groupBy('respondent.role.name')->map->count(),
             'by_institution' => $responses->groupBy('respondent.institution.name')->map->count(),
-            'by_institution_type' => $responses->groupBy('respondent.institution.type')->map->count()
+            'by_institution_type' => $responses->groupBy('respondent.institution.type')->map->count(),
+            'age_distribution' => $this->getAgeDistribution($responses),
+            'gender_distribution' => $this->getGenderDistribution($responses)
         ];
     }
     
@@ -184,7 +197,7 @@ class SurveyAnalyticsService
     protected function getTemporalStats(Survey $survey): array
     {
         $responses = $survey->responses;
-
+        
         return [
             'responses_by_hour' => $responses->groupBy(function ($response) {
                 return $response->created_at->format('H:00');
@@ -194,7 +207,9 @@ class SurveyAnalyticsService
             })->map->count(),
             'responses_by_week' => $responses->groupBy(function ($response) {
                 return $response->created_at->format('Y-W');
-            })->map->count()
+            })->map->count(),
+            'peak_response_time' => $this->getPeakResponseTime($responses),
+            'response_velocity' => $this->getResponseVelocity($responses)
         ];
     }
     
@@ -258,8 +273,12 @@ class SurveyAnalyticsService
      */
     protected function getAnalyticsOverview(Survey $survey): array
     {
-        // Placeholder - can be enhanced with dedicated analytics services
-        return [];
+        return [
+            'key_metrics' => $this->getKeyMetrics($survey),
+            'performance_indicators' => $this->getPerformanceIndicators($survey),
+            'health_status' => $this->getSurveyHealthStatus($survey),
+            'comparison_data' => $this->getComparisonData($survey)
+        ];
     }
     
     /**
@@ -267,8 +286,12 @@ class SurveyAnalyticsService
      */
     protected function getResponseAnalysis(Survey $survey): array
     {
-        // Placeholder - can be enhanced with ResponseAnalyticsService
-        return [];
+        return [
+            'response_patterns' => $this->getResponsePatterns($survey),
+            'response_quality' => $this->getResponseQuality($survey),
+            'response_timing' => $this->getResponseTiming($survey),
+            'respondent_behavior' => $this->getRespondentBehavior($survey)
+        ];
     }
     
     /**
@@ -276,8 +299,20 @@ class SurveyAnalyticsService
      */
     protected function getQuestionAnalysis(Survey $survey): array
     {
-        // Placeholder - can be enhanced with QuestionAnalyticsService
-        return [];
+        $questions = $survey->questions;
+        $analysis = [];
+        
+        foreach ($questions as $index => $question) {
+            $analysis[] = [
+                'question_index' => $index,
+                'performance' => $this->getQuestionPerformance($survey, $index),
+                'engagement' => $this->getQuestionEngagement($survey, $index),
+                'clarity_score' => $this->getQuestionClarityScore($survey, $index),
+                'insights' => $this->getQuestionInsights($survey, $index)
+            ];
+        }
+        
+        return $analysis;
     }
     
     /**
@@ -285,7 +320,12 @@ class SurveyAnalyticsService
      */
     protected function getUserEngagement(Survey $survey): array
     {
-        return [];
+        return [
+            'participation_rate' => $this->calculateParticipationRate($survey),
+            'repeat_participants' => $this->getRepeatParticipants($survey),
+            'engagement_by_segment' => $this->getEngagementBySegment($survey),
+            'engagement_trends' => $this->getEngagementTrends($survey)
+        ];
     }
     
     /**
@@ -294,7 +334,10 @@ class SurveyAnalyticsService
     protected function getTrendAnalysis(Survey $survey): array
     {
         return [
-            'completion_trends' => $this->getCompletionTrends($survey)
+            'response_trends' => $this->getResponseTrendsLegacy($survey),
+            'completion_trends' => $this->getCompletionTrends($survey),
+            'quality_trends' => $this->getQualityTrends($survey),
+            'seasonal_patterns' => $this->getSeasonalPatterns($survey)
         ];
     }
     
@@ -428,6 +471,46 @@ class SurveyAnalyticsService
         return round($totalTime / $responses->count());
     }
     
+    /**
+     * Apply targeting rules to query
+     */
+    protected function applyTargetingRules($query, array $targetingRules): void
+    {
+        if (isset($targetingRules['roles']) && !empty($targetingRules['roles'])) {
+            $query->whereHas('role', function ($q) use ($targetingRules) {
+                $q->whereIn('name', $targetingRules['roles']);
+            });
+        }
+        
+        if (isset($targetingRules['institutions']) && !empty($targetingRules['institutions'])) {
+            $query->whereIn('institution_id', $targetingRules['institutions']);
+        }
+        
+        if (isset($targetingRules['departments']) && !empty($targetingRules['departments'])) {
+            $query->whereIn('department_id', $targetingRules['departments']);
+        }
+    }
+    
+    /**
+     * Get recipient breakdown
+     */
+    protected function getRecipientBreakdown($query): array
+    {
+        $clone = clone $query;
+        
+        return [
+            'by_role' => $clone->join('roles', 'users.role_id', '=', 'roles.id')
+                ->selectRaw('roles.name as role, COUNT(*) as count')
+                ->groupBy('roles.name')
+                ->pluck('count', 'role')
+                ->toArray(),
+            'by_institution' => $clone->join('institutions', 'users.institution_id', '=', 'institutions.id')
+                ->selectRaw('institutions.name as institution, COUNT(*) as count')
+                ->groupBy('institutions.name')
+                ->pluck('count', 'institution')
+                ->toArray()
+        ];
+    }
     
     /**
      * Estimate response count based on targeting
@@ -868,6 +951,27 @@ class SurveyAnalyticsService
         ];
     }
 
+    /**
+     * Get response trends (legacy method - used internally)
+     */
+    protected function getResponseTrendsLegacy(Survey $survey, string $period = 'daily', $startDate = null, $endDate = null): array
+    {
+        $responses = $survey->responses()
+            ->when($startDate, fn($q) => $q->where('created_at', '>=', $startDate))
+            ->when($endDate, fn($q) => $q->where('created_at', '<=', $endDate))
+            ->get();
+
+        $format = match($period) {
+            'daily' => 'Y-m-d',
+            'weekly' => 'Y-W',
+            'monthly' => 'Y-m',
+            default => 'Y-m-d'
+        };
+
+        return $responses->groupBy(fn($r) => $r->created_at->format($format))
+            ->map->count()
+            ->toArray();
+    }
 
     /**
      * Get completion trends
@@ -1121,6 +1225,43 @@ class SurveyAnalyticsService
         ];
     }
 
+    /**
+     * Placeholder methods for additional features
+     */
+    protected function getAgeDistribution($responses) { return []; }
+    protected function getGenderDistribution($responses) { return []; }
+    protected function getPeakResponseTime($responses) { return null; }
+    protected function getResponseVelocity($responses) { return 0; }
+    protected function getKeyMetrics($survey) { return []; }
+    protected function getPerformanceIndicators($survey) { return []; }
+    protected function getSurveyHealthStatus($survey) { return 'healthy'; }
+    protected function getComparisonData($survey) { return []; }
+    protected function getResponsePatterns($survey) { return []; }
+    protected function getResponseQuality($survey) { return []; }
+    protected function getResponseTiming($survey) { return []; }
+    protected function getRespondentBehavior($survey) { return []; }
+    protected function getQuestionPerformance($survey, $index) { return []; }
+    protected function getQuestionEngagement($survey, $index) { return []; }
+    protected function getQuestionClarityScore($survey, $index) { return 0; }
+    protected function getQuestionInsights($survey, $index) { return []; }
+    protected function calculateParticipationRate($survey) { return 0; }
+    protected function getRepeatParticipants($survey) { return []; }
+    protected function getEngagementBySegment($survey) { return []; }
+    protected function getEngagementTrends($survey) { return []; }
+    protected function getQualityTrends($survey) { return []; }
+    protected function getSeasonalPatterns($survey) { return []; }
+    protected function getTargetingRecommendations($total, $breakdown) { return []; }
+    protected function compareSurveys($ids, $metrics) { return []; }
+    protected function getQuestionAnalytics($survey, $index) { return []; }
+    protected function getAllQuestionsAnalytics($survey) { return []; }
+    protected function getDashboardOverview($institutionId) { return []; }
+    protected function getRecentSurveys($institutionId) { return []; }
+    protected function getTopPerformingSurveys($institutionId) { return []; }
+    protected function getActivityTrends($institutionId) { return []; }
+    protected function getResponseRates($institutionId) { return []; }
+    protected function getUserParticipation($institutionId) { return []; }
+    protected function getDemographicAnalytics($survey) { return []; }
+    protected function getCompletionFunnel($survey) { return []; }
 
     /**
      * ========================================
