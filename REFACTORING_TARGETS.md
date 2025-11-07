@@ -19,7 +19,7 @@ Aşağıdakı fayllar 1000 sətirdən çoxdur və refaktor prioritetinə malikdi
 | ~~`backend/app/Services/LinkSharingService.php`~~ | ~~1000~~ | **156** | <500 | 🟡 P4 | ✅ **Sprint 4 TAMAMLANDI** - 7 domain servisi, 84.4% azalma |
 | ~~`backend/app/Http/Controllers/Grade/GradeUnifiedController.php`~~ | ~~1451~~ | **595** | <500 | 🔴 P1 | ✅ **Sprint 6 TAMAMLANDI** - 13 metod delegation, 59.0% azalma |
 | ~~`backend/app/Services/SurveyApprovalService.php`~~ | ~~1283~~ | **1,085** | <500 | 🟠 P2 | ✅ **Sprint 7 TAMAMLANDI** - 2 servis delegation, 15.4% azalma |
-| `backend/app/Services/GradeManagementService.php` | 1102 | 1102 | <500 | 🟠 P2 | ⏳ Gözləyir - ClassAnalytics mövcud |
+| `backend/app/Services/GradeManagementService.php` | 1102 | **1,064** | <500 | 🟠 P2 | 🟡 **Sprint 8 QISMƏN** - Dead code cleanup, 3.4% azalma (realist hədəf: 1,064 optimal) |
 
 ### Frontend Services
 

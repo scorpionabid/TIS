@@ -386,7 +386,7 @@ class GradeManagementService
         }
 
         // Add recent activity
-        $details['recent_activity'] = $this->getGradeRecentActivity($grade, 5);
+        $details['recent_activity'] = []; // TODO: Implement activity logging
 
         return $details;
     }
@@ -429,7 +429,7 @@ class GradeManagementService
 
         // Add trend data if requested
         if ($options['include_trends'] ?? false) {
-            $stats['trends'] = $this->getGradeTrends($user, $filters);
+            $stats['trends'] = []; // TODO: Implement trend analysis
         }
 
         return $stats;
@@ -918,24 +918,15 @@ class GradeManagementService
 
     private function clearGradeCaches(int $institutionId): void
     {
-        // For file cache driver that doesn't support tagging, clear individual cache keys
-        $cacheKeys = [
+        // Clear all grade-related caches for the institution
+        foreach ([
             "grades_institution_{$institutionId}",
             "grades_statistics_{$institutionId}",
             "capacity_report_{$institutionId}",
             "grades_list_{$institutionId}",
             "grades_summary_{$institutionId}",
-        ];
-
-        foreach ($cacheKeys as $key) {
+        ] as $key) {
             Cache::forget($key);
-        }
-        
-        // Also clear any wildcard patterns by flushing all cache if needed
-        // Note: This is less efficient but ensures all related data is cleared
-        if (config('cache.default') === 'file') {
-            // For file cache, we can't do selective clearing, so we clear specific known keys only
-            // This is a safer approach than flushing everything
         }
     }
 
@@ -948,25 +939,8 @@ class GradeManagementService
 
     private function logGradeChanges(User $user, Grade $grade, array $originalData, array $newData): void
     {
-        $changes = [];
-        
-        foreach ($newData as $key => $value) {
-            if (array_key_exists($key, $originalData) && $originalData[$key] != $value) {
-                $changes[$key] = [
-                    'old' => $originalData[$key],
-                    'new' => $value,
-                ];
-            }
-        }
-
-        if (!empty($changes)) {
-            // TODO: Install spatie/laravel-activitylog package for activity logging
-            // activity()
-            //     ->performedOn($grade)
-            //     ->causedBy($user)
-            //     ->withProperties(['changes' => $changes])
-            //     ->log("Sinif yeniləndi: {$grade->name}");
-        }
+        // TODO: Implement activity logging with spatie/laravel-activitylog
+        // Currently disabled - activity logging package not installed
     }
 
     // Additional helper methods for statistics and analysis would go here...
@@ -1028,18 +1002,6 @@ class GradeManagementService
             'academic_performance' => 0, // TODO: Calculate from assessment results
             'teacher_satisfaction' => 0, // TODO: From teacher evaluations
         ];
-    }
-
-    private function getGradeRecentActivity(Grade $grade, int $limit = 5): array
-    {
-        // This would get activity logs
-        return [];
-    }
-
-    private function getGradeTrends(User $user, array $filters): array
-    {
-        // This would calculate enrollment and capacity trends over time
-        return [];
     }
 
     private function generateCapacityRecommendations(array $categories): array
