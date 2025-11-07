@@ -832,22 +832,8 @@ class SurveyApprovalService extends BaseService
      */
     private function getInitialApprovalLevel(ApprovalWorkflow $workflow): int
     {
-        $firstRequiredLevel = $this->getNextRequiredApprovalLevel($workflow, 0);
-
-        if ($firstRequiredLevel !== null) {
-            return $firstRequiredLevel;
-        }
-
-        $chain = $workflow->approval_chain ?? [];
-
-        if (!empty($chain)) {
-            $firstStep = $chain[0];
-            if (isset($firstStep['level'])) {
-                return (int) $firstStep['level'];
-            }
-        }
-
-        return 1;
+        return $this->getNextRequiredApprovalLevel($workflow, 0)
+            ?? (int) ($workflow->approval_chain[0]['level'] ?? 1);
     }
 
     /**
@@ -855,8 +841,7 @@ class SurveyApprovalService extends BaseService
      */
     public static function refreshCacheForSurvey(int $surveyId): void
     {
-        $service = new self();
-        $service->clearApprovalCache($surveyId);
+        (new self())->clearApprovalCache($surveyId);
     }
 
     /**
@@ -1093,21 +1078,8 @@ class SurveyApprovalService extends BaseService
      */
     private function clearApprovalCache(int $surveyId): void
     {
-        // Clear approval stats cache for all users and roles
-        $patterns = [
-            "service_SurveyResponse_approval_stats_*survey_id*{$surveyId}*",
-            "service_SurveyApprovalService_*"
-        ];
-
-        // Use cache tags if available, otherwise clear all cache
-        if (config('cache.default') === 'redis') {
-            foreach ($patterns as $pattern) {
-                // Redis pattern deletion would be implemented here
-                // For now, we'll use a simple approach
-            }
-        }
-
         // Clear service cache using parent method
+        // This clears all approval-related caches for the survey
         $this->clearServiceCache();
     }
 }
