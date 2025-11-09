@@ -27,9 +27,9 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
     {
         $examples = collect();
 
-        // Add 3 example rows for first 3 institutions
+        // Add 5 diverse example rows for first 3 institutions
         foreach ($this->institutions->take(3) as $index => $institution) {
-            // Example 1: Class A
+            // Example 1: Standard Azerbaijani class
             $examples->push((object)[
                 'utis_code' => $institution->utis_code ?? '',
                 'institution_code' => $institution->institution_code ?? '',
@@ -40,29 +40,34 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
                 'male_count' => 13,
                 'female_count' => 12,
                 'specialty' => 'Ümumi',
-                'grade_category' => 'ümumi',
                 'education_program' => 'umumi',
+                'grade_type' => 'ümumi',
+                'teaching_language' => 'azərbaycan',
+                'teaching_week' => '6_günlük',
                 'academic_year' => date('Y') . '-' . (date('Y') + 1),
             ]);
 
-            // Example 2: Class B
+            // Example 2: Russian language class
             $examples->push((object)[
                 'utis_code' => $institution->utis_code ?? '',
                 'institution_code' => $institution->institution_code ?? '',
                 'institution_name' => $institution->name,
-                'class_level' => 1,
+                'class_level' => 2,
                 'class_name' => 'B',
                 'student_count' => 24,
                 'male_count' => 12,
                 'female_count' => 12,
                 'specialty' => 'Ümumi',
-                'grade_category' => 'ümumi',
                 'education_program' => 'umumi',
+                'grade_type' => 'ümumi',
+                'teaching_language' => 'rus',
+                'teaching_week' => '6_günlük',
                 'academic_year' => date('Y') . '-' . (date('Y') + 1),
             ]);
 
-            // Only add 2 examples for first institution
+            // Only add specialized examples for first institution
             if ($index === 0) {
+                // Example 3: Specialized math class with 5-day week
                 $examples->push((object)[
                     'utis_code' => $institution->utis_code ?? '',
                     'institution_code' => $institution->institution_code ?? '',
@@ -73,8 +78,28 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
                     'male_count' => 15,
                     'female_count' => 15,
                     'specialty' => 'Riyaziyyat',
-                    'grade_category' => 'ixtisaslaşdırılmış',
                     'education_program' => 'umumi',
+                    'grade_type' => 'ixtisaslaşdırılmış',
+                    'teaching_language' => 'azərbaycan',
+                    'teaching_week' => '5_günlük',
+                    'academic_year' => date('Y') . '-' . (date('Y') + 1),
+                ]);
+
+                // Example 4: Special education class
+                $examples->push((object)[
+                    'utis_code' => $institution->utis_code ?? '',
+                    'institution_code' => $institution->institution_code ?? '',
+                    'institution_name' => $institution->name,
+                    'class_level' => 3,
+                    'class_name' => 'C',
+                    'student_count' => 12,
+                    'male_count' => 7,
+                    'female_count' => 5,
+                    'specialty' => 'Xüsusi ehtiyac',
+                    'education_program' => 'xususi',
+                    'grade_type' => 'xüsusi',
+                    'teaching_language' => 'azərbaycan',
+                    'teaching_week' => '5_günlük',
                     'academic_year' => date('Y') . '-' . (date('Y') + 1),
                 ]);
             }
@@ -98,14 +123,16 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
             $row->male_count,
             $row->female_count,
             $row->specialty,
-            $row->grade_category,
             $row->education_program,
+            $row->grade_type,
+            $row->teaching_language,
+            $row->teaching_week,
             $row->academic_year,
         ];
     }
 
     /**
-     * Column headings
+     * Column headings with detailed instructions
      */
     public function headings(): array
     {
@@ -114,13 +141,15 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
             'Müəssisə Kodu',
             'Müəssisə Adı',
             'Sinif Səviyyəsi (1-12)',
-            'Sinif Adı (A,B,C...)',
+            'Sinif Hərfi (A,B,C,Ç...)',
             'Şagird Sayı',
             'Oğlan Sayı',
             'Qız Sayı',
             'İxtisas',
-            'Kateqoriya',
             'Təhsil Proqramı',
+            'Sinif Növü',
+            'Tədris Dili',
+            'Tədris Həftəsi',
             'Tədris İli',
         ];
     }
@@ -131,18 +160,20 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
     public function columnWidths(): array
     {
         return [
-            'A' => 12, // UTIS Kod
-            'B' => 15, // Müəssisə Kodu
-            'C' => 30, // Müəssisə Adı
-            'D' => 20, // Sinif Səviyyəsi
-            'E' => 18, // Sinif Adı
-            'F' => 12, // Şagird Sayı
-            'G' => 12, // Oğlan Sayı
-            'H' => 12, // Qız Sayı
-            'I' => 20, // İxtisas
-            'J' => 20, // Kateqoriya
-            'K' => 18, // Təhsil Proqramı
-            'L' => 15, // Tədris İli
+            'A' => 12,  // UTIS Kod
+            'B' => 15,  // Müəssisə Kodu
+            'C' => 35,  // Müəssisə Adı
+            'D' => 22,  // Sinif Səviyyəsi
+            'E' => 22,  // Sinif Hərfi
+            'F' => 13,  // Şagird Sayı
+            'G' => 12,  // Oğlan Sayı
+            'H' => 12,  // Qız Sayı
+            'I' => 18,  // İxtisas
+            'J' => 18,  // Təhsil Proqramı
+            'K' => 18,  // Sinif Növü
+            'L' => 16,  // Tədris Dili
+            'M' => 16,  // Tədris Həftəsi
+            'N' => 15,  // Tədris İli
         ];
     }
 
@@ -153,10 +184,10 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
     {
         try {
             // Header row styling
-            $sheet->getStyle('A1:L1')->applyFromArray([
+            $sheet->getStyle('A1:N1')->applyFromArray([
                 'font' => [
                     'bold' => true,
-                    'size' => 12,
+                    'size' => 11,
                     'color' => ['rgb' => 'FFFFFF'],
                 ],
                 'fill' => [
@@ -166,11 +197,12 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
                 'alignment' => [
                     'horizontal' => Alignment::HORIZONTAL_CENTER,
                     'vertical' => Alignment::VERTICAL_CENTER,
+                    'wrapText' => true,
                 ],
             ]);
 
             // Set row height for header
-            $sheet->getRowDimension(1)->setRowHeight(25);
+            $sheet->getRowDimension(1)->setRowHeight(30);
 
             // Center align specific columns
             $sheet->getStyle('A2:A1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
@@ -178,14 +210,23 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
             $sheet->getStyle('D2:D1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle('E2:E1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle('F2:H1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('J2:M1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
             // Add border to all cells
-            $sheet->getStyle('A1:L1000')->applyFromArray([
+            $sheet->getStyle('A1:N1000')->applyFromArray([
                 'borders' => [
                     'allBorders' => [
                         'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
                         'color' => ['rgb' => 'CCCCCC'],
                     ],
+                ],
+            ]);
+
+            // Highlight new required columns in light blue
+            $sheet->getStyle('J1:M1')->applyFromArray([
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => '2E75B6'], // Darker blue for emphasis
                 ],
             ]);
 

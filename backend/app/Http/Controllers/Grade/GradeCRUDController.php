@@ -286,15 +286,17 @@ class GradeCRUDController extends Controller
             }
         }
 
-        // Check for unique grade name within institution and academic year
+        // Check for unique grade name within institution, academic year, and class level
+        // Important: Same letter (e.g., "A") can exist for different class levels (e.g., 6-A and 9-A are different classes)
         $existingGrade = Grade::where('institution_id', $request->institution_id)
                              ->where('academic_year_id', $request->academic_year_id)
+                             ->where('class_level', $request->class_level)
                              ->where('name', $request->name)
                              ->first();
         if ($existingGrade) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu təhsil ili və təşkilatda həmin adlı sinif mövcuddur',
+                'message' => 'Bu təhsil ili və təşkilatda həmin səviyyə və adlı sinif mövcuddur',
             ], 422);
         }
 
@@ -508,16 +510,21 @@ class GradeCRUDController extends Controller
             ], 422);
         }
 
-        // Check for unique grade name if name is being updated
-        if ($request->has('name') && $request->name !== $grade->name) {
+        // Check for unique grade name if name or class_level is being updated
+        if ($request->has('name') || $request->has('class_level')) {
+            $checkName = $request->has('name') ? $request->name : $grade->name;
+            $checkClassLevel = $request->has('class_level') ? $request->class_level : $grade->class_level;
+
             $existingGrade = Grade::where('institution_id', $grade->institution_id)
                                  ->where('academic_year_id', $grade->academic_year_id)
-                                 ->where('name', $request->name)
+                                 ->where('class_level', $checkClassLevel)
+                                 ->where('name', $checkName)
+                                 ->where('id', '!=', $grade->id)
                                  ->first();
             if ($existingGrade) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Bu təhsil ili və təşkilatda həmin adlı sinif mövcuddur',
+                    'message' => 'Bu təhsil ili və təşkilatda həmin səviyyə və adlı sinif mövcuddur',
                 ], 422);
             }
         }

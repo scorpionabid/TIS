@@ -163,8 +163,13 @@ class GradeService {
    */
   async get(filters?: GradeFilters): Promise<Grade[]> {
     const response = await this.getGrades(filters);
-    // Backend returns: { success: true, data: [...grades...], pagination: {...}, meta: {...} }
-    return response.data || [];
+    // Backend returns: { success: true, data: { grades: [...], pagination: {...} } }
+    // Extract the grades array from the nested data structure
+    if (response.data && typeof response.data === 'object' && 'grades' in response.data) {
+      return (response.data as any).grades || [];
+    }
+    // Fallback: if data is already an array
+    return Array.isArray(response.data) ? response.data : [];
   }
 
   /**

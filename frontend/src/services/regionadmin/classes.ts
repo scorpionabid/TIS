@@ -25,6 +25,8 @@ export interface ClassData {
   grade_category?: string;
   grade_type?: string;
   education_program?: string;
+  teaching_language?: 'azərbaycan' | 'rus' | 'gürcü' | 'ingilis';
+  teaching_week?: '5_günlük' | '6_günlük';
   description?: string;
   homeroom_teacher_id?: number;
   homeroomTeacher?: {

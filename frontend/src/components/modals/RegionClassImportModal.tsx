@@ -122,9 +122,13 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
                   <p className="font-medium text-sm">2. Məlumatları doldur:</p>
                   <ul className="list-disc list-inside space-y-1 text-sm pl-4 text-muted-foreground">
                     <li><strong className="text-foreground">UTIS kod</strong> və ya <strong className="text-foreground">Müəssisə kodu</strong> mütləqdir (ən az biri)</li>
-                    <li><strong className="text-foreground">Sinif səviyyəsi</strong> (1-12) və <strong className="text-foreground">Sinif adı</strong> (A,B,C...) mütləqdir</li>
-                    <li>Şagird sayı = Oğlan sayı + Qız sayı (avtomatik hesablanır)</li>
-                    <li>Digər sahələr ixtiyaridir: İxtisas, Kateqoriya, Təhsil proqramı</li>
+                    <li><strong className="text-foreground">Sinif səviyyəsi</strong> (1-12) və <strong className="text-foreground">Sinif hərfi</strong> (A,B,C,Ç...) mütləqdir</li>
+                    <li><strong className="text-foreground">Şagird sayı</strong>: Ümumi = Oğlan + Qız (avtomatik hesablanır)</li>
+                    <li><strong className="text-foreground">Təhsil proqramı</strong>: umumi, xususi, ferdi_mekteb, ferdi_ev</li>
+                    <li><strong className="text-foreground">Sinif növü</strong>: ümumi, ixtisaslaşdırılmış, xüsusi</li>
+                    <li><strong className="text-foreground">Tədris dili</strong>: azərbaycan, rus, gürcü, ingilis</li>
+                    <li><strong className="text-foreground">Tədris həftəsi</strong>: 5_günlük, 6_günlük</li>
+                    <li>Digər sahələr ixtiyaridir: İxtisas, Tədris ili</li>
                   </ul>
                 </div>
 
@@ -136,10 +140,21 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
                 </div>
 
                 <div className="bg-muted/50 p-3 rounded mt-3">
-                  <p className="font-medium text-sm mb-2">Nümunə sətir:</p>
-                  <code className="text-xs bg-background px-2 py-1 rounded block overflow-x-auto">
-                    12345678 | MKT-001 | 1 saylı məktəb | 5 | A | 25 | 13 | 12 | Ümumi | ümumi | umumi | 2024-2025
-                  </code>
+                  <p className="font-medium text-sm mb-2">Nümunə sətirlər:</p>
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">1. Standart azərbaycan dilli sinif:</p>
+                      <code className="text-xs bg-background px-2 py-1 rounded block overflow-x-auto">
+                        12345678 | MKT-001 | 1 saylı məktəb | 5 | A | 25 | 13 | 12 | Ümumi | umumi | ümumi | azərbaycan | 6_günlük | 2024-2025
+                      </code>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">2. Rus dilli ixtisaslaşdırılmış sinif:</p>
+                      <code className="text-xs bg-background px-2 py-1 rounded block overflow-x-auto">
+                        12345678 | MKT-001 | 1 saylı məktəb | 10 | B | 28 | 15 | 13 | Riyaziyyat | umumi | ixtisaslaşdırılmış | rus | 5_günlük | 2024-2025
+                      </code>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-1 pt-2">

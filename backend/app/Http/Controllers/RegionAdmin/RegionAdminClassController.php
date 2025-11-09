@@ -353,13 +353,15 @@ class RegionAdminClassController extends Controller
                         'Müəssisə Kodu',
                         'Müəssisə Adı',
                         'Sinif Səviyyəsi (1-12)',
-                        'Sinif Adı (A,B,C...)',
+                        'Sinif Hərfi (A,B,C,Ç...)',
                         'Şagird Sayı',
                         'Oğlan Sayı',
                         'Qız Sayı',
                         'İxtisas',
-                        'Kateqoriya',
                         'Təhsil Proqramı',
+                        'Sinif Növü',
+                        'Tədris Dili',
+                        'Tədris Həftəsi',
                         'Tədris İli',
                     ];
                 }

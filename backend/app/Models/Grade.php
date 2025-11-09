@@ -30,6 +30,8 @@ class Grade extends Model
         'grade_category',
         'grade_type',
         'education_program',
+        'teaching_language',
+        'teaching_week',
         'description',
         'metadata',
         'is_active',

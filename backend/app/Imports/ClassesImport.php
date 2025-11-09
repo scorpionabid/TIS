@@ -195,13 +195,16 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
                 ->first();
 
             if ($existingClass) {
-                Log::info("Class already exists, updating: {$institutionName} - {$classLevel}{$className}");
+                Log::info("Class already exists, updating: {$institution->name} - {$classLevel}{$className}");
                 // Update existing class
                 $existingClass->update([
                     'student_count' => !empty($row['student_count']) ? (int) $row['student_count'] : $existingClass->student_count,
                     'male_student_count' => !empty($row['male_count']) ? (int) $row['male_count'] : 0,
                     'female_student_count' => !empty($row['female_count']) ? (int) $row['female_count'] : 0,
                     'specialty' => !empty($row['specialty']) ? trim($row['specialty']) : $existingClass->specialty,
+                    'grade_type' => !empty($row['grade_type']) ? trim($row['grade_type']) : $existingClass->grade_type,
+                    'teaching_language' => !empty($row['teaching_language']) ? trim($row['teaching_language']) : $existingClass->teaching_language,
+                    'teaching_week' => !empty($row['teaching_week']) ? trim($row['teaching_week']) : $existingClass->teaching_week,
                     'is_active' => true,
                 ]);
                 $this->successCount++;
@@ -226,6 +229,15 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
             // Parse specialty
             $specialty = !empty($row['specialty']) ? trim($row['specialty']) : null;
 
+            // Parse grade_type (sinif növü)
+            $gradeType = !empty($row['grade_type']) ? trim($row['grade_type']) : 'ümumi';
+
+            // Parse teaching_language (tədris dili)
+            $teachingLanguage = !empty($row['teaching_language']) ? trim($row['teaching_language']) : 'azərbaycan';
+
+            // Parse teaching_week (tədris həftəsi)
+            $teachingWeek = !empty($row['teaching_week']) ? trim($row['teaching_week']) : '6_günlük';
+
             // Create new class
             $class = Grade::create([
                 'institution_id' => $institution->id,
@@ -237,7 +249,10 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
                 'female_student_count' => $femaleCount,
                 'specialty' => $specialty,
                 'grade_category' => !empty($row['grade_category']) ? trim($row['grade_category']) : 'ümumi',
+                'grade_type' => $gradeType,
                 'education_program' => !empty($row['education_program']) ? trim($row['education_program']) : 'umumi',
+                'teaching_language' => $teachingLanguage,
+                'teaching_week' => $teachingWeek,
                 'is_active' => true,
             ]);
 
@@ -277,7 +292,10 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
             'female_count' => ['nullable', 'integer', 'min:0', 'max:100'],
             'specialty' => ['nullable', 'string', 'max:100'],
             'grade_category' => ['nullable', 'string', 'max:50'],
+            'grade_type' => ['nullable', 'string', Rule::in(['ümumi', 'ixtisaslaşdırılmış', 'xüsusi'])],
             'education_program' => ['nullable', 'string', 'max:50'],
+            'teaching_language' => ['nullable', 'string', Rule::in(['azərbaycan', 'rus', 'gürcü', 'ingilis'])],
+            'teaching_week' => ['nullable', 'string', Rule::in(['5_günlük', '6_günlük'])],
             'academic_year' => ['nullable', 'string', 'max:20'],
         ];
     }

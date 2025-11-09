@@ -1,4 +1,5 @@
 import React from 'react';
+import { Plus } from 'lucide-react';
 import { GenericManagerV2 } from '@/components/generic/GenericManagerV2';
 import { Grade, GradeFilters } from '@/services/grades';
 import { gradeEntityConfig, gradeCustomLogic, GradeFiltersComponent } from './configurations/gradeConfig';
@@ -15,6 +16,7 @@ import { academicYearService } from '@/services/academicYears';
 import { gradeService } from '@/services/grades';
 import { logger } from '@/utils/logger';
 import { toast } from 'sonner';
+import { useEntityManagerV2 } from '@/hooks/useEntityManagerV2';
 
 interface GradeManagerProps {
   className?: string;
@@ -71,22 +73,24 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     const institutions = institutionsResponse.data;
     
     // Role-based institution filtering logic
+    const userInstitutionId = currentUser.institution?.id;
+
     switch (currentUser.role) {
       case 'superadmin':
         return institutions.filter((inst: any) => inst.level && inst.level >= 3);
-        
+
       case 'regionadmin':
-        return institutions.filter((inst: any) => 
-          inst.id === currentUser.institution_id || (inst.level && inst.level >= 3)
+        return institutions.filter((inst: any) =>
+          inst.id === userInstitutionId || (inst.level && inst.level >= 3)
         );
-        
+
       case 'sektoradmin':
-        return institutions.filter((inst: any) => 
-          inst.id === currentUser.institution_id || inst.level === 4
+        return institutions.filter((inst: any) =>
+          inst.id === userInstitutionId || inst.level === 4
         );
-        
+
       default:
-        return institutions.filter((inst: any) => inst.id === currentUser.institution_id);
+        return institutions.filter((inst: any) => inst.id === userInstitutionId);
     }
   }, [institutionsResponse, currentUser]);
 
@@ -137,66 +141,83 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
   });
 
   // Enhanced configuration with grade-specific modal handlers
-  const enhancedConfig = React.useMemo(() => ({
-    ...gradeEntityConfig,
+  const enhancedConfig = React.useMemo(() => {
+    // Build default filters based on user role
+    const defaultFilters: Partial<GradeFilters> = {
+      is_active: true,
+      per_page: 20,
+    };
 
-    // Filter columns based on user role
-    columns: gradeEntityConfig.columns.filter(column => {
-      // Check if column has visibility condition
-      if (column.isVisible && typeof column.isVisible === 'function') {
-        return column.isVisible({} as Grade, currentUser?.role);
-      }
-      return true; // Show column by default
-    }),
+    // Add institution_id filter for non-admin roles
+    if (currentUser && !['superadmin', 'regionadmin'].includes(currentUser.role) && currentUser.institution?.id) {
+      defaultFilters.institution_id = currentUser.institution.id;
+    }
 
-    // Override actions to connect with local modal handlers
-    actions: gradeEntityConfig.actions.map(action => ({
-      ...action,
-      onClick: (grade: Grade) => {
-        logger.debug(`Grade action triggered: ${action.key}`, {
-          component: 'GradeManager',
-          action: `handle${action.key}`,
-          data: { 
-            gradeId: grade.id, 
-            gradeName: grade.name,
-            classLevel: grade.class_level
-          }
-        });
+    return {
+      ...gradeEntityConfig,
 
-        switch (action.key) {
-          case 'view':
-            setSelectedGrade(grade);
-            break;
-          case 'edit':
-            setEditingGrade(grade);
-            break;
-          case 'duplicate':
-            setDuplicatingGrade(grade);
-            break;
-          case 'students':
-            setStudentsGrade(grade);
-            setStudentsModalOpen(true);
-            break;
-          case 'analytics':
-            setAnalyticsGrade(grade);
-            setAnalyticsModalOpen(true);
-            break;
-          case 'soft-delete':
-            if (confirm(`"${grade.name}" sinfini deaktiv etmək istədiyinizə əminsiniz?`)) {
-              softDeleteMutation.mutate(grade.id);
-            }
-            break;
-          case 'hard-delete':
-            if (confirm(`"${grade.name}" sinfini tamamilə silmək istədiyinizə əminsiniz? Bu əməliyyat geri qaytarıla bilməz.`)) {
-              hardDeleteMutation.mutate(grade.id);
-            }
-            break;
-          default:
-            logger.warn('Unknown action', { action: action.key });
+      // Override defaultFilters with role-based institution filtering
+      defaultFilters,
+
+      // Filter columns based on user role
+      columns: gradeEntityConfig.columns.filter(column => {
+        // Check if column has visibility condition
+        const col = column as any;
+        if (col.isVisible && typeof col.isVisible === 'function') {
+          return col.isVisible({} as Grade, currentUser?.role);
         }
-      }
-    }))
-  }), [currentUser?.role, softDeleteMutation, hardDeleteMutation]);
+        return true; // Show column by default
+      }),
+
+      // Override actions to connect with local modal handlers
+      actions: gradeEntityConfig.actions.map(action => ({
+        ...action,
+        onClick: (grade: Grade) => {
+          logger.debug(`Grade action triggered: ${action.key}`, {
+            component: 'GradeManager',
+            action: `handle${action.key}`,
+            data: {
+              gradeId: grade.id,
+              gradeName: grade.name,
+              classLevel: grade.class_level
+            }
+          });
+
+          switch (action.key) {
+            case 'view':
+              setSelectedGrade(grade);
+              break;
+            case 'edit':
+              setEditingGrade(grade);
+              break;
+            case 'duplicate':
+              setDuplicatingGrade(grade);
+              break;
+            case 'students':
+              setStudentsGrade(grade);
+              setStudentsModalOpen(true);
+              break;
+            case 'analytics':
+              setAnalyticsGrade(grade);
+              setAnalyticsModalOpen(true);
+              break;
+            case 'soft-delete':
+              if (confirm(`"${grade.name}" sinfini deaktiv etmək istədiyinizə əminsiniz?`)) {
+                softDeleteMutation.mutate(grade.id);
+              }
+              break;
+            case 'hard-delete':
+              if (confirm(`"${grade.name}" sinfini tamamilə silmək istədiyinizə əminsiniz? Bu əməliyyat geri qaytarıla bilməz.`)) {
+                hardDeleteMutation.mutate(grade.id);
+              }
+              break;
+            default:
+              logger.warn('Unknown action', { action: action.key });
+          }
+        }
+      }))
+    };
+  }, [currentUser, softDeleteMutation, hardDeleteMutation]);
 
   // Handle create action
   const handleCreate = React.useCallback(() => {
@@ -213,29 +234,37 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
       {
         key: 'create-grade',
         label: 'Yeni Sinif',
-        icon: () => React.createElement('svg', { 
-          className: 'h-4 w-4', 
-          fill: 'none', 
-          stroke: 'currentColor', 
-          viewBox: '0 0 24 24' 
-        }, React.createElement('path', { 
-          strokeLinecap: 'round', 
-          strokeLinejoin: 'round', 
-          strokeWidth: 2, 
-          d: 'M12 4v16m8-8H4' 
-        })),
+        icon: Plus as any,
         onClick: handleCreate,
         variant: 'default' as const
       }
     ],
-    renderCustomFilters: () => (
-      <GradeFiltersComponent
-        filters={{}}
-        onFiltersChange={() => {}}
-        availableInstitutions={availableInstitutions}
-        availableAcademicYears={availableAcademicYears}
-      />
-    )
+    renderCustomFilters: (manager: any) => {
+      logger.debug('Rendering custom filters with manager state', {
+        component: 'GradeManager',
+        action: 'renderCustomFilters',
+        data: {
+          currentFilters: manager.filters,
+          hasSetFilters: !!manager.setFilters
+        }
+      });
+
+      return (
+        <GradeFiltersComponent
+          filters={manager.filters || {}}
+          onFiltersChange={(newFilters) => {
+            logger.debug('Filter change requested', {
+              component: 'GradeManager',
+              action: 'onFiltersChange',
+              data: { newFilters }
+            });
+            manager.setFilters(newFilters);
+          }}
+          availableInstitutions={availableInstitutions}
+          availableAcademicYears={availableAcademicYears}
+        />
+      );
+    }
   }), [handleCreate, availableInstitutions, availableAcademicYears]);
 
   // Handle close modals
@@ -250,12 +279,23 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     setAnalyticsGrade(null);
   }, []);
 
-  // TypeScript generic komponent
-  const GenericManager = GenericManagerV2<Grade, GradeFilters>;
-  
+  // Debug logging for institution filter
+  React.useEffect(() => {
+    logger.debug('GradeManager render state', {
+      component: 'GradeManager',
+      data: {
+        hasUser: !!currentUser,
+        userRole: currentUser?.role,
+        institutionId: currentUser?.institution?.id,
+        institutionName: currentUser?.institution?.name,
+      }
+    });
+  }, [currentUser]);
+
   return (
     <>
-      <GenericManager
+      <GenericManagerV2
+        key={`grade-manager-${currentUser?.institution?.id || 'no-institution'}`}
         config={enhancedConfig}
         customLogic={customLogic}
         className={className}
