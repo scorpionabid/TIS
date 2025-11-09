@@ -1,0 +1,74 @@
+services:
+  # Laravel Backend (Production with Redis)
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    container_name: atis_backend_prod
+    restart: unless-stopped
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_KEY=base64:ZJcYKmEByjcMfMKA++zzXMM74fNnqsKxXZKvxrPkGhU=
+      - DB_CONNECTION=sqlite
+      - DB_DATABASE=/var/www/html/database/database.sqlite
+      - CACHE_STORE=redis
+      - REDIS_CLIENT=phpredis
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=null
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/database:/var/www/html/database
+      - ./backend/storage:/var/www/html/storage
+      - ./backend/app:/var/www/html/app
+      - ./backend/routes:/var/www/html/routes
+      - ./backend/config:/var/www/html/config
+      - ./backend/public:/var/www/html/public
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - atis_network
+
+  # React Frontend (Production Build)
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile.production
+    container_name: atis_frontend_prod
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - atis_network
+
+  # Redis Cache Server
+  redis:
+    image: redis:7-alpine
+    container_name: atis_redis_prod
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - atis_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  atis_network:
+    driver: bridge
+
+volumes:
+  redis_data:
+    driver: local
