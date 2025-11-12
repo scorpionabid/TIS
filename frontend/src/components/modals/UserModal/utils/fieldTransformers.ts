@@ -43,16 +43,9 @@ export function transformFormDataToBackend(
     // Basic profile fields
     first_name: data.first_name || '',
     last_name: data.last_name || '',
-    patronymic: data.patronymic || '',
-    birth_date: data.birth_date || null,
-    gender: data.gender || '',
-    national_id: data.national_id || '',
-    contact_phone: data.contact_phone || '',
     utis_code: data.utis_code || '',
-    emergency_contact_name: data.emergency_contact_name || '',
-    emergency_contact_phone: data.emergency_contact_phone || '',
-    emergency_contact_email: data.emergency_contact_email || '',
-    notes: data.notes || '',
+    // REMOVED: patronymic, birth_date, gender, national_id, contact_phone - database columns do not exist
+    // REMOVED: emergency_contact fields - not in database schema
   };
 
   // Add teacher-specific fields if in teacher mode
@@ -134,16 +127,12 @@ export function transformBackendDataToForm(user: any | null): Record<string, any
     email: user.email || '',
     first_name: user.profile?.first_name || user.first_name || '',
     last_name: user.profile?.last_name || user.last_name || '',
-    patronymic: user.profile?.patronymic || '',
+    // REMOVED: patronymic, contact_phone, birth_date, gender, national_id - database columns do not exist
     role_id: user.role_id ? user.role_id.toString() : '',
     role_name: user.role_name || user.roles?.[0]?.name || '',
     institution_id: user.institution_id ? user.institution_id.toString() : '',
     department_id: user.department_id ? user.department_id.toString() : '',
     is_active: user.is_active !== undefined ? user.is_active.toString() : 'true',
-    contact_phone: user.profile?.contact_phone || user.contact_phone || '',
-    birth_date: user.profile?.birth_date || user.birth_date || '',
-    gender: user.profile?.gender || '',
-    national_id: user.profile?.national_id || '',
     utis_code: user.profile?.utis_code || user.utis_code || '',
   };
 

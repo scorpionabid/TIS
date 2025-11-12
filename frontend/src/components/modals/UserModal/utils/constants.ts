@@ -7,15 +7,11 @@
 export const DEFAULT_FORM_VALUES = {
   first_name: '',
   last_name: '',
-  patronymic: '',
+  // REMOVED: patronymic, contact_phone, birth_date, gender, national_id - database columns do not exist
   username: '',
   email: '',
   password: '',
   password_confirmation: '',
-  contact_phone: '',
-  birth_date: '',
-  gender: '',
-  national_id: '',
   utis_code: '',
   role_id: '',
   institution_id: '',
@@ -421,9 +417,8 @@ export type UserModalMode = 'teacher' | 'student' | 'general';
 // Profile field lists (for data transformation)
 export const PROFILE_FIELDS = {
   BASIC: [
-    'first_name', 'last_name', 'patronymic', 'birth_date', 'gender',
-    'national_id', 'contact_phone', 'utis_code', 'emergency_contact_name',
-    'emergency_contact_phone', 'emergency_contact_email', 'notes'
+    'first_name', 'last_name', 'utis_code'
+    // REMOVED: patronymic, birth_date, gender, national_id, contact_phone - database columns do not exist
   ],
   TEACHER: [
     'position_type', 'employment_status', 'workplace_type', 'contract_start_date',

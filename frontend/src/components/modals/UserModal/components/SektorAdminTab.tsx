@@ -58,11 +58,7 @@ export function SektorAdminTab({
       type: 'text',
       required: true,
     },
-    {
-      name: 'patronymic',
-      label: 'Ata adı',
-      type: 'text',
-    },
+    // REMOVED: patronymic (ata adı) - database column does not exist
     {
       name: 'username',
       label: 'İstifadəçi adı',
