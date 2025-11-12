@@ -4,20 +4,25 @@ namespace App\Services;
 
 use App\Models\Task;
 use App\Models\TaskAssignment;
+use App\Models\TaskProgressLog;
 use App\Models\Institution;
 use App\Models\User;
 use App\Services\BaseService;
 use App\Services\TaskPermissionService;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class TaskAssignmentService extends BaseService
 {
-    protected $permissionService;
+    protected TaskPermissionService $permissionService;
+    protected NotificationService $notificationService;
 
-    public function __construct(TaskPermissionService $permissionService)
+    public function __construct(TaskPermissionService $permissionService, NotificationService $notificationService)
     {
         $this->permissionService = $permissionService;
+        $this->notificationService = $notificationService;
     }
 
     /**
@@ -178,7 +183,7 @@ class TaskAssignmentService extends BaseService
     public function updateAssignmentStatus(int $assignmentId, array $data, $user): TaskAssignment
     {
         return DB::transaction(function () use ($assignmentId, $data, $user) {
-            $assignment = TaskAssignment::with(['task', 'assignedUser'])->findOrFail($assignmentId);
+            $assignment = TaskAssignment::with(['task', 'assignedUser', 'institution'])->findOrFail($assignmentId);
 
             if (!$this->permissionService->canUserUpdateAssignment($assignment, $user)) {
                 throw new \Exception('Bu tapşırıq təyinatını yeniləmək icazəniz yoxdur');
@@ -190,17 +195,30 @@ class TaskAssignmentService extends BaseService
             // Validate status transition
             $this->validateStatusTransition($assignment, $oldStatus, $newStatus);
 
+            $desiredProgress = array_key_exists('progress', $data)
+                ? (int) $data['progress']
+                : ($newStatus === 'completed'
+                    ? 100
+                    : ($assignment->progress ?? ($newStatus === 'in_progress' ? 25 : 0)));
+
             // Update assignment
             $assignment->update([
                 'assignment_status' => $newStatus,
-                'progress' => $data['progress'] ?? $assignment->progress,
+                'progress' => $desiredProgress,
                 'completion_notes' => $data['completion_notes'] ?? $assignment->completion_notes,
+                'completion_data' => $data['completion_data'] ?? $assignment->completion_data,
                 'completed_at' => $newStatus === 'completed' ? now() : $assignment->completed_at,
                 'updated_by' => $user->id
             ]);
 
             // Log progress change
-            $this->logProgressChange($assignment, $oldStatus, $newStatus, $user);
+            $this->logProgressChange(
+                $assignment,
+                $oldStatus,
+                $newStatus,
+                $user,
+                $data['completion_notes'] ?? null
+            );
 
             // Update parent task progress
             $this->updateTaskProgressFromAssignments($assignment->task->fresh('assignments'));
@@ -478,17 +496,32 @@ class TaskAssignmentService extends BaseService
      */
     private function validateStatusTransition(TaskAssignment $assignment, string $oldStatus, string $newStatus): void
     {
-        $validTransitions = [
+        $validTransitions = $this->getStatusTransitionMap();
+
+        if (!isset($validTransitions[$oldStatus]) ||
+            !in_array($newStatus, $validTransitions[$oldStatus])) {
+            throw new \Exception("Status dəyişikliyi mümkün deyil: {$oldStatus} -> {$newStatus}");
+        }
+    }
+
+    /**
+     * Public helper for controllers/transformers
+     */
+    public function getAllowedTransitions(TaskAssignment $assignment): array
+    {
+        $transitions = $this->getStatusTransitionMap();
+
+        return $transitions[$assignment->assignment_status] ?? [];
+    }
+
+    private function getStatusTransitionMap(): array
+    {
+        return [
             'pending' => ['in_progress', 'completed', 'cancelled'],
             'in_progress' => ['completed', 'cancelled', 'pending'],
             'completed' => ['in_progress'], // Allow reopening
             'cancelled' => ['pending', 'in_progress']
         ];
-
-        if (!isset($validTransitions[$oldStatus]) || 
-            !in_array($newStatus, $validTransitions[$oldStatus])) {
-            throw new \Exception("Status dəyişikliyi mümkün deyil: {$oldStatus} -> {$newStatus}");
-        }
     }
 
     /**
@@ -550,14 +583,52 @@ class TaskAssignmentService extends BaseService
     /**
      * Additional helper methods would be implemented here
      */
-    private function logProgressChange($assignment, $oldStatus, $newStatus, $user): void
+    private function logProgressChange($assignment, $oldStatus, $newStatus, $user, ?string $notes = null): void
     {
-        // Implementation for logging progress changes
+        try {
+            TaskProgressLog::create([
+                'task_id' => $assignment->task_id,
+                'updated_by' => $user->id,
+                'old_status' => $oldStatus,
+                'new_status' => $newStatus,
+                'progress_percentage' => $assignment->progress ?? 0,
+                'notes' => $notes,
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('Task progress log yazıla bilmədi', [
+                'assignment_id' => $assignment->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function notifyTaskCompletion($assignment, $user): void
     {
-        // Implementation for sending completion notifications
+        try {
+            $task = $assignment->task?->fresh('creator');
+            if (!$task || !$task->creator) {
+                return;
+            }
+
+            $this->notificationService->send([
+                'title' => 'Tapşırıq tamamlandı',
+                'message' => "{$user->name} \"{$task->title}\" tapşırığını tamamladı.",
+                'type' => 'task_assignment_completed',
+                'channel' => 'in_app',
+                'user_id' => $task->created_by,
+                'related_type' => Task::class,
+                'related_id' => $task->id,
+                'metadata' => [
+                    'assignment_id' => $assignment->id,
+                    'institution_id' => $assignment->institution_id,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('Tapşırıq tamamlanma bildirişi göndərilə bilmədi', [
+                'assignment_id' => $assignment->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function generateProgressTimeline($task): array

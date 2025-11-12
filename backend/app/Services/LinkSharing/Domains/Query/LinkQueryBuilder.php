@@ -65,34 +65,52 @@ class LinkQueryBuilder
     /**
      * Apply filters to query
      *
-     * LOGIC PRESERVED FROM ORIGINAL (lines 350-392)
+     * ENHANCED: Added creator filter, status filter, and improved existing filters
      */
     public function applyRequestFilters($query, Request $request)
     {
+        // Link type filter (external, video, form, document)
         if ($request->filled('link_type')) {
             $query->where('link_type', $request->link_type);
         }
 
+        // Share scope filter (public, regional, sectoral, institutional, specific_users)
         if ($request->filled('share_scope')) {
             $query->byScope($request->share_scope);
         }
 
+        // Featured filter
         if ($request->filled('is_featured')) {
             $query->where('is_featured', $request->boolean('is_featured'));
         }
 
+        // Priority filter (if exists)
         if ($request->filled('priority')) {
             $query->where('priority', $request->priority);
         }
 
-        if ($request->filled('shared_by')) {
-            $query->where('shared_by', $request->shared_by);
+        // Creator filter (shared_by user ID)
+        if ($request->filled('shared_by') || $request->filled('creator_id')) {
+            $creatorId = $request->filled('shared_by') ? $request->shared_by : $request->creator_id;
+            $query->where('shared_by', $creatorId);
         }
 
+        // "My Links" filter - show only current user's created links
+        if ($request->boolean('my_links')) {
+            $query->where('shared_by', auth()->id());
+        }
+
+        // Institution filter
         if ($request->filled('institution_id')) {
             $query->where('institution_id', $request->institution_id);
         }
 
+        // Status filter (active, expired, disabled)
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // Date range filters
         if ($request->filled('date_from')) {
             $query->whereDate('created_at', '>=', $request->date_from);
         }
@@ -101,6 +119,7 @@ class LinkQueryBuilder
             $query->whereDate('created_at', '<=', $request->date_to);
         }
 
+        // Tags filter (if exists)
         if ($request->filled('tags')) {
             $tags = is_array($request->tags) ? $request->tags : explode(',', $request->tags);
             foreach ($tags as $tag) {
@@ -109,6 +128,78 @@ class LinkQueryBuilder
         }
 
         return $query;
+    }
+
+    /**
+     * Get links grouped by specified field
+     * NEW METHOD for Phase 2 filtering
+     */
+    public function getGroupedLinks(Request $request, $user, string $groupBy = 'link_type')
+    {
+        $query = LinkShare::with(['sharedBy', 'institution'])->active();
+
+        // Apply regional hierarchy filtering
+        $this->applyRegionalFilter($query, $user);
+
+        // Apply filters
+        $query = $this->applyRequestFilters($query, $request);
+
+        // Apply search
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhere('tags', 'like', "%{$search}%");
+            });
+        }
+
+        // Get all results
+        $links = $query->get();
+
+        // Group by specified field
+        $grouped = $links->groupBy(function ($link) use ($groupBy) {
+            switch ($groupBy) {
+                case 'link_type':
+                    return $link->link_type;
+                case 'share_scope':
+                    return $link->share_scope;
+                case 'institution':
+                    return $link->institution ? $link->institution->name : 'No Institution';
+                case 'creator':
+                    return $link->sharedBy ? $link->sharedBy->full_name : 'Unknown';
+                case 'status':
+                    return $link->status;
+                case 'date':
+                    // Group by date periods
+                    $createdAt = $link->created_at;
+                    if ($createdAt->isToday()) {
+                        return 'Today';
+                    } elseif ($createdAt->isYesterday()) {
+                        return 'Yesterday';
+                    } elseif ($createdAt->isCurrentWeek()) {
+                        return 'This Week';
+                    } elseif ($createdAt->isCurrentMonth()) {
+                        return 'This Month';
+                    } else {
+                        return 'Older';
+                    }
+                default:
+                    return 'Other';
+            }
+        });
+
+        // Convert to array with counts
+        $result = [];
+        foreach ($grouped as $groupName => $groupLinks) {
+            $result[] = [
+                'group' => $groupName,
+                'count' => $groupLinks->count(),
+                'links' => $groupLinks->values()
+            ];
+        }
+
+        return $result;
     }
 
     /**
@@ -162,9 +253,17 @@ class LinkQueryBuilder
                   ->orWhere('share_scope', 'public')
                   ->orWhere('share_scope', 'national')
                   ->orWhere('shared_by', $user->id)
-                  ->orWhereJsonContains('target_institutions', (string)$userInstitution->id);
+                  ->orWhereJsonContains('target_institutions', (string)$userInstitution->id)
+                  ->orWhereJsonContains('target_users', $user->id); // NEW: User-based targeting
             });
         }
+
+        // ENHANCEMENT: Add user-based targeting check for ALL roles (not just school users)
+        // This ensures that if a link is specifically targeted to a user, they can see it
+        $query->orWhere(function ($userTargetQuery) use ($user) {
+            $userTargetQuery->where('share_scope', 'specific_users')
+                ->whereJsonContains('target_users', $user->id);
+        });
     }
 
     /**
@@ -259,16 +358,23 @@ class LinkQueryBuilder
         $assignedResources = [];
 
         try {
-            // Get links assigned to user's allowed institutions
+            // Get links assigned to user's allowed institutions OR specifically targeted to this user
             $linksQuery = LinkShare::with(['sharedBy', 'institution'])
                 ->where('status', 'active')
                 ->where(function ($query) use ($user, $allowedInstitutions) {
-                    $query->where('share_scope', 'public')
-                          ->orWhereIn('institution_id', $allowedInstitutions)
-                          ->orWhere(function ($subQuery) use ($allowedInstitutions) {
-                              foreach ($allowedInstitutions as $institutionId) {
-                                  $subQuery->orWhereJsonContains('target_institutions', $institutionId);
-                              }
+                    $query->whereIn('share_scope', ['public', 'regional', 'sectoral', 'institutional'])
+                          ->where(function ($scopeQuery) use ($allowedInstitutions) {
+                              $scopeQuery->where('share_scope', 'public')
+                                         ->orWhereIn('institution_id', $allowedInstitutions)
+                                         ->orWhere(function ($subQuery) use ($allowedInstitutions) {
+                                             foreach ($allowedInstitutions as $institutionId) {
+                                                 $subQuery->orWhereJsonContains('target_institutions', $institutionId);
+                                             }
+                                         });
+                          })
+                          ->orWhere(function ($userTargetQuery) use ($user) {
+                              $userTargetQuery->where('share_scope', 'specific_users')
+                                              ->whereJsonContains('target_users', $user->id);
                           });
                 });
 

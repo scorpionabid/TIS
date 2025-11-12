@@ -7,9 +7,10 @@
 
 import { useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getMenuForRole, MenuGroup } from '@/config/navigation';
+import { getMenuForRole, getMenuForRoleAndPanel, MenuGroup } from '@/config/navigation';
 import { UserRole } from '@/constants/roles';
 import { performanceMonitor } from '@/utils/performanceMonitor';
+import { SidebarPanel } from '@/types/sidebar';
 
 interface NavigationCache {
   [key: string]: {
@@ -17,6 +18,7 @@ interface NavigationCache {
     timestamp: number;
     userRole: UserRole;
     permissions: string[];
+    panel: string;
   };
 }
 
@@ -24,15 +26,29 @@ interface NavigationCache {
 const navigationCache: NavigationCache = {};
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-export const useNavigationCache = () => {
+interface UseNavigationOptions {
+  panel?: SidebarPanel | 'all';
+}
+
+const PANEL_DEFAULT = 'all';
+
+export const resetNavigationCache = () => {
+  Object.keys(navigationCache).forEach(key => {
+    delete navigationCache[key];
+  });
+  console.log('🗑️ Navigation: Global cache reset');
+};
+
+export const useNavigationCache = (options: UseNavigationOptions = {}) => {
   const { currentUser } = useAuth();
+  const panelKey = options.panel ?? PANEL_DEFAULT;
 
   /**
    * Generate cache key based on user role and permissions
    */
-  const getCacheKey = useCallback((role: UserRole, permissions: string[]) => {
+  const getCacheKey = useCallback((role: UserRole, permissions: string[], panel: string) => {
     const permissionHash = permissions.sort().join(',');
-    return `${role}:${permissionHash}`;
+    return `${role}:${permissionHash}:${panel}`;
   }, []);
 
   /**
@@ -51,7 +67,7 @@ export const useNavigationCache = () => {
     if (!currentUser) return [];
 
     const startTime = performance.now();
-    const cacheKey = getCacheKey(currentUser.role, currentUser.permissions);
+    const cacheKey = getCacheKey(currentUser.role, currentUser.permissions, panelKey);
     const cachedEntry = navigationCache[cacheKey];
     let cacheHit = false;
 
@@ -65,14 +81,19 @@ export const useNavigationCache = () => {
     } else {
       // Generate new menu structure
       console.log('📊 Navigation: Generating new menu for', currentUser.role);
-      menuData = getMenuForRole(currentUser.role);
+      if (panelKey === PANEL_DEFAULT) {
+        menuData = getMenuForRole(currentUser.role);
+      } else {
+        menuData = getMenuForRoleAndPanel(currentUser.role, panelKey as SidebarPanel);
+      }
 
       // Cache the result
       navigationCache[cacheKey] = {
         data: menuData,
         timestamp: Date.now(),
         userRole: currentUser.role,
-        permissions: [...currentUser.permissions]
+        permissions: [...currentUser.permissions],
+        panel: panelKey
       };
     }
 
@@ -97,12 +118,13 @@ export const useNavigationCache = () => {
       userRole: currentUser.role,
       metadata: {
         cacheKey,
-        permissionsCount: currentUser.permissions.length
+        permissionsCount: currentUser.permissions.length,
+        panel: panelKey
       }
     });
 
     return menuData;
-  }, [currentUser, getCacheKey, isCacheValid]);
+  }, [currentUser, getCacheKey, isCacheValid, panelKey]);
 
   /**
    * Clear cache (useful for role changes or logout)
@@ -146,9 +168,9 @@ export const useNavigationCache = () => {
       validEntries: validEntries.length,
       expiredEntries: entries.length - validEntries.length,
       cacheKeys: entries,
-      currentUserCacheKey: currentUser ? getCacheKey(currentUser.role, currentUser.permissions) : null
+      currentUserCacheKey: currentUser ? getCacheKey(currentUser.role, currentUser.permissions, panelKey) : null
     };
-  }, [currentUser, getCacheKey, isCacheValid]);
+  }, [currentUser, getCacheKey, isCacheValid, panelKey]);
 
   // Memoized navigation data
   const navigationMenu = useMemo(() => {
@@ -166,7 +188,7 @@ export const useNavigationCache = () => {
     cleanExpiredCache,
     getCacheStats,
     isCacheEnabled: true,
-    cacheKey: currentUser ? getCacheKey(currentUser.role, currentUser.permissions) : null
+    cacheKey: currentUser ? getCacheKey(currentUser.role, currentUser.permissions, panelKey) : null
   };
 };
 

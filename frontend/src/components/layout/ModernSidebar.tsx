@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { SidebarContainer } from '@/components/layout/components/Sidebar/SidebarContainer';
 import { SidebarHeader } from '@/components/layout/components/Sidebar/SidebarHeader';
 import { SidebarPanelSwitch } from '@/components/layout/components/Sidebar/SidebarPanelSwitch';
@@ -7,7 +7,7 @@ import { SidebarFooter } from '@/components/layout/components/Sidebar/SidebarFoo
 import { useSidebarBehavior } from '@/hooks/useSidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLayout } from '@/contexts/LayoutContext';
-import { getMenuForRoleAndPanel } from '@/config/navigation';
+import { useNavigationCache } from '@/hooks/useNavigationCache';
 
 interface ModernSidebarProps {
   onLogout: () => void;
@@ -17,16 +17,9 @@ export const ModernSidebar: React.FC<ModernSidebarProps> = ({ onLogout }) => {
   const { isExpanded } = useSidebarBehavior();
   const { currentUser } = useAuth();
   const { sidebarPreferences } = useLayout();
-
-  // Panel əsaslı navigation menu
-  const navigationMenu = useMemo(() => {
-    if (!currentUser) return [];
-
-    return getMenuForRoleAndPanel(
-      currentUser.role as any,
-      sidebarPreferences.activePanel
-    );
-  }, [currentUser, sidebarPreferences.activePanel]);
+  const { navigationMenu } = useNavigationCache({
+    panel: sidebarPreferences.activePanel
+  });
 
   // Debug panel-based navigation
   useEffect(() => {

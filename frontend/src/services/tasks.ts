@@ -58,6 +58,23 @@ export interface Task extends BaseEntity {
       email?: string;
     } | null;
   }>;
+  user_assignment?: UserAssignmentSummary | null;
+}
+
+export interface UserAssignmentSummary {
+  id: number;
+  status: Task['status'];
+  progress: number | null;
+  due_date?: string | null;
+  completion_notes?: string | null;
+  completion_data?: Record<string, unknown> | null;
+  institution?: {
+    id: number;
+    name: string;
+    type?: string;
+  } | null;
+  can_update: boolean;
+  allowed_transitions: Task['status'][];
 }
 
 export interface TaskAttachment {
@@ -221,6 +238,19 @@ class TaskService extends BaseService<Task> {
   async getAssignedToMe(filters?: TaskFilters) {
     const response = await apiClient.get<Task[]>(`${this.baseEndpoint}/assigned-to-me`, filters);
     return response as any; // PaginatedResponse
+  }
+
+  async updateAssignmentStatus(
+    assignmentId: number,
+    data: {
+      status: Task['status'];
+      progress?: number;
+      completion_notes?: string;
+      completion_data?: Record<string, unknown>;
+    }
+  ) {
+    const response = await apiClient.post(`/task-assignments/${assignmentId}/status`, data);
+    return response.data ?? response;
   }
 }
 

@@ -15,11 +15,6 @@ interface DocumentFormTabProps {
   selectedFile: File | null;
   setSelectedFile: (file: File | null) => void;
   availableInstitutions: Institution[];
-  filteredInstitutions: Institution[];
-  institutionSearch: string;
-  setInstitutionSearch: (value: string) => void;
-  selectInstitutionsByLevel: (level: number) => void;
-  selectInstitutionsByType: (filterFn: (inst: any) => boolean) => void;
   mode?: 'create' | 'edit';
   currentFileName?: string;
 }
@@ -29,11 +24,6 @@ export function DocumentFormTab({
   selectedFile,
   setSelectedFile,
   availableInstitutions,
-  filteredInstitutions,
-  institutionSearch,
-  setInstitutionSearch,
-  selectInstitutionsByLevel,
-  selectInstitutionsByType,
   mode = 'create',
   currentFileName,
 }: DocumentFormTabProps) {
@@ -182,11 +172,6 @@ export function DocumentFormTab({
         <InstitutionTargeting
           form={form}
           availableInstitutions={availableInstitutions}
-          filteredInstitutions={filteredInstitutions}
-          institutionSearch={institutionSearch}
-          setInstitutionSearch={setInstitutionSearch}
-          selectInstitutionsByLevel={selectInstitutionsByLevel}
-          selectInstitutionsByType={selectInstitutionsByType}
         />
       </div>
     </div>

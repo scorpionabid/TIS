@@ -36,21 +36,25 @@ class LinkPermissionService
                 'regional' => 'Regional',
                 'sectoral' => 'Sektor',
                 'institutional' => 'Qurum',
+                'specific_users' => 'Xüsusi istifadəçilər',
                 'public' => 'Açıq'
             ],
             'regionadmin' => [
                 'regional' => 'Regional',
                 'sectoral' => 'Sektor',
                 'institutional' => 'Qurum',
+                'specific_users' => 'Xüsusi istifadəçilər',
                 'public' => 'Açıq'
             ],
             'sektoradmin' => [
                 'sectoral' => 'Sektor',
                 'institutional' => 'Qurum',
+                'specific_users' => 'Xüsusi istifadəçilər',
                 'public' => 'Açıq'
             ],
             'schooladmin' => [
                 'institutional' => 'Qurum',
+                'specific_users' => 'Xüsusi istifadəçilər',
                 'public' => 'Açıq'
             ]
         ];
@@ -237,6 +241,7 @@ class LinkPermissionService
 
             case 'schooladmin':
             case 'müəllim':
+            case 'teacher':
             default:
                 // Other roles only have access to their own institution
                 return [$userInstitutionId];

@@ -82,7 +82,7 @@ class LinkShareControllerRefactored extends BaseController
                 'url' => 'required|url',
                 'description' => 'nullable|string|max:500',
                 'link_type' => 'required|string|in:external,video,form,document',
-                'share_scope' => 'required|string|in:public,regional,sectoral,institutional',
+                'share_scope' => 'required|string|in:public,regional,sectoral,institutional,specific_users',
                 'is_featured' => 'boolean',
                 'expires_at' => 'nullable|date|after:now',
                 'target_institutions' => 'nullable|array',
@@ -91,6 +91,8 @@ class LinkShareControllerRefactored extends BaseController
                 'target_roles.*' => 'string',
                 'target_departments' => 'nullable|array',
                 'target_departments.*' => 'integer',
+                'target_users' => 'nullable|array',
+                'target_users.*' => 'integer|exists:users,id',
             ]);
 
             $user = Auth::user();
@@ -114,7 +116,7 @@ class LinkShareControllerRefactored extends BaseController
                 'description' => 'nullable|string|max:500',
                 'url' => 'sometimes|required|url|max:2048',
                 'link_type' => 'sometimes|required|string|in:external,video,form,document',
-                'share_scope' => 'sometimes|required|string|in:public,regional,sectoral,institutional',
+                'share_scope' => 'sometimes|required|string|in:public,regional,sectoral,institutional,specific_users',
                 'is_featured' => 'boolean',
                 'expires_at' => 'nullable|date|after:now',
                 'target_institutions' => 'nullable|array',
@@ -123,6 +125,8 @@ class LinkShareControllerRefactored extends BaseController
                 'target_roles.*' => 'string',
                 'target_departments' => 'nullable|array',
                 'target_departments.*' => 'integer',
+                'target_users' => 'nullable|array',
+                'target_users.*' => 'integer|exists:users,id',
                 'password' => 'nullable|string|min:6|max:50',
                 'access_limit' => 'nullable|integer|min:1|max:10000',
                 'allow_download' => 'boolean',
@@ -477,7 +481,7 @@ class LinkShareControllerRefactored extends BaseController
             $user = Auth::user();
 
             // Check if user has permission to view assigned resources
-            if (!$user->hasAnyRole(['sektoradmin', 'schooladmin', 'müəllim'])) {
+            if (!$user->hasAnyRole(['sektoradmin', 'schooladmin', 'regionoperator', 'müəllim', 'teacher'])) {
                 return $this->errorResponse('Bu səhifəni görməyə icazəniz yoxdur', 403);
             }
 

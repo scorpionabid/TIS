@@ -89,6 +89,12 @@ Route::middleware('permission:tasks.read')->group(function () {
     Route::get('tasks/{task}/history', [TaskController::class, 'getHistory']);
     Route::get('tasks/user/{user}', [TaskController::class, 'getUserTasks']);
     Route::get('tasks/institution/{institution}', [TaskController::class, 'getInstitutionTasks']);
+    Route::post('task-assignments/{assignment}/status', [TaskController::class, 'updateAssignmentStatus']);
+});
+
+Route::middleware('role:superadmin|regionadmin|regionoperator|sektoradmin|schooladmin')->group(function () {
+    // Resource-specific helper endpoint (reuses task assignment logic)
+    Route::get('resources/target-users', [TaskController::class, 'getAssignableUsers']);
 });
 
 Route::middleware('role:superadmin|regionadmin|sektoradmin')->group(function () {

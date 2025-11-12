@@ -32,5 +32,6 @@ Route::prefix('links')->group(function () {
 
 // My Resources Routes (for sektoradmin, schooladmin and teachers)
 Route::prefix('my-resources')->group(function () {
-    Route::get('/assigned', [LinkShareController::class, 'getAssignedResources'])->middleware('permission:links.read');
+    Route::get('/assigned', [LinkShareController::class, 'getAssignedResources'])
+        ->middleware(['auth:sanctum', 'role:sektoradmin|schooladmin|regionoperator|müəllim|teacher']);
 });

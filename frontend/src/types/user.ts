@@ -149,6 +149,7 @@ export interface LoginCredentials {
 
 export interface LoginResponse {
   token: string;
+  access_token?: string; // Optional for backward compatibility with legacy APIs
   user: User;
   expires_at: string;
 }

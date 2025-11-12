@@ -7,6 +7,7 @@ import { User } from '@/types/user';
 import { useToast } from '@/hooks/use-toast';
 import { USER_ROLES, UserRole, isValidRole } from '@/constants/roles';
 import { usePerformanceMonitor } from '@/utils/performance/hooks';
+import { resetNavigationCache } from '@/hooks/useNavigationCache';
 
 // Single storage location for token and user data
 const AUTH_STORAGE_KEY = 'atis_auth_token';
@@ -47,6 +48,12 @@ const mapBackendRoleToFrontend = (backendRole: string): UserRole => {
 
   log('warn', 'Unknown backend role mapping encountered, defaulting to Müəllim', { backendRole });
   return USER_ROLES.MUELLIM;
+};
+
+const normalizeUserRole = (roleValue: string | UserRole): UserRole => {
+  return typeof roleValue === 'string'
+    ? mapBackendRoleToFrontend(roleValue)
+    : roleValue;
 };
 
 // Optimized debounce utility with faster response
@@ -130,6 +137,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     log('info', 'Token set successfully');
   }, []);
 
+  const applyCurrentUser = useCallback((user: User | null) => {
+    setCurrentUser(user);
+    resetNavigationCache();
+  }, []);
+
   const clearAuth = useCallback(() => {
     apiClient.clearToken();
     storageHelpers.remove(USER_STORAGE_KEY);
@@ -143,11 +155,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     if (isMountedRef.current) {
       setIsAuthenticated(false);
-      setCurrentUser(null);
+      applyCurrentUser(null);
     }
 
     log('info', 'Authentication cleared - all caches purged');
-  }, [queryClient]);
+  }, [applyCurrentUser, queryClient]);
 
   // Store auth functions in refs to avoid recreating debouncedAuthCheck
   const getTokenRef = useRef(getToken);
@@ -181,7 +193,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           log('info', 'No token found - user not authenticated');
           if (isMountedRef.current) {
             setIsAuthenticated(false);
-            setCurrentUser(null);
+            applyCurrentUser(null);
             storageHelpers.remove(USER_STORAGE_KEY);
           }
           return;
@@ -190,7 +202,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Try to restore user from localStorage first (for faster UX)
         const cachedUser = storageHelpers.get<User & { cacheTimestamp?: number }>(USER_STORAGE_KEY);
         if (cachedUser && isMountedRef.current) {
-          setCurrentUser(cachedUser);
+          applyCurrentUser(cachedUser);
           setIsAuthenticated(true);
           log('info', 'User temporarily restored from cache');
           
@@ -221,7 +233,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           cacheTimestamp: Date.now()
         };
 
-        setCurrentUser(mappedUser);
+        applyCurrentUser(mappedUser);
         setIsAuthenticated(true);
         
         // Update localStorage cache with timestamp
@@ -264,7 +276,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           // No token exists, safe to set unauthenticated
           if (isMountedRef.current) {
             setIsAuthenticated(false);
-            setCurrentUser(null);
+            applyCurrentUser(null);
           }
         }
         // For other errors with valid token, keep current state
@@ -320,7 +332,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Store token and user data
       setToken(response.token || response.access_token);
-      setCurrentUser(mappedUser);
+      applyCurrentUser(mappedUser);
       setIsAuthenticated(true);
 
       // Cache user data
@@ -346,7 +358,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [setToken, toast, queryClient]);
+  }, [applyCurrentUser, queryClient, setToken, toast]);
 
   const logout = useCallback(async (): Promise<void> => {
     try {
@@ -376,28 +388,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         role: mapBackendRoleToFrontend(user.role)
       };
       
-      setCurrentUser(mappedUser);
+      applyCurrentUser(mappedUser);
       storageHelpers.set(USER_STORAGE_KEY, mappedUser);
       log('info', 'User data refreshed');
     } catch (error) {
       log('error', 'User refresh failed', error);
       await logout();
     }
-  }, [getToken, logout]);
+  }, [applyCurrentUser, getToken, logout]);
 
   // Memoized permission and role checks
   const hasPermission = useCallback((permission: string): boolean => {
     if (!currentUser) return false;
-    if (currentUser.role === USER_ROLES.SUPERADMIN) return true;
+    const normalizedRole = normalizeUserRole(currentUser.role);
+    if (normalizedRole === USER_ROLES.SUPERADMIN) return true;
     return currentUser.permissions?.includes(permission) || false;
   }, [currentUser]);
 
   const hasRole = useCallback((role: UserRole | UserRole[]): boolean => {
     if (!currentUser) return false;
+    const normalizedRole = normalizeUserRole(currentUser.role);
     if (Array.isArray(role)) {
-      return role.includes(currentUser.role);
+      return role.includes(normalizedRole);
     }
-    return currentUser.role === role;
+    return normalizedRole === role;
   }, [currentUser]);
 
   // Memoized context value to prevent unnecessary re-renders

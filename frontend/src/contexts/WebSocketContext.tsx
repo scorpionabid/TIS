@@ -102,7 +102,27 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   const getWebSocketConfig = useCallback(async (): Promise<WebSocketConfig> => {
     try {
       const response = await fetch('/api/test/websocket/info');
-      const data = await response.json();
+
+      if (!response.ok) {
+        const message = `WebSocket config request failed (${response.status})`;
+        logger.warn(message);
+        throw new Error(message);
+      }
+
+      const rawText = await response.text();
+      if (!rawText) {
+        const message = 'Empty WebSocket configuration response';
+        logger.warn(message);
+        throw new Error(message);
+      }
+
+      let data: any;
+      try {
+        data = JSON.parse(rawText);
+      } catch (parseError) {
+        logger.error('Invalid WebSocket configuration payload', parseError);
+        throw new Error('WebSocket configuration is not valid JSON');
+      }
 
       if (data.success) {
         return {

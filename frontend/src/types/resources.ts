@@ -10,6 +10,7 @@ export interface Resource extends BaseEntity {
   target_institutions?: number[];
   target_departments?: number[];
   target_roles?: string[];
+  target_users?: number[];
 
   // Creator info
   created_by?: number;
@@ -60,6 +61,7 @@ export interface CreateResourceData {
   target_institutions?: number[];
   target_departments?: number[];
   target_roles?: string[];
+  target_users?: number[];
 
   // Link specific
   url?: string;
@@ -85,6 +87,7 @@ export interface UpdateResourceData {
   target_institutions?: number[];
   target_departments?: number[];
   target_roles?: string[];
+  file?: File;
 
   // Link specific updates
   url?: string;
@@ -108,11 +111,14 @@ export interface ResourceFilters {
   target_institutions?: number[];
   creator_id?: number;
   institution_id?: number;
+  date_from?: string;
+  date_to?: string;
 
   // Link filters
   link_type?: 'external' | 'video' | 'form' | 'document';
   share_scope?: 'public' | 'regional' | 'sectoral' | 'institutional' | 'specific_users';
   is_featured?: boolean;
+  my_links?: boolean;
 
   // Document filters
   access_level?: 'public' | 'regional' | 'sectoral' | 'institution';
@@ -155,6 +161,15 @@ export interface ResourceStats {
       image: number;
       other: number;
     };
+  };
+}
+
+export interface ResourceListResponse {
+  data: Resource[];
+  meta: {
+    total: number;
+    per_page: number;
+    current_page: number;
   };
 }
 

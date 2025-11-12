@@ -133,6 +133,10 @@ class TaskControllerRefactored extends Controller
             $perPage = $request->per_page ?? 15;
             $tasks = $query->paginate($perPage);
 
+            $tasks->getCollection()->transform(function (Task $task) use ($user, $institutionId) {
+                return $this->appendAssignmentContext($task, $user, $institutionId);
+            });
+
             return response()->json([
                 'success' => true,
                 'data' => $tasks->items(),
@@ -360,7 +364,8 @@ class TaskControllerRefactored extends Controller
         $request->validate([
             'status' => 'required|string|in:pending,in_progress,completed,cancelled',
             'progress' => 'nullable|integer|min:0|max:100',
-            'completion_notes' => 'nullable|string'
+            'completion_notes' => 'nullable|string',
+            'completion_data' => 'nullable|array'
         ]);
 
         try {
@@ -374,6 +379,50 @@ class TaskControllerRefactored extends Controller
         } catch (\Exception $e) {
             return $this->handleError($e, 'Təyinat statusu yenilənərkən xəta baş verdi.');
         }
+    }
+
+    private function appendAssignmentContext(Task $task, $user, ?int $institutionId): Task
+    {
+        $task->loadMissing([
+            'assignments.assignedUser',
+            'assignments.institution',
+            'assignedInstitution',
+        ]);
+
+        $task->setAttribute(
+            'user_assignment',
+            $this->prepareUserAssignmentPayload($task, $user, $institutionId)
+        );
+
+        return $task;
+    }
+
+    private function prepareUserAssignmentPayload(Task $task, $user, ?int $institutionId): ?array
+    {
+        $assignment = $task->assignments->first(function ($assignment) use ($user, $institutionId) {
+            return $assignment->assigned_user_id === $user->id ||
+                ($institutionId && $assignment->institution_id === $institutionId);
+        });
+
+        if (!$assignment) {
+            return null;
+        }
+
+        return [
+            'id' => $assignment->id,
+            'status' => $assignment->assignment_status,
+            'progress' => $assignment->progress,
+            'due_date' => optional($assignment->due_date)?->toISOString(),
+            'completion_notes' => $assignment->completion_notes,
+            'completion_data' => $assignment->completion_data,
+            'institution' => $assignment->institution ? [
+                'id' => $assignment->institution->id,
+                'name' => $assignment->institution->name,
+                'type' => $assignment->institution->type,
+            ] : null,
+            'can_update' => $this->permissionService->canUserUpdateAssignment($assignment, $user),
+            'allowed_transitions' => $this->assignmentService->getAllowedTransitions($assignment),
+        ];
     }
 
     /**

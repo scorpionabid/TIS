@@ -77,6 +77,10 @@ export interface DocumentFilters extends PaginationParams {
   expires_before?: string;
   institution_id?: number;
   access_level?: 'public' | 'regional' | 'sectoral' | 'institution';
+  status?: string;
+  date_from?: string;
+  date_to?: string;
+  my_documents?: boolean;
 }
 
 export interface DocumentStats {
@@ -132,12 +136,48 @@ class DocumentService extends BaseService<Document> {
     });
 
     // Use apiClient's internal method for FormData uploads with proper CSRF and credentials
-    const response = await this.uploadFormData(formData);
+    const response = await this.submitFormData(formData, this.baseEndpoint);
     return response.data;
   }
 
-  // Custom FormData upload method that uses apiClient infrastructure
-  private async uploadFormData(formData: FormData): Promise<{ data: Document }> {
+  async updateDocument(id: number, data: Partial<CreateDocumentData>): Promise<Document> {
+    const formData = new FormData();
+    formData.append('_method', 'PUT');
+
+    if (data.file) {
+      formData.append('file', data.file);
+    }
+
+    Object.keys(data).forEach(key => {
+      if (key === 'file' || data[key as keyof CreateDocumentData] === undefined) {
+        return;
+      }
+      const value = data[key as keyof CreateDocumentData];
+      if (Array.isArray(value)) {
+        if (value.length > 0) {
+          value.forEach(item => formData.append(`${key}[]`, item));
+        }
+      } else if (typeof value === 'boolean') {
+        formData.append(key, value ? '1' : '0');
+      } else {
+        formData.append(key, String(value));
+      }
+    });
+
+    console.log('♻️ Document update data:', {
+      id,
+      hasFile: !!data.file,
+      title: data.title,
+      category: data.category,
+      accessible_institutions: data.accessible_institutions?.length,
+    });
+
+    const response = await this.submitFormData(formData, `${this.baseEndpoint}/${id}`);
+    return response.data;
+  }
+
+  // Custom FormData submission method that uses apiClient infrastructure
+  private async submitFormData(formData: FormData, endpoint: string, method: 'POST' | 'PUT' = 'POST'): Promise<{ data: Document }> {
     // Ensure CSRF cookie is initialized (same as apiClient does)
     const sanctumUrl = `${(apiClient as any).baseURL.replace('/api', '')}/sanctum/csrf-cookie`;
 
@@ -158,8 +198,8 @@ class DocumentService extends BaseService<Document> {
     delete headers['Content-Type']; // Let browser set multipart/form-data with boundary
 
     console.log('🚀 FormData upload request:', {
-      url: `${(apiClient as any).baseURL}${this.baseEndpoint}`,
-      method: 'POST',
+      url: `${(apiClient as any).baseURL}${endpoint}`,
+      method,
       headers: headers,
       credentials: 'include',
       formDataEntries: [...formData.entries()].map(([key, value]) => ({
@@ -168,8 +208,8 @@ class DocumentService extends BaseService<Document> {
       }))
     });
 
-    const response = await fetch(`${(apiClient as any).baseURL}${this.baseEndpoint}`, {
-      method: 'POST',
+    const response = await fetch(`${(apiClient as any).baseURL}${endpoint}`, {
+      method,
       headers: headers,
       credentials: 'include', // Important for Sanctum SPA
       body: formData,

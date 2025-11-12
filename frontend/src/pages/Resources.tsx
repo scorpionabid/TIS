@@ -1,117 +1,209 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Plus,
-  Search,
   Link,
   FileText,
-  ExternalLink,
   Archive,
-  ChevronDown,
   AlertCircle,
   Loader2,
   TrendingUp,
-  Video,
-  Edit,
-  Trash2
 } from "lucide-react";
 import { ResourceModal } from "@/components/modals/ResourceModal";
+import { LinkFilterPanel, LinkFilters } from "@/components/resources/LinkFilterPanel";
+import { ResourceHeader } from "@/components/resources/ResourceHeader";
+import { ResourceToolbar } from "@/components/resources/ResourceToolbar";
+import { ResourceGrid } from "@/components/resources/ResourceGrid";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { resourceService } from "@/services/resources";
-import { Resource } from "@/types/resources";
-import { InstitutionalResourcesTable } from "@/components/resources/InstitutionalResourcesTable";
+import { institutionService } from "@/services/institutions";
+import { userService } from "@/services/users";
+import { Resource, ResourceStats } from "@/types/resources";
 import RegionalFolderManager from "@/components/documents/RegionalFolderManager";
 import { hasAnyRole } from "@/utils/permissions";
+import { useResourceFilters } from "@/hooks/useResourceFilters";
+
+const flattenResponseArray = (payload: any): any[] => {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data?.data)) {
+    return payload.data.data;
+  }
+  if (Array.isArray(payload?.data)) {
+    return payload.data;
+  }
+  return [];
+};
 
 export default function Resources() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [searchParams] = useSearchParams();
-
-  // State - initialize tab from URL parameter
-  const initialTab = searchParams.get('tab');
-  const [activeTab, setActiveTab] = useState<'all' | 'links' | 'documents' | 'folders' | 'sub-institutions'>(() => {
-    if (initialTab === 'documents') return 'documents';
-    if (initialTab === 'links') return 'links';
-    if (initialTab === 'folders') return 'folders';
-    if (initialTab === 'sub-institutions') return 'sub-institutions';
-    return 'all';
-  });
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState<'created_at' | 'title'>('created_at');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-
-  // Modal states
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [selectedResourceType, setSelectedResourceType] = useState<'link' | 'document'>('link');
-  const [editingResource, setEditingResource] = useState<Resource | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Check permissions
   const isAuthenticated = !!currentUser;
   // PERMISSION EXPANSION: schooladmin can now create and view resources
   // This allows school administrators to upload documents visible to their superiors
-  const canCreateResources = hasAnyRole(currentUser, ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'schooladmin']);
-  const canViewResources = hasAnyRole(currentUser, ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin', 'schooladmin']);
-  // Only hierarchical admins can see sub-institution documents
-  const canViewSubInstitutions = hasAnyRole(currentUser, ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin']);
+  const ADMIN_RESOURCE_ROLES = ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'];
+  const ASSIGNED_ONLY_ROLES = ['müəllim', 'teacher', 'regionoperator'];
+  const hasAdminResourceAccess = hasAnyRole(currentUser, ADMIN_RESOURCE_ROLES);
+  const isAssignedOnlyRole = hasAnyRole(currentUser, ASSIGNED_ONLY_ROLES);
+  const shouldUseAssignedResources = !hasAdminResourceAccess && isAssignedOnlyRole;
+
+  const canCreateResources = hasAnyRole(currentUser, ADMIN_RESOURCE_ROLES);
+  const canViewResources = hasAdminResourceAccess || isAssignedOnlyRole;
   // Only regional admins can manage folders
   const canManageFolders = hasAnyRole(currentUser, ['superadmin', 'regionadmin']);
 
-  // Fetch resources
-  const { data: resources, isLoading, error, refetch } = useQuery({
-    queryKey: ['resources', {
-      type: activeTab === 'all' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
-      search: searchTerm || undefined,
-      sort_by: sortBy,
-      sort_direction: sortDirection,
-      per_page: 50
-    }],
-    queryFn: () => resourceService.getAll({
-      type: activeTab === 'all' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
-      search: searchTerm || undefined,
-      sort_by: sortBy,
-      sort_direction: sortDirection,
-      per_page: 50
-    }),
-    enabled: isAuthenticated && canViewResources,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+  const normalizeTab = useCallback((tabValue?: string | null): 'links' | 'documents' | 'folders' => {
+    if (tabValue === 'documents') return 'documents';
+    if (tabValue === 'folders') return canManageFolders ? 'folders' : 'links';
+    return 'links';
+  }, [canManageFolders]);
+
+  // State - initialize tab from URL parameter
+  const [activeTab, setActiveTab] = useState<'links' | 'documents' | 'folders'>(() => normalizeTab(searchParams.get('tab')));
+
+  useEffect(() => {
+    const nextTab = normalizeTab(searchParams.get('tab'));
+    if (nextTab !== activeTab) {
+      setActiveTab(nextTab);
+    }
+  }, [searchParams, activeTab, normalizeTab]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<'created_at' | 'title'>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [searchTerm]);
+
+  const {
+    linkFilters,
+    documentFilters,
+    setLinkFilters,
+    setDocumentFilters,
+    filterPanelOpen,
+    toggleFilterPanel,
+    getFiltersForTab,
+  } = useResourceFilters();
+
+  const [tabTotals, setTabTotals] = useState<{ links: number; documents: number }>({
+    links: 0,
+    documents: 0,
   });
 
+  const shouldLoadFilterSources = isAuthenticated && canViewResources && hasAdminResourceAccess;
+
+  const { data: remoteInstitutionOptions } = useQuery({
+    queryKey: ['resource-filter-institutions'],
+    queryFn: async () => {
+      const response = await institutionService.getAll({
+        per_page: 200,
+        sort_by: 'name',
+        sort_direction: 'asc',
+      });
+      return flattenResponseArray(response).map((institution: any) => ({
+        id: institution.id,
+        name: institution.name,
+      }));
+    },
+    enabled: shouldLoadFilterSources,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: remoteCreatorOptions } = useQuery({
+    queryKey: ['resource-filter-creators'],
+    queryFn: async () => {
+      const response = await userService.getUsers({
+        per_page: 100,
+      });
+      return (response?.data || []).map((user) => ({
+        id: user.id,
+        first_name: user.first_name,
+        last_name: user.last_name,
+      }));
+    },
+    enabled: shouldLoadFilterSources,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Modal states
+  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+  const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
+  const [linkBeingEdited, setLinkBeingEdited] = useState<Resource | null>(null);
+  const [documentBeingEdited, setDocumentBeingEdited] = useState<Resource | null>(null);
+
+  const handleTabChange = useCallback((value: string) => {
+    const nextTab = normalizeTab(value);
+    setActiveTab(nextTab);
+
+    setSearchParams(prevParams => {
+      const params = new URLSearchParams(prevParams);
+      if (nextTab === 'links') {
+        params.delete('tab');
+      } else {
+        params.set('tab', nextTab);
+      }
+      return params;
+    });
+  }, [normalizeTab, setSearchParams]);
+
+  // Fetch resources (enhanced with filters)
+  const appliedFilters = getFiltersForTab(activeTab);
+
+  const resourceType = activeTab === 'links' ? 'link' : activeTab === 'documents' ? 'document' : undefined;
+
+  const resourceQueryParams = {
+    type: resourceType,
+    search: debouncedSearchTerm || undefined,
+    sort_by: sortBy,
+    sort_direction: sortDirection,
+    per_page: 50,
+    ...appliedFilters
+  };
+
+  const { data: resourceResponse, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ['resources', { ...resourceQueryParams, assignedOnly: shouldUseAssignedResources }],
+    queryFn: () => shouldUseAssignedResources
+      ? resourceService.getAssignedResourcesPaginated(resourceQueryParams)
+      : resourceService.getAll(resourceQueryParams),
+    enabled: isAuthenticated && canViewResources && activeTab !== 'folders',
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    meta: {
+      debug: {
+        role: currentUser?.role,
+        shouldUseAssignedResources,
+        resourceQueryParams,
+      }
+    }
+  });
+
+  useEffect(() => {
+    console.log('📋 Resources query state', {
+      role: currentUser?.role,
+      shouldUseAssignedResources,
+      params: resourceQueryParams,
+    });
+  }, [currentUser?.role, shouldUseAssignedResources, JSON.stringify(resourceQueryParams)]);
+
   // Fetch resource statistics
+  const statsEnabled = isAuthenticated && canViewResources && !shouldUseAssignedResources && (activeTab === 'links' || activeTab === 'documents');
+
   const { data: stats } = useQuery({
     queryKey: ['resource-stats'],
     queryFn: () => resourceService.getStats(),
-    enabled: isAuthenticated && canViewResources,
+    enabled: statsEnabled,
     staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-
-  // Fetch sub-institution documents (only for hierarchical admins)
-  const { data: subInstitutionDocs, isLoading: isLoadingSubDocs } = useQuery({
-    queryKey: ['sub-institution-documents'],
-    queryFn: () => resourceService.getSubInstitutionDocuments(),
-    enabled: isAuthenticated && canViewSubInstitutions && activeTab === 'sub-institutions',
-    staleTime: 3 * 60 * 1000, // 3 minutes
   });
 
   // Security check
@@ -143,63 +235,144 @@ export default function Resources() {
     );
   }
 
-  const resourcesData = resources?.data?.data || [];
+  const resourcesData = resourceResponse?.data || [];
+  const isUpdatingResults = isFetching && !isLoading;
 
-  // Debug resources data for tabs count
-  console.log('📊 Resources data for tabs:', {
-    resourcesData: resourcesData.length,
-    rawResources: resources,
-    activeTab,
-    linkCount: resourcesData.filter(r => r.type === 'link').length,
-    documentCount: resourcesData.filter(r => r.type === 'document').length
-  });
-
-  // Helper functions
-  const getResourceIcon = (resource: Resource) => {
-    if (resource.type === 'link') {
-      switch (resource.link_type) {
-        case 'video': return <Video className="h-5 w-5 text-red-500" />;
-        case 'form': return <FileText className="h-5 w-5 text-green-500" />;
-        case 'document': return <FileText className="h-5 w-5 text-blue-500" />;
-        default: return <ExternalLink className="h-5 w-5 text-primary" />;
-      }
-    } else {
-      return <span className="text-lg">{resourceService.getResourceIcon(resource)}</span>;
+  useEffect(() => {
+    if (resourceResponse?.meta?.total === undefined || resourceResponse?.meta?.total === null) {
+      return;
     }
-  };
+    if (activeTab === 'links' || activeTab === 'documents') {
+      setTabTotals((prev) => ({
+        ...prev,
+        [activeTab]: resourceResponse.meta?.total ?? resourcesData.length,
+      }));
+    }
+  }, [resourceResponse?.meta?.total, resourcesData.length, activeTab]);
+
+  const fallbackInstitutionOptions = useMemo(() => {
+    const unique = new Map<number, { id: number; name: string }>();
+    resourcesData.forEach((resource) => {
+      if (resource.institution?.id) {
+        unique.set(resource.institution.id, {
+          id: resource.institution.id,
+          name: resource.institution.name,
+        });
+      }
+    });
+    return Array.from(unique.values());
+  }, [resourcesData]);
+
+  const fallbackCreatorOptions = useMemo(() => {
+    const unique = new Map<number, { id: number; first_name: string; last_name: string }>();
+    resourcesData.forEach((resource) => {
+      const creatorId = resource.creator?.id;
+      if (creatorId) {
+        unique.set(creatorId, {
+          id: creatorId,
+          first_name: resource.creator?.first_name || '',
+          last_name: resource.creator?.last_name || '',
+        });
+      }
+    });
+    return Array.from(unique.values());
+  }, [resourcesData]);
+
+  const availableInstitutions = remoteInstitutionOptions && remoteInstitutionOptions.length > 0
+    ? remoteInstitutionOptions
+    : fallbackInstitutionOptions;
+
+  const availableCreators = remoteCreatorOptions && remoteCreatorOptions.length > 0
+    ? remoteCreatorOptions
+    : fallbackCreatorOptions;
+
+  const hasAppliedFilters = useMemo(() => {
+    const filterValues = Object.values(appliedFilters || {});
+    const hasFilterValue = filterValues.some((value) => {
+      if (Array.isArray(value)) {
+        return value.length > 0;
+      }
+      if (typeof value === 'boolean') {
+        return value;
+      }
+      return value !== undefined && value !== '';
+    });
+    return Boolean(debouncedSearchTerm) || hasFilterValue;
+  }, [appliedFilters, debouncedSearchTerm]);
+
+  const filteredStats = useMemo<ResourceStats>(() => {
+    const total = resourceResponse?.meta?.total ?? resourcesData.length;
+    const linkCount = resourcesData.filter((resource) => resource.type === 'link').length;
+    const documentCount = resourcesData.filter((resource) => resource.type === 'document').length;
+    return {
+      total_resources: total,
+      total_links: activeTab === 'links' ? total : linkCount,
+      total_documents: activeTab === 'documents' ? total : documentCount,
+      recent_uploads: stats?.recent_uploads ?? 0,
+      total_clicks: stats?.total_clicks ?? 0,
+      total_downloads: stats?.total_downloads ?? 0,
+      by_type: stats?.by_type ?? {
+        links: {
+          external: 0,
+          video: 0,
+          form: 0,
+          document: 0,
+        },
+        documents: {
+          pdf: 0,
+          word: 0,
+          excel: 0,
+          image: 0,
+          other: 0,
+        },
+      },
+    };
+  }, [
+    resourceResponse?.meta?.total,
+    resourcesData,
+    activeTab,
+    stats?.recent_uploads,
+    stats?.total_clicks,
+    stats?.total_downloads,
+    stats?.by_type,
+  ]);
+
+  const shouldUseGlobalStats = Boolean(stats && !hasAppliedFilters && !shouldUseAssignedResources);
+  const statsToRender = shouldUseGlobalStats ? stats! : filteredStats;
+
+  const linkTabCount = activeTab === 'links'
+    ? resourceResponse?.meta?.total ?? resourcesData.length ?? tabTotals.links
+    : (tabTotals.links || statsToRender.total_links || 0);
+
+  const documentTabCount = activeTab === 'documents'
+    ? resourceResponse?.meta?.total ?? resourcesData.length ?? tabTotals.documents
+    : (tabTotals.documents || statsToRender.total_documents || 0);
 
   const getResourceTypeLabel = (resource: Resource) => {
     return resource.type === 'link' ? 'Link' : 'Sənəd';
-  };
-
-  const getResourceSize = (resource: Resource) => {
-    if (resource.type === 'document' && resource.file_size) {
-      return resourceService.formatResourceSize(resource);
-    }
-    return '';
   };
 
   const handleResourceAction = async (resource: Resource, action: 'edit' | 'delete') => {
     try {
       switch (action) {
         case 'edit':
-          // Open edit modal with resource data
-          setEditingResource(resource);
-          setSelectedResourceType(resource.type);
-          setCreateModalOpen(true);
+          if (resource.type === 'link') {
+            setLinkBeingEdited(resource);
+            setIsLinkModalOpen(true);
+          } else {
+            setDocumentBeingEdited(resource);
+            setIsDocumentModalOpen(true);
+          }
           break;
         case 'delete':
-          // Confirm deletion
-          if (window.confirm(`"${resource.title}" resursu silinsin?`)) {
-            await resourceService.delete(resource.id, resource.type);
-            toast({
-              title: 'Uğurla silindi',
-              description: `${resource.type === 'link' ? 'Link' : 'Sənəd'} müvəffəqiyyətlə silindi`,
-            });
-            // Refresh resources list
-            queryClient.invalidateQueries({ queryKey: ['resources'] });
-            queryClient.invalidateQueries({ queryKey: ['resource-stats'] });
-          }
+          await resourceService.delete(resource.id, resource.type);
+          toast({
+            title: 'Uğurla silindi',
+            description: `${resource.type === 'link' ? 'Link' : 'Sənəd'} müvəffəqiyyətlə silindi`,
+          });
+          // Refresh resources list
+          queryClient.invalidateQueries({ queryKey: ['resources'] });
+          queryClient.invalidateQueries({ queryKey: ['resource-stats'] });
           break;
       }
     } catch (error: any) {
@@ -212,9 +385,7 @@ export default function Resources() {
     }
   };
 
-  const handleResourceSaved = (resource: Resource) => {
-    const isEditing = !!editingResource;
-
+  const handleAfterResourceSaved = (resource: Resource, isEditing: boolean) => {
     toast({
       title: isEditing ? 'Uğurla yeniləndi' : 'Uğurla yaradıldı',
       description: `${getResourceTypeLabel(resource)} ${isEditing ? 'yeniləndi' : 'yaradıldı və müəssisələrə göndərildi'}`,
@@ -241,9 +412,20 @@ export default function Resources() {
       setSearchTerm('');
       // Keep activeTab, sortBy, sortDirection as-is
     }
+  };
 
-    // Reset modal state
-    setEditingResource(null);
+  const handleLinkSaved = (resource: Resource) => {
+    const isEditing = !!linkBeingEdited;
+    handleAfterResourceSaved(resource, isEditing);
+    setLinkBeingEdited(null);
+    setIsLinkModalOpen(false);
+  };
+
+  const handleDocumentSaved = (resource: Resource) => {
+    const isEditing = !!documentBeingEdited;
+    handleAfterResourceSaved(resource, isEditing);
+    setDocumentBeingEdited(null);
+    setIsDocumentModalOpen(false);
   };
 
   if (isLoading) {
@@ -275,85 +457,40 @@ export default function Resources() {
 
   return (
     <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Resurslar</h1>
-          <p className="text-muted-foreground">Linklər və sənədlərin vahid idarə edilməsi</p>
-        </div>
-        {canCreateResources && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Yeni Resurs
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => {
-                setEditingResource(null);
-                setSelectedResourceType('link');
-                setCreateModalOpen(true);
-              }}>
-                <Link className="h-4 w-4 mr-2" />
-                Yeni Link
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => {
-                setEditingResource(null);
-                setSelectedResourceType('document');
-                setCreateModalOpen(true);
-              }}>
-                <FileText className="h-4 w-4 mr-2" />
-                Yeni Sənəd
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
+      <ResourceHeader
+        canCreate={canCreateResources}
+        activeTab={activeTab}
+        onCreate={(tab) => {
+          if (tab === 'links') {
+            setLinkBeingEdited(null);
+            setIsLinkModalOpen(true);
+          } else {
+            setDocumentBeingEdited(null);
+            setIsDocumentModalOpen(true);
+          }
+        }}
+      />
 
-      {/* Search and Filters */}
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              type="text"
-              placeholder="Resurs axtarın..."
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-2">
-          <Select value={`${sortBy}-${sortDirection}`} onValueChange={(value) => {
-            const [field, direction] = value.split('-');
-            setSortBy(field as any);
-            setSortDirection(direction as any);
-          }}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="created_at-desc">Ən yeni</SelectItem>
-              <SelectItem value="created_at-asc">Ən köhnə</SelectItem>
-              <SelectItem value="title-asc">Ad (A-Z)</SelectItem>
-              <SelectItem value="title-desc">Ad (Z-A)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      <ResourceToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        sortValue={`${sortBy}-${sortDirection}`}
+        onSortChange={(value) => {
+          const [field, direction] = value.split('-');
+          setSortBy(field as 'created_at' | 'title');
+          setSortDirection(direction as 'asc' | 'desc');
+        }}
+        isUpdating={isUpdatingResults}
+      />
 
       {/* Statistics Cards */}
-      {stats && (
+      {statsToRender && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-primary">{stats.total_resources}</div>
+                  <div className="text-2xl font-bold text-primary">{statsToRender.total_resources}</div>
                   <div className="text-sm text-muted-foreground">Ümumi Resurslər</div>
                 </div>
                 <Archive className="h-8 w-8 text-primary opacity-50" />
@@ -365,7 +502,7 @@ export default function Resources() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-blue-600">{stats.total_links}</div>
+                  <div className="text-2xl font-bold text-blue-600">{statsToRender.total_links}</div>
                   <div className="text-sm text-muted-foreground">Linklər</div>
                 </div>
                 <Link className="h-8 w-8 text-blue-600 opacity-50" />
@@ -377,7 +514,7 @@ export default function Resources() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-green-600">{stats.total_documents}</div>
+                  <div className="text-2xl font-bold text-green-600">{statsToRender.total_documents}</div>
                   <div className="text-sm text-muted-foreground">Sənədlər</div>
                 </div>
                 <FileText className="h-8 w-8 text-green-600 opacity-50" />
@@ -389,7 +526,7 @@ export default function Resources() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-orange-600">{stats.recent_uploads}</div>
+                  <div className="text-2xl font-bold text-orange-600">{statsToRender.recent_uploads}</div>
                   <div className="text-sm text-muted-foreground">Son Yüklənən</div>
                 </div>
                 <TrendingUp className="h-8 w-8 text-orange-600 opacity-50" />
@@ -400,88 +537,60 @@ export default function Resources() {
       )}
 
       {/* Tabbed Content */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
-        <TabsList className={`grid w-full ${
-          canManageFolders && canViewSubInstitutions ? 'grid-cols-5' :
-          canManageFolders || canViewSubInstitutions ? 'grid-cols-4' :
-          'grid-cols-3'
-        }`}>
-          <TabsTrigger value="all">
-            Hamısı ({stats?.total_resources || 0})
-          </TabsTrigger>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <TabsList className={`grid w-full ${canManageFolders ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <TabsTrigger value="links">
-            Linklər ({stats?.total_links || 0})
+            Linklər ({linkTabCount})
           </TabsTrigger>
           <TabsTrigger value="documents">
-            Sənədlər ({stats?.total_documents || 0})
+            Sənədlər ({documentTabCount})
           </TabsTrigger>
           {canManageFolders && (
             <TabsTrigger value="folders">
               Folderlər
             </TabsTrigger>
           )}
-          {canViewSubInstitutions && (
-            <TabsTrigger value="sub-institutions">
-              Alt Müəssisələr ({subInstitutionDocs?.reduce((sum, inst) => sum + inst.document_count, 0) || 0})
-            </TabsTrigger>
-          )}
         </TabsList>
 
-        <TabsContent value="all" className="mt-6">
-          <ResourceGrid resources={resourcesData} onResourceAction={handleResourceAction} />
-        </TabsContent>
-
-        <TabsContent value="links" className="mt-6">
+        <TabsContent value="links" className="mt-6 space-y-4">
+          {/* Advanced Link Filters */}
+          <LinkFilterPanel
+            filters={linkFilters}
+            onFiltersChange={setLinkFilters}
+            availableInstitutions={availableInstitutions}
+            availableCreators={availableCreators}
+            isOpen={filterPanelOpen}
+            onToggle={toggleFilterPanel}
+            mode="links"
+          />
           <ResourceGrid
             resources={resourcesData.filter(r => r.type === 'link')}
             onResourceAction={handleResourceAction}
           />
         </TabsContent>
 
-        <TabsContent value="documents" className="mt-6">
+        <TabsContent value="documents" className="mt-6 space-y-4">
+          <LinkFilterPanel
+            filters={documentFilters}
+            onFiltersChange={setDocumentFilters}
+            availableInstitutions={availableInstitutions}
+            availableCreators={availableCreators}
+            isOpen={filterPanelOpen}
+            onToggle={toggleFilterPanel}
+            mode="documents"
+          />
           <ResourceGrid
             resources={resourcesData.filter(r => r.type === 'document')}
             onResourceAction={handleResourceAction}
           />
         </TabsContent>
 
-        <TabsContent value="folders" className="mt-6">
-          <RegionalFolderManager />
-        </TabsContent>
+        {canManageFolders && (
+          <TabsContent value="folders" className="mt-6">
+            <RegionalFolderManager />
+          </TabsContent>
+        )}
 
-        <TabsContent value="sub-institutions" className="mt-6">
-          {isLoadingSubDocs ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                <p className="text-muted-foreground">Yüklənir...</p>
-              </div>
-            </div>
-          ) : (
-            <InstitutionalResourcesTable
-              institutions={subInstitutionDocs || []}
-              onEdit={(documentId) => {
-                // TODO: Implement edit functionality for sub-institution documents
-                console.log('Edit document:', documentId);
-                toast({
-                  title: 'Funksiya hazırlanır',
-                  description: 'Alt-müəssisə sənədlərinin redaktəsi tezliklə əlavə ediləcək',
-                });
-              }}
-              onDelete={(documentId) => {
-                // TODO: Implement delete functionality
-                console.log('Delete document:', documentId);
-                toast({
-                  title: 'Funksiya hazırlanır',
-                  description: 'Alt-müəssisə sənədlərinin silinməsi tezliklə əlavə ediləcək',
-                });
-              }}
-              onRefresh={() => {
-                queryClient.invalidateQueries({ queryKey: ['sub-institution-documents'] });
-              }}
-            />
-          )}
-        </TabsContent>
       </Tabs>
 
       {/* Loading State */}
@@ -502,235 +611,37 @@ export default function Resources() {
         </div>
       )}
 
-      {/* Create/Edit Resource Modal */}
-      <ResourceModal
-        isOpen={createModalOpen}
-        onClose={() => {
-          setCreateModalOpen(false);
-          setEditingResource(null);
-        }}
-        resourceType={selectedResourceType}
-        resource={editingResource}
-        mode={editingResource ? 'edit' : 'create'}
-        onResourceSaved={handleResourceSaved}
-      />
-    </div>
-  );
-}
+      {/* Link Modal */}
+      {(isLinkModalOpen || !!linkBeingEdited) && (
+        <ResourceModal
+          isOpen={isLinkModalOpen}
+          onClose={() => {
+            setIsLinkModalOpen(false);
+            setLinkBeingEdited(null);
+          }}
+          resourceType="link"
+          resource={linkBeingEdited}
+          mode={linkBeingEdited ? 'edit' : 'create'}
+          onResourceSaved={handleLinkSaved}
+          lockedTab="links"
+        />
+      )}
 
-// Resource Grid Component
-interface ResourceGridProps {
-  resources: Resource[];
-  onResourceAction: (resource: Resource, action: 'edit' | 'delete') => void;
-}
-
-function ResourceGrid({ resources, onResourceAction }: ResourceGridProps) {
-  const { currentUser } = useAuth();
-  const { toast } = useToast();
-
-  // Debug ResourceGrid props
-  console.log('🎯 ResourceGrid received:', {
-    resourcesCount: resources.length,
-    resources: resources.map(r => ({ id: r.id, type: r.type, title: r.title }))
-  });
-
-  // Check if current user can edit/delete resource
-  const canEditResource = (resource: Resource) => {
-    if (!currentUser) return false;
-
-    // SuperAdmin can edit everything
-    if (currentUser.role === 'superadmin') return true;
-
-    // Creator can edit their own resources
-    if (resource.created_by === currentUser.id) return true;
-
-    return false;
-  };
-
-  const getResourceIcon = (resource: Resource) => {
-    if (resource.type === 'link') {
-      switch (resource.link_type) {
-        case 'video': return <Video className="h-5 w-5 text-red-500" />;
-        case 'form': return <FileText className="h-5 w-5 text-green-500" />;
-        case 'document': return <FileText className="h-5 w-5 text-blue-500" />;
-        default: return <ExternalLink className="h-5 w-5 text-primary" />;
-      }
-    } else {
-      return <span className="text-lg">{resourceService.getResourceIcon(resource)}</span>;
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('az-AZ', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  if (resources.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <Archive className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-        <h3 className="text-lg font-medium">Resurs tapılmadı</h3>
-        <p className="text-muted-foreground">
-          Seçilmiş filtrlərdə heç bir resurs yoxdur
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="border rounded-lg">
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="text-left p-4 font-medium">Növ</th>
-              <th className="text-left p-4 font-medium">Başlıq</th>
-              <th className="text-left p-4 font-medium">Yaradıcı</th>
-              <th className="text-left p-4 font-medium">Tarix</th>
-              <th className="text-left p-4 font-medium">Əməliyyatlar</th>
-            </tr>
-          </thead>
-          <tbody>
-            {resources.map((resource: Resource) => (
-              <tr key={`${resource.type}-${resource.id}`} className="border-t hover:bg-muted/50">
-                <td className="p-4">
-                  <div className="flex items-center gap-2">
-                    {getResourceIcon(resource)}
-                    <span className="text-sm font-medium">
-                      {resource.type === 'link' ? 'Link' : 'Sənəd'}
-                    </span>
-                  </div>
-                </td>
-                <td className="p-4">
-                  <div>
-                    <div
-                      className="font-medium hover:text-primary cursor-pointer hover:underline"
-                      onClick={async () => {
-                        let blobUrl: string | null = null;
-                        try {
-                          if (resource.type === 'link') {
-                            // For links, open in new tab
-                            const result = await resourceService.accessResource(resource.id, 'link');
-                            if (result.url || result.redirect_url) {
-                              window.open(result.url || result.redirect_url, '_blank');
-                            } else if (resource.url) {
-                              window.open(resource.url, '_blank');
-                            }
-                          } else {
-                            // For documents, trigger download with proper cleanup
-                            const result = await resourceService.accessResource(resource.id, 'document');
-                            if (result.url) {
-                              blobUrl = result.url;
-                              // Create a temporary link to trigger download
-                              const link = document.createElement('a');
-                              link.href = blobUrl;
-                              link.download = resource.original_filename || resource.title || 'document';
-                              document.body.appendChild(link);
-                              link.click();
-                              document.body.removeChild(link);
-                            }
-                          }
-                        } catch (error: any) {
-                          console.error('Error accessing resource:', error);
-
-                          // ERROR HANDLING IMPROVEMENT: Specific error messages
-                          const errorMessages: Record<number, string> = {
-                            403: 'Bu resursa giriş icazəniz yoxdur',
-                            404: 'Resurs tapılmadı və ya silinib',
-                            410: 'Resursun müddəti bitib',
-                            500: 'Server xətası, yenidən cəhd edin'
-                          };
-
-                          const statusCode = error.response?.status;
-                          const errorMessage = errorMessages[statusCode] || error.message || 'Resursa daxil olmaq mümkün olmadı';
-
-                          toast({
-                            title: 'Xəta baş verdi',
-                            description: errorMessage,
-                            variant: 'destructive',
-                          });
-                        } finally {
-                          // Memory leak fix: Always clean up blob URL
-                          if (blobUrl) {
-                            URL.revokeObjectURL(blobUrl);
-                          }
-                        }
-                      }}
-                    >
-                      {resource.title}
-                    </div>
-                    {resource.type === 'document' && resource.original_filename && (
-                      <div className="text-sm text-muted-foreground">
-                        📎 {resource.original_filename}
-                      </div>
-                    )}
-                    {resource.type === 'document' && resource.file_extension && (
-                      <div className="text-xs text-blue-600 font-medium uppercase">
-                        {resource.file_extension} • {resourceService.formatResourceSize(resource)}
-                      </div>
-                    )}
-                    {resource.type === 'link' && resource.url && (
-                      <div className="text-sm text-muted-foreground truncate max-w-xs">
-                        🔗 {(() => {
-                          try {
-                            return new URL(resource.url).hostname;
-                          } catch {
-                            return resource.url.length > 40 ? resource.url.substring(0, 40) + '...' : resource.url;
-                          }
-                        })()}
-                      </div>
-                    )}
-                    {resource.type === 'link' && resource.link_type && (
-                      <div className="text-xs text-purple-600 font-medium uppercase">
-                        {resource.link_type} • {resource.click_count || 0} kliklər
-                      </div>
-                    )}
-                    {resource.description && (
-                      <div className="text-sm text-muted-foreground truncate max-w-xs mt-1">
-                        {resource.description}
-                      </div>
-                    )}
-                  </div>
-                </td>
-                <td className="p-4">
-                  <div className="text-sm">
-                    {resource.creator?.first_name} {resource.creator?.last_name}
-                  </div>
-                </td>
-                <td className="p-4">
-                  <div className="text-sm">{formatDate(resource.created_at)}</div>
-                </td>
-                <td className="p-4">
-                  <div className="flex gap-1 flex-wrap">
-                    {canEditResource(resource) && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onResourceAction(resource, 'edit')}
-                        >
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onResourceAction(resource, 'delete')}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* Document Modal */}
+      {(isDocumentModalOpen || !!documentBeingEdited) && (
+        <ResourceModal
+          isOpen={isDocumentModalOpen}
+          onClose={() => {
+            setIsDocumentModalOpen(false);
+            setDocumentBeingEdited(null);
+          }}
+          resourceType="document"
+          resource={documentBeingEdited}
+          mode={documentBeingEdited ? 'edit' : 'create'}
+          onResourceSaved={handleDocumentSaved}
+          lockedTab="documents"
+        />
+      )}
     </div>
   );
 }

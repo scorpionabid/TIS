@@ -169,7 +169,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
         label: 'Təyin olunmuş Tapşırıqlar',
         path: '/tasks/assigned',
         icon: CheckCircle,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]
       },
       {
         id: 'resources',

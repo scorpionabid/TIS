@@ -624,6 +624,115 @@ class UserControllerRefactored extends BaseController
     }
 
     /**
+     * Search users for link/resource targeting
+     * Used by RegionAdmin+ to search and select specific users for link sharing
+     */
+    public function search(Request $request, string $query = ''): JsonResponse
+    {
+        try {
+            $currentUser = Auth::user();
+
+            // Validate minimum search length
+            if (strlen($query) < 2 && !$request->has('institution_id') && !$request->has('role')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Axtarış üçün ən azı 2 simvol daxil edin'
+                ], 400);
+            }
+
+            // Start building query with relations
+            $usersQuery = User::with(['roles', 'institution'])
+                ->select('users.*');
+
+            // Apply hierarchical filtering based on current user's permissions
+            $this->permissionService->applyRegionalFiltering($usersQuery, $currentUser);
+
+            // Search by name or email
+            if (!empty($query)) {
+                $usersQuery->where(function($q) use ($query) {
+                    $q->where('full_name', 'ILIKE', "%{$query}%")
+                      ->orWhere('username', 'ILIKE', "%{$query}%")
+                      ->orWhere('email', 'ILIKE', "%{$query}%");
+                });
+            }
+
+            // Filter by institution
+            if ($request->filled('institution_id')) {
+                $institutionId = $request->get('institution_id');
+                if ($institutionId !== 'all') {
+                    $usersQuery->where('institution_id', $institutionId);
+                }
+            }
+
+            // Filter by role
+            if ($request->filled('role')) {
+                $role = $request->get('role');
+                if ($role !== 'all') {
+                    $usersQuery->whereHas('roles', function($q) use ($role) {
+                        $q->where('name', $role);
+                    });
+                }
+            }
+
+            // Filter by status
+            if ($request->filled('status')) {
+                $status = $request->get('status');
+                if ($status !== 'all') {
+                    $usersQuery->where('status', $status);
+                }
+            }
+
+            // Only active users by default (unless explicitly requesting all)
+            if (!$request->has('include_inactive')) {
+                $usersQuery->where('status', 'active');
+            }
+
+            // Limit results to prevent overwhelming the UI
+            $perPage = min($request->get('per_page', 20), 100);
+            $users = $usersQuery->orderBy('full_name', 'asc')
+                ->paginate($perPage);
+
+            // Format user data for selection UI
+            $data = $users->getCollection()->map(function($user) {
+                $role = $user->roles->first();
+                return [
+                    'id' => $user->id,
+                    'full_name' => $user->full_name,
+                    'username' => $user->username,
+                    'email' => $user->email,
+                    'institution' => $user->institution ? [
+                        'id' => $user->institution->id,
+                        'name' => $user->institution->name,
+                        'level' => $user->institution->level,
+                    ] : null,
+                    'role' => $role ? [
+                        'name' => $role->name,
+                        'display_name' => $role->display_name ?? $role->name,
+                    ] : null,
+                    'status' => $user->status,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $data,
+                'meta' => [
+                    'current_page' => $users->currentPage(),
+                    'last_page' => $users->lastPage(),
+                    'per_page' => $users->perPage(),
+                    'total' => $users->total(),
+                    'from' => $users->firstItem(),
+                    'to' => $users->lastItem()
+                ],
+                'message' => 'İstifadəçilər tapıldı'
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'İstifadəçi axtarışında xəta baş verdi.');
+        }
+    }
+
+    /**
      * Handle errors consistently
      */
     private function handleError(\Exception $e, string $defaultMessage): JsonResponse

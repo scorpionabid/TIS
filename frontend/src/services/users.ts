@@ -608,6 +608,53 @@ class UserService {
     }
   }
 
+  /**
+   * Search users for link/resource targeting
+   * Used by RegionAdmin+ to search and select specific users
+   */
+  async searchUsers(params: {
+    query?: string;
+    institution_id?: number;
+    role?: string;
+    status?: string;
+    include_inactive?: boolean;
+    per_page?: number;
+    page?: number;
+  }): Promise<PaginatedResponse<User>> {
+    try {
+      const { query, ...restParams } = params;
+      const endpoint = query ? `/users/search/${encodeURIComponent(query)}` : '/users/search/';
+
+      const response = await apiClient.get<PaginatedResponse<User>>(endpoint, restParams);
+
+      // Handle backend response format
+      if (response && typeof response === 'object' && 'data' in response) {
+        const users = Array.isArray(response.data) ? response.data : [];
+        const meta = response.meta || {};
+
+        return {
+          data: users,
+          current_page: meta.current_page || 1,
+          last_page: meta.last_page || 1,
+          per_page: meta.per_page || users.length,
+          total: meta.total || users.length,
+          first_page_url: meta.first_page_url || '',
+          last_page_url: meta.last_page_url || '',
+          next_page_url: meta.next_page_url || null,
+          prev_page_url: meta.prev_page_url || null,
+          path: meta.path || '',
+          from: meta.from || 1,
+          to: meta.to || users.length
+        } as PaginatedResponse<User>;
+      }
+
+      return response as PaginatedResponse<User>;
+    } catch (error) {
+      console.error('UserService.searchUsers error:', error);
+      throw error;
+    }
+  }
+
 }
 
 export const userService = new UserService();

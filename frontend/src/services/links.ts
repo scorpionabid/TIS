@@ -47,6 +47,7 @@ export interface CreateLinkData {
   target_institutions?: number[];
   target_roles?: string[];
   target_departments?: number[];
+  target_users?: number[];
   requires_login?: boolean;
   expires_at?: string;
   max_clicks?: number;
@@ -64,6 +65,12 @@ export interface LinkFilters extends PaginationParams {
   search?: string;
   sort_by?: string;
   sort_direction?: 'asc' | 'desc';
+  status?: string;
+  creator_id?: number;
+  institution_id?: number;
+  date_from?: string;
+  date_to?: string;
+  my_links?: boolean;
 }
 
 export interface LinkStatistics {

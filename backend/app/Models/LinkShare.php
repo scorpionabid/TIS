@@ -23,6 +23,7 @@ class LinkShare extends Model
         'target_institutions',
         'target_roles',
         'target_departments',
+        'target_users', // NEW: Specific user targeting
         'requires_login',
         'expires_at',
         'max_clicks',
@@ -40,6 +41,7 @@ class LinkShare extends Model
         'target_institutions' => 'array',
         'target_roles' => 'array',
         'target_departments' => 'array',
+        'target_users' => 'array', // NEW: Cast to array
         'requires_login' => 'boolean',
         'expires_at' => 'datetime',
         'max_clicks' => 'integer',
@@ -148,6 +150,13 @@ class LinkShare extends Model
         // Creator can always access
         if ($user && $this->shared_by === $user->id) {
             return true;
+        }
+
+        // Check specific user-based access (highest priority after creator)
+        if ($user && $this->target_users && !empty($this->target_users)) {
+            if (in_array($user->id, $this->target_users)) {
+                return true;
+            }
         }
 
         // Check role-based access

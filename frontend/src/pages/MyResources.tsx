@@ -44,7 +44,7 @@ export default function MyResources() {
 
   // Check permissions
   const isAuthenticated = !!currentUser;
-  const canViewAssignedResources = currentUser && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'muellim'].includes(currentUser.role);
+  const canViewAssignedResources = currentUser && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'regionoperator', 'müəllim', 'teacher'].includes(currentUser.role);
   const canViewFolders = currentUser && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role);
 
   // Fetch assigned folders

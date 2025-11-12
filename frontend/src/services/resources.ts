@@ -10,8 +10,22 @@ import {
   ResourceStats,
   AssignedResource,
   ResourceNotificationData,
-  InstitutionalResource
+  InstitutionalResource,
+  ResourceListResponse
 } from '@/types/resources';
+import { AssignableUser } from '@/services/tasks';
+
+const isDevEnv = typeof import.meta !== 'undefined' ? Boolean(import.meta.env?.DEV) : false;
+const debugLog = (...args: unknown[]) => {
+  if (isDevEnv) {
+    console.log(...args);
+  }
+};
+const debugWarn = (...args: unknown[]) => {
+  if (isDevEnv) {
+    console.warn(...args);
+  }
+};
 
 class ResourceService extends BaseService<Resource> {
   constructor() {
@@ -53,6 +67,7 @@ class ResourceService extends BaseService<Resource> {
       target_institutions: data.target_institutions,
       target_roles: data.target_roles,
       target_departments: data.target_departments,
+      target_users: data.target_users,
       is_featured: data.is_featured,
       expires_at: data.expires_at,
     };
@@ -66,9 +81,16 @@ class ResourceService extends BaseService<Resource> {
    * - Use deterministic response indexing
    * - Prevent parallel cache invalidation conflicts
    */
-  async getAll(filters: ResourceFilters = {}) {
+  async getAll(
+    filters: ResourceFilters = {},
+    options: { allowForbiddenFallback?: boolean } = {}
+  ): Promise<ResourceListResponse> {
+    debugLog('📡 ResourceService.getAll request', {
+      filters,
+      options,
+    });
     try {
-      console.log('🚀 ResourceService.getAll request planning:', {
+      debugLog('🚀 ResourceService.getAll request planning:', {
         filterType: filters.type,
         shouldFetchLinks: !filters.type || filters.type === 'link',
         shouldFetchDocuments: !filters.type || filters.type === 'document'
@@ -92,6 +114,12 @@ class ResourceService extends BaseService<Resource> {
           link_type: filters.link_type,
           share_scope: filters.share_scope,
           is_featured: filters.is_featured,
+          status: filters.status,
+          creator_id: filters.creator_id,
+          institution_id: filters.institution_id,
+          date_from: filters.date_from || filters.created_after,
+          date_to: filters.date_to || filters.created_before,
+          my_links: filters.my_links,
           sort_by: filters.sort_by,
           sort_direction: filters.sort_direction,
           per_page: filters.per_page,
@@ -110,6 +138,12 @@ class ResourceService extends BaseService<Resource> {
           category: filters.category,
           access_level: filters.access_level,
           mime_type: filters.mime_type,
+          status: filters.status,
+          uploaded_by: filters.creator_id,
+          institution_id: filters.institution_id,
+          date_from: filters.date_from || filters.created_after,
+          date_to: filters.date_to || filters.created_before,
+          my_documents: filters.my_links,
           sort_by: filters.sort_by,
           sort_direction: filters.sort_direction,
           per_page: filters.per_page,
@@ -124,7 +158,7 @@ class ResourceService extends BaseService<Resource> {
       const responses = await Promise.all(typedRequests.map(tr => tr.promise));
       const allResources: Resource[] = [];
 
-      console.log('🔍 ResourceService.getAll responses:', {
+      debugLog('🔍 ResourceService.getAll responses:', {
         requestCount: typedRequests.length,
         responseCount: responses.length,
         requestTypes: typedRequests.map(tr => tr.type),
@@ -152,7 +186,7 @@ class ResourceService extends BaseService<Resource> {
             links = response.data;
           }
 
-          console.log('🔗 Processing links:', links.length);
+          debugLog('🔗 Processing links:', links.length);
           allResources.push(...links.map((link: any) => ({
             ...link,
             type: 'link' as const,
@@ -168,7 +202,7 @@ class ResourceService extends BaseService<Resource> {
             documents = response.data;
           }
 
-          console.log('📄 Processing documents:', documents.length);
+          debugLog('📄 Processing documents:', documents.length);
           allResources.push(...documents.map((doc: any) => ({
             ...doc,
             type: 'document' as const,
@@ -178,22 +212,46 @@ class ResourceService extends BaseService<Resource> {
         }
       }
 
-      // Sort by created_at desc by default
-      allResources.sort((a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
+      // Sort by requested field/direction (fallback to created_at desc)
+      const sortField = filters.sort_by || 'created_at';
+      const sortDirection = filters.sort_direction || 'desc';
 
-      return {
-        data: {
-          data: allResources,
-          total: allResources.length,
-          current_page: 1,
-          per_page: filters.per_page || 20,
+      const getSortValue = (resource: Resource) => {
+        if (sortField === 'title') {
+          return (resource.title || '').toLocaleLowerCase();
         }
+        // Default to created_at date comparison
+        return new Date(resource.created_at).getTime();
       };
 
-    } catch (error) {
+      allResources.sort((a, b) => {
+        const aVal = getSortValue(a);
+        const bVal = getSortValue(b);
+
+        if (typeof aVal === 'string' && typeof bVal === 'string') {
+          const comparison = aVal.localeCompare(bVal, 'az');
+          return sortDirection === 'asc' ? comparison : -comparison;
+        }
+
+        const numericComparison = (aVal as number) - (bVal as number);
+        return sortDirection === 'asc' ? numericComparison : -numericComparison;
+      });
+
+      return this.buildPaginatedResponse(allResources, filters.per_page);
+
+    } catch (error: any) {
       console.error('❌ ResourceService.getAll failed:', error);
+
+      // Graceful fallback for roles without links.read permission
+      if (options.allowForbiddenFallback !== false && this.isForbiddenResourceError(error)) {
+        debugWarn('⚠️ ResourceService.getAll: links.read forbidden, falling back to assigned resources', {
+          filters,
+          errorMessage: error?.message,
+        });
+        const assignedResources = await this.getAssignedResources(filters);
+        return this.buildPaginatedResponse(assignedResources, filters.per_page);
+      }
+
       throw error;
     }
   }
@@ -202,7 +260,7 @@ class ResourceService extends BaseService<Resource> {
    * Create a new resource (link or document)
    */
   async create(data: CreateResourceData): Promise<Resource> {
-    console.log('🔥 ResourceService.create called', data);
+    debugLog('🔥 ResourceService.create called', data);
 
     try {
       let result;
@@ -248,7 +306,7 @@ class ResourceService extends BaseService<Resource> {
             notification_type: 'resource_assigned',
           });
         } catch (notificationError) {
-          console.warn('⚠️ Notification failed but resource created successfully:', notificationError);
+          debugWarn('⚠️ Notification failed but resource created successfully:', notificationError);
           // Don't throw error - resource creation was successful
         }
       }
@@ -257,13 +315,13 @@ class ResourceService extends BaseService<Resource> {
       // This prevents unnecessary cache invalidation and improves performance
       if (data.type === 'link') {
         linkService.clearServiceCache();
-        console.log('🧹 Cleared link service cache after link creation');
+        debugLog('🧹 Cleared link service cache after link creation');
       } else if (data.type === 'document') {
         documentService.clearServiceCache();
-        console.log('🧹 Cleared document service cache after document creation');
+        debugLog('🧹 Cleared document service cache after document creation');
       }
 
-      console.log('✅ ResourceService.create successful:', result);
+      debugLog('✅ ResourceService.create successful:', result);
       return result!;
 
     } catch (error) {
@@ -276,7 +334,7 @@ class ResourceService extends BaseService<Resource> {
    * Update a resource
    */
   async update(id: number, type: 'link' | 'document', data: UpdateResourceData): Promise<Resource> {
-    console.log('🔥 ResourceService.update called', id, type, data);
+    debugLog('🔥 ResourceService.update called', id, type, data);
 
     try {
       let result;
@@ -290,21 +348,24 @@ class ResourceService extends BaseService<Resource> {
 
         result = this.transformLinkResult(result);
       } else {
-        // For documents, we need to use the document service update method
-        result = await documentService.updatePermissions(id, {
-          // Map frontend fields to backend fields for update
+        // For documents, use dedicated update method with metadata + optional file
+        result = await documentService.updateDocument(id, {
+          title: data.title,
+          description: data.description,
+          category: data.category,
+          access_level: data.access_level,
           accessible_institutions: data.target_institutions,
           accessible_departments: data.target_departments,
           allowed_roles: data.target_roles,
-          expires_at: data.expires_at,
           is_downloadable: data.is_downloadable,
           is_viewable_online: data.is_viewable_online,
+          expires_at: data.expires_at,
+          file: (data as any).file,
         });
-
         result = this.transformDocumentResult(result);
       }
 
-      console.log('✅ ResourceService.update successful:', result);
+      debugLog('✅ ResourceService.update successful:', result);
       return result;
 
     } catch (error) {
@@ -317,7 +378,7 @@ class ResourceService extends BaseService<Resource> {
    * Delete a resource
    */
   async delete(id: number, type: 'link' | 'document'): Promise<void> {
-    console.log('🔥 ResourceService.delete called', id, type);
+    debugLog('🔥 ResourceService.delete called', id, type);
 
     try {
       if (type === 'link') {
@@ -326,7 +387,7 @@ class ResourceService extends BaseService<Resource> {
         await documentService.delete(id);
       }
 
-      console.log('✅ ResourceService.delete successful');
+      debugLog('✅ ResourceService.delete successful');
     } catch (error) {
       console.error('❌ ResourceService.delete failed:', error);
       throw error;
@@ -337,7 +398,7 @@ class ResourceService extends BaseService<Resource> {
    * Get resource by ID
    */
   async getById(id: number, type: 'link' | 'document'): Promise<Resource> {
-    console.log('🔍 ResourceService.getById called', id, type);
+    debugLog('🔍 ResourceService.getById called', id, type);
 
     try {
       let result;
@@ -350,7 +411,7 @@ class ResourceService extends BaseService<Resource> {
         result = this.transformDocumentResult(result);
       }
 
-      console.log('✅ ResourceService.getById successful:', result);
+      debugLog('✅ ResourceService.getById successful:', result);
       return result;
 
     } catch (error) {
@@ -363,7 +424,7 @@ class ResourceService extends BaseService<Resource> {
    * Get unified resource statistics
    */
   async getStats(): Promise<ResourceStats> {
-    console.log('📈 ResourceService.getStats called');
+    debugLog('📈 ResourceService.getStats called');
 
     try {
       const [linkStats, documentStats] = await Promise.all([
@@ -395,11 +456,15 @@ class ResourceService extends BaseService<Resource> {
         },
       };
 
-      console.log('✅ ResourceService.getStats successful:', stats);
+      debugLog('✅ ResourceService.getStats successful:', stats);
       return stats;
 
     } catch (error) {
       console.error('❌ ResourceService.getStats failed:', error);
+      if (this.isForbiddenResourceError(error)) {
+        debugWarn('⚠️ Returning empty stats due to permission limits');
+        return this.getEmptyStats();
+      }
       throw error;
     }
   }
@@ -408,7 +473,7 @@ class ResourceService extends BaseService<Resource> {
    * Get assigned resources for school admins and teachers
    */
   async getAssignedResources(filters: ResourceFilters = {}): Promise<AssignedResource[]> {
-    console.log('📋 ResourceService.getAssignedResources called', filters);
+    debugLog('📋 ResourceService.getAssignedResources called', filters);
 
     try {
       // This would be a new API endpoint that returns resources assigned to current user's institution
@@ -416,22 +481,83 @@ class ResourceService extends BaseService<Resource> {
 
       const assignedResources: AssignedResource[] = response.data?.data || [];
 
-      console.log('✅ ResourceService.getAssignedResources successful:', assignedResources);
+      debugLog('✅ ResourceService.getAssignedResources successful:', assignedResources);
       return assignedResources;
 
     } catch (error) {
-      console.error('❌ ResourceService.getAssignedResources failed:', error);
-      // Fallback to filtering current resources for now
-      const allResources = await this.getAll(filters);
-      return allResources.data?.data || [];
+      console.error('❌ ResourceService.getAssignedResources failed:', error, {
+        filters,
+        errorMessage: (error as any)?.message,
+      });
+
+      if (!this.isForbiddenResourceError(error)) {
+        try {
+          debugWarn('⚠️ ResourceService.getAssignedResources: non-permission error, retrying getAll without fallback');
+          const allResources = await this.getAll(filters, { allowForbiddenFallback: false });
+          return allResources.data || [];
+        } catch (innerError) {
+          console.error('❌ Secondary fallback failed:', innerError);
+        }
+      }
+
+      return [];
     }
+  }
+
+  async getAssignedResourcesPaginated(filters: ResourceFilters = {}): Promise<ResourceListResponse> {
+    const resources = await this.getAssignedResources(filters);
+    return this.buildPaginatedResponse(resources, filters.per_page);
+  }
+
+  private buildPaginatedResponse(resources: Resource[], perPage?: number): ResourceListResponse {
+    const total = resources.length;
+    return {
+      data: resources,
+      meta: {
+        total,
+        current_page: 1,
+        per_page: perPage || total || 20,
+      },
+    };
+  }
+
+  private isForbiddenResourceError(error: any): boolean {
+    if (!error) return false;
+    const message = typeof error.message === 'string' ? error.message.toLowerCase() : '';
+    return message.includes('links.read') || message.includes('forbidden');
+  }
+
+  private getEmptyStats(): ResourceStats {
+    return {
+      total_resources: 0,
+      total_links: 0,
+      total_documents: 0,
+      recent_uploads: 0,
+      total_clicks: 0,
+      total_downloads: 0,
+      by_type: {
+        links: {
+          external: 0,
+          video: 0,
+          form: 0,
+          document: 0,
+        },
+        documents: {
+          pdf: 0,
+          word: 0,
+          excel: 0,
+          image: 0,
+          other: 0,
+        },
+      },
+    };
   }
 
   /**
    * Send notifications when resources are assigned
    */
   async sendResourceNotifications(data: ResourceNotificationData): Promise<void> {
-    console.log('🔔 ResourceService.sendResourceNotifications called', data);
+    debugLog('🔔 ResourceService.sendResourceNotifications called', data);
 
     try {
       // This would integrate with the existing notification system
@@ -445,7 +571,7 @@ class ResourceService extends BaseService<Resource> {
         related_id: data.resource_id,
       });
 
-      console.log('✅ ResourceService.sendResourceNotifications successful');
+      debugLog('✅ ResourceService.sendResourceNotifications successful');
     } catch (error) {
       console.error('❌ ResourceService.sendResourceNotifications failed:', error);
       // Don't throw error here - notification failure shouldn't break resource creation
@@ -468,12 +594,12 @@ class ResourceService extends BaseService<Resource> {
       // IMPORTANT: Caller must revoke the URL after use with URL.revokeObjectURL()
       try {
         const blob = await documentService.downloadDocument(id);
-        console.log('📥 Downloaded blob:', blob, 'Type:', typeof blob, 'Size:', blob?.size);
+        debugLog('📥 Downloaded blob:', blob, 'Type:', typeof blob, 'Size:', blob?.size);
 
         // Ensure we have a valid blob
         if (blob instanceof Blob) {
           const url = URL.createObjectURL(blob);
-          console.log('🔗 Created object URL:', url, '(must be revoked by caller)');
+          debugLog('🔗 Created object URL:', url, '(must be revoked by caller)');
           return { url };
         } else {
           console.error('❌ Invalid blob received:', blob);
@@ -484,6 +610,34 @@ class ResourceService extends BaseService<Resource> {
         throw error;
       }
     }
+  }
+
+  /**
+   * Get targetable users for resource sharing (special users tab)
+   */
+  async getTargetUsers(params?: {
+    role?: string;
+    search?: string;
+    per_page?: number;
+    origin_scope?: 'region' | 'sector';
+  }): Promise<AssignableUser[]> {
+    debugLog('👥 ResourceService.getTargetUsers called', params);
+
+    const response = await apiClient.get('/resources/target-users', {
+      ...params,
+      per_page: Math.min(params?.per_page ?? 200, 200),
+    });
+    const payload: any = response?.data ?? response ?? [];
+
+    if (Array.isArray(payload)) {
+      return payload as AssignableUser[];
+    }
+
+    if (Array.isArray(payload?.data)) {
+      return payload.data as AssignableUser[];
+    }
+
+    return [];
   }
 
   /**
@@ -529,7 +683,7 @@ class ResourceService extends BaseService<Resource> {
    * @returns Promise<InstitutionalResource[]> - Array of institutions with their documents
    */
   async getSubInstitutionDocuments(): Promise<InstitutionalResource[]> {
-    console.log('📋 ResourceService.getSubInstitutionDocuments called');
+    debugLog('📋 ResourceService.getSubInstitutionDocuments called');
 
     try {
       const response = await apiClient.get('/documents/sub-institutions');
@@ -537,7 +691,7 @@ class ResourceService extends BaseService<Resource> {
       // apiClient already extracts response.data, so we access .data directly
       const data: InstitutionalResource[] = response.data || [];
 
-      console.log('✅ Sub-institution documents fetched:', data.length, 'institutions');
+      debugLog('✅ Sub-institution documents fetched:', data.length, 'institutions');
       return data;
     } catch (error) {
       console.error('❌ Failed to fetch sub-institution documents:', error);
@@ -555,7 +709,7 @@ class ResourceService extends BaseService<Resource> {
    * @returns Promise<any[]> - Array of superior institutions
    */
   async getSuperiorInstitutions(): Promise<any[]> {
-    console.log('🔝 ResourceService.getSuperiorInstitutions called');
+    debugLog('🔝 ResourceService.getSuperiorInstitutions called');
 
     try {
       const response = await apiClient.get('/documents/superior-institutions');
@@ -563,7 +717,7 @@ class ResourceService extends BaseService<Resource> {
       // apiClient already extracts response.data, so we access .data directly
       const data = response.data || [];
 
-      console.log('✅ Superior institutions fetched:', data.length, 'institutions');
+      debugLog('✅ Superior institutions fetched:', data.length, 'institutions');
       return data;
     } catch (error) {
       console.error('❌ Failed to fetch superior institutions:', error);
