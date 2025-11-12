@@ -41,7 +41,7 @@ const flattenResponseArray = (payload: any): any[] => {
 };
 
 export default function Resources() {
-  const { currentUser } = useAuth();
+  const { currentUser, hasPermission } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -65,6 +65,11 @@ export default function Resources() {
   const shouldUseAssignedResources = !canCreateResources && isAssignedOnlyRole;
 
   const hasAdminResourceAccess = canCreateResources || canManageFolders;
+  const canLoadCreatorOptions = hasPermission ? hasPermission('users.read') : false;
+  const canFetchLinkStats = hasPermission ? hasPermission('links.read') : false;
+  const canFetchDocumentStats = hasPermission ? hasPermission('documents.read') : false;
+  const canFetchLinkList = hasPermission ? hasPermission('links.read') : false;
+  const canFetchDocumentList = hasPermission ? hasPermission('documents.read') : false;
 
   if (!canViewResources) {
     return <ResourceAccessRestricted />;
@@ -112,6 +117,7 @@ export default function Resources() {
     documents: 0,
   });
 
+  const canLoadCreators = hasPermission?.('users.read') ?? false;
   const shouldLoadFilterSources = isAuthenticated && canViewResources && hasAdminResourceAccess;
 
   const { data: remoteInstitutionOptions } = useQuery({
@@ -127,7 +133,7 @@ export default function Resources() {
         name: institution.name,
       }));
     },
-    enabled: shouldLoadFilterSources,
+    enabled: shouldLoadFilterSources && canLoadCreatorOptions,
     staleTime: 10 * 60 * 1000,
   });
 
@@ -143,7 +149,7 @@ export default function Resources() {
         last_name: user.last_name,
       }));
     },
-    enabled: shouldLoadFilterSources,
+    enabled: shouldLoadFilterSources && canLoadCreators,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -182,9 +188,14 @@ export default function Resources() {
     ...appliedFilters
   };
 
+  const shouldForceAssignedFetch =
+    shouldUseAssignedResources ||
+    (resourceType === 'link' && !canFetchLinkList) ||
+    (resourceType === 'document' && !canFetchDocumentList);
+
   const { data: resourceResponse, isLoading, isFetching, error, refetch } = useQuery({
-    queryKey: ['resources', { ...resourceQueryParams, assignedOnly: shouldUseAssignedResources }],
-    queryFn: () => shouldUseAssignedResources
+    queryKey: ['resources', { ...resourceQueryParams, assignedOnly: shouldForceAssignedFetch }],
+    queryFn: () => shouldForceAssignedFetch
       ? resourceService.getAssignedResourcesPaginated(resourceQueryParams)
       : resourceService.getAll(resourceQueryParams),
     enabled: isAuthenticated && canViewResources && activeTab !== 'folders',
@@ -207,11 +218,25 @@ export default function Resources() {
   }, [currentUser?.role, shouldUseAssignedResources, JSON.stringify(resourceQueryParams)]);
 
   // Fetch resource statistics
-  const statsEnabled = isAuthenticated && canViewResources && !shouldUseAssignedResources && (activeTab === 'links' || activeTab === 'documents');
+  const statsPermissionSatisfied =
+    activeTab === 'links'
+      ? canFetchLinkStats
+      : activeTab === 'documents'
+        ? canFetchDocumentStats
+        : (canFetchLinkStats || canFetchDocumentStats);
+
+  const statsEnabled =
+    isAuthenticated &&
+    canViewResources &&
+    !shouldUseAssignedResources &&
+    statsPermissionSatisfied;
 
   const { data: stats } = useQuery({
-    queryKey: ['resource-stats'],
-    queryFn: () => resourceService.getStats(),
+    queryKey: ['resource-stats', { includeLinks: canFetchLinkStats, includeDocuments: canFetchDocumentStats }],
+    queryFn: () => resourceService.getStats({
+      includeLinks: canFetchLinkStats,
+      includeDocuments: canFetchDocumentStats,
+    }),
     enabled: statsEnabled,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });

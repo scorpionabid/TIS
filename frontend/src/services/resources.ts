@@ -423,14 +423,28 @@ class ResourceService extends BaseService<Resource> {
   /**
    * Get unified resource statistics
    */
-  async getStats(): Promise<ResourceStats> {
-    debugLog('📈 ResourceService.getStats called');
+  async getStats(options: { includeLinks?: boolean; includeDocuments?: boolean } = {}): Promise<ResourceStats> {
+    debugLog('📈 ResourceService.getStats called', options);
+
+    const includeLinks = options.includeLinks ?? true;
+    const includeDocuments = options.includeDocuments ?? true;
 
     try {
-      const [linkStats, documentStats] = await Promise.all([
-        linkService.getLinkStats().catch(() => null),
-        documentService.getStats().catch(() => null),
-      ]);
+      const linkStatsPromise = includeLinks
+        ? linkService.getLinkStats().catch((error) => {
+            console.warn('⚠️ Link stats unavailable:', error);
+            return null;
+          })
+        : Promise.resolve(null);
+
+      const documentStatsPromise = includeDocuments
+        ? documentService.getStats().catch((error) => {
+            console.warn('⚠️ Document stats unavailable:', error);
+            return null;
+          })
+        : Promise.resolve(null);
+
+      const [linkStats, documentStats] = await Promise.all([linkStatsPromise, documentStatsPromise]);
 
       const stats: ResourceStats = {
         total_resources: (linkStats?.total_links || 0) + (documentStats?.total || 0),
