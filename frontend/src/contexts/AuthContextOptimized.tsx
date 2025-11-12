@@ -325,16 +325,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       log('info', 'Login successful', { username: response.user.username });
 
-      console.log('[AuthContext] Raw login response user:', response.user);
-      console.log('[AuthContext] region_operator_permissions:', response.user.region_operator_permissions);
-
       const mappedUser = {
         ...response.user,
         role: mapBackendRoleToFrontend(response.user.role)
       };
-
-      console.log('[AuthContext] Mapped user:', mappedUser);
-      console.log('[AuthContext] Mapped user region_operator_permissions:', mappedUser.region_operator_permissions);
 
       // Store token and user data
       setToken(response.token || response.access_token);

@@ -263,18 +263,12 @@ const evaluateRule = (
     return true;
   }
 
-  if (normalizedRole === 'regionoperator' && rule.regionOperatorFlags) {
-    console.log('[ModuleAccess] Checking region operator flags:', {
-      role: normalizedRole,
-      flags: rule.regionOperatorFlags,
-      permissions: user.region_operator_permissions,
-      hasPermissions: !!user.region_operator_permissions,
-    });
-
-    if (rule.regionOperatorFlags.some(flag => user.region_operator_permissions?.[flag])) {
-      console.log('[ModuleAccess] Access granted via region operator flag');
-      return true;
-    }
+  if (
+    normalizedRole === 'regionoperator' &&
+    rule.regionOperatorFlags &&
+    rule.regionOperatorFlags.some(flag => user.region_operator_permissions?.[flag])
+  ) {
+    return true;
   }
 
   return false;
@@ -285,57 +279,23 @@ export const buildModuleAccess = (
   module: ModuleKey,
   hasPermission?: (perm: string) => boolean
 ): ModuleAccessResult => {
-  console.log('[ModuleAccess] buildModuleAccess called:', {
-    module,
-    hasUser: !!user,
-    userId: user?.id,
-    username: user?.username,
-    role: user?.role,
-    hasRegionOperatorPermissions: !!user?.region_operator_permissions,
-  });
-
   if (!user) {
-    console.log('[ModuleAccess] No user, returning default access');
     return { ...defaultAccess };
   }
 
   const normalizedRole = normalizeRole(user.role as string);
   const moduleRule = MODULE_ACCESS_RULES[module];
 
-  console.log('[ModuleAccess] Evaluating access:', {
-    normalizedRole,
-    module,
-    moduleRuleExists: !!moduleRule,
-  });
-
   const result: Partial<ModuleAccessResult> = {};
 
   Object.entries(ACTION_PROP_MAP).forEach(([action, propName]) => {
     const actionRule = moduleRule[action as ModuleAction];
-    const hasAccess = evaluateRule(user, actionRule, normalizedRole, hasPermission);
-    (result as any)[propName] = hasAccess;
-
-    if (action === 'view') {
-      console.log('[ModuleAccess] View access evaluation:', {
-        module,
-        action,
-        propName,
-        hasAccess,
-        rule: actionRule,
-      });
-    }
+    (result as any)[propName] = evaluateRule(user, actionRule, normalizedRole, hasPermission);
   });
 
-  const finalResult = {
+  return {
     ...defaultAccess,
     ...result,
     hasAccess: Boolean((result as any).canView),
   };
-
-  console.log('[ModuleAccess] Final result:', {
-    module,
-    result: finalResult,
-  });
-
-  return finalResult;
 };

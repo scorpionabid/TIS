@@ -58,7 +58,11 @@ export function RegionAdminTab({
       type: 'text',
       required: true,
     },
-    // REMOVED: patronymic (ata adı) - database column does not exist
+    {
+      name: 'patronymic',
+      label: 'Ata adı',
+      type: 'text',
+    },
     {
       name: 'username',
       label: 'İstifadəçi adı',
