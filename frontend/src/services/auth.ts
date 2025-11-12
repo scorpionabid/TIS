@@ -218,6 +218,7 @@ const transformUserData = (userData: any): User => {
     institution: user.institution,
     region: user.region,
     department: user.department,
+    region_operator_permissions: user.region_operator_permissions,
     is_active: user.is_active !== undefined ? user.is_active : true,
     created_at: user.created_at || user.createdAt,
     updated_at: user.updated_at || user.updatedAt,
