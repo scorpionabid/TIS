@@ -19,6 +19,7 @@ import {
 import { PermissionMatrix } from './PermissionMatrix';
 
 interface RegionOperatorTabProps {
+  formKey: number;
   formData: any;
   setFormData: (data: any) => void;
   availableInstitutions: any[];
@@ -30,6 +31,7 @@ interface RegionOperatorTabProps {
 }
 
 export function RegionOperatorTab({
+  formKey,
   formData,
   setFormData,
   availableInstitutions,
@@ -111,27 +113,7 @@ export function RegionOperatorTab({
       type: 'password',
       required: !user,
     },
-    {
-      name: 'contact_phone',
-      label: 'Telefon',
-      type: 'text',
-    },
-    {
-      name: 'birth_date',
-      label: 'Doğum tarixi',
-      type: 'date',
-    },
-    {
-      name: 'gender',
-      label: 'Cins',
-      type: 'select',
-      options: GENDER_OPTIONS,
-    },
-    {
-      name: 'national_id',
-      label: 'Şəxsiyyət vəsiqəsi',
-      type: 'text',
-    },
+    // REMOVED: contact_phone, birth_date, gender, national_id - database columns do not exist
     {
       name: 'utis_code',
       label: 'UTIS Kodu',
@@ -206,6 +188,7 @@ export function RegionOperatorTab({
       <div className="space-y-4">
         <h3 className="text-sm font-semibold text-gray-900">Şəxsi Məlumatlar</h3>
         <FormBuilder
+          key={`region-operator-form-${formKey}`}
           fields={basicFields}
           onSubmit={onSubmit}
           onChange={(values) => setFormData({ ...formData, ...values })}

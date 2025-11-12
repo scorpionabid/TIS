@@ -61,6 +61,7 @@ export interface User {
   
   // Additional profile information
   profile?: UserProfile;
+  region_operator_permissions?: Record<string, boolean>;
 }
 
 // User profile information

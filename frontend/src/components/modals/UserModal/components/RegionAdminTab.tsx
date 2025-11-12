@@ -12,6 +12,7 @@ import {
 } from '../utils/constants';
 
 interface RegionAdminTabProps {
+  formKey: number;
   formData: any;
   setFormData: (data: any) => void;
   availableInstitutions: any[];
@@ -22,6 +23,7 @@ interface RegionAdminTabProps {
 }
 
 export function RegionAdminTab({
+  formKey,
   formData,
   setFormData,
   availableInstitutions,
@@ -87,27 +89,7 @@ export function RegionAdminTab({
       type: 'password',
       required: !user,
     },
-    {
-      name: 'contact_phone',
-      label: 'Telefon',
-      type: 'text',
-    },
-    {
-      name: 'birth_date',
-      label: 'Doğum tarixi',
-      type: 'date',
-    },
-    {
-      name: 'gender',
-      label: 'Cins',
-      type: 'select',
-      options: GENDER_OPTIONS,
-    },
-    {
-      name: 'national_id',
-      label: 'Şəxsiyyət vəsiqəsi',
-      type: 'text',
-    },
+    // REMOVED: contact_phone, birth_date, gender, national_id - database columns do not exist
     {
       name: 'utis_code',
       label: 'UTIS Kodu',
@@ -153,6 +135,7 @@ export function RegionAdminTab({
 
       {/* Form */}
       <FormBuilder
+        key={`region-admin-form-${formKey}`}
         fields={fields}
         onSubmit={onSubmit}
         onChange={(values) => setFormData({ ...formData, ...values })}

@@ -15,7 +15,7 @@ import { SektorAdminTab } from './SektorAdminTab';
 import { SchoolAdminTab } from './SchoolAdminTab';
 import { ROLE_TAB_CONFIG, getVisibleRoleTabs } from '../utils/roleTabConfig';
 import { DEFAULT_FORM_VALUES, SUCCESS_MESSAGES, ERROR_MESSAGES } from '../utils/constants';
-import { transformFormDataToBackend } from '../utils/fieldTransformers';
+import { transformFormDataToBackend, transformBackendDataToForm } from '../utils/fieldTransformers';
 
 interface UserModalTabsProps {
   open: boolean;
@@ -52,6 +52,7 @@ export function UserModalTabs({
   const { toast } = useToast();
   const [selectedTab, setSelectedTab] = useState<string>('regionoperator');
   const [formData, setFormData] = useState<any>(DEFAULT_FORM_VALUES);
+  const [formKey, setFormKey] = useState(0);
   const [loading, setLoading] = useState(false);
 
   // Get visible tabs for current user
@@ -60,24 +61,35 @@ export function UserModalTabs({
 
   // Initialize form data
   useEffect(() => {
-    if (open) {
-      if (user) {
-        // Edit mode - populate with user data
-        setFormData({
-          ...DEFAULT_FORM_VALUES,
-          ...user,
-          is_active: user.is_active ? 'true' : 'false',
-        });
-      } else {
-        // Create mode - reset to defaults
-        setFormData(DEFAULT_FORM_VALUES);
-      }
+    if (!open) return;
+
+    if (user) {
+      console.log('[UserModalTabs] Hydrating form with user:', user);
+      console.log('[UserModalTabs] User profile snapshot:', user?.profile);
+      console.log('[UserModalTabs] Name fields snapshot:', {
+        topLevelFirstName: user?.first_name,
+        topLevelLastName: user?.last_name,
+        profileFirstName: user?.profile?.first_name,
+        profileLastName: user?.profile?.last_name,
+      });
+      const transformed = transformBackendDataToForm(user);
+      console.log('[UserModalTabs] Transformed values:', transformed);
+      setFormData({
+        ...DEFAULT_FORM_VALUES,
+        ...transformed,
+      });
+    } else {
+      setFormData(DEFAULT_FORM_VALUES);
     }
+
+    setFormKey((prev) => prev + 1);
   }, [open, user]);
 
   // Set default tab on mount
   useEffect(() => {
+    console.log('[UserModalTabs] Checking visible tab sync', { visibleTabs, selectedTab });
     if (visibleTabs.length > 0 && !visibleTabs.includes(selectedTab)) {
+      console.log('[UserModalTabs] Adjusting selectedTab due to permissions', { visibleTabs, selectedTab });
       setSelectedTab(visibleTabs[0]);
     }
   }, [visibleTabs, selectedTab]);
@@ -203,9 +215,10 @@ export function UserModalTabs({
 
           {/* RegionAdmin Tab */}
           <TabsContent value="regionadmin">
-            <RegionAdminTab
-              formData={formData}
-              setFormData={setFormData}
+          <RegionAdminTab
+            formKey={formKey}
+            formData={formData}
+            setFormData={setFormData}
               availableInstitutions={availableInstitutions}
               loadingOptions={loadingOptions}
               user={user}
@@ -216,9 +229,10 @@ export function UserModalTabs({
 
           {/* RegionOperator Tab */}
           <TabsContent value="regionoperator">
-            <RegionOperatorTab
-              formData={formData}
-              setFormData={setFormData}
+          <RegionOperatorTab
+            formKey={formKey}
+            formData={formData}
+            setFormData={setFormData}
               availableInstitutions={availableInstitutions}
               availableDepartments={availableDepartments}
               loadingOptions={loadingOptions}
@@ -230,9 +244,10 @@ export function UserModalTabs({
 
           {/* SektorAdmin Tab */}
           <TabsContent value="sektoradmin">
-            <SektorAdminTab
-              formData={formData}
-              setFormData={setFormData}
+          <SektorAdminTab
+            formKey={formKey}
+            formData={formData}
+            setFormData={setFormData}
               availableInstitutions={availableInstitutions}
               loadingOptions={loadingOptions}
               user={user}
@@ -243,9 +258,10 @@ export function UserModalTabs({
 
           {/* SchoolAdmin Tab */}
           <TabsContent value="schooladmin">
-            <SchoolAdminTab
-              formData={formData}
-              setFormData={setFormData}
+          <SchoolAdminTab
+            formKey={formKey}
+            formData={formData}
+            setFormData={setFormData}
               availableInstitutions={availableInstitutions}
               loadingOptions={loadingOptions}
               user={user}

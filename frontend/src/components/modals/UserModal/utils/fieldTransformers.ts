@@ -3,8 +3,12 @@
  * Handle data transformation between form and backend formats
  */
 
-import { PROFILE_FIELDS, DEFAULT_FORM_VALUES } from './constants';
+import { PROFILE_FIELDS, DEFAULT_FORM_VALUES, CRUD_PERMISSIONS } from './constants';
 import type { UserModalMode } from './constants';
+
+const REGION_OPERATOR_PERMISSION_KEYS = Object.values(CRUD_PERMISSIONS).flatMap((module) =>
+  module.actions.map((action) => action.key)
+);
 
 /**
  * Transform form data to backend structure
@@ -99,6 +103,18 @@ export function transformFormDataToBackend(
   // Add profile to userData
   userData.profile = profile;
 
+  // Attach RegionOperator CRUD permissions if provided
+  const permissionPayload: Record<string, boolean> = {};
+  REGION_OPERATOR_PERMISSION_KEYS.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(data, key)) {
+      permissionPayload[key] = data[key] === true || data[key] === 'true' || data[key] === 1;
+    }
+  });
+
+  if (Object.keys(permissionPayload).length > 0) {
+    userData.region_operator_permissions = permissionPayload;
+  }
+
   return userData;
 }
 
@@ -152,6 +168,14 @@ export function transformBackendDataToForm(user: any | null): Record<string, any
     if (user.profile.emergency_contact_phone) formValues.emergency_contact_phone = user.profile.emergency_contact_phone;
     if (user.profile.emergency_contact_email) formValues.emergency_contact_email = user.profile.emergency_contact_email;
     if (user.profile.notes) formValues.notes = user.profile.notes;
+  }
+
+  if (user.region_operator_permissions) {
+    REGION_OPERATOR_PERMISSION_KEYS.forEach((key) => {
+      if (key in user.region_operator_permissions) {
+        formValues[key] = Boolean(user.region_operator_permissions[key]);
+      }
+    });
   }
 
   return formValues;

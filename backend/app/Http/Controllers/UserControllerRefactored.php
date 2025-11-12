@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Services\UserCrudService;
 use App\Services\UserPermissionService;
+use App\Services\RegionOperatorPermissionService;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Http\Traits\ValidationRules;
@@ -13,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Spatie\Permission\Models\Role;
 
 class UserControllerRefactored extends BaseController
 {
@@ -20,13 +22,16 @@ class UserControllerRefactored extends BaseController
 
     protected UserCrudService $userService;
     protected UserPermissionService $permissionService;
+    protected RegionOperatorPermissionService $regionOperatorPermissionService;
 
     public function __construct(
         UserCrudService $userService,
-        UserPermissionService $permissionService
+        UserPermissionService $permissionService,
+        RegionOperatorPermissionService $regionOperatorPermissionService
     ) {
         $this->userService = $userService;
         $this->permissionService = $permissionService;
+        $this->regionOperatorPermissionService = $regionOperatorPermissionService;
     }
 
     /**
@@ -49,7 +54,7 @@ class UserControllerRefactored extends BaseController
             $search = $request->get('search');
             
             // Build query with relations
-            $query = User::with(['roles', 'institution', 'profile']);
+            $query = User::with(['roles', 'institution', 'profile', 'regionOperatorPermissions']);
             
             Log::info('🔍 UserController: Processing user list request', [
                 'user' => $currentUser->username,
@@ -170,6 +175,9 @@ class UserControllerRefactored extends BaseController
             }
             
             $validatedData = $request->validated();
+
+            $targetRoleName = $this->resolveTargetRoleName($validatedData, $request);
+            $this->enforceRegionOperatorPermissionRules($request, $targetRoleName, true);
             
             // Validate institution and role permissions
             $availableInstitutions = collect($this->permissionService->getAvailableInstitutions($currentUser))
@@ -193,6 +201,8 @@ class UserControllerRefactored extends BaseController
             
             $user = $this->userService->create($validatedData);
             $formattedUser = $this->userService->formatForResponse($user);
+
+            $this->handleRegionOperatorPermissions($request, $user);
             
             return $this->created($formattedUser, 'User created successfully');
             
@@ -208,6 +218,7 @@ class UserControllerRefactored extends BaseController
     {
         try {
             $currentUser = Auth::user();
+            $currentRoleName = strtolower($user->roles->first()?->name ?? '');
             
             // Check modify permission
             $permissionCheck = $this->permissionService->validateUserPermissions($currentUser, $user, 'modify');
@@ -219,6 +230,10 @@ class UserControllerRefactored extends BaseController
             }
             
             $validatedData = $request->validated();
+
+            $targetRoleName = $this->resolveTargetRoleName($validatedData, $request, $user);
+            $roleChangedToRegionOperator = $currentRoleName !== 'regionoperator' && $targetRoleName === 'regionoperator';
+            $this->enforceRegionOperatorPermissionRules($request, $targetRoleName, $roleChangedToRegionOperator);
             
             // If changing institution or role, validate permissions
             if (isset($validatedData['institution_id']) && $validatedData['institution_id'] !== $user->institution_id) {
@@ -247,6 +262,8 @@ class UserControllerRefactored extends BaseController
             
             $updatedUser = $this->userService->update($user, $validatedData);
             $formattedUser = $this->userService->formatForResponse($updatedUser);
+
+            $this->handleRegionOperatorPermissions($request, $updatedUser);
             
             return $this->success($formattedUser, 'User updated successfully');
             
@@ -503,7 +520,10 @@ class UserControllerRefactored extends BaseController
             'created_at' => $user->created_at,
             'updated_at' => $user->updated_at,
             'first_name' => $this->cleanUtf8($user->profile?->first_name ?? null),
-            'last_name' => $this->cleanUtf8($user->profile?->last_name ?? null)
+            'last_name' => $this->cleanUtf8($user->profile?->last_name ?? null),
+            'region_operator_permissions' => $user->regionOperatorPermissions
+                ? $user->regionOperatorPermissions->only(RegionOperatorPermissionService::CRUD_FIELDS)
+                : null,
         ];
     }
 
@@ -746,5 +766,60 @@ class UserControllerRefactored extends BaseController
             'message' => $defaultMessage,
             'error' => config('app.debug') ? $e->getMessage() : 'Server error',
         ], 500);
+    }
+
+    /**
+     * Sync or delete RegionOperator permissions based on current payload/role.
+     */
+    private function handleRegionOperatorPermissions(Request $request, User $user): void
+    {
+        $payload = $request->all();
+        $hasCrudPayload = $this->regionOperatorPermissionService->hasCrudPayload($payload);
+        $isRegionOperator = $this->regionOperatorPermissionService->shouldHandle($user);
+
+        if (!$isRegionOperator) {
+            $this->regionOperatorPermissionService->deletePermissions($user);
+            return;
+        }
+
+        if ($hasCrudPayload) {
+            $permissions = $this->regionOperatorPermissionService->extractPermissions($payload);
+            $this->regionOperatorPermissionService->syncPermissions($user, $permissions);
+        }
+    }
+
+    private function resolveTargetRoleName(array $validatedData, Request $request, ?User $existingUser = null): ?string
+    {
+        if ($request->filled('role')) {
+            $value = strtolower((string) $request->input('role'));
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        if (isset($validatedData['role_id'])) {
+            $role = Role::find($validatedData['role_id']);
+            if ($role && $role->name) {
+                return strtolower($role->name);
+            }
+        }
+
+        if ($existingUser) {
+            $role = $existingUser->roles->first();
+            if ($role && $role->name) {
+                return strtolower($role->name);
+            }
+        }
+
+        return null;
+    }
+
+    private function enforceRegionOperatorPermissionRules(Request $request, ?string $targetRoleName, bool $requirePayload = false): void
+    {
+        if (($targetRoleName ?? '') !== 'regionoperator') {
+            return;
+        }
+
+        $this->regionOperatorPermissionService->assertValidPayload($request->all(), $requirePayload);
     }
 }

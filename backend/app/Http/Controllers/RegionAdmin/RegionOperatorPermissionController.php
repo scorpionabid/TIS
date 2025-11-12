@@ -5,6 +5,7 @@ namespace App\Http\Controllers\RegionAdmin;
 use App\Http\Controllers\Controller;
 use App\Models\RegionOperatorPermission;
 use App\Models\User;
+use App\Services\RegionOperatorPermissionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -12,6 +13,11 @@ use Illuminate\Support\Facades\Log;
 
 class RegionOperatorPermissionController extends Controller
 {
+    public function __construct(
+        private readonly RegionOperatorPermissionService $regionOperatorPermissionService
+    ) {
+    }
+
     // NEW: Granular CRUD-based permission fields (25 permissions)
     private const CRUD_PERMISSION_FIELDS = [
         // Surveys (5)
@@ -147,6 +153,8 @@ class RegionOperatorPermissionController extends Controller
                 'errors' => $validator->errors(),
             ], 422);
         }
+
+        $this->regionOperatorPermissionService->assertValidPayload($request->all(), true);
 
         // Get or create permission record
         $permission = RegionOperatorPermission::firstOrCreate(

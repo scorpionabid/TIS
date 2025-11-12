@@ -206,36 +206,9 @@ export default function Resources() {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Security check
-  if (!isAuthenticated) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Giriş tələb olunur</h3>
-          <p className="text-muted-foreground">
-            Bu səhifəyə daxil olmaq üçün sistemə giriş etməlisiniz
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!canViewResources) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Giriş icazəniz yoxdur</h3>
-          <p className="text-muted-foreground">
-            Bu səhifəni görməyə icazəniz yoxdur
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const resourcesData = resourceResponse?.data || [];
+  // MOVED HOOKS BEFORE EARLY RETURNS - React Rules of Hooks compliance
+  // Memoize resourcesData to prevent exhaustive-deps warnings
+  const resourcesData = useMemo(() => resourceResponse?.data || [], [resourceResponse?.data]);
   const isUpdatingResults = isFetching && !isLoading;
 
   useEffect(() => {
@@ -248,7 +221,7 @@ export default function Resources() {
         [activeTab]: resourceResponse.meta?.total ?? resourcesData.length,
       }));
     }
-  }, [resourceResponse?.meta?.total, resourcesData.length, activeTab]);
+  }, [resourceResponse?.meta?.total, resourcesData, activeTab]);
 
   const fallbackInstitutionOptions = useMemo(() => {
     const unique = new Map<number, { id: number; name: string }>();
@@ -347,6 +320,35 @@ export default function Resources() {
   const documentTabCount = activeTab === 'documents'
     ? resourceResponse?.meta?.total ?? resourcesData.length ?? tabTotals.documents
     : (tabTotals.documents || statsToRender.total_documents || 0);
+
+  // Security checks - moved after all hooks
+  if (!isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş tələb olunur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə daxil olmaq üçün sistemə giriş etməlisiniz
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!canViewResources) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəniz yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəni görməyə icazəniz yoxdur
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const getResourceTypeLabel = (resource: Resource) => {
     return resource.type === 'link' ? 'Link' : 'Sənəd';

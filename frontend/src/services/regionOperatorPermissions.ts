@@ -1,12 +1,6 @@
 import { apiClient, ApiResponse } from './api';
 
-export interface RegionOperatorPermissionFlags {
-  can_manage_surveys: boolean;
-  can_manage_tasks: boolean;
-  can_manage_documents: boolean;
-  can_manage_folders: boolean;
-  can_manage_links: boolean;
-}
+export type RegionOperatorPermissionFlags = Record<string, boolean>;
 
 export interface RegionOperatorModuleMeta {
   label: string;
@@ -22,7 +16,7 @@ export interface RegionOperatorPermissionResponse {
     department?: string | null;
   };
   permissions: RegionOperatorPermissionFlags;
-  modules: Record<keyof RegionOperatorPermissionFlags, RegionOperatorModuleMeta>;
+  modules: Record<string, RegionOperatorModuleMeta>;
 }
 
 class RegionOperatorPermissionsService {
@@ -66,4 +60,3 @@ class RegionOperatorPermissionsService {
 }
 
 export const regionOperatorPermissionsService = new RegionOperatorPermissionsService();
-

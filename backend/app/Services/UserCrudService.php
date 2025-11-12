@@ -7,6 +7,7 @@ use App\Models\UserProfile;
 use App\Models\ActivityLog;
 use App\Models\SecurityEvent;
 use App\Models\Role;
+use App\Services\RegionOperatorPermissionService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -23,7 +24,7 @@ class UserCrudService
      */
     public function getPaginatedList(array $params): LengthAwarePaginator
     {
-        $query = User::with(['roles', 'institution', 'profile']);
+        $query = User::with(['roles', 'institution', 'profile', 'regionOperatorPermissions']);
         
         // Apply filters
         $this->applyFilters($query, $params);
@@ -69,7 +70,7 @@ class UserCrudService
      */
     public function getWithRelations(User $user): User
     {
-        $user->load(['roles.permissions', 'institution', 'department', 'profile']);
+        $user->load(['roles.permissions', 'institution', 'department', 'profile', 'regionOperatorPermissions']);
         
         // Log activity
         $this->logActivity('user_view', "Viewed user: {$user->username}", [
@@ -539,7 +540,8 @@ class UserCrudService
                 'last_name' => $user->profile->last_name,
                 'full_name' => $user->profile->full_name,
                 'contact_phone' => $user->profile->contact_phone
-            ] : null
+            ] : null,
+            'region_operator_permissions' => $this->serializeRegionOperatorPermissions($user),
         ];
     }
     
@@ -592,7 +594,8 @@ class UserCrudService
                 'department_type' => $user->department?->department_type
             ],
             'profile' => $user->profile,
-            'permissions' => $user->role?->permissions->pluck('name') ?? []
+            'permissions' => $user->role?->permissions->pluck('name') ?? [],
+            'region_operator_permissions' => $this->serializeRegionOperatorPermissions($user),
         ];
     }
     
@@ -609,6 +612,19 @@ class UserCrudService
         ], $additionalData);
         
         ActivityLog::logActivity($data);
+    }
+
+    protected function serializeRegionOperatorPermissions(User $user): ?array
+    {
+        if (!$user->relationLoaded('regionOperatorPermissions')) {
+            $user->load('regionOperatorPermissions');
+        }
+
+        $permissions = $user->regionOperatorPermissions;
+
+        return $permissions
+            ? $permissions->only(RegionOperatorPermissionService::CRUD_FIELDS)
+            : null;
     }
 
     // ========================================

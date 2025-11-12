@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\Services\RegionOperatorPermissionService;
 
 class UpdateUserRequest extends FormRequest
 {
@@ -21,7 +22,7 @@ class UpdateUserRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        return array_merge([
             'username' => 'sometimes|string|min:3|max:50|unique:users,username,' . $this->route('user')->id,
             'email' => 'sometimes|string|email|max:100|unique:users,email,' . $this->route('user')->id,
             'utis_code' => 'nullable|string|regex:/^\d{1,12}$/|unique:users,utis_code,' . $this->route('user')->id,
@@ -44,6 +45,24 @@ class UpdateUserRequest extends FormRequest
             'contact_phone' => 'nullable|string|max:20',
             'emergency_contact' => 'nullable|string|max:20',
             'address' => 'nullable|array'
+        ], $this->regionOperatorPermissionRules());
+    }
+
+    protected function regionOperatorPermissionRules(): array
+    {
+        $rules = [
+            'region_operator_permissions' => 'nullable|array',
         ];
+
+        foreach (RegionOperatorPermissionService::CRUD_FIELDS as $field) {
+            $rules[\"region_operator_permissions.$field\"] = 'sometimes|boolean';
+            $rules[$field] = 'sometimes|boolean';
+        }
+
+        foreach (array_keys(RegionOperatorPermissionService::LEGACY_FIELD_MAP) as $legacyField) {
+            $rules[$legacyField] = 'sometimes|boolean';
+        }
+
+        return $rules;
     }
 }

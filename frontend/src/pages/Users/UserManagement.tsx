@@ -191,7 +191,8 @@ export const UserManagement = memo(() => {
     enabled: !!currentUser,
   });
 
-  const users = usersResponse?.data || [];
+  // Memoize users array to prevent exhaustive-deps warnings
+  const users = useMemo(() => usersResponse?.data || [], [usersResponse?.data]);
   const totalItems = usersResponse?.total ?? users.length;
   const totalPages = usersResponse?.last_page ?? 1;
   const currentPage = usersResponse?.current_page ?? page;
@@ -290,6 +291,32 @@ export const UserManagement = memo(() => {
     setSelectedUser(null);
     setIsModalOpen(false);
   };
+
+  const detailedUserQuery = useQuery({
+    queryKey: ['user-details', selectedUser?.id],
+    queryFn: async () => {
+      if (!selectedUser) return null;
+      try {
+        return await userService.getUser(selectedUser.id);
+      } catch (err) {
+        console.error('Failed to fetch user details:', err);
+        throw err;
+      }
+    },
+    enabled: !!selectedUser && isModalOpen,
+    staleTime: 60 * 1000,
+    onSuccess: (data) => {
+      console.log('[UserManagement] Detailed user loaded:', data);
+    },
+    onError: (error) => {
+      console.error('[UserManagement] Failed to load detailed user:', error);
+    },
+  });
+
+  const modalUser = detailedUserQuery.data || selectedUser;
+  const modalKey = modalUser
+    ? `${modalUser.id}-${detailedUserQuery.data ? 'full' : 'partial'}`
+    : 'new-user';
 
   const handleUserSubmit = async (userData: CreateUserData | UpdateUserData) => {
     try {
@@ -504,10 +531,11 @@ export const UserManagement = memo(() => {
       {isModalOpen && (
         <Suspense fallback={<ModalFallback />}>
           <UserModalTabs
+            key={modalKey}
             open={isModalOpen}
             onClose={handleCloseModal}
             onSave={handleUserSubmit}
-            user={selectedUser}
+            user={modalUser}
             currentUserRole={currentUser?.role?.name || currentUser?.role || 'unknown'}
             availableInstitutions={institutionsQuery.data || []}
             availableDepartments={departmentsQuery.data || []}

@@ -254,7 +254,7 @@ export default function AssessmentResults() {
           aVal = a.participant_count || 0;
           bVal = b.participant_count || 0;
           break;
-        case 'participation_rate':
+        case 'participation_rate': {
           const aRate = (a.student_count ?? 0) > 0
             ? ((a.participant_count ?? 0) / (a.student_count ?? 1)) * 100
             : 0;
@@ -264,6 +264,7 @@ export default function AssessmentResults() {
           aVal = aRate;
           bVal = bRate;
           break;
+        }
         default:
           // Field sorting
           aVal = a.metadata?.[sortColumn] ?? 0;

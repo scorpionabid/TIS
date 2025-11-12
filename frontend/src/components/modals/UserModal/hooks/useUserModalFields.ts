@@ -88,7 +88,7 @@ export function useUserModalFields(params: {
     return [
       createField('first_name', 'Ad', 'text', { required: true }),
       createField('last_name', 'Soyad', 'text', { required: true }),
-      createField('patronymic', 'Ata adı', 'text'),
+      // REMOVED: patronymic (ata adı) - database column does not exist
       createField('username', 'İstifadəçi adı', 'text', { required: true }),
       createField('email', 'Email', 'email', {
         required: true,
@@ -104,22 +104,7 @@ export function useUserModalFields(params: {
       createField('password_confirmation', 'Şifrə təkrarı', 'password', {
         required: !user,
       }),
-      createField('contact_phone', 'Telefon', 'text'),
-      createField('birth_date', 'Doğum tarixi', 'date', {
-        required: false, // Könüllü seçim
-        value: selectedBirthDate,
-        onChange: (value: string) => setSelectedBirthDate(value),
-        validation: z.union([
-          z.string().refine((date) => !date || !isNaN(Date.parse(date)), 'Düzgün tarix formatı'),
-          z.literal(''),
-          z.undefined(),
-          z.null()
-        ]).optional(),
-      }),
-      createField('gender', 'Cins', 'select', {
-        options: GENDER_OPTIONS,
-      }),
-      createField('national_id', 'Şəxsiyyət vəsiqəsi', 'text'),
+      // REMOVED: contact_phone, birth_date, gender, national_id - database columns do not exist
       createField('utis_code', 'UTIS Kodu', 'text', {
         placeholder: '12 rəqəmə qədər',
       }),

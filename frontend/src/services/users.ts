@@ -143,12 +143,30 @@ class UserService {
   }
 
   async getUser(id: number): Promise<User> {
-    const response = await apiClient.get<User>(`/users/${id}`);
-    
-    if (response.data) {
+    let role = getStoredUser()?.role;
+    let endpoint = `/users/${id}`;
+
+    switch (role) {
+      case 'regionadmin':
+        endpoint = `/regionadmin/users/${id}`;
+        break;
+      case 'sektoradmin':
+        endpoint = `/sektoradmin/users/${id}`;
+        break;
+      default:
+        break;
+    }
+
+    const response = await apiClient.get<User>(endpoint);
+
+    if (response && typeof response === 'object' && 'data' in response && response.data) {
       return response.data;
     }
-    
+
+    if (response && !('data' in response)) {
+      return response as User;
+    }
+
     throw new Error('User not found');
   }
 

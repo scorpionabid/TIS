@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
@@ -8,12 +8,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
+import { PermissionMatrix } from '@/components/modals/UserModal/components/PermissionMatrix';
+import { CRUD_PERMISSIONS } from '@/components/modals/UserModal/utils/constants';
 import {
   regionOperatorPermissionsService,
   RegionOperatorPermissionFlags,
@@ -26,13 +25,17 @@ type RegionOperatorPermissionsModalProps = {
   onClose: () => void;
 };
 
-const MODULE_KEYS: Array<keyof RegionOperatorPermissionFlags> = [
-  'can_manage_surveys',
-  'can_manage_tasks',
-  'can_manage_documents',
-  'can_manage_folders',
-  'can_manage_links',
-];
+const buildEmptyPermissions = (): RegionOperatorPermissionFlags => {
+  const permissions: RegionOperatorPermissionFlags = {};
+
+  Object.values(CRUD_PERMISSIONS).forEach((module) => {
+    module.actions.forEach((action) => {
+      permissions[action.key] = false;
+    });
+  });
+
+  return permissions;
+};
 
 export const RegionOperatorPermissionsModal = ({
   operatorId,
@@ -42,11 +45,7 @@ export const RegionOperatorPermissionsModal = ({
   const queryClient = useQueryClient();
   const [localState, setLocalState] = useState<RegionOperatorPermissionFlags | null>(null);
 
-  const {
-    data,
-    isLoading,
-    refetch,
-  } = useQuery<RegionOperatorPermissionResponse>({
+  const { data, isLoading } = useQuery<RegionOperatorPermissionResponse>({
     queryKey: ['regionoperator-permissions', operatorId],
     queryFn: () => regionOperatorPermissionsService.getPermissions(operatorId as number),
     enabled: open && operatorId !== null,
@@ -55,9 +54,14 @@ export const RegionOperatorPermissionsModal = ({
 
   useEffect(() => {
     if (data?.permissions) {
-      setLocalState(data.permissions);
+      setLocalState({
+        ...buildEmptyPermissions(),
+        ...data.permissions,
+      });
+    } else if (!isLoading && open) {
+      setLocalState(buildEmptyPermissions());
     }
-  }, [data]);
+  }, [data, isLoading, open]);
 
   const mutation = useMutation({
     mutationFn: (payload: Partial<RegionOperatorPermissionFlags>) =>
@@ -76,8 +80,8 @@ export const RegionOperatorPermissionsModal = ({
     },
   });
 
-  const handleToggle = (key: keyof RegionOperatorPermissionFlags, value: boolean) => {
-    setLocalState((prev) => (prev ? { ...prev, [key]: value } : prev));
+  const handleMatrixChange = (updated: Record<string, any>) => {
+    setLocalState(updated as RegionOperatorPermissionFlags);
   };
 
   const handleSave = () => {
@@ -86,7 +90,8 @@ export const RegionOperatorPermissionsModal = ({
     mutation.mutate(localState);
   };
 
-  const moduleMeta = useMemo(() => data?.modules ?? {}, [data?.modules]);
+  const isLoaded = !!data && !!localState;
+  const hasAnyPermissionSelected = localState ? Object.values(localState).some(Boolean) : false;
 
   const operatorName = data?.operator?.full_name ?? data?.operator?.username ?? 'RegionOperator';
 
@@ -103,7 +108,7 @@ export const RegionOperatorPermissionsModal = ({
           </DialogDescription>
         </DialogHeader>
 
-        {isLoading || !localState ? (
+        {!isLoaded ? (
           <div className="flex items-center justify-center py-10 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             Məlumat yüklənir...
@@ -118,48 +123,13 @@ export const RegionOperatorPermissionsModal = ({
               </p>
             </div>
 
-            {/* Empty State Warning */}
-            {localState && Object.values(localState).every(v => !v) && (
-              <div className="rounded-lg border-2 border-dashed border-orange-200 bg-orange-50 p-6 text-center">
-                <ShieldCheck className="mx-auto h-12 w-12 text-orange-400/70" />
-                <p className="mt-3 text-sm font-medium text-orange-900">
-                  Heç bir səlahiyyət verilməyib
-                </p>
-                <p className="text-xs text-orange-700 mt-2 max-w-md mx-auto">
-                  RegionOperator hal-hazırda heç bir modul üçün səlahiyyətə malik deyil.
-                  Aşağıdakı modulları aktivləşdirərək səlahiyyətlər təyin edin.
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              {MODULE_KEYS.map((key) => (
-                <div key={key} className="rounded-lg border bg-card p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <Label className="text-sm font-medium">
-                        {moduleMeta[key]?.label ?? key}
-                      </Label>
-                      <p className="text-xs text-muted-foreground mt-1 max-w-xl">
-                        {moduleMeta[key]?.description ?? 'Modul səlahiyyəti'}
-                      </p>
-                    </div>
-                    <Switch
-                      checked={localState[key]}
-                      onCheckedChange={(value) => handleToggle(key, value)}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <Separator />
+            <PermissionMatrix formData={localState} setFormData={handleMatrixChange} />
 
             <div className="flex items-center justify-end gap-2">
               <Button variant="outline" onClick={onClose} disabled={mutation.isLoading}>
                 Bağla
               </Button>
-              <Button onClick={handleSave} disabled={mutation.isLoading}>
+              <Button onClick={handleSave} disabled={mutation.isLoading || !hasAnyPermissionSelected}>
                 {mutation.isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Yadda saxla
               </Button>
@@ -170,4 +140,3 @@ export const RegionOperatorPermissionsModal = ({
     </Dialog>
   );
 };
-
