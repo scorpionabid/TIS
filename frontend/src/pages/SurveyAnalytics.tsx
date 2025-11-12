@@ -1,12 +1,14 @@
 import { SurveyAnalyticsDashboard } from "@/components/analytics/SurveyAnalyticsDashboard";
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertTriangle } from "lucide-react";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 
 export default function SurveyAnalytics() {
   const { currentUser } = useAuth();
+  const surveyAccess = useModuleAccess('surveys');
 
   // Security check - only administrative roles can access analytics
-  if (!currentUser || !['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role)) {
+  if (!currentUser || !surveyAccess.canView) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">

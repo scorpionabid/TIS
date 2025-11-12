@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Task } from "@/services/tasks";
 import { User } from "@/types/user";
 import { getTaskOrigin } from "@/utils/taskActions";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 
 export type TaskTabValue = "region" | "sector";
 export type TaskTab = { value: TaskTabValue; label: string };
@@ -22,18 +23,24 @@ type UseTaskPermissionsResult = {
   currentUserRole: string | null;
 };
 
-const ADMIN_ROLES = ["superadmin", "regionadmin", "sektoradmin"];
-
 export function useTaskPermissions(currentUser: User | null): UseTaskPermissionsResult {
+  const moduleAccess = useModuleAccess('tasks');
   const normalizedRole = useMemo(() => {
     if (!currentUser?.role) return null;
     return currentUser.role.toString().toLowerCase();
   }, [currentUser?.role]);
 
-  const hasAccess = Boolean(normalizedRole && ADMIN_ROLES.includes(normalizedRole));
+  const hasAccess = moduleAccess.canView;
+  const regionOperatorView = normalizedRole === 'regionoperator' && moduleAccess.canView;
 
-  const canSeeRegionTab = Boolean(normalizedRole && ["superadmin", "regionadmin"].includes(normalizedRole));
-  const canSeeSectorTab = Boolean(normalizedRole && ["superadmin", "regionadmin", "sektoradmin"].includes(normalizedRole));
+  const canSeeRegionTab = Boolean(
+    normalizedRole &&
+      (["superadmin", "regionadmin"].includes(normalizedRole) || regionOperatorView)
+  );
+  const canSeeSectorTab = Boolean(
+    normalizedRole &&
+      (["superadmin", "regionadmin", "sektoradmin"].includes(normalizedRole) || regionOperatorView)
+  );
 
   const availableTabs = useMemo(
     () =>
@@ -58,11 +65,26 @@ export function useTaskPermissions(currentUser: User | null): UseTaskPermissions
     });
   }, [availableTabs]);
 
-  const canCreateRegionTask = Boolean(normalizedRole && ["superadmin", "regionadmin"].includes(normalizedRole));
-  const canCreateSectorTask = Boolean(normalizedRole && ["superadmin", "sektoradmin"].includes(normalizedRole));
+  const regionOperatorCanCreate =
+    normalizedRole === 'regionoperator' && moduleAccess.canCreate;
 
-  const canManageRegionTasks = canCreateRegionTask;
-  const canManageSectorTasks = Boolean(normalizedRole && ["superadmin", "regionadmin", "sektoradmin"].includes(normalizedRole));
+  const canCreateRegionTask = Boolean(
+    normalizedRole &&
+      (["superadmin", "regionadmin"].includes(normalizedRole) || regionOperatorCanCreate)
+  );
+
+  const canCreateSectorTask = Boolean(
+    normalizedRole &&
+      (["superadmin", "regionadmin", "sektoradmin"].includes(normalizedRole) || regionOperatorCanCreate)
+  );
+
+  const canManageRegionTasks =
+    canCreateRegionTask || (normalizedRole === 'regionoperator' && moduleAccess.canEdit);
+  const canManageSectorTasks = Boolean(
+    normalizedRole &&
+      (["superadmin", "regionadmin", "sektoradmin"].includes(normalizedRole) ||
+        (normalizedRole === 'regionoperator' && moduleAccess.canEdit))
+  );
 
   const showCreateButton =
     (activeTab === "region" && canCreateRegionTask) ||
@@ -83,16 +105,16 @@ export function useTaskPermissions(currentUser: User | null): UseTaskPermissions
       const origin = getTaskOrigin(task);
 
       if (origin === "region") {
-        return canManageRegionTasks;
+        return canManageRegionTasks || moduleAccess.canEdit;
       }
 
       if (origin === "sector") {
-        return canManageSectorTasks;
+        return canManageSectorTasks || moduleAccess.canEdit;
       }
 
-      return false;
+      return moduleAccess.canEdit;
     },
-    [canManageRegionTasks, canManageSectorTasks, currentUser?.id, normalizedRole]
+    [canManageRegionTasks, canManageSectorTasks, currentUser?.id, normalizedRole, moduleAccess.canEdit]
   );
 
   const canDeleteTaskItem = useCallback(
@@ -100,9 +122,12 @@ export function useTaskPermissions(currentUser: User | null): UseTaskPermissions
       if (normalizedRole === "superadmin") {
         return true;
       }
-      return task.created_by === currentUser?.id;
+      if (task.created_by === currentUser?.id) {
+        return true;
+      }
+      return moduleAccess.canDelete;
     },
-    [currentUser?.id, normalizedRole]
+    [currentUser?.id, normalizedRole, moduleAccess.canDelete]
   );
 
   return {

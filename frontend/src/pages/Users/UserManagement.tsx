@@ -2,8 +2,7 @@ import { useState, Suspense, lazy, memo, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { User, CreateUserData, UpdateUserData, userService } from "@/services/users";
 import { sektorAdminService } from "@/services/sektoradmin";
-import { regionAdminService } from "@/services/regionadmin";
-import { apiClient } from "@/services/api";
+import { apiClient, PaginatedResponse } from "@/services/api";
 import { storageHelpers } from "@/utils/helpers";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,7 +12,7 @@ import { UserFilters } from "./components/UserFilters";
 import { UserTable } from "./components/UserTable";
 import { TablePagination } from "@/components/common/TablePagination";
 import { ModalFallback } from "@/components/common/ModalFallback";
-// Performance monitoring import removed for speed
+import type { UserRole } from "@/constants/roles";
 
 // Lazy load modals for better performance
 const UserModalTabs = lazy(() => import("@/components/modals/UserModal").then(module => ({
@@ -32,13 +31,18 @@ const TrashedUsersModal = lazy(() => import("@/components/modals/TrashedUsersMod
   default: module.TrashedUsersModal
 })));
 
+// Helper to get role name from string or UserRole
+// UserRole is already a string union type, so just return it directly
+const getRoleName = (role: string | UserRole | undefined): string | undefined => {
+  if (!role) return undefined;
+  return role as string;
+};
+
 export const UserManagement = memo(() => {
-  // Performance monitoring removed for speed
-  
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -75,30 +79,24 @@ export const UserManagement = memo(() => {
   });
 
   // Fetch filtered institutions for UserModalTabs
-  // For ALL roles, institutions come from filterOptions (backend provides appropriate filtered data)
   const institutionsQuery = useQuery({
     queryKey: ['modal-institutions', currentUser?.role, currentUser?.institution?.id, filterOptions],
     queryFn: async () => {
-      // For ALL roles (SuperAdmin, RegionAdmin), institutions come from filterOptions
-      // Backend automatically filters based on user's permissions
       const institutions = filterOptions?.institutions || [];
       return institutions;
     },
-    enabled: !!filterOptions, // Only run after filterOptions is loaded
+    enabled: !!filterOptions,
     staleTime: 1000 * 60 * 10,
   });
 
   // Fetch filtered departments for UserModalTabs
-  // For ALL roles, departments come from filterOptions (backend provides appropriate filtered data)
   const departmentsQuery = useQuery({
     queryKey: ['modal-departments', currentUser?.role, currentUser?.institution?.id, filterOptions],
     queryFn: async () => {
-      // For ALL roles (SuperAdmin, RegionAdmin), departments come from filterOptions
-      // Backend automatically filters based on user's permissions
       const departments = filterOptions?.departments || [];
       return departments;
     },
-    enabled: !!filterOptions, // Only run after filterOptions is loaded
+    enabled: !!filterOptions,
     staleTime: 1000 * 60 * 10,
   });
 
@@ -106,25 +104,23 @@ export const UserManagement = memo(() => {
   const rolesQuery = useQuery({
     queryKey: ['modal-roles', currentUser?.role, filterOptions],
     queryFn: async () => {
-      if (currentUser?.role?.name === 'regionadmin') {
-        // RegionAdmin cannot create another RegionAdmin (security)
+      const currentRoleName = getRoleName(currentUser?.role);
+
+      if (currentRoleName === 'regionadmin') {
         return [
           { id: 4, name: 'regionoperator', display_name: 'RegionOperator' },
           { id: 5, name: 'sektoradmin', display_name: 'SektorAdmin' },
           { id: 6, name: 'schooladmin', display_name: 'SchoolAdmin' },
         ];
       }
-      // For SuperAdmin, transform filterOptions.roles format
-      // Backend returns: { value: "regionadmin", label: "RegionAdmin" }
-      // Frontend needs: { id: 3, name: "regionadmin", display_name: "RegionAdmin" }
       const roles = filterOptions?.roles || [];
       return roles.map((role: any, index: number) => ({
-        id: index + 1, // Temporary ID (will be looked up from backend later)
+        id: index + 1,
         name: role.value,
         display_name: role.label,
       }));
     },
-    enabled: !!currentUser && (currentUser?.role?.name === 'regionadmin' || !!filterOptions),
+    enabled: !!currentUser && !!filterOptions,
     staleTime: 1000 * 60 * 10,
   });
 
@@ -134,7 +130,7 @@ export const UserManagement = memo(() => {
     error,
     refetch,
     isFetching,
-  } = useQuery({
+  } = useQuery<PaginatedResponse<User>>({
     queryKey: [
       'users',
       currentUser?.role,
@@ -168,7 +164,8 @@ export const UserManagement = memo(() => {
         params.institution_id = filterParams.institution_id;
       }
 
-      if (currentUser?.role === 'sektoradmin') {
+      const currentRoleName = getRoleName(currentUser?.role);
+      if (currentRoleName === 'sektoradmin') {
         const response: any = await sektorAdminService.getSectorUsers(params);
         const pagination = response?.meta ?? response?.pagination ?? {};
         const records = response?.data ?? response?.users ?? [];
@@ -181,17 +178,16 @@ export const UserManagement = memo(() => {
           per_page: pagination.per_page ?? perPage,
           from: pagination.from ?? ((page - 1) * perPage + (records.length > 0 ? 1 : 0)),
           to: pagination.to ?? ((page - 1) * perPage + records.length),
-        };
+        } as PaginatedResponse<User>;
       }
 
       return userService.getAll(params);
     },
-    keepPreviousData: true,
     retry: 1,
     enabled: !!currentUser,
   });
 
-  // Memoize users array to prevent exhaustive-deps warnings
+  // Memoize users array
   const users = useMemo(() => usersResponse?.data || [], [usersResponse?.data]);
   const totalItems = usersResponse?.total ?? users.length;
   const totalPages = usersResponse?.last_page ?? 1;
@@ -217,11 +213,11 @@ export const UserManagement = memo(() => {
     if (filterOptions?.roles && filterOptions.roles.length > 0) {
       return filterOptions.roles.map(r => r.value);
     }
-    // Fallback to client-side extraction
     const roles = new Set<string>();
     users.forEach((user) => {
-      if (user.role) {
-        roles.add(user.role);
+      const roleName = getRoleName(user.role);
+      if (roleName) {
+        roles.add(roleName);
       }
     });
     return Array.from(roles).sort();
@@ -238,7 +234,6 @@ export const UserManagement = memo(() => {
     if (filterOptions?.institutions && filterOptions.institutions.length > 0) {
       return filterOptions.institutions;
     }
-    // Fallback to client-side extraction
     const map = new Map<number, string>();
     users.forEach((user) => {
       const institutionId = user.institution?.id;
@@ -292,7 +287,7 @@ export const UserManagement = memo(() => {
     setIsModalOpen(false);
   };
 
-  const detailedUserQuery = useQuery({
+  const detailedUserQuery = useQuery<User | null>({
     queryKey: ['user-details', selectedUser?.id],
     queryFn: async () => {
       if (!selectedUser) return null;
@@ -305,13 +300,17 @@ export const UserManagement = memo(() => {
     },
     enabled: !!selectedUser && isModalOpen,
     staleTime: 60 * 1000,
-    onSuccess: (data) => {
-      console.log('[UserManagement] Detailed user loaded:', data);
-    },
-    onError: (error) => {
-      console.error('[UserManagement] Failed to load detailed user:', error);
-    },
   });
+
+  // Log when detailed user data changes
+  useEffect(() => {
+    if (detailedUserQuery.data) {
+      console.log('[UserManagement] Detailed user loaded:', detailedUserQuery.data);
+    }
+    if (detailedUserQuery.error) {
+      console.error('[UserManagement] Failed to load detailed user:', detailedUserQuery.error);
+    }
+  }, [detailedUserQuery.data, detailedUserQuery.error]);
 
   const modalUser = detailedUserQuery.data || selectedUser;
   const modalKey = modalUser
@@ -320,21 +319,30 @@ export const UserManagement = memo(() => {
 
   const handleUserSubmit = async (userData: CreateUserData | UpdateUserData) => {
     try {
+      console.log('[UserManagement] handleUserSubmit payload:', userData);
       if (selectedUser) {
-        await userService.update(selectedUser.id, userData as UpdateUserData, currentUser?.role);
+        await userService.update(selectedUser.id, userData as UpdateUserData, getRoleName(currentUser?.role));
         toast({
           title: "Uğur",
           description: "İstifadəçi məlumatları yeniləndi",
         });
+
+        // Invalidate both users list and specific user details
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['users'] }),
+          queryClient.invalidateQueries({ queryKey: ['user-details', selectedUser.id] })
+        ]);
       } else {
-        await userService.create(userData as CreateUserData, currentUser?.role);
+        await userService.create(userData as CreateUserData, getRoleName(currentUser?.role));
         toast({
           title: "Uğur",
           description: "Yeni istifadəçi yaradıldı",
         });
+
+        // Only invalidate users list for new user
+        await queryClient.invalidateQueries({ queryKey: ['users'] });
       }
-      
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+
       handleCloseModal();
       await refetch();
     } catch (error: any) {
@@ -353,17 +361,17 @@ export const UserManagement = memo(() => {
 
   const handleConfirmDelete = async (user: User, deleteType: 'soft' | 'hard') => {
     try {
-      await userService.delete(user.id, currentUser?.role, deleteType);
-      
-      const message = deleteType === 'hard' 
-        ? "İstifadəçi həmişəlik silindi" 
+      await userService.delete(user.id, getRoleName(currentUser?.role), deleteType);
+
+      const message = deleteType === 'hard'
+        ? "İstifadəçi həmişəlik silindi"
         : "İstifadəçi arxivə köçürüldü";
-        
+
       toast({
         title: "Uğur",
         description: message,
       });
-      
+
       queryClient.invalidateQueries({ queryKey: ['users'] });
       setIsDeleteModalOpen(false);
       setUserToDelete(null);
@@ -408,10 +416,10 @@ export const UserManagement = memo(() => {
           user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : (user.username || ''),
           user.email || '',
           user.username || '',
-          user.role || '',
+          getRoleName(user.role) || '',
           user.is_active ? 'Aktiv' : 'Passiv',
           user.institution?.name || '',
-          user.profile?.phone || '',
+          user.contact_phone || user.phone || '',
           user.created_at ? new Date(user.created_at).toLocaleDateString('az-AZ') : ''
         ].map(field => `"${String(field ?? '').replace(/"/g, '""')}"`).join(','))
       ].join('\n');
@@ -437,7 +445,7 @@ export const UserManagement = memo(() => {
     return (
       <div className="p-6 space-y-6">
         <UserActions
-          currentUserRole={currentUser?.role || ''}
+          currentUserRole={getRoleName(currentUser?.role) || ''}
           onCreateUser={() => {}}
           onExport={() => {}}
           onImportExport={() => {}}
@@ -447,20 +455,18 @@ export const UserManagement = memo(() => {
     );
   }
 
-  // Error state - check if it's authentication error
+  // Error state
   if (error) {
     const errorMessage = error instanceof Error ? error.message : 'İstifadəçilər yüklənərkən problem yarandı.';
-    
-    // If authentication error, force login
+
     if (errorMessage.includes('Unauthenticated') || errorMessage.includes('401')) {
-      // Clear auth and redirect to login
       if (typeof window !== 'undefined') {
         apiClient.clearToken();
         storageHelpers.remove('atis_current_user');
         window.location.href = '/login';
       }
     }
-    
+
     return (
       <div className="p-6 text-center">
         <h1 className="text-2xl font-bold text-destructive mb-2">Xəta baş verdi</h1>
@@ -475,7 +481,7 @@ export const UserManagement = memo(() => {
   return (
     <div className="p-6 space-y-6">
       <UserActions
-        currentUserRole={currentUser?.role || ''}
+        currentUserRole={getRoleName(currentUser?.role) || ''}
         onCreateUser={() => handleOpenModal()}
         onExport={handleExport}
         onImportExport={() => setIsImportExportModalOpen(true)}
@@ -504,10 +510,9 @@ export const UserManagement = memo(() => {
         users={users}
         onEditUser={handleOpenModal}
         onDeleteUser={handleDeleteUser}
-        currentUserRole={currentUser?.role || ''}
+        currentUserRole={getRoleName(currentUser?.role) || ''}
         isLoading={isLoading || isFetching}
       />
-
 
       <TablePagination
         currentPage={currentPage}
@@ -536,7 +541,7 @@ export const UserManagement = memo(() => {
             onClose={handleCloseModal}
             onSave={handleUserSubmit}
             user={modalUser}
-            currentUserRole={currentUser?.role?.name || currentUser?.role || 'unknown'}
+            currentUserRole={getRoleName(currentUser?.role) || 'unknown'}
             availableInstitutions={institutionsQuery.data || []}
             availableDepartments={departmentsQuery.data || []}
             availableRoles={rolesQuery.data || []}
@@ -565,10 +570,6 @@ export const UserManagement = memo(() => {
           <UserImportExportModal
             isOpen={isImportExportModalOpen}
             onClose={() => setIsImportExportModalOpen(false)}
-            onImportComplete={() => {
-              queryClient.invalidateQueries({ queryKey: ['users'] });
-              refetch();
-            }}
           />
         </Suspense>
       )}

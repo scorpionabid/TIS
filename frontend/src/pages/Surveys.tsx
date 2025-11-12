@@ -5,7 +5,7 @@ import { Plus, ClipboardList, Calendar, TrendingUp, Eye, Edit, Trash2, Play, Pau
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { surveyService, Survey, CreateSurveyData } from "@/services/surveys";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { SurveyModal } from "@/components/modals/SurveyModal";
 import { SurveyViewModal } from "@/components/modals/SurveyViewModal";
@@ -15,9 +15,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiClient } from "@/services/api";
 import { surveyApprovalService } from "@/services/surveyApproval";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 
 export default function Surveys() {
   const { currentUser } = useAuth();
+  const surveyAccess = useModuleAccess('surveys');
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'active' | 'completed' | 'archived'>('all');
   const [showSurveyModal, setShowSurveyModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -26,18 +28,19 @@ export default function Surveys() {
   const [selectedSurvey, setSelectedSurvey] = useState<Survey | null>(null);
   const [viewingSurvey, setViewingSurvey] = useState<Survey | null>(null);
   const [selectedApprovalRequest, setSelectedApprovalRequest] = useState<any>(null);
-  
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   // Check if user is authorized
-  const isAuthorized = currentUser && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role);
+  const canViewSurveys = surveyAccess.canView;
+  const canCreateSurveys = surveyAccess.canCreate;
 
   // ALL HOOKS MOVED BEFORE SECURITY CHECK
   const { data: surveys, isLoading, error } = useQuery({
     queryKey: ['surveys', statusFilter, currentUser?.role, currentUser?.institution?.id],
-    enabled: isAuthorized, // Only fetch if authorized
+    enabled: canViewSurveys,
     queryFn: () => surveyService.getAll({
       status: statusFilter === 'all' ? undefined : statusFilter,
       per_page: 20
@@ -54,7 +57,7 @@ export default function Surveys() {
       ).length || 0,
       totalResponses: surveys?.data?.data?.reduce((sum: number, s: Survey) => sum + (s.response_count || 0), 0) || 0,
     })),
-    enabled: isAuthorized && !!surveys?.data?.data // Only fetch if authorized and surveys loaded
+    enabled: canViewSurveys && !!surveys?.data?.data
   });
 
   // Create survey mutation
@@ -154,23 +157,19 @@ export default function Surveys() {
     },
   });
 
+  const handleOpenCreateModal = useCallback(() => {
+    if (!canCreateSurveys) {
+      toast({
+        title: "İcazə yoxdur",
+        description: "Sorğu yaratmaq səlahiyyətiniz yoxdur.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-
-  // Security check - only administrative roles can access surveys
-  if (!isAuthorized) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
-          <p className="text-muted-foreground">
-            Bu səhifəyə yalnız idarəçi rolları daxil ola bilər
-          </p>
-        </div>
-      </div>
-    );
-  }
-
+    setSelectedSurvey(null);
+    setShowSurveyModal(true);
+  }, [canCreateSurveys, toast]);
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { variant: any, label: string }> = {
       'draft': { variant: 'secondary', label: 'Layihə' },
@@ -333,6 +332,14 @@ export default function Surveys() {
     }
   };
 
+  if (!canViewSurveys) {
+    return <SurveyAccessRestricted />;
+  }
+
+  if (!canViewSurveys) {
+    return <SurveyAccessRestricted />;
+  }
+
   if (isLoading) {
     return (
       <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
@@ -341,7 +348,7 @@ export default function Surveys() {
             <h1 className="text-3xl font-bold text-foreground">Sorğular</h1>
             <p className="text-muted-foreground">Sorğuların yaradılması və idarə edilməsi</p>
           </div>
-          {['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || '') && (
+                {canCreateSurveys && (
             <div className="flex items-center gap-3">
               <Button 
                 variant="outline"
@@ -353,7 +360,7 @@ export default function Surveys() {
               </Button>
               <Button 
                 className="flex items-center gap-2"
-                onClick={() => setShowSurveyModal(true)}
+                onClick={handleOpenCreateModal}
               >
                 <Plus className="h-4 w-4" />
                 Yeni Sorğu
@@ -392,7 +399,7 @@ export default function Surveys() {
           <h1 className="text-3xl font-bold text-foreground">Sorğular</h1>
           <p className="text-muted-foreground">Sorğuların yaradılması və idarə edilməsi</p>
         </div>
-        {['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || '') && (
+        {canCreateSurveys && (
           <div className="flex items-center gap-3">
             <Button 
               variant="outline"
@@ -404,7 +411,7 @@ export default function Surveys() {
             </Button>
             <Button 
               className="flex items-center gap-2"
-              onClick={() => setShowSurveyModal(true)}
+              onClick={handleOpenCreateModal}
             >
               <Plus className="h-4 w-4" />
               Yeni Sorğu
@@ -493,11 +500,11 @@ export default function Surveys() {
               <div className="text-center py-8">
                 <ClipboardList className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">Hələlik sorğu yoxdur</p>
-                {['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || '') && (
+                {canCreateSurveys && (
                   <Button 
                     className="mt-4" 
                     variant="outline"
-                    onClick={() => setShowSurveyModal(true)}
+                    onClick={handleOpenCreateModal}
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     İlk sorğunu yarat
@@ -685,6 +692,20 @@ export default function Surveys() {
           queryClient.invalidateQueries({ queryKey: ['surveys'] });
         }}
       />
+    </div>
+  );
+}
+
+function SurveyAccessRestricted() {
+  return (
+    <div className="flex items-center justify-center h-96">
+      <div className="text-center">
+        <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+        <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+        <p className="text-muted-foreground">
+          Bu səhifəyə daxil olmaq üçün səlahiyyətiniz yoxdur.
+        </p>
+      </div>
     </div>
   );
 }

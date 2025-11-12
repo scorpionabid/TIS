@@ -96,6 +96,14 @@ export function transformFormDataToBackend(
   // Add profile to userData
   userData.profile = profile;
 
+  if (!userData.password) {
+    delete userData.password;
+  }
+
+  if (!userData.password_confirmation) {
+    delete userData.password_confirmation;
+  }
+
   // Attach RegionOperator CRUD permissions if provided
   const permissionPayload: Record<string, boolean> = {};
   REGION_OPERATOR_PERMISSION_KEYS.forEach((key) => {

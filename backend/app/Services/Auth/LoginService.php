@@ -84,9 +84,9 @@ class LoginService
             $this->updateUserDevice($user, $deviceId, $deviceName);
             $this->logSuccessfulLogin($user);
 
-            // Load user with all relations
-            $user->load(['profile', 'roles', 'institution']);
-            
+            // Load user with all relations including regionOperatorPermissions
+            $user->load(['profile', 'roles', 'institution', 'regionOperatorPermissions']);
+
             // Get roles and permissions CORRECTLY
             $roles = $user->getRoleNames()->toArray();
             $permissions = $user->getAllPermissions()->pluck('name')->toArray();

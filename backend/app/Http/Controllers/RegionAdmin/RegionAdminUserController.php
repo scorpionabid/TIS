@@ -618,6 +618,13 @@ class RegionAdminUserController extends Controller
         }
 
         $this->regionOperatorPermissionService->assertValidPayload($request->all(), $requirePayload);
+
+        \Log::info('RegionAdminUserController enforcing CRUD permissions', [
+            'target_role' => $targetRoleName,
+            'require_payload' => $requirePayload,
+            'user_id' => auth()->id(),
+            'payload_keys' => array_keys($request->all()),
+        ]);
     }
 
     private function regionOperatorPermissionValidationRules(): array

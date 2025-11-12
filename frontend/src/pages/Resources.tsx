@@ -26,6 +26,7 @@ import { Resource, ResourceStats } from "@/types/resources";
 import RegionalFolderManager from "@/components/documents/RegionalFolderManager";
 import { hasAnyRole } from "@/utils/permissions";
 import { useResourceFilters } from "@/hooks/useResourceFilters";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 
 const flattenResponseArray = (payload: any): any[] => {
   if (!payload) return [];
@@ -44,21 +45,30 @@ export default function Resources() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+  const linksAccess = useModuleAccess('links');
+  const documentsAccess = useModuleAccess('documents');
+  const foldersAccess = useModuleAccess('folders');
 
   // Check permissions
   const isAuthenticated = !!currentUser;
-  // PERMISSION EXPANSION: schooladmin can now create and view resources
-  // This allows school administrators to upload documents visible to their superiors
-  const ADMIN_RESOURCE_ROLES = ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'];
-  const ASSIGNED_ONLY_ROLES = ['müəllim', 'teacher', 'regionoperator'];
-  const hasAdminResourceAccess = hasAnyRole(currentUser, ADMIN_RESOURCE_ROLES);
-  const isAssignedOnlyRole = hasAnyRole(currentUser, ASSIGNED_ONLY_ROLES);
-  const shouldUseAssignedResources = !hasAdminResourceAccess && isAssignedOnlyRole;
+  const canViewLinks = linksAccess.canView;
+  const canCreateLinks = linksAccess.canCreate;
+  const canViewDocuments = documentsAccess.canView;
+  const canCreateDocuments = documentsAccess.canCreate;
+  const canManageFolders =
+    foldersAccess.canManage || foldersAccess.canCreate || foldersAccess.canEdit;
 
-  const canCreateResources = hasAnyRole(currentUser, ADMIN_RESOURCE_ROLES);
-  const canViewResources = hasAdminResourceAccess || isAssignedOnlyRole;
-  // Only regional admins can manage folders
-  const canManageFolders = hasAnyRole(currentUser, ['superadmin', 'regionadmin']);
+  const canViewResources = canViewLinks || canViewDocuments || canManageFolders;
+  const canCreateResources = canCreateLinks || canCreateDocuments;
+
+  const isAssignedOnlyRole = hasAnyRole(currentUser, ['müəllim', 'teacher', 'regionoperator']);
+  const shouldUseAssignedResources = !canCreateResources && isAssignedOnlyRole;
+
+  const hasAdminResourceAccess = canCreateResources || canManageFolders;
+
+  if (!canViewResources) {
+    return <ResourceAccessRestricted />;
+  }
 
   const normalizeTab = useCallback((tabValue?: string | null): 'links' | 'documents' | 'folders' => {
     if (tabValue === 'documents') return 'documents';
@@ -644,6 +654,20 @@ export default function Resources() {
           lockedTab="documents"
         />
       )}
+    </div>
+  );
+}
+
+function ResourceAccessRestricted() {
+  return (
+    <div className="flex items-center justify-center h-96">
+      <div className="text-center">
+        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+        <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+        <p className="text-muted-foreground">
+          Bu bölmədən istifadə etmək üçün səlahiyyətiniz yoxdur.
+        </p>
+      </div>
     </div>
   );
 }
