@@ -34,7 +34,8 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
                 'utis_code' => $institution->utis_code ?? '',
                 'institution_code' => $institution->institution_code ?? '',
                 'institution_name' => $institution->name,
-                'class_full_name' => '1A',
+                'class_level' => 1,
+                'class_index' => 'A',
                 'student_count' => 25,
                 'male_count' => 13,
                 'female_count' => 12,
@@ -53,7 +54,8 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
                 'utis_code' => $institution->utis_code ?? '',
                 'institution_code' => $institution->institution_code ?? '',
                 'institution_name' => $institution->name,
-                'class_full_name' => '2B',
+                'class_level' => 2,
+                'class_index' => 'B',
                 'student_count' => 24,
                 'male_count' => 12,
                 'female_count' => 12,
@@ -74,7 +76,8 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
                     'utis_code' => $institution->utis_code ?? '',
                     'institution_code' => $institution->institution_code ?? '',
                     'institution_name' => $institution->name,
-                    'class_full_name' => '5A',
+                    'class_level' => 5,
+                    'class_index' => 'A',
                     'student_count' => 30,
                     'male_count' => 15,
                     'female_count' => 15,
@@ -93,7 +96,8 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
                     'utis_code' => $institution->utis_code ?? '',
                     'institution_code' => $institution->institution_code ?? '',
                     'institution_name' => $institution->name,
-                    'class_full_name' => '3C',
+                    'class_level' => 3,
+                    'class_index' => 'C',
                     'student_count' => 12,
                     'male_count' => 7,
                     'female_count' => 5,
@@ -121,7 +125,8 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
             $row->utis_code,
             $row->institution_code,
             $row->institution_name,
-            $row->class_full_name,
+            $row->class_level,
+            $row->class_index,
             $row->student_count,
             $row->male_count,
             $row->female_count,
@@ -145,7 +150,8 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
             'UTIS Kod',
             'Müəssisə Kodu',
             'Müəssisə Adı',
-            'Sinif Adı (məs: 5A, 7B)',
+            'Sinif Səviyyəsi (1-12)',
+            'Sinif index-i (məs: A, r2, 11)',
             'Şagird Sayı',
             'Oğlan Sayı',
             'Qız Sayı',
@@ -169,18 +175,19 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
             'A' => 12,  // UTIS Kod
             'B' => 15,  // Müəssisə Kodu
             'C' => 35,  // Müəssisə Adı
-            'D' => 20,  // Sinif adı
-            'E' => 13,  // Şagird Sayı
-            'F' => 12,  // Oğlan Sayı
-            'G' => 12,  // Qız Sayı
-            'H' => 16,  // Tədris Dili
-            'I' => 13,  // Növbə
-            'J' => 16,  // Tədris Həftəsi
-            'K' => 28,  // Sinif rəhbəri
-            'L' => 20,  // Sinfin tipi
-            'M' => 20,  // Profil
-            'N' => 18,  // Təhsil proqramı
-            'O' => 15,  // Tədris ili
+            'D' => 18,  // Sinif səviyyəsi
+            'E' => 20,  // Sinif index-i
+            'F' => 13,  // Şagird Sayı
+            'G' => 12,  // Oğlan Sayı
+            'H' => 12,  // Qız Sayı
+            'I' => 16,  // Tədris Dili
+            'J' => 13,  // Növbə
+            'K' => 16,  // Tədris Həftəsi
+            'L' => 28,  // Sinif rəhbəri
+            'M' => 20,  // Sinfin tipi
+            'N' => 20,  // Profil
+            'O' => 18,  // Təhsil proqramı
+            'P' => 15,  // Tədris ili
         ];
     }
 

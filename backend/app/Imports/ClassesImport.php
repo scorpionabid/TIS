@@ -85,17 +85,6 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
     {
         $normalized = $this->normalizeRowKeys($row);
         $normalized['_row_index'] = $index + 2; // +2 to account for heading row (row 1)
-
-        if (
-            empty($normalized['class_full_name']) &&
-            isset($normalized['class_level']) &&
-            $normalized['class_level'] !== '' &&
-            isset($normalized['class_name']) &&
-            $normalized['class_name'] !== ''
-        ) {
-            $normalized['class_full_name'] = trim($normalized['class_level'] . $normalized['class_name']);
-        }
-
         return $normalized;
     }
 
@@ -363,11 +352,10 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
             'sinif_level' => 'class_level',
             'sinif_hərfi' => 'class_name',
             'sinif_harfi' => 'class_name',
+            'sinif_index' => 'class_name',
+            'sinif_indexi' => 'class_name',
             'sinif_herfi_a_b_c_c' => 'class_name',
             'sinif_letter' => 'class_name',
-            'sinfin_adi' => 'class_full_name',
-            'sinif_adi' => 'class_full_name',
-            'sinif_full' => 'class_full_name',
             'sinif' => 'homeroom_teacher',
             'sinif_rehberi' => 'homeroom_teacher',
             'sinif_muellimi' => 'homeroom_teacher',
@@ -420,9 +408,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
             $parts[] = $row['institution_name'];
         }
 
-        if (!empty($row['class_full_name'])) {
-            $parts[] = "Sinif {$row['class_full_name']}";
-        } elseif (!empty($row['class_level']) && !empty($row['class_name'])) {
+        if (!empty($row['class_level']) && !empty($row['class_name'])) {
             $parts[] = "Sinif {$row['class_level']}{$row['class_name']}";
         }
 
@@ -443,50 +429,14 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
      */
     protected function parseClassIdentifiers(array $row): ?array
     {
-        if (!empty($row['class_full_name'])) {
-            $parsed = $this->splitClassFullName($row['class_full_name']);
-            if ($parsed) {
-                return $parsed;
-            }
-        }
-
-        if (!empty($row['class_level']) && $row['class_level'] !== '' && !empty($row['class_name'])) {
+        if (isset($row['class_level']) && $row['class_level'] !== '' && !empty($row['class_name'])) {
             return [
                 (int) $row['class_level'],
-                $this->normalizeClassLetter($row['class_name']),
+                trim($row['class_name']),
             ];
         }
 
         return null;
-    }
-
-    /**
-     * Split combined class name (e.g., "5A" or "7 B") into level + letter.
-     */
-    protected function splitClassFullName(string $value): ?array
-    {
-        $clean = Str::of($value)
-            ->replace(['-', '_'], ' ')
-            ->squish()
-            ->toString();
-
-        if (preg_match('/(?P<level>\d{1,2})\s*(?P<letter>[\p{L}\d]+)/u', $clean, $matches)) {
-            $level = (int) $matches['level'];
-            $letter = $this->normalizeClassLetter($matches['letter']);
-
-            return [$level, $letter];
-        }
-
-        return null;
-    }
-
-    /**
-     * Normalize class letter (upper-case, single word).
-     */
-    protected function normalizeClassLetter(string $letter): string
-    {
-        $normalized = Str::upper(Str::squish($letter));
-        return mb_substr($normalized, 0, 5);
     }
 
     /**
@@ -617,10 +567,9 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
             'institution_code' => ['nullable', 'string', 'max:20'],
             'institution_name' => ['nullable', 'string', 'max:200'],
 
-            // Required fields (combined or split)
-            'class_full_name' => ['required_without_all:class_level,class_name', 'string', 'max:25'],
-            'class_level' => ['required_without:class_full_name', 'integer', 'min:0', 'max:12'],
-            'class_name' => ['required_without:class_full_name', 'string', 'max:10'],
+            // Required fields
+            'class_level' => ['required', 'integer', 'min:0', 'max:12'],
+            'class_name' => ['required', 'string', 'max:20'],
 
             // Optional fields with validation
             'student_count' => ['nullable', 'integer', 'min:0', 'max:100'],
@@ -647,12 +596,11 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
     {
         return [
             'utis_code.size' => 'UTIS kod 9 simvol (rəqəm) olmalıdır',
-            'class_full_name.required_without_all' => 'Sinif adı və ya səviyyə/hərf sahələrindən biri dolu olmalıdır',
-            'class_level.required_without' => 'Sinif səviyyəsi və ya sinif adı mütləqdir',
+            'class_level.required' => 'Sinif səviyyəsi mütləqdir',
             'class_level.min' => 'Sinif səviyyəsi ən az 0 ola bilər',
             'class_level.max' => 'Sinif səviyyəsi ən çox 12 ola bilər',
-            'class_name.required_without' => 'Sinif hərfi sinif adı verilmədikdə mütləqdir',
-            'class_name.max' => 'Sinif adı maksimum 10 simvol ola bilər',
+            'class_name.required' => 'Sinif index-i (hərf və ya sərbəst kod) mütləqdir',
+            'class_name.max' => 'Sinif index-i maksimum 20 simvol ola bilər',
             'student_count.max' => 'Şagird sayı maksimum 100 ola bilər',
             'male_count.max' => 'Oğlan sayı maksimum 100 ola bilər',
             'female_count.max' => 'Qız sayı maksimum 100 ola bilər',
