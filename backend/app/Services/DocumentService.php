@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Document;
+use App\Models\Institution;
 use App\Models\DocumentShare;
 use App\Models\DocumentDownload;
 use App\Models\DocumentAccessLog;
@@ -243,7 +244,21 @@ class DocumentService
         }
 
         if ($request->filled('institution_id')) {
-            $query->where('institution_id', $request->institution_id);
+            $institutionIds = $this->resolveInstitutionHierarchyIds((int) $request->institution_id);
+            $query->where(function ($q) use ($institutionIds) {
+                $q->whereIn('institution_id', $institutionIds)
+                  ->orWhere(function ($targetQuery) use ($institutionIds) {
+                      foreach ($institutionIds as $index => $institutionId) {
+                          if ($index === 0) {
+                              $targetQuery->whereJsonContains('accessible_institutions', $institutionId)
+                                          ->orWhereJsonContains('accessible_institutions', (string) $institutionId);
+                          } else {
+                              $targetQuery->orWhereJsonContains('accessible_institutions', $institutionId)
+                                          ->orWhereJsonContains('accessible_institutions', (string) $institutionId);
+                          }
+                      }
+                  });
+            });
         }
 
         if ($request->filled('uploaded_by')) {
@@ -275,6 +290,32 @@ class DocumentService
         $sortField = $request->get('sort_by', 'created_at');
         $sortDirection = $request->get('sort_direction', 'desc');
         $query->orderBy($sortField, $sortDirection);
+    }
+
+    private function resolveInstitutionHierarchyIds(int $institutionId): array
+    {
+        static $cache = [];
+
+        if (isset($cache[$institutionId])) {
+            return $cache[$institutionId];
+        }
+
+        $institution = Institution::withTrashed()->find($institutionId);
+        if (!$institution) {
+            return $cache[$institutionId] = [$institutionId];
+        }
+
+        $ids = $institution->getAllChildrenIds();
+        if (empty($ids)) {
+            $ids = [$institutionId];
+        }
+
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        if (!in_array($institutionId, $ids, true)) {
+            array_unshift($ids, $institutionId);
+        }
+
+        return $cache[$institutionId] = $ids;
     }
 
     /**

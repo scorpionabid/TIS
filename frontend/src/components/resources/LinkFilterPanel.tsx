@@ -50,6 +50,8 @@ export function LinkFilterPanel({
   onToggle,
   mode = 'all',
 }: LinkFilterPanelProps) {
+  const [institutionSearch, setInstitutionSearch] = React.useState('');
+
   const updateFilter = (key: keyof LinkFilters, value: any) => {
     onFiltersChange({
       ...filters,
@@ -59,6 +61,7 @@ export function LinkFilterPanel({
 
   const clearAllFilters = () => {
     onFiltersChange({});
+    setInstitutionSearch('');
   };
 
   const getActiveFilterCount = () => {
@@ -66,6 +69,21 @@ export function LinkFilterPanel({
   };
 
   const activeCount = getActiveFilterCount();
+  const filteredInstitutionOptions = React.useMemo(() => {
+    const query = institutionSearch.trim().toLowerCase();
+    if (!query) {
+      return availableInstitutions;
+    }
+    return availableInstitutions.filter((inst) =>
+      inst?.name?.toLowerCase().includes(query)
+    );
+  }, [availableInstitutions, institutionSearch]);
+
+  const selectedInstitutionName = React.useMemo(() => {
+    if (!filters.institution_id) return null;
+    const match = availableInstitutions.find((inst) => inst.id === filters.institution_id);
+    return match?.name || null;
+  }, [filters.institution_id, availableInstitutions]);
 
   if (!isOpen) {
     return (
@@ -230,6 +248,12 @@ export function LinkFilterPanel({
               <Building2 className="h-3 w-3" />
               Müəssisə
             </Label>
+            <Input
+              placeholder="Müəssisə adı ilə axtar..."
+              value={institutionSearch}
+              onChange={(e) => setInstitutionSearch(e.target.value)}
+              className="h-8 mb-2"
+            />
             <Select
               value={filters.institution_id ? String(filters.institution_id) : 'all'}
               onValueChange={(val) => updateFilter('institution_id', val === 'all' ? undefined : Number(val))}
@@ -239,13 +263,21 @@ export function LinkFilterPanel({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Hamısı</SelectItem>
-                {availableInstitutions.map((inst) => (
+                {filteredInstitutionOptions.length === 0 && (
+                  <SelectItem value="__empty" disabled>
+                    Heç nə tapılmadı
+                  </SelectItem>
+                )}
+                {filteredInstitutionOptions.map((inst) => (
                   <SelectItem key={inst.id} value={String(inst.id)}>
                     {inst.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Seçilən müəssisə həm resursu yaradan, həm də hədəflənən siyahıda axtarılacaq.
+            </p>
           </div>
         )}
 
@@ -451,7 +483,7 @@ export function LinkFilterPanel({
             )}
             {filters.institution_id && (
               <Badge variant="secondary" className="text-xs">
-                Müəssisə #{filters.institution_id}
+                {selectedInstitutionName || `Müəssisə #${filters.institution_id}`}
                 <X
                   className="h-3 w-3 ml-1 cursor-pointer"
                   onClick={() => updateFilter('institution_id', undefined)}

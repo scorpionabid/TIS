@@ -608,7 +608,9 @@ export const RegionClassManagement = () => {
                           {getSortIcon('specialty')}
                         </div>
                       </th>
-                      <th className="p-3 text-left font-medium text-xs">Kateqoriya</th>
+                      <th className="p-3 text-left font-medium text-xs">Sinfin tipi</th>
+                      <th className="p-3 text-left font-medium text-xs">Profil</th>
+                      <th className="p-3 text-left font-medium text-xs">Növbə</th>
                       <th className="p-3 text-left font-medium text-xs">Proqram</th>
                       <th
                         className="p-3 text-center font-medium cursor-pointer hover:bg-muted/70 transition select-none"
@@ -686,18 +688,31 @@ export const RegionClassManagement = () => {
                           <span className="text-sm">{cls.specialty || '-'}</span>
                         </td>
 
-                        {/* Grade Category */}
+                        {/* Class Type */}
                         <td className="p-3">
-                          {cls.grade_category ? (
-                            <Badge
-                              variant="secondary"
-                              className={
-                                cls.grade_category === 'ixtisaslaşdırılmış' ? 'bg-purple-100 text-purple-800' :
-                                cls.grade_category === 'xüsusi' ? 'bg-orange-100 text-orange-800' :
-                                'bg-gray-100 text-gray-800'
-                              }
-                            >
-                              {cls.grade_category}
+                          {cls.class_type ? (
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                              {cls.class_type}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+                        </td>
+
+                        {/* Class Profile */}
+                        <td className="p-3">
+                          {cls.class_profile ? (
+                            <span className="text-sm">{cls.class_profile}</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+                        </td>
+
+                        {/* Teaching shift */}
+                        <td className="p-3">
+                          {cls.teaching_shift ? (
+                            <Badge variant="outline" className="text-xs">
+                              {cls.teaching_shift}
                             </Badge>
                           ) : (
                             <span className="text-xs text-muted-foreground">-</span>
@@ -815,25 +830,36 @@ export const RegionClassManagement = () => {
                           </div>
                         )}
 
-                        {/* Category & Program */}
+                        {/* Class type */}
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Kateqoriya:</span>
+                          <span className="text-muted-foreground">Sinfin tipi:</span>
                           <div>
-                            {cls.grade_category ? (
-                              <Badge
-                                variant="secondary"
-                                className={
-                                  cls.grade_category === 'ixtisaslaşdırılmış' ? 'bg-purple-100 text-purple-800' :
-                                  cls.grade_category === 'xüsusi' ? 'bg-orange-100 text-orange-800' :
-                                  'bg-gray-100 text-gray-800'
-                                }
-                              >
-                                {cls.grade_category}
+                            {cls.class_type ? (
+                              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                                {cls.class_type}
                               </Badge>
                             ) : (
                               <span className="text-xs text-muted-foreground">-</span>
                             )}
                           </div>
+                        </div>
+
+                        {/* Profile */}
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Profil:</span>
+                          <span className="font-medium">{cls.class_profile || '-'}</span>
+                        </div>
+
+                        {/* Shift */}
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Növbə:</span>
+                          {cls.teaching_shift ? (
+                            <Badge variant="outline" className="text-xs">
+                              {cls.teaching_shift}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
                         </div>
 
                         {cls.education_program && (

@@ -2,6 +2,7 @@
 
 namespace App\Services\LinkSharing\Domains\Query;
 
+use App\Models\Institution;
 use App\Models\LinkShare;
 use App\Services\LinkSharing\Domains\Permission\LinkPermissionService;
 use Illuminate\Http\Request;
@@ -100,9 +101,24 @@ class LinkQueryBuilder
             $query->where('shared_by', auth()->id());
         }
 
-        // Institution filter
+        // Institution filter (covers owner + target institutions + descendants)
         if ($request->filled('institution_id')) {
-            $query->where('institution_id', $request->institution_id);
+            $institutionIds = $this->resolveInstitutionHierarchyIds((int) $request->institution_id);
+
+            $query->where(function ($q) use ($institutionIds) {
+                $q->whereIn('institution_id', $institutionIds)
+                  ->orWhere(function ($targetQuery) use ($institutionIds) {
+                      foreach ($institutionIds as $index => $institutionId) {
+                          if ($index === 0) {
+                              $targetQuery->whereJsonContains('target_institutions', $institutionId)
+                                          ->orWhereJsonContains('target_institutions', (string) $institutionId);
+                          } else {
+                              $targetQuery->orWhereJsonContains('target_institutions', $institutionId)
+                                          ->orWhereJsonContains('target_institutions', (string) $institutionId);
+                          }
+                      }
+                  });
+            });
         }
 
         // Status filter (active, expired, disabled)
@@ -128,6 +144,36 @@ class LinkQueryBuilder
         }
 
         return $query;
+    }
+
+    /**
+     * Resolve institution filter to include descendants for sectors/regions
+     */
+    protected function resolveInstitutionHierarchyIds(int $institutionId): array
+    {
+        static $cache = [];
+
+        if (isset($cache[$institutionId])) {
+            return $cache[$institutionId];
+        }
+
+        $institution = Institution::withTrashed()->find($institutionId);
+        if (!$institution) {
+            return $cache[$institutionId] = [$institutionId];
+        }
+
+        $ids = $institution->getAllChildrenIds();
+        if (empty($ids)) {
+            $ids = [$institutionId];
+        }
+
+        // Ensure numeric + unique values
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        if (!in_array($institutionId, $ids, true)) {
+            array_unshift($ids, $institutionId);
+        }
+
+        return $cache[$institutionId] = $ids;
     }
 
     /**

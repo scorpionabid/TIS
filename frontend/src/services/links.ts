@@ -122,6 +122,28 @@ export interface SharingOptions {
   };
 }
 
+export interface LinkBulkUploadResult {
+  processed: number;
+  created: number;
+  failed: number;
+  errors: string[];
+  links: LinkShare[];
+}
+
+export interface LinkBulkMetadata {
+  template_version: string;
+  required_columns: string[];
+  link_types: string[];
+  max_rows: number;
+  institutions: Array<{
+    id: number;
+    name: string;
+    short_name?: string;
+    institution_code?: string;
+    utis_code?: string;
+  }>;
+}
+
 class LinkService extends BaseService<LinkShare> {
   constructor() {
     super('/links');
@@ -356,6 +378,37 @@ class LinkService extends BaseService<LinkShare> {
       console.error('❌ LinkService.getLinkStats failed:', error);
       throw error;
     }
+  }
+
+  async downloadBulkTemplate(): Promise<Blob> {
+    console.log('⬇️ LinkService.downloadBulkTemplate called');
+    const response = await apiClient.get<Blob>(
+      `${this.baseEndpoint}/bulk-template`,
+      undefined,
+      { responseType: 'blob', cache: false }
+    );
+    if (!response.data) {
+      throw new Error('Şablon faylı tapılmadı');
+    }
+    return response.data;
+  }
+
+  async uploadBulkLinks(formData: FormData): Promise<LinkBulkUploadResult> {
+    console.log('📦 LinkService.uploadBulkLinks called');
+    const response = await apiClient.post<LinkBulkUploadResult>(`${this.baseEndpoint}/bulk-create`, formData);
+    if (!response.data) {
+      throw new Error('Kütləvi yükləmə cavabı alınmadı');
+    }
+    return response.data;
+  }
+
+  async getBulkMetadata(): Promise<LinkBulkMetadata> {
+    console.log('ℹ️ LinkService.getBulkMetadata called');
+    const response = await apiClient.get<LinkBulkMetadata>(`${this.baseEndpoint}/bulk-metadata`);
+    if (!response.data) {
+      throw new Error('Bulk metadata tapılmadı');
+    }
+    return response.data;
   }
 }
 

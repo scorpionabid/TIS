@@ -11,6 +11,7 @@ use App\Models\AcademicYear;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class GradeCRUDController extends Controller
 {
@@ -255,8 +256,9 @@ class GradeCRUDController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'class_level' => 'required|integer|min:1|max:12',
+            'name' => 'required_without:class_full_name|string|max:255',
+            'class_full_name' => 'sometimes|string|max:25',
+            'class_level' => 'required_without:class_full_name|integer|min:0|max:12',
             'academic_year_id' => 'required|exists:academic_years,id',
             'institution_id' => 'required|exists:institutions,id',
             'room_id' => 'nullable|exists:rooms,id',
@@ -264,6 +266,9 @@ class GradeCRUDController extends Controller
             'specialty' => 'nullable|string|max:100',
             'student_count' => 'nullable|integer|min:0|max:500',
             'metadata' => 'nullable|array',
+            'class_type' => 'nullable|string|max:120',
+            'class_profile' => 'nullable|string|max:120',
+            'teaching_shift' => 'nullable|string|max:50',
         ]);
 
         if ($validator->fails()) {
@@ -272,6 +277,20 @@ class GradeCRUDController extends Controller
                 'message' => 'Validation failed',
                 'errors' => $validator->errors(),
             ], 422);
+        }
+
+        $classLevel = (int) $request->input('class_level');
+        $className = $request->input('name');
+
+        if ($request->filled('class_full_name')) {
+            $parsedIdentifiers = $this->parseClassFullName($request->input('class_full_name'));
+            if (!$parsedIdentifiers) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sinif adı formatı düzgün deyil (məs: 5A, 7-B)',
+                ], 422);
+            }
+            [$classLevel, $className] = $parsedIdentifiers;
         }
 
         // Check regional access
@@ -290,8 +309,8 @@ class GradeCRUDController extends Controller
         // Important: Same letter (e.g., "A") can exist for different class levels (e.g., 6-A and 9-A are different classes)
         $existingGrade = Grade::where('institution_id', $request->institution_id)
                              ->where('academic_year_id', $request->academic_year_id)
-                             ->where('class_level', $request->class_level)
-                             ->where('name', $request->name)
+                             ->where('class_level', $classLevel)
+                             ->where('name', $className)
                              ->first();
         if ($existingGrade) {
             return response()->json([
@@ -337,14 +356,17 @@ class GradeCRUDController extends Controller
 
         try {
             $grade = Grade::create([
-                'name' => $request->name,
-                'class_level' => $request->class_level,
+                'name' => $className,
+                'class_level' => $classLevel,
                 'academic_year_id' => $request->academic_year_id,
                 'institution_id' => $request->institution_id,
                 'room_id' => $request->room_id,
                 'homeroom_teacher_id' => $request->homeroom_teacher_id,
                 'specialty' => $request->specialty,
                 'student_count' => $request->student_count ?? 0,
+                'class_type' => $request->class_type,
+                'class_profile' => $request->class_profile,
+                'teaching_shift' => $request->teaching_shift,
                 'metadata' => $request->metadata ?? [],
                 'is_active' => true,
             ]);
@@ -458,6 +480,9 @@ class GradeCRUDController extends Controller
             'student_count' => $grade->student_count,
             'actual_student_count' => $grade->students->count(),
             'specialty' => $grade->specialty,
+            'class_type' => $grade->class_type,
+            'class_profile' => $grade->class_profile,
+            'teaching_shift' => $grade->teaching_shift,
             'is_active' => $grade->is_active,
             'capacity_status' => $this->calculateCapacityStatus($grade),
             'utilization_rate' => $this->calculateUtilizationRate($grade),
@@ -494,12 +519,17 @@ class GradeCRUDController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|string|max:255',
+            'class_full_name' => 'sometimes|string|max:25',
+            'class_level' => 'sometimes|integer|min:0|max:12',
             'room_id' => 'sometimes|nullable|exists:rooms,id',
             'homeroom_teacher_id' => 'sometimes|nullable|exists:users,id',
             'specialty' => 'sometimes|nullable|string|max:100',
             'student_count' => 'sometimes|nullable|integer|min:0|max:500',
             'is_active' => 'sometimes|boolean',
             'metadata' => 'sometimes|nullable|array',
+            'class_type' => 'sometimes|nullable|string|max:120',
+            'class_profile' => 'sometimes|nullable|string|max:120',
+            'teaching_shift' => 'sometimes|nullable|string|max:50',
         ]);
 
         if ($validator->fails()) {
@@ -510,10 +540,24 @@ class GradeCRUDController extends Controller
             ], 422);
         }
 
+        $classLevel = $request->has('class_level') ? (int) $request->class_level : $grade->class_level;
+        $className = $request->has('name') ? $request->name : $grade->name;
+
+        if ($request->filled('class_full_name')) {
+            $parsedIdentifiers = $this->parseClassFullName($request->input('class_full_name'));
+            if (!$parsedIdentifiers) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sinif adı formatı düzgün deyil (məs: 5A, 7-B)',
+                ], 422);
+            }
+            [$classLevel, $className] = $parsedIdentifiers;
+        }
+
         // Check for unique grade name if name or class_level is being updated
-        if ($request->has('name') || $request->has('class_level')) {
-            $checkName = $request->has('name') ? $request->name : $grade->name;
-            $checkClassLevel = $request->has('class_level') ? $request->class_level : $grade->class_level;
+        if ($request->has('name') || $request->has('class_level') || $request->filled('class_full_name')) {
+            $checkName = $className;
+            $checkClassLevel = $classLevel;
 
             $existingGrade = Grade::where('institution_id', $grade->institution_id)
                                  ->where('academic_year_id', $grade->academic_year_id)
@@ -572,9 +616,12 @@ class GradeCRUDController extends Controller
 
         try {
             $updateData = $request->only([
-                'name', 'room_id', 'homeroom_teacher_id', 
-                'specialty', 'student_count', 'is_active', 'metadata'
+                'room_id', 'homeroom_teacher_id', 
+                'specialty', 'student_count', 'is_active', 'metadata',
+                'class_type', 'class_profile', 'teaching_shift'
             ]);
+            $updateData['name'] = $className;
+            $updateData['class_level'] = $classLevel;
 
             $grade->update($updateData);
 
@@ -649,6 +696,27 @@ class GradeCRUDController extends Controller
     /**
      * Helper methods
      */
+    private function parseClassFullName(?string $value): ?array
+    {
+        if (!$value) {
+            return null;
+        }
+
+        $clean = Str::of($value)
+            ->replace(['-', '_'], ' ')
+            ->squish()
+            ->toString();
+
+        if (preg_match('/(?P<level>\d{1,2})\s*(?P<letter>[\p{L}\d]+)/u', $clean, $matches)) {
+            $level = (int) $matches['level'];
+            $letter = Str::upper($matches['letter']);
+
+            return [$level, mb_substr($letter, 0, 5)];
+        }
+
+        return null;
+    }
+
     private function getUserAccessibleInstitutions($user): array
     {
         if ($user->hasRole('superadmin')) {

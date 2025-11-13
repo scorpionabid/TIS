@@ -15,10 +15,13 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { resourceService } from '@/services/resources';
+import { Badge } from '@/components/ui/badge';
 
 interface ResourceGridProps {
   resources: Resource[];
   onResourceAction: (resource: Resource, action: 'edit' | 'delete') => Promise<void> | void;
+  institutionDirectory?: Record<number, string>;
+  userDirectory?: Record<number, string>;
 }
 
 const shareScopeLabels: Record<string, string> = {
@@ -45,7 +48,12 @@ const statusVariantMap: Record<string, string> = {
   archived: 'bg-purple-50 text-purple-700 border border-purple-100',
 };
 
-export function ResourceGrid({ resources, onResourceAction }: ResourceGridProps) {
+export function ResourceGrid({
+  resources,
+  onResourceAction,
+  institutionDirectory = {},
+  userDirectory = {},
+}: ResourceGridProps) {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const [resourcePendingDelete, setResourcePendingDelete] = useState<Resource | null>(null);
@@ -176,6 +184,76 @@ export function ResourceGrid({ resources, onResourceAction }: ResourceGridProps)
     }
   };
 
+  const renderTargetBadges = (items: string[]) => {
+    if (!items.length) return null;
+    const visible = items.slice(0, 3);
+
+    return (
+      <div className="flex flex-wrap gap-1">
+        {visible.map((value, index) => (
+          <Badge key={`${value}-${index}`} variant="secondary" className="text-xs">
+            {value}
+          </Badge>
+        ))}
+        {items.length > visible.length && (
+          <Badge variant="outline" className="text-xs">
+            +{items.length - visible.length}
+          </Badge>
+        )}
+      </div>
+    );
+  };
+
+  const renderShareTargets = (resource: Resource) => {
+    const scopeLabel = getScopeOrAccessLabel(resource);
+
+    if (resource.type !== 'link') {
+      return (
+        <div className="text-sm text-muted-foreground">
+          {scopeLabel}
+        </div>
+      );
+    }
+
+    const institutionNames = (resource.target_institutions || [])
+      .map((id) => institutionDirectory[id] || `Müəssisə #${id}`);
+    const userNames = (resource.target_users || [])
+      .map((id) => {
+        const numericId = typeof id === 'string' ? Number(id) : id;
+        if (Number.isNaN(numericId)) {
+          return `İstifadəçi`;
+        }
+        return userDirectory[numericId] || `İstifadəçi #${numericId}`;
+      });
+
+    if (!institutionNames.length && !userNames.length) {
+      return (
+        <div className="space-y-1 text-sm">
+          <div className="text-xs font-medium text-muted-foreground">Paylaşım sahəsi</div>
+          <div>{scopeLabel}</div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-2">
+        <div className="text-xs font-medium text-muted-foreground">Paylaşım sahəsi: {scopeLabel}</div>
+        {institutionNames.length > 0 && (
+          <div className="space-y-1">
+            <div className="text-xs text-muted-foreground">Müəssisələr</div>
+            {renderTargetBadges(institutionNames)}
+          </div>
+        )}
+        {userNames.length > 0 && (
+          <div className="space-y-1">
+            <div className="text-xs text-muted-foreground">İstifadəçilər</div>
+            {renderTargetBadges(userNames)}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const emptyState = useMemo(() => (
     <div className="text-center py-12">
       <Archive className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -260,9 +338,7 @@ export function ResourceGrid({ resources, onResourceAction }: ResourceGridProps)
                     </div>
                   </td>
                   <td className="p-4">
-                    <div className="text-sm text-muted-foreground">
-                      {getScopeOrAccessLabel(resource)}
-                    </div>
+                    {renderShareTargets(resource)}
                   </td>
                   <td className="p-4">
                     {renderStatusBadge(resource)}

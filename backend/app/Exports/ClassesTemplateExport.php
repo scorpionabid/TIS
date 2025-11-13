@@ -34,16 +34,17 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
                 'utis_code' => $institution->utis_code ?? '',
                 'institution_code' => $institution->institution_code ?? '',
                 'institution_name' => $institution->name,
-                'class_level' => 1,
-                'class_name' => 'A',
+                'class_full_name' => '1A',
                 'student_count' => 25,
                 'male_count' => 13,
                 'female_count' => 12,
-                'specialty' => 'Ümumi',
-                'education_program' => 'umumi',
-                'grade_type' => 'ümumi',
                 'teaching_language' => 'azərbaycan',
-                'teaching_week' => '6_günlük',
+                'teaching_shift' => '1 növbə',
+                'teaching_week' => '5_günlük',
+                'homeroom_teacher' => 'Nümunə Müəllim',
+                'class_type' => 'Orta məktəb sinfi',
+                'class_profile' => 'Ümumi',
+                'education_program' => 'umumi',
                 'academic_year' => date('Y') . '-' . (date('Y') + 1),
             ]);
 
@@ -52,16 +53,17 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
                 'utis_code' => $institution->utis_code ?? '',
                 'institution_code' => $institution->institution_code ?? '',
                 'institution_name' => $institution->name,
-                'class_level' => 2,
-                'class_name' => 'B',
+                'class_full_name' => '2B',
                 'student_count' => 24,
                 'male_count' => 12,
                 'female_count' => 12,
-                'specialty' => 'Ümumi',
-                'education_program' => 'umumi',
-                'grade_type' => 'ümumi',
                 'teaching_language' => 'rus',
-                'teaching_week' => '6_günlük',
+                'teaching_shift' => '1 növbə',
+                'teaching_week' => '5_günlük',
+                'homeroom_teacher' => 'Rus Bölməsi Nümunə',
+                'class_type' => 'Orta məktəb sinfi',
+                'class_profile' => 'Rus bölməsi',
+                'education_program' => 'umumi',
                 'academic_year' => date('Y') . '-' . (date('Y') + 1),
             ]);
 
@@ -72,16 +74,17 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
                     'utis_code' => $institution->utis_code ?? '',
                     'institution_code' => $institution->institution_code ?? '',
                     'institution_name' => $institution->name,
-                    'class_level' => 5,
-                    'class_name' => 'A',
+                    'class_full_name' => '5A',
                     'student_count' => 30,
                     'male_count' => 15,
                     'female_count' => 15,
-                    'specialty' => 'Riyaziyyat',
-                    'education_program' => 'umumi',
-                    'grade_type' => 'ixtisaslaşdırılmış',
                     'teaching_language' => 'azərbaycan',
+                    'teaching_shift' => '2 növbə',
                     'teaching_week' => '5_günlük',
+                    'homeroom_teacher' => 'Riyaziyyat müəllimi',
+                    'class_type' => 'İxtisas sinfi',
+                    'class_profile' => 'Riyaziyyat',
+                    'education_program' => 'umumi',
                     'academic_year' => date('Y') . '-' . (date('Y') + 1),
                 ]);
 
@@ -90,16 +93,17 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
                     'utis_code' => $institution->utis_code ?? '',
                     'institution_code' => $institution->institution_code ?? '',
                     'institution_name' => $institution->name,
-                    'class_level' => 3,
-                    'class_name' => 'C',
+                    'class_full_name' => '3C',
                     'student_count' => 12,
                     'male_count' => 7,
                     'female_count' => 5,
-                    'specialty' => 'Xüsusi ehtiyac',
-                    'education_program' => 'xususi',
-                    'grade_type' => 'xüsusi',
                     'teaching_language' => 'azərbaycan',
-                    'teaching_week' => '5_günlük',
+                    'teaching_shift' => '1 növbə',
+                    'teaching_week' => '4_günlük',
+                    'homeroom_teacher' => 'Xüsusi təhsil müəllimi',
+                    'class_type' => 'Xüsusi sinif',
+                    'class_profile' => 'İnklüziv',
+                    'education_program' => 'xususi',
                     'academic_year' => date('Y') . '-' . (date('Y') + 1),
                 ]);
             }
@@ -117,16 +121,17 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
             $row->utis_code,
             $row->institution_code,
             $row->institution_name,
-            $row->class_level,
-            $row->class_name,
+            $row->class_full_name,
             $row->student_count,
             $row->male_count,
             $row->female_count,
-            $row->specialty,
-            $row->education_program,
-            $row->grade_type,
             $row->teaching_language,
+            $row->teaching_shift,
             $row->teaching_week,
+            $row->homeroom_teacher,
+            $row->class_type,
+            $row->class_profile,
+            $row->education_program,
             $row->academic_year,
         ];
     }
@@ -140,16 +145,17 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
             'UTIS Kod',
             'Müəssisə Kodu',
             'Müəssisə Adı',
-            'Sinif Səviyyəsi (1-12)',
-            'Sinif Hərfi (A,B,C,Ç...)',
+            'Sinif Adı (məs: 5A, 7B)',
             'Şagird Sayı',
             'Oğlan Sayı',
             'Qız Sayı',
-            'İxtisas',
-            'Təhsil Proqramı',
-            'Sinif Növü',
             'Tədris Dili',
+            'Növbə',
             'Tədris Həftəsi',
+            'Sinif Rəhbəri (tam ad)',
+            'Sinfin Tipi',
+            'Profil',
+            'Təhsil Proqramı',
             'Tədris İli',
         ];
     }
@@ -163,17 +169,18 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
             'A' => 12,  // UTIS Kod
             'B' => 15,  // Müəssisə Kodu
             'C' => 35,  // Müəssisə Adı
-            'D' => 22,  // Sinif Səviyyəsi
-            'E' => 22,  // Sinif Hərfi
-            'F' => 13,  // Şagird Sayı
-            'G' => 12,  // Oğlan Sayı
-            'H' => 12,  // Qız Sayı
-            'I' => 18,  // İxtisas
-            'J' => 18,  // Təhsil Proqramı
-            'K' => 18,  // Sinif Növü
-            'L' => 16,  // Tədris Dili
-            'M' => 16,  // Tədris Həftəsi
-            'N' => 15,  // Tədris İli
+            'D' => 20,  // Sinif adı
+            'E' => 13,  // Şagird Sayı
+            'F' => 12,  // Oğlan Sayı
+            'G' => 12,  // Qız Sayı
+            'H' => 16,  // Tədris Dili
+            'I' => 13,  // Növbə
+            'J' => 16,  // Tədris Həftəsi
+            'K' => 28,  // Sinif rəhbəri
+            'L' => 20,  // Sinfin tipi
+            'M' => 20,  // Profil
+            'N' => 18,  // Təhsil proqramı
+            'O' => 15,  // Tədris ili
         ];
     }
 
@@ -184,7 +191,7 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
     {
         try {
             // Header row styling
-            $sheet->getStyle('A1:N1')->applyFromArray([
+            $sheet->getStyle('A1:O1')->applyFromArray([
                 'font' => [
                     'bold' => true,
                     'size' => 11,
@@ -208,12 +215,12 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
             $sheet->getStyle('A2:A1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle('B2:B1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle('D2:D1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle('E2:E1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle('F2:H1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle('J2:M1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('E2:G1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('H2:J1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('O2:O1000')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
             // Add border to all cells
-            $sheet->getStyle('A1:N1000')->applyFromArray([
+            $sheet->getStyle('A1:O1000')->applyFromArray([
                 'borders' => [
                     'allBorders' => [
                         'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
@@ -222,8 +229,8 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
                 ],
             ]);
 
-            // Highlight new required columns in light blue
-            $sheet->getStyle('J1:M1')->applyFromArray([
+            // Highlight localized columns
+            $sheet->getStyle('H1:M1')->applyFromArray([
                 'fill' => [
                     'fillType' => Fill::FILL_SOLID,
                     'startColor' => ['rgb' => '2E75B6'], // Darker blue for emphasis

@@ -15,12 +15,14 @@ interface RegionClassImportModalProps {
 export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ isOpen, onClose }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<ClassImportResult | null>(null);
+  const [importError, setImportError] = useState<{ message: string; details: string[] } | null>(null);
   const queryClient = useQueryClient();
 
   const importMutation = useMutation({
     mutationFn: (file: File) => regionAdminClassService.importClasses(file),
     onSuccess: (result) => {
       setImportResult(result);
+      setImportError(null);
       queryClient.invalidateQueries({ queryKey: ['regionadmin', 'classes'] });
       queryClient.invalidateQueries({ queryKey: ['regionadmin', 'class-statistics'] });
 
@@ -31,11 +33,31 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
     },
     onError: (error: any) => {
       console.error('❌ İdxal xətası:', error);
-      alert(
-        error?.response?.data?.message ||
+      const responseData = error?.response?.data;
+      const userMessage =
+        responseData?.message ||
         error?.message ||
-        'İdxal zamanı xəta baş verdi. Zəhmət olmasa faylı yoxlayın və yenidən cəhd edin.'
-      );
+        'İdxal zamanı xəta baş verdi. Zəhmət olmasa faylı yoxlayın və yenidən cəhd edin.';
+
+      let details: string[] = [];
+      const backendErrors = responseData?.errors;
+      if (Array.isArray(backendErrors)) {
+        details = backendErrors.flat().map((item: any) => item?.toString?.() ?? String(item));
+      } else if (backendErrors && typeof backendErrors === 'object') {
+        details = Object.values(backendErrors)
+          .flat()
+          .map((item: any) => item?.toString?.() ?? String(item));
+      }
+
+      if (details.length === 0 && responseData?.error) {
+        details = [responseData.error.toString()];
+      }
+
+      setImportResult(null);
+      setImportError({
+        message: userMessage,
+        details,
+      });
     },
   });
 
@@ -46,6 +68,7 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
       if (validation.valid) {
         setSelectedFile(file);
         setImportResult(null);
+        setImportError(null);
       } else {
         alert(`Fayl səhvi: ${validation.error}`);
       }
@@ -87,6 +110,7 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
   const handleClose = () => {
     setSelectedFile(null);
     setImportResult(null);
+    setImportError(null);
     onClose();
   };
 
@@ -104,6 +128,23 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
         </DialogHeader>
 
         <div className="space-y-4">
+          {importError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <div className="space-y-2">
+                  <p className="font-semibold text-sm text-red-700">{importError.message}</p>
+                  {importError.details.length > 0 && (
+                    <ul className="list-disc list-inside text-xs text-red-600 space-y-1 max-h-40 overflow-y-auto">
+                      {importError.details.map((detail, index) => (
+                        <li key={index}>{detail}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
           {/* Instructions */}
           <Alert>
             <AlertCircle className="h-4 w-4" />
@@ -122,12 +163,14 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
                   <p className="font-medium text-sm">2. Məlumatları doldur:</p>
                   <ul className="list-disc list-inside space-y-1 text-sm pl-4 text-muted-foreground">
                     <li><strong className="text-foreground">UTIS kod</strong> və ya <strong className="text-foreground">Müəssisə kodu</strong> mütləqdir (ən az biri)</li>
-                    <li><strong className="text-foreground">Sinif səviyyəsi</strong> (1-12) və <strong className="text-foreground">Sinif hərfi</strong> (A,B,C,Ç...) mütləqdir</li>
+                    <li><strong className="text-foreground">Sinif adı</strong> sahəsinə səviyyə və hərfi birlikdə yazın (məs: 5A, 7B, 10C); ayrıca “sinif səviyyəsi / hərfi” sütunları artıq yoxdur</li>
+                    <li><strong className="text-foreground">Sinfin tipi</strong> və <strong className="text-foreground">Profil</strong> sahələri Excel-də göstərildiyi kimi doldurulmalıdır</li>
+                    <li><strong className="text-foreground">Növbə</strong>: 1 növbə, 2 növbə, 3 növbə və ya fərdi</li>
+                    <li><strong className="text-foreground">Sinif rəhbəri</strong>: Sistemdə mövcud olan müəllimin tam adı ilə eyni olmalıdır</li>
                     <li><strong className="text-foreground">Şagird sayı</strong>: Ümumi = Oğlan + Qız (avtomatik hesablanır)</li>
                     <li><strong className="text-foreground">Təhsil proqramı</strong>: umumi, xususi, ferdi_mekteb, ferdi_ev</li>
-                    <li><strong className="text-foreground">Sinif növü</strong>: ümumi, ixtisaslaşdırılmış, xüsusi</li>
                     <li><strong className="text-foreground">Tədris dili</strong>: azərbaycan, rus, gürcü, ingilis</li>
-                    <li><strong className="text-foreground">Tədris həftəsi</strong>: 5_günlük, 6_günlük</li>
+                    <li><strong className="text-foreground">Tədris həftəsi</strong>: 4_günlük, 5_günlük, 6_günlük</li>
                     <li>Digər sahələr ixtiyaridir: İxtisas, Tədris ili</li>
                   </ul>
                 </div>
@@ -145,13 +188,13 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">1. Standart azərbaycan dilli sinif:</p>
                       <code className="text-xs bg-background px-2 py-1 rounded block overflow-x-auto">
-                        12345678 | MKT-001 | 1 saylı məktəb | 5 | A | 25 | 13 | 12 | Ümumi | umumi | ümumi | azərbaycan | 6_günlük | 2024-2025
+                        12345678 | MKT-001 | 1 saylı məktəb | 5A | 25 | 13 | 12 | azərbaycan | 1 növbə | 5_günlük | Mirzəyeva Azada İlqar qızı | Orta məktəb sinfi | Ümumi | umumi | 2024-2025
                       </code>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">2. Rus dilli ixtisaslaşdırılmış sinif:</p>
                       <code className="text-xs bg-background px-2 py-1 rounded block overflow-x-auto">
-                        12345678 | MKT-001 | 1 saylı məktəb | 10 | B | 28 | 15 | 13 | Riyaziyyat | umumi | ixtisaslaşdırılmış | rus | 5_günlük | 2024-2025
+                        12345678 | MKT-001 | 1 saylı məktəb | 10B | 28 | 15 | 13 | rus | 2 növbə | 5_günlük | Bayramova Pakizə Xəlil qızı | İxtisas sinfi | Riyaziyyat | umumi | 2024-2025
                       </code>
                     </div>
                   </div>
@@ -163,6 +206,7 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
                     <li>Fayl formatı: .xlsx, .xls və ya .csv (maksimum 5 MB)</li>
                     <li>Müəssisələr sizin region daxilində olmalıdır</li>
                     <li>Mövcud siniflər yenilənəcək (duplikasiya olmayacaq)</li>
+                    <li>Sinif rəhbərlərinin adları sistemdəki müəllim hesabları ilə uyğun gəlməlidir</li>
                   </ul>
                 </div>
               </div>

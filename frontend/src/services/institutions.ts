@@ -87,6 +87,19 @@ class InstitutionService extends BaseService<Institution> {
     }
   }
 
+  async getById(id: number) {
+    try {
+      const response = await apiClient.get<Institution | { data?: Institution }>(`${this.baseEndpoint}/${id}`);
+      if (response && typeof response === 'object' && 'data' in response && response.data) {
+        return response.data;
+      }
+      return response as Institution;
+    } catch (error) {
+      console.error(`❌ InstitutionService.getById failed for id ${id}:`, error);
+      throw error;
+    }
+  }
+
   // Alias for getAll to maintain compatibility with modal components
   async getInstitutions(params?: PaginationParams) {
     return this.getAll(params);

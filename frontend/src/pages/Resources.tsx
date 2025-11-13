@@ -16,12 +16,14 @@ import { LinkFilterPanel, LinkFilters } from "@/components/resources/LinkFilterP
 import { ResourceHeader } from "@/components/resources/ResourceHeader";
 import { ResourceToolbar } from "@/components/resources/ResourceToolbar";
 import { ResourceGrid } from "@/components/resources/ResourceGrid";
+import { LinkBulkUploadModal } from "@/components/resources/LinkBulkUploadModal";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { resourceService } from "@/services/resources";
 import { institutionService } from "@/services/institutions";
 import { userService } from "@/services/users";
+import { LinkBulkUploadResult } from "@/services/links";
 import { Resource, ResourceStats } from "@/types/resources";
 import RegionalFolderManager from "@/components/documents/RegionalFolderManager";
 import { hasAnyRole } from "@/utils/permissions";
@@ -70,6 +72,7 @@ export default function Resources() {
   const canFetchDocumentStats = hasPermission ? hasPermission('documents.read') : false;
   const canFetchLinkList = hasPermission ? hasPermission('links.read') : false;
   const canFetchDocumentList = hasPermission ? hasPermission('documents.read') : false;
+  const canBulkUploadLinks = hasPermission ? hasPermission('links.bulk') : false;
 
   if (!canViewResources) {
     return <ResourceAccessRestricted />;
@@ -156,6 +159,7 @@ export default function Resources() {
   // Modal states
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
+  const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false);
   const [linkBeingEdited, setLinkBeingEdited] = useState<Resource | null>(null);
   const [documentBeingEdited, setDocumentBeingEdited] = useState<Resource | null>(null);
 
@@ -293,6 +297,204 @@ export default function Resources() {
   const availableCreators = remoteCreatorOptions && remoteCreatorOptions.length > 0
     ? remoteCreatorOptions
     : fallbackCreatorOptions;
+
+  const [institutionDirectory, setInstitutionDirectory] = useState<Record<number, string>>({});
+  const [userDirectory, setUserDirectory] = useState<Record<number, string>>({});
+
+  useEffect(() => {
+    if (!availableInstitutions?.length && !resourcesData.length) {
+      return;
+    }
+    setInstitutionDirectory((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      availableInstitutions?.forEach((inst) => {
+        if (inst?.id && inst?.name && !next[inst.id]) {
+          next[inst.id] = inst.name;
+          changed = true;
+        }
+      });
+      resourcesData.forEach((resource) => {
+        if (resource.institution?.id && resource.institution?.name && !next[resource.institution.id]) {
+          next[resource.institution.id] = resource.institution.name;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [availableInstitutions, resourcesData]);
+
+  useEffect(() => {
+    setUserDirectory((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      availableCreators?.forEach((creator) => {
+        if (!creator?.id) return;
+        const fullName = `${creator.first_name || ''} ${creator.last_name || ''}`.trim() || `İstifadəçi #${creator.id}`;
+        if (!next[creator.id]) {
+          next[creator.id] = fullName;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [availableCreators]);
+
+  const institutionFilterOptions = useMemo(() => {
+    const map = new Map<number, string>();
+    availableInstitutions?.forEach((inst) => {
+      if (inst?.id && inst?.name) {
+        map.set(inst.id, inst.name);
+      }
+    });
+    Object.entries(institutionDirectory).forEach(([id, name]) => {
+      const numericId = Number(id);
+      if (!Number.isNaN(numericId) && typeof name === 'string' && name.trim()) {
+        map.set(numericId, name);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [availableInstitutions, institutionDirectory]);
+
+  const linkTargetUserIds = useMemo(() => {
+    const ids = new Set<number>();
+    resourcesData.forEach((resource) => {
+      if (resource.type !== 'link' || !Array.isArray(resource.target_users)) {
+        return;
+      }
+      resource.target_users.forEach((id) => {
+        const numericId = typeof id === 'string' ? Number(id) : id;
+        if (!Number.isNaN(numericId)) {
+          ids.add(numericId);
+        }
+      });
+    });
+    return Array.from(ids);
+  }, [resourcesData]);
+
+  const linkTargetInstitutionIds = useMemo(() => {
+    const ids = new Set<number>();
+    resourcesData.forEach((resource) => {
+      if (!Array.isArray(resource.target_institutions)) {
+        return;
+      }
+      resource.target_institutions.forEach((id) => {
+        const numericId = typeof id === 'string' ? Number(id) : id;
+        if (!Number.isNaN(numericId)) {
+          ids.add(numericId);
+        }
+      });
+    });
+    return Array.from(ids);
+  }, [resourcesData]);
+
+  useEffect(() => {
+    const missing = linkTargetUserIds.filter((id) => !userDirectory[id]);
+    if (missing.length === 0) {
+      return;
+    }
+
+    let isCancelled = false;
+    (async () => {
+      try {
+        const fetched = await Promise.all(
+          missing.map(async (userId) => {
+            try {
+              const user = await userService.getUser(userId);
+              const label = `${user.first_name || ''} ${user.last_name || ''}`.trim()
+                || user.username
+                || user.email
+                || `İstifadəçi #${userId}`;
+              return { id: userId, name: label };
+            } catch (error) {
+              console.warn('Failed to fetch user info for', userId, error);
+              return { id: userId, name: `İstifadəçi #${userId}` };
+            }
+          })
+        );
+
+        if (isCancelled) return;
+
+        setUserDirectory((prev) => {
+          const next = { ...prev };
+          fetched.forEach(({ id, name }) => {
+            next[id] = name;
+          });
+          return next;
+        });
+      } catch (error) {
+        console.error('Failed to load targeted user names', error);
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [linkTargetUserIds, userDirectory]);
+
+  useEffect(() => {
+    const missing = linkTargetInstitutionIds.filter((id) => !institutionDirectory[id]);
+    if (missing.length === 0) {
+      return;
+    }
+
+    let isCancelled = false;
+    (async () => {
+      const resolvedMap: Record<number, string> = {};
+
+      try {
+        const summaries = await institutionService.getSummaries(missing);
+        Object.entries(summaries || {}).forEach(([key, summary]) => {
+          const numericId = Number(key);
+          if (Number.isNaN(numericId) || resolvedMap[numericId]) {
+            return;
+          }
+          const label = summary?.name || summary?.short_name || `Müəssisə #${numericId}`;
+          resolvedMap[numericId] = label;
+        });
+      } catch (error) {
+        console.error('Failed to load institution summaries', error);
+      }
+
+      const unresolved = missing.filter((id) => !resolvedMap[id]);
+
+      if (unresolved.length > 0) {
+        const fetched = await Promise.all(
+          unresolved.map(async (institutionId) => {
+            try {
+              const detail = await institutionService.getById(institutionId);
+              const label = detail?.name || detail?.short_name || `Müəssisə #${institutionId}`;
+              return { id: institutionId, name: label };
+            } catch (error) {
+              console.warn('Failed to fetch institution detail', { institutionId, error });
+              return { id: institutionId, name: `Müəssisə #${institutionId}` };
+            }
+          })
+        );
+
+        fetched.forEach(({ id, name }) => {
+          resolvedMap[id] = name;
+        });
+      }
+
+      if (isCancelled) return;
+
+      setInstitutionDirectory((prev) => {
+        const next = { ...prev };
+        Object.entries(resolvedMap).forEach(([key, name]) => {
+          const numericId = Number(key);
+          if (!Number.isNaN(numericId) && !next[numericId]) {
+            next[numericId] = name as string;
+          }
+        });
+        return next;
+      });
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [linkTargetInstitutionIds, institutionDirectory]);
 
   const hasAppliedFilters = useMemo(() => {
     const filterValues = Object.values(appliedFilters || {});
@@ -465,6 +667,16 @@ export default function Resources() {
     setIsDocumentModalOpen(false);
   };
 
+  const handleBulkUploadSuccess = (result: LinkBulkUploadResult) => {
+    queryClient.invalidateQueries({ queryKey: ['resources'] });
+    queryClient.invalidateQueries({ queryKey: ['resource-stats'] });
+
+    toast({
+      title: 'Kütləvi yükləmə tamamlandı',
+      description: `Yaradılan linklər: ${result.created}, uğursuz sətirlər: ${result.failed}`,
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
@@ -496,6 +708,7 @@ export default function Resources() {
     <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
       <ResourceHeader
         canCreate={canCreateResources}
+        canBulkUpload={canBulkUploadLinks}
         activeTab={activeTab}
         onCreate={(tab) => {
           if (tab === 'links') {
@@ -506,6 +719,7 @@ export default function Resources() {
             setIsDocumentModalOpen(true);
           }
         }}
+        onBulkUpload={() => setIsBulkUploadModalOpen(true)}
       />
 
       <ResourceToolbar
@@ -594,7 +808,7 @@ export default function Resources() {
           <LinkFilterPanel
             filters={linkFilters}
             onFiltersChange={setLinkFilters}
-            availableInstitutions={availableInstitutions}
+            availableInstitutions={institutionFilterOptions}
             availableCreators={availableCreators}
             isOpen={filterPanelOpen}
             onToggle={toggleFilterPanel}
@@ -603,6 +817,8 @@ export default function Resources() {
           <ResourceGrid
             resources={resourcesData.filter(r => r.type === 'link')}
             onResourceAction={handleResourceAction}
+            institutionDirectory={institutionDirectory}
+            userDirectory={userDirectory}
           />
         </TabsContent>
 
@@ -610,7 +826,7 @@ export default function Resources() {
           <LinkFilterPanel
             filters={documentFilters}
             onFiltersChange={setDocumentFilters}
-            availableInstitutions={availableInstitutions}
+            availableInstitutions={institutionFilterOptions}
             availableCreators={availableCreators}
             isOpen={filterPanelOpen}
             onToggle={toggleFilterPanel}
@@ -619,6 +835,8 @@ export default function Resources() {
           <ResourceGrid
             resources={resourcesData.filter(r => r.type === 'document')}
             onResourceAction={handleResourceAction}
+            institutionDirectory={institutionDirectory}
+            userDirectory={userDirectory}
           />
         </TabsContent>
 
@@ -679,6 +897,12 @@ export default function Resources() {
           lockedTab="documents"
         />
       )}
+
+      <LinkBulkUploadModal
+        isOpen={isBulkUploadModalOpen && activeTab === 'links'}
+        onClose={() => setIsBulkUploadModalOpen(false)}
+        onSuccess={handleBulkUploadSuccess}
+      />
     </div>
   );
 }

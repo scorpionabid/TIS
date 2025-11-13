@@ -35,7 +35,6 @@ import {
   Lightbulb,
   CheckCircle2,
   Sparkles,
-  Info,
 } from 'lucide-react';
 import { User } from '@/contexts/AuthContext';
 import { USER_ROLES } from '@/constants/roles';
@@ -44,6 +43,40 @@ import { TagSelector } from './TagSelector';
 import { EducationProgramSelector } from './EducationProgramSelector';
 import { GenderCountInput } from './GenderCountInput';
 import type { EducationProgramType } from '@/types/gradeTag';
+
+const CLASS_NAME_REGEX = /^(?:\s*)(\d{1,2})\s*([A-Za-zƏÖÜÇĞŞIİəöüğçı]+)$/iu;
+
+const parseClassFullName = (value: string) => {
+  const clean = value.replace(/[-_]/g, ' ').trim();
+  if (!clean) {
+    return null;
+  }
+
+  const match = clean.match(CLASS_NAME_REGEX);
+  if (!match) {
+    return null;
+  }
+
+  const level = parseInt(match[1], 10);
+  if (Number.isNaN(level)) {
+    return null;
+  }
+
+  const letter = (match[2] || '').toUpperCase();
+  return {
+    level,
+    letter: letter.slice(0, 5),
+  };
+};
+
+const formatClassFullName = (level?: number, letter?: string) => {
+  if (level === undefined || level === null) {
+    return letter || '';
+  }
+  return `${level}${letter ?? ''}`;
+};
+
+const TEACHING_SHIFT_OPTIONS = ['1 növbə', '2 növbə', '3 növbə', 'Fərdi'];
 
 interface GradeCreateDialogSimplifiedProps {
   open: boolean;
@@ -76,7 +109,10 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
     male_student_count: 0,
     female_student_count: 0,
     education_program: 'umumi',
-    grade_type: '',
+    class_full_name: '',
+    class_type: '',
+    class_profile: '',
+    teaching_shift: '',
     tag_ids: [],
   });
 
@@ -99,7 +135,10 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
         male_student_count: (editingGrade as any).male_student_count || 0,
         female_student_count: (editingGrade as any).female_student_count || 0,
         education_program: (editingGrade as any).education_program || 'umumi',
-        grade_type: (editingGrade as any).grade_type || '',
+        class_full_name: formatClassFullName(editingGrade.class_level, editingGrade.name),
+        class_type: (editingGrade as any).class_type || '',
+        class_profile: (editingGrade as any).class_profile || '',
+        teaching_shift: (editingGrade as any).teaching_shift || '',
         tag_ids: (editingGrade as any).tags?.map((t: any) => t.id) || [],
       });
     } else if (open && !editingGrade) {
@@ -118,7 +157,10 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
         male_student_count: 0,
         female_student_count: 0,
         education_program: 'umumi',
-        grade_type: '',
+        class_full_name: '',
+        class_type: '',
+        class_profile: '',
+        teaching_shift: '',
         tag_ids: [],
       });
     }
@@ -205,8 +247,11 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
 
     // Basic validation
     const errors: Record<string, string> = {};
-    if (!formData.name.trim()) errors.name = 'Sinif hərfi mütləqdir';
-    if (formData.class_level === null || formData.class_level === undefined) errors.class_level = 'Sinif səviyyəsi mütləqdir';
+    if (!formData.class_full_name?.trim()) {
+      errors.class_full_name = 'Sinif adı mütləqdir';
+    } else if (!parseClassFullName(formData.class_full_name)) {
+      errors.class_full_name = 'Sinif adı 5A və ya 10B formatında olmalıdır';
+    }
     if (!formData.academic_year_id) errors.academic_year_id = 'Akademik il mütləqdir';
     if (!formData.institution_id) errors.institution_id = 'Məktəb mütləqdir';
 
@@ -220,18 +265,47 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
     if (editingGrade) {
       const updateData: GradeUpdateData = {
         name: formData.name,
+        class_full_name: formData.class_full_name,
+        class_level: formData.class_level,
         specialty: formData.specialty,
         student_count: formData.student_count,
         male_student_count: formData.male_student_count,
         female_student_count: formData.female_student_count,
         education_program: formData.education_program,
-        grade_type: formData.grade_type,
+        class_type: formData.class_type,
+        class_profile: formData.class_profile,
+        teaching_shift: formData.teaching_shift,
         tag_ids: formData.tag_ids,
       };
       updateMutation.mutate({ id: editingGrade.id, updates: updateData });
     } else {
       createMutation.mutate(formData);
     }
+  };
+
+  const handleClassFullNameChange = (value: string) => {
+    handleFieldChange('class_full_name', value);
+
+    if (!value.trim()) {
+      setValidationErrors(prev => ({ ...prev, class_full_name: 'Sinif adı mütləqdir' }));
+      return;
+    }
+
+    const parsed = parseClassFullName(value);
+    if (!parsed) {
+      setValidationErrors(prev => ({ ...prev, class_full_name: 'Format 5A, 7B və ya 0A olmalıdır' }));
+      return;
+    }
+
+    handleFieldChange('class_level', parsed.level);
+    handleFieldChange('name', parsed.letter);
+    setValidationErrors(prev => {
+      const next = { ...prev };
+      delete next.class_full_name;
+      delete next.class_level;
+      delete next.name;
+      return next;
+    });
   };
 
   // Handle field changes
@@ -285,83 +359,25 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
 
             {/* TAB 1: BASIC INFO (REQUIRED) */}
             <TabsContent value="basic" className="space-y-4 mt-4">
-              {/* Class Level - REQUIRED DROPDOWN */}
+              {/* Combined class name input */}
               <div className="space-y-2">
-                <Label htmlFor="class_level">
-                  Sinif Səviyyəsi <span className="text-red-500">*</span>
+                <Label htmlFor="class_full_name">
+                  Sinif adı <span className="text-red-500">*</span>
                 </Label>
-                <Select
-                  value={formData.class_level.toString()}
-                  onValueChange={(value) => handleFieldChange('class_level', parseInt(value))}
-                  disabled={isLoading || !!editingGrade}
-                >
-                  <SelectTrigger className={validationErrors.class_level ? 'border-red-500' : ''}>
-                    <SelectValue placeholder="Sinif səviyyəsini seçin" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {namingOptions?.data?.class_levels?.map((level: any) => (
-                      <SelectItem key={level.value} value={level.value.toString()}>
-                        {level.label}
-                      </SelectItem>
-                    )) || [
-                      <SelectItem key={0} value="0">
-                        Məktəbəqədər hazırlıq qrupu
-                      </SelectItem>,
-                      ...Array.from({ length: 12 }, (_, i) => (
-                        <SelectItem key={i + 1} value={(i + 1).toString()}>
-                          {i + 1}-ci sinif
-                        </SelectItem>
-                      ))
-                    ]}
-                  </SelectContent>
-                </Select>
-                {validationErrors.class_level && (
+                <Input
+                  id="class_full_name"
+                  value={formData.class_full_name || ''}
+                  onChange={(event) => handleClassFullNameChange(event.target.value)}
+                  placeholder="Məs: 5A, 7B, 10C"
+                  disabled={isLoading}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Sinif səviyyəsi və hərfini birlikdə daxil edin. Sistem səviyyə və hərfi avtomatik ayıracaq.
+                </p>
+                {validationErrors.class_full_name && (
                   <p className="text-sm text-red-600 flex items-center gap-1">
                     <AlertCircle className="h-3 w-3" />
-                    {validationErrors.class_level}
-                  </p>
-                )}
-              </div>
-
-              {/* Letter - REQUIRED DROPDOWN */}
-              <div className="space-y-2">
-                <Label htmlFor="name">
-                  Sinif Hərfi <span className="text-red-500">*</span>
-                </Label>
-                {loadingNamingOptions ? (
-                  <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Mövcud hərflər yüklənir...
-                  </div>
-                ) : (
-                  <Select
-                    value={formData.name}
-                    onValueChange={(value) => handleFieldChange('name', value)}
-                    disabled={isLoading || !!editingGrade}
-                  >
-                    <SelectTrigger className={validationErrors.name ? 'border-red-500' : ''}>
-                      <SelectValue placeholder="Hərfi seçin" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {namingOptions?.data?.letters?.map((letter: any) => {
-                        const isUsed = letter.used === 1 || letter.used === true;
-                        return (
-                          <SelectItem
-                            key={letter.value}
-                            value={letter.value}
-                            disabled={isUsed}
-                          >
-                            {letter.label}{isUsed ? ' (Mövcuddur)' : ''}
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                )}
-                {validationErrors.name && (
-                  <p className="text-sm text-red-600 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    {validationErrors.name}
+                    {validationErrors.class_full_name}
                   </p>
                 )}
               </div>
@@ -400,6 +416,49 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
 
             {/* TAB 2: OPTIONAL INFO */}
             <TabsContent value="optional" className="space-y-4 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="class_type">Sinfin tipi</Label>
+                  <Input
+                    id="class_type"
+                    value={formData.class_type || ''}
+                    onChange={(event) => handleFieldChange('class_type', event.target.value)}
+                    placeholder="Məs: Orta məktəb sinfi"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="class_profile">Profil</Label>
+                  <Input
+                    id="class_profile"
+                    value={formData.class_profile || ''}
+                    onChange={(event) => handleFieldChange('class_profile', event.target.value)}
+                    placeholder="Məs: Rəqəmsal bacarıqlar"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="teaching_shift">Növbə</Label>
+                <Select
+                  value={formData.teaching_shift || 'none'}
+                  onValueChange={(value) =>
+                    handleFieldChange('teaching_shift', value === 'none' ? '' : value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Növbəni seçin" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Seçilməyib</SelectItem>
+                    {TEACHING_SHIFT_OPTIONS.map(option => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Education Program */}
               <EducationProgramSelector
                 value={(formData.education_program as EducationProgramType) || 'umumi'}
@@ -422,88 +481,6 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
                   total: validationErrors.student_count,
                 }}
               />
-
-              {/* Grade Type */}
-              <div className="space-y-2">
-                <Label htmlFor="grade_type">Sinif növü (könüllü)</Label>
-                <Select
-                  value={formData.grade_type || 'none'}
-                  onValueChange={(value) => handleFieldChange('grade_type', value === 'none' ? '' : value)}
-                  disabled={isLoading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sinif növünü seçin" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                    <SelectItem value="none">Seçilməyib</SelectItem>
-                    <SelectItem value="Məktəb Avar">Məktəb Avar</SelectItem>
-                    <SelectItem value="Orta məktəb sinfi">Orta məktəb sinfi</SelectItem>
-                    <SelectItem value="Məktəbəhazırlıq">Məktəbəhazırlıq</SelectItem>
-                    <SelectItem value="Orta məktəb Rus dili">Orta məktəb Rus dili</SelectItem>
-                    <SelectItem value="Xidmət profili">Xidmət profili</SelectItem>
-                    <SelectItem value="Məktəb Gürcü">Məktəb Gürcü</SelectItem>
-                    <SelectItem value="Orta məktəb Şahmat">Orta məktəb Şahmat</SelectItem>
-                    <SelectItem value="Əqli evdə">Əqli evdə</SelectItem>
-                    <SelectItem value="Orta məktəb şahmat, Rəqəmsal bacarıq">Orta məktəb şahmat, Rəqəmsal bacarıq</SelectItem>
-                    <SelectItem value="Orta məktəb rəqəmsal bacarıqlar">Orta məktəb rəqəmsal bacarıqlar</SelectItem>
-                    <SelectItem value="Orta məktəb humanitar">Orta məktəb humanitar</SelectItem>
-                    <SelectItem value="Orta məktəb texniki">Orta məktəb texniki</SelectItem>
-                    <SelectItem value="Fərdi təhsil">Fərdi təhsil</SelectItem>
-                    <SelectItem value="Rəqəmsal bacarıq, Steam">Rəqəmsal bacarıq, Steam</SelectItem>
-                    <SelectItem value="Orta məktəb Texniki və Təbiət">Orta məktəb Texniki və Təbiət</SelectItem>
-                    <SelectItem value="Orta məktəb Humanitar və Riyaziyyat, İqtisadiyyat">Orta məktəb Humanitar və Riyaziyyat, İqtisadiyyat</SelectItem>
-                    <SelectItem value="Məktəb Saxur">Məktəb Saxur</SelectItem>
-                    <SelectItem value="Orta məktəb Texniki və Riyaziyyat, İqtisadiyyat">Orta məktəb Texniki və Riyaziyyat, İqtisadiyyat</SelectItem>
-                    <SelectItem value="Məktəbəhazırlıq azsaylı xalqlar">Məktəbəhazırlıq azsaylı xalqlar</SelectItem>
-                    <SelectItem value="Orta məktəb Ləzgi">Orta məktəb Ləzgi</SelectItem>
-                    <SelectItem value="Lisey istedadlı">Lisey istedadlı</SelectItem>
-                    <SelectItem value="Tikinti təmir profili">Tikinti təmir profili</SelectItem>
-                    <SelectItem value="Gimnaziya sinfi">Gimnaziya sinfi</SelectItem>
-                    <SelectItem value="Gimnaziya rəqəmsal bacarıqlar">Gimnaziya rəqəmsal bacarıqlar</SelectItem>
-                    <SelectItem value="Gimnaziya Humanitar">Gimnaziya Humanitar</SelectItem>
-                    <SelectItem value="Lisey Texniki, Rəqəmsal bacarıq">Lisey Texniki, Rəqəmsal bacarıq</SelectItem>
-                    <SelectItem value="Lisey Humanitar, Rəqəmsal bacarıq">Lisey Humanitar, Rəqəmsal bacarıq</SelectItem>
-                    <SelectItem value="Lisey Humanitar">Lisey Humanitar</SelectItem>
-                    <SelectItem value="Lisey Texniki">Lisey Texniki</SelectItem>
-                    <SelectItem value="Lisey Texniki və Təbiət">Lisey Texniki və Təbiət</SelectItem>
-                    <SelectItem value="Lisey Humanitar və Riyaziyyat, İqtisadiyyat">Lisey Humanitar və Riyaziyyat, İqtisadiyyat</SelectItem>
-                    <SelectItem value="Steam">Steam</SelectItem>
-                    <SelectItem value="Lisey Texniki, Rəqəmsal bacarıq, Steam">Lisey Texniki, Rəqəmsal bacarıq, Steam</SelectItem>
-                    <SelectItem value="Lisey Humanitar, Rəqəmsal bacarıq, Steam">Lisey Humanitar, Rəqəmsal bacarıq, Steam</SelectItem>
-                    <SelectItem value="Rus intensiv, Steam">Rus intensiv, Steam</SelectItem>
-                    <SelectItem value="Məktəb Udi">Məktəb Udi</SelectItem>
-                    <SelectItem value="Xüsusi sinif (əqli)">Xüsusi sinif (əqli)</SelectItem>
-                    <SelectItem value="Kənd təsərrüfatı profili">Kənd təsərrüfatı profili</SelectItem>
-                    <SelectItem value="Ləzgi dili,Rəqəmsal bacarıq">Ləzgi dili,Rəqəmsal bacarıq</SelectItem>
-                    <SelectItem value="Lisey Texniki,Steam">Lisey Texniki,Steam</SelectItem>
-                    <SelectItem value="Xüsusi sinif (əqli) (1-5 nəfər)">Xüsusi sinif (əqli) (1-5 nəfər)</SelectItem>
-                    <SelectItem value="Lisey Təbiət">Lisey Təbiət</SelectItem>
-                    <SelectItem value="Lisey Humanitar,Steam">Lisey Humanitar,Steam</SelectItem>
-                    <SelectItem value="Lisey Riyaziyyat, İqtisadiyyat">Lisey Riyaziyyat, İqtisadiyyat</SelectItem>
-                    <SelectItem value="Tikişçi (əqli)">Tikişçi (əqli)</SelectItem>
-                    <SelectItem value="Orta məktəb Riyaziyyat, İqtisadiyyat">Orta məktəb Riyaziyyat, İqtisadiyyat</SelectItem>
-                    <SelectItem value="Rəqəmsal bacarıqlar,Steam,Şahmat">Rəqəmsal bacarıqlar,Steam,Şahmat</SelectItem>
-                    <SelectItem value="Gimnaziya Humanitar, Rəqəmsal bacarıq">Gimnaziya Humanitar, Rəqəmsal bacarıq</SelectItem>
-                    <SelectItem value="Lisey rəqəmsal bacarıqlar">Lisey rəqəmsal bacarıqlar</SelectItem>
-                    <SelectItem value="Steam,Şahmat">Steam,Şahmat</SelectItem>
-                    <SelectItem value="İnnovativ,Rəqəmsal bacarıqlar,Steam">İnnovativ,Rəqəmsal bacarıqlar,Steam</SelectItem>
-                    <SelectItem value="Orta məktəb İnformatika">Orta məktəb İnformatika</SelectItem>
-                    <SelectItem value="Texniki təmayül pilot">Texniki təmayül pilot</SelectItem>
-                    <SelectItem value="Riyaziyyat,İqtisadiyyat təmayül pilot">Riyaziyyat,İqtisadiyyat təmayül pilot</SelectItem>
-                    <SelectItem value="Humanitar təmayül pilot">Humanitar təmayül pilot</SelectItem>
-                    <SelectItem value="Təbiət təmayül pilot">Təbiət təmayül pilot</SelectItem>
-                    <SelectItem value="Lisey informatika">Lisey informatika</SelectItem>
-                    <SelectItem value="Lisey istedadlı, Rəqəmsal bacarıq">Lisey istedadlı, Rəqəmsal bacarıq</SelectItem>
-                    <SelectItem value="Lisey təbiət, Rəqəmsal bacarıq">Lisey təbiət, Rəqəmsal bacarıq</SelectItem>
-                    <SelectItem value="Lisey Texniki və Riyaziyyat, İqtisadiyyat">Lisey Texniki və Riyaziyyat, İqtisadiyyat</SelectItem>
-                    <SelectItem value="Lisey, Rəqəmsal bacarıq, Steam">Lisey, Rəqəmsal bacarıq, Steam</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Info className="h-3 w-3" />
-                  Sinifin növünü təyin edin (məsələn: Lisey Texniki, Gimnaziya Humanitar və s.)
-                </p>
-              </div>
 
               {/* Specialty - OPTIONAL (shown for grades 10-12) */}
               {shouldShowSpecialty && (
