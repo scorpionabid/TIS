@@ -336,6 +336,10 @@ class TaskAssignmentService extends BaseService
             }
         });
 
+        // Add top-level fields for backward compatibility with tests
+        $results['successful'] = $results['summary']['success'];
+        $results['failed_count'] = $results['summary']['failed'];
+
         return $results;
     }
 
@@ -476,10 +480,12 @@ class TaskAssignmentService extends BaseService
     public function updateTaskProgressFromAssignments(Task $task): void
     {
         $progress = $this->calculateTaskProgress($task);
-        
+
         $newStatus = $task->status;
         if ($progress >= 100) {
-            $newStatus = 'completed';
+            // When all assignments are completed, task goes to 'review' status
+            // awaiting creator's final approval
+            $newStatus = 'review';
         } elseif ($progress > 0) {
             $newStatus = 'in_progress';
         }

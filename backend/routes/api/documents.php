@@ -89,7 +89,7 @@ Route::middleware('permission:tasks.read')->group(function () {
     Route::get('tasks/{task}/history', [TaskController::class, 'getHistory']);
     Route::get('tasks/user/{user}', [TaskController::class, 'getUserTasks']);
     Route::get('tasks/institution/{institution}', [TaskController::class, 'getInstitutionTasks']);
-    Route::post('task-assignments/{assignment}/status', [TaskController::class, 'updateAssignmentStatus']);
+    Route::post('tasks/assignments/{assignment}/status', [TaskController::class, 'updateAssignmentStatus']);
 });
 
 Route::middleware('role:superadmin|regionadmin|regionoperator|sektoradmin|schooladmin')->group(function () {
@@ -108,6 +108,7 @@ Route::middleware('role:superadmin|regionadmin|sektoradmin')->group(function () 
     Route::post('tasks/bulk-create', [TaskController::class, 'bulkCreate']);
     Route::post('tasks/bulk-assign', [TaskController::class, 'bulkAssign']);
     Route::post('tasks/bulk-update-status', [TaskController::class, 'bulkUpdateStatus']);
+    Route::post('tasks/assignments/bulk-update', [TaskController::class, 'bulkUpdateAssignments']);
     Route::get('tasks/creation-context', [TaskController::class, 'getTaskCreationContext']);
     Route::get('tasks/assignable-users', [TaskController::class, 'getAssignableUsers']);
 });

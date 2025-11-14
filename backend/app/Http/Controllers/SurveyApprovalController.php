@@ -17,7 +17,8 @@ class SurveyApprovalController extends Controller
     use AuthorizesRequests;
     protected function getApprovalService()
     {
-        return new SurveyApprovalService();
+        // Use container resolution to support feature flags
+        return app(SurveyApprovalService::class);
     }
 
     /**

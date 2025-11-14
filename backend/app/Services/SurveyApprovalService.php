@@ -31,7 +31,7 @@ class SurveyApprovalService extends BaseService
 
     public function __construct()
     {
-        parent::__construct();
+        // Don't call parent::__construct() as BaseService doesn't define a constructor
         $this->securityService = app(ApprovalSecurityService::class);
         $this->workflowResolver = app(SurveyApprovalWorkflowResolver::class);
     }
@@ -172,7 +172,7 @@ class SurveyApprovalService extends BaseService
     {
         return DB::transaction(function () use ($response, $approver, $data) {
             $approvalRequest = $response->approvalRequest;
-            
+
             if (!$approvalRequest) {
                 throw new \Exception('No approval request found for this response');
             }
@@ -194,8 +194,12 @@ class SurveyApprovalService extends BaseService
 
             $currentLevel = $targetLevel;
 
+            // SuperAdmin approval completes the chain immediately (case-insensitive)
+            $approverRole = $approver->role->name ?? $approver->roles->pluck('name')->first() ?? null;
+            $isSuperAdmin = $approverRole && strtolower($approverRole) === 'superadmin';
+
             // Check if this completes the approval chain
-            if ($workflow->isFullyApproved($currentLevel)) {
+            if ($isSuperAdmin || $workflow->isFullyApproved($currentLevel)) {
                 // Approval complete
                 $approvalRequest->update([
                     'current_status' => 'approved',

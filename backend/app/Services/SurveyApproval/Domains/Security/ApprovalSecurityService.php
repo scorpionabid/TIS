@@ -40,10 +40,11 @@ class ApprovalSecurityService
      */
     public function applyUserAccessControl(Builder $query, User $user): void
     {
-        $roleName = $user->role->name ?? null;
+        // Support both single role (role_id) and Spatie Permission roles
+        $roleName = $user->role->name ?? $user->roles->pluck('name')->first() ?? null;
 
-        // SuperAdmin: See all responses
-        if ($roleName === 'SuperAdmin') {
+        // SuperAdmin: See all responses (case-insensitive)
+        if ($roleName && strtolower($roleName) === 'superadmin') {
             return;
         }
 
@@ -91,7 +92,8 @@ class ApprovalSecurityService
      */
     public function canUserApproveAtLevel(User $user, DataApprovalRequest $approvalRequest, ApprovalWorkflow $workflow, int $level): bool
     {
-        $roleName = $user->role->name ?? null;
+        // Support both single role (role_id) and Spatie Permission roles
+        $roleName = $user->role->name ?? $user->roles->pluck('name')->first() ?? null;
         $workflowSteps = $workflow->workflow_steps ?? [];
 
         // Find the step definition for this level
@@ -122,8 +124,16 @@ class ApprovalSecurityService
      */
     public function determineApprovalLevelForApprover(DataApprovalRequest $approvalRequest, ApprovalWorkflow $workflow, User $approver): int
     {
-        $roleName = $approver->role->name ?? null;
+        // Support both single role (role_id) and Spatie Permission roles
+        $roleName = $approver->role->name ?? $approver->roles->pluck('name')->first() ?? null;
         $workflowSteps = $workflow->workflow_steps ?? [];
+
+        // SuperAdmin can approve at current level or any level (case-insensitive check)
+        if ($roleName && strtolower($roleName) === 'superadmin') {
+            // Return current approval level or first level if not set
+            $currentLevel = (int) ($approvalRequest->current_approval_level ?? 1);
+            return max($currentLevel, 1);
+        }
 
         // Find the first level that this user can approve
         foreach ($workflowSteps as $step) {
@@ -152,10 +162,11 @@ class ApprovalSecurityService
      */
     protected function checkInstitutionHierarchyPermission(User $user, DataApprovalRequest $approvalRequest): bool
     {
-        $roleName = $user->role->name ?? null;
+        // Support both single role (role_id) and Spatie Permission roles
+        $roleName = $user->role->name ?? $user->roles->pluck('name')->first() ?? null;
 
-        // SuperAdmin: Can approve anything
-        if ($roleName === 'SuperAdmin') {
+        // SuperAdmin: Can approve anything (case-insensitive)
+        if ($roleName && strtolower($roleName) === 'superadmin') {
             return true;
         }
 
