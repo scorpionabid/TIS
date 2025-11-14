@@ -149,16 +149,8 @@ class LinkService extends BaseService<LinkShare> {
     super('/links');
   }
 
-  async getAll(params?: LinkFilters) {
-    console.log('🔍 LinkService.getAll called with params:', params);
-    try {
-      const response = await apiClient.get(this.baseEndpoint, params);
-      console.log('✅ LinkService.getAll successful:', response);
-      return response;
-    } catch (error) {
-      console.error('❌ LinkService.getAll failed:', error);
-      throw error;
-    }
+  async getAll(params?: LinkFilters, useCache?: boolean) {
+    return super.getAll(params, useCache);
   }
 
   async create(data: CreateLinkData): Promise<LinkShare> {

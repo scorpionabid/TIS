@@ -25,14 +25,31 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { resourceService } from "@/services/resources";
 import { institutionService } from "@/services/institutions";
+import type { Institution } from "@/services/institutions";
 import { userService } from "@/services/users";
 import { LinkBulkUploadResult } from "@/services/links";
-import { Resource, ResourceStats } from "@/types/resources";
+import { Resource, ResourceStats, ResourceFilters } from "@/types/resources";
 import RegionalFolderManager from "@/components/documents/RegionalFolderManager";
 import { hasAnyRole } from "@/utils/permissions";
 import { useResourceFilters } from "@/hooks/useResourceFilters";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useResourceGrouping, GroupingMode } from "@/hooks/useResourceGrouping";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
 
 const flattenResponseArray = (payload: any): any[] => {
   if (!payload) return [];
@@ -44,6 +61,18 @@ const flattenResponseArray = (payload: any): any[] => {
     return payload.data;
   }
   return [];
+};
+
+const normalizeInstitution = (input: Institution | { data?: Institution } | null | undefined): Institution | undefined => {
+  if (!input) {
+    return undefined;
+  }
+
+  if (typeof input === 'object' && 'data' in input) {
+    return (input as { data?: Institution }).data ?? undefined;
+  }
+
+  return input as Institution;
 };
 
 export default function Resources() {
@@ -102,6 +131,18 @@ export default function Resources() {
   const [sortBy, setSortBy] = useState<'created_at' | 'title'>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
+  const DEFAULT_PAGE = 1;
+  const DEFAULT_PER_PAGE = 50;
+
+  const [page, setPage] = useState<number>(() => {
+    const pageParam = Number.parseInt(searchParams.get('page') ?? '', 10);
+    return Number.isNaN(pageParam) || pageParam <= 0 ? DEFAULT_PAGE : pageParam;
+  });
+  const [perPage, setPerPage] = useState<number>(() => {
+    const perPageParam = Number.parseInt(searchParams.get('per_page') ?? '', 10);
+    return Number.isNaN(perPageParam) || perPageParam <= 0 ? DEFAULT_PER_PAGE : perPageParam;
+  });
+
   // NEW: Grouping state (default: sector grouping)
   const [groupingMode, setGroupingMode] = useState<GroupingMode>('sector');
 
@@ -114,6 +155,51 @@ export default function Resources() {
     }, 400);
     return () => clearTimeout(timeout);
   }, [searchTerm]);
+
+  useEffect(() => {
+    const nextPageParam = Number.parseInt(searchParams.get('page') ?? '', 10);
+    const nextPage = Number.isNaN(nextPageParam) || nextPageParam <= 0 ? DEFAULT_PAGE : nextPageParam;
+    if (nextPage !== page) {
+      setPage(nextPage);
+    }
+
+    const nextPerPageParam = Number.parseInt(searchParams.get('per_page') ?? '', 10);
+    const nextPerPage = Number.isNaN(nextPerPageParam) || nextPerPageParam <= 0 ? DEFAULT_PER_PAGE : nextPerPageParam;
+    if (nextPerPage !== perPage) {
+      setPerPage(nextPerPage);
+    }
+  }, [searchParams, page, perPage]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams);
+    let changed = false;
+
+    if (page > DEFAULT_PAGE) {
+      const pageString = String(page);
+      if (params.get('page') !== pageString) {
+        params.set('page', pageString);
+        changed = true;
+      }
+    } else if (params.has('page')) {
+      params.delete('page');
+      changed = true;
+    }
+
+    if (perPage !== DEFAULT_PER_PAGE) {
+      const perPageString = String(perPage);
+      if (params.get('per_page') !== perPageString) {
+        params.set('per_page', perPageString);
+        changed = true;
+      }
+    } else if (params.has('per_page')) {
+      params.delete('per_page');
+      changed = true;
+    }
+
+    if (changed) {
+      setSearchParams(params, { replace: true });
+    }
+  }, [page, perPage, searchParams, setSearchParams]);
 
   const {
     linkFilters,
@@ -191,17 +277,29 @@ export default function Resources() {
   }, [normalizeTab, setSearchParams]);
 
   // Fetch resources (enhanced with filters)
-  const appliedFilters = getFiltersForTab(activeTab);
+  const appliedFilters = useMemo(() => {
+    if (activeTab === 'folders') {
+      return {} as Partial<ResourceFilters>;
+    }
+    return getFiltersForTab(activeTab === 'links' ? 'links' : 'documents') as Partial<ResourceFilters>;
+  }, [activeTab, getFiltersForTab]);
 
-  const resourceType = activeTab === 'links' ? 'link' : activeTab === 'documents' ? 'document' : undefined;
+  const resourceType: ResourceFilters['type'] | undefined = activeTab === 'links'
+    ? 'link'
+    : activeTab === 'documents'
+      ? 'document'
+      : undefined;
+
+  const { type: _ignoredFilterType, ...sanitizedFilters } = appliedFilters || {};
 
   const resourceQueryParams = {
     type: resourceType,
     search: debouncedSearchTerm || undefined,
     sort_by: sortBy,
     sort_direction: sortDirection,
-    per_page: 50,
-    ...appliedFilters
+    page,
+    per_page: perPage,
+    ...sanitizedFilters,
   };
 
   const shouldForceAssignedFetch =
@@ -211,9 +309,15 @@ export default function Resources() {
 
   const { data: resourceResponse, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['resources', { ...resourceQueryParams, assignedOnly: shouldForceAssignedFetch }],
-    queryFn: () => shouldForceAssignedFetch
-      ? resourceService.getAssignedResourcesPaginated(resourceQueryParams)
-      : resourceService.getAll(resourceQueryParams),
+    queryFn: () => {
+      if (shouldForceAssignedFetch) {
+        return resourceService.getAssignedResourcesPaginated(resourceQueryParams);
+      }
+      if (resourceType === 'link') {
+        return resourceService.getLinksPaginated(resourceQueryParams);
+      }
+      return resourceService.getAll(resourceQueryParams);
+    },
     enabled: isAuthenticated && canViewResources && activeTab !== 'folders',
     staleTime: 2 * 60 * 1000, // 2 minutes
     meta: {
@@ -261,6 +365,70 @@ export default function Resources() {
   // Memoize resourcesData to prevent exhaustive-deps warnings
   const resourcesData = useMemo(() => resourceResponse?.data || [], [resourceResponse?.data]);
   const isUpdatingResults = isFetching && !isLoading;
+
+  const paginationMeta = resourceResponse?.meta;
+  const currentPage = paginationMeta?.current_page ?? page;
+  const effectivePerPage = paginationMeta?.per_page ?? perPage;
+  const totalItems = paginationMeta?.total ?? resourcesData.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / Math.max(1, effectivePerPage)));
+  const canGoPrevious = currentPage > 1;
+  const canGoNext = currentPage < totalPages;
+  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * effectivePerPage + 1;
+  const endItem = totalItems === 0 ? 0 : startItem + resourcesData.length - 1;
+  const pageSizeOptions = useMemo(() => {
+    const baseOptions = [25, 50, 100];
+    if (!baseOptions.includes(effectivePerPage)) {
+      baseOptions.push(effectivePerPage);
+    }
+    return baseOptions
+      .filter((value, index, self) => self.indexOf(value) === index)
+      .sort((a, b) => a - b);
+  }, [effectivePerPage]);
+
+  const paginationItems = useMemo<(number | 'ellipsis-prev' | 'ellipsis-next')[]>(() => {
+    if (totalPages <= 1) {
+      return [currentPage];
+    }
+
+    if (totalPages <= 5) {
+      return Array.from({ length: totalPages }, (_, index) => index + 1);
+    }
+
+    const items: (number | 'ellipsis-prev' | 'ellipsis-next')[] = [1];
+    const windowStart = Math.max(2, currentPage - 1);
+    const windowEnd = Math.min(totalPages - 1, currentPage + 1);
+
+    if (windowStart > 2) {
+      items.push('ellipsis-prev');
+    }
+
+    for (let pageNumber = windowStart; pageNumber <= windowEnd; pageNumber += 1) {
+      items.push(pageNumber);
+    }
+
+    if (windowEnd < totalPages - 1) {
+      items.push('ellipsis-next');
+    }
+
+    items.push(totalPages);
+    return items;
+  }, [currentPage, totalPages]);
+
+  const handlePageChange = useCallback((targetPage: number) => {
+    if (targetPage < 1 || targetPage > totalPages || targetPage === currentPage) {
+      return;
+    }
+    setPage(targetPage);
+  }, [currentPage, totalPages]);
+
+  const handlePerPageChange = useCallback((value: string) => {
+    const nextPerPage = Number.parseInt(value, 10);
+    if (Number.isNaN(nextPerPage) || nextPerPage <= 0) {
+      return;
+    }
+    setPerPage(nextPerPage);
+    setPage(1);
+  }, []);
 
   useEffect(() => {
     if (resourceResponse?.meta?.total === undefined || resourceResponse?.meta?.total === null) {
@@ -539,7 +707,8 @@ export default function Resources() {
           unresolved.map(async (institutionId) => {
             try {
               const detail = await institutionService.getById(institutionId);
-              const label = detail?.name || detail?.short_name || `Müəssisə #${institutionId}`;
+              const institutionDetail = normalizeInstitution(detail);
+              const label = institutionDetail?.name || institutionDetail?.short_name || `Müəssisə #${institutionId}`;
               return { id: institutionId, name: label };
             } catch (error) {
               console.warn('Failed to fetch institution detail', { institutionId, error });
@@ -641,16 +810,17 @@ export default function Resources() {
     // Institution filter (multi-select) - FIXED: Check both institution_id and target_institutions
     if (minimalistFilters.institution_ids && minimalistFilters.institution_ids.length > 0) {
       filtered = filtered.filter(resource => {
-        // Check if resource creator's institution matches
-        const creatorInstitutionMatch = resource.institution_id &&
-          minimalistFilters.institution_ids!.includes(resource.institution_id);
+        const resourceInstitutionId = resource.institution?.id ?? (resource as { institution_id?: number }).institution_id;
+        const creatorInstitutionMatch = typeof resourceInstitutionId === 'number' &&
+          minimalistFilters.institution_ids!.includes(resourceInstitutionId);
 
         // Check if any target institution matches
-        const targetInstitutionMatch = resource.target_institutions &&
-          resource.target_institutions.some(id => minimalistFilters.institution_ids!.includes(id));
+        const targetInstitutionMatch = resource.target_institutions?.some(id =>
+          minimalistFilters.institution_ids!.includes(id)
+        );
 
         // Return true if either matches
-        return creatorInstitutionMatch || targetInstitutionMatch;
+        return creatorInstitutionMatch || Boolean(targetInstitutionMatch);
       });
     }
 
@@ -957,6 +1127,68 @@ export default function Resources() {
             userDirectory={userDirectory}
             defaultExpanded={groupingMode !== 'none'}
           />
+
+          {resourceResponse && (
+            <div className="space-y-4 border-t pt-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-muted-foreground">
+                  {totalItems === 0
+                    ? 'Heç bir resurs tapılmadı'
+                    : `${startItem.toLocaleString('az-AZ')}-${endItem.toLocaleString('az-AZ')} / ${totalItems.toLocaleString('az-AZ')}`}
+                </p>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Səhifə ölçüsü</span>
+                  <Select value={String(effectivePerPage)} onValueChange={handlePerPageChange}>
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {pageSizeOptions.map((option) => (
+                        <SelectItem key={option} value={String(option)}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {totalPages > 1 && (
+                <Pagination className="justify-center">
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        onClick={canGoPrevious ? () => handlePageChange(currentPage - 1) : undefined}
+                        className={canGoPrevious ? undefined : 'pointer-events-none opacity-50'}
+                      />
+                    </PaginationItem>
+
+                    {paginationItems.map((item) => (
+                      <PaginationItem key={typeof item === 'number' ? `page-${item}` : item}>
+                        {typeof item === 'number' ? (
+                          <PaginationLink
+                            isActive={item === currentPage}
+                            onClick={item === currentPage ? undefined : () => handlePageChange(item)}
+                          >
+                            {item}
+                          </PaginationLink>
+                        ) : (
+                          <PaginationEllipsis />
+                        )}
+                      </PaginationItem>
+                    ))}
+
+                    <PaginationItem>
+                      <PaginationNext
+                        onClick={canGoNext ? () => handlePageChange(currentPage + 1) : undefined}
+                        className={canGoNext ? undefined : 'pointer-events-none opacity-50'}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              )}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="documents" className="mt-6 space-y-4">

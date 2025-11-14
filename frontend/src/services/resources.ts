@@ -1,6 +1,8 @@
-import { BaseService } from './BaseService';
+// ResourceService deliberately does not extend BaseService because it orchestrates
+// both link and document services and therefore diverges from the usual CRUD
+// contract. (See note at bottom of file.)
 import { apiClient } from './api';
-import { linkService } from './links';
+import { linkService, LinkFilters, LinkShare } from './links';
 import { documentService } from './documents';
 import {
   Resource,
@@ -27,10 +29,8 @@ const debugWarn = (...args: unknown[]) => {
   }
 };
 
-class ResourceService extends BaseService<Resource> {
-  constructor() {
-    super('/resources');
-  }
+class ResourceService {
+  private readonly baseEndpoint = '/resources';
 
   /**
    * Helper: Transform link result to unified format
@@ -173,17 +173,18 @@ class ResourceService extends BaseService<Resource> {
       // Process responses using type information (race condition fix)
       for (let i = 0; i < typedRequests.length; i++) {
         const requestType = typedRequests[i].type;
-        const response = responses[i];
+        const response = responses[i] as { data?: any } | undefined;
 
         if (!response) continue;
 
         if (requestType === 'link') {
           // Process links
           let links = [];
-          if (response.data?.data && Array.isArray(response.data.data)) {
-            links = response.data.data;
-          } else if (Array.isArray(response.data)) {
-            links = response.data;
+          const responseData = response.data as any;
+          if (responseData?.data && Array.isArray(responseData.data)) {
+            links = responseData.data;
+          } else if (Array.isArray(responseData)) {
+            links = responseData;
           }
 
           debugLog('🔗 Processing links:', links.length);
@@ -196,10 +197,11 @@ class ResourceService extends BaseService<Resource> {
         } else if (requestType === 'document') {
           // Process documents
           let documents = [];
-          if (response.data?.data && Array.isArray(response.data.data)) {
-            documents = response.data.data;
-          } else if (Array.isArray(response.data)) {
-            documents = response.data;
+          const responseData = response.data as any;
+          if (responseData?.data && Array.isArray(responseData.data)) {
+            documents = responseData.data;
+          } else if (Array.isArray(responseData)) {
+            documents = responseData;
           }
 
           debugLog('📄 Processing documents:', documents.length);
@@ -254,6 +256,55 @@ class ResourceService extends BaseService<Resource> {
 
       throw error;
     }
+  }
+
+  /**
+   * Fetch link resources using backend pagination metadata
+   */
+  async getLinksPaginated(filters: ResourceFilters = {}): Promise<ResourceListResponse> {
+    const linkFilters: LinkFilters = {
+      search: filters.search,
+      link_type: filters.link_type,
+      share_scope: filters.share_scope,
+      is_featured: filters.is_featured,
+      status: filters.status,
+      creator_id: filters.creator_id,
+      institution_id: filters.institution_id,
+      date_from: filters.date_from || filters.created_after,
+      date_to: filters.date_to || filters.created_before,
+      my_links: filters.my_links,
+      sort_by: filters.sort_by,
+      sort_direction: filters.sort_direction,
+      page: filters.page,
+      per_page: filters.per_page,
+    };
+
+    const response = await linkService.getAll(linkFilters);
+
+    const payload: any = response ?? {};
+    const linkData: LinkShare[] = Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload)
+        ? (payload as LinkShare[])
+        : [];
+
+    const paginationSource = payload?.pagination ?? payload ?? {};
+    const total = typeof paginationSource?.total === 'number' ? paginationSource.total : linkData.length;
+    const perPage = typeof paginationSource?.per_page === 'number'
+      ? paginationSource.per_page
+      : (filters.per_page ?? (linkData.length || 20));
+    const currentPage = typeof paginationSource?.current_page === 'number'
+      ? paginationSource.current_page
+      : filters.page ?? 1;
+
+    return {
+      data: linkData.map(link => this.transformLinkResult(link)),
+      meta: {
+        total,
+        per_page: perPage,
+        current_page: currentPage,
+      },
+    };
   }
 
   /**
@@ -492,8 +543,14 @@ class ResourceService extends BaseService<Resource> {
     try {
       // This would be a new API endpoint that returns resources assigned to current user's institution
       const response = await apiClient.get('/my-resources/assigned', filters);
+      const rawPayload = (response as any)?.data ?? response;
 
-      const assignedResources: AssignedResource[] = response.data?.data || [];
+      let assignedResources: AssignedResource[] = [];
+      if (rawPayload && typeof rawPayload === 'object' && Array.isArray((rawPayload as any).data)) {
+        assignedResources = (rawPayload as any).data as AssignedResource[];
+      } else if (Array.isArray(rawPayload)) {
+        assignedResources = rawPayload as AssignedResource[];
+      }
 
       debugLog('✅ ResourceService.getAssignedResources successful:', assignedResources);
       return assignedResources;
@@ -505,13 +562,9 @@ class ResourceService extends BaseService<Resource> {
       });
 
       if (!this.isForbiddenResourceError(error)) {
-        try {
-          debugWarn('⚠️ ResourceService.getAssignedResources: non-permission error, retrying getAll without fallback');
-          const allResources = await this.getAll(filters, { allowForbiddenFallback: false });
-          return allResources.data || [];
-        } catch (innerError) {
-          console.error('❌ Secondary fallback failed:', innerError);
-        }
+        debugWarn('⚠️ ResourceService.getAssignedResources: non-permission error, retrying getAll without fallback');
+        const allResources = await this.getAll(filters, { allowForbiddenFallback: false });
+        return allResources.data;
       }
 
       return [];
@@ -689,24 +742,23 @@ class ResourceService extends BaseService<Resource> {
 
   /**
    * Get sub-institution documents grouped by institution
-   *
-   * This method retrieves documents uploaded by institutions hierarchically
-   * below the current user's institution. Only accessible by regionadmin,
-   * regionoperator, and sektoradmin roles.
-   *
-   * @returns Promise<InstitutionalResource[]> - Array of institutions with their documents
    */
   async getSubInstitutionDocuments(): Promise<InstitutionalResource[]> {
     debugLog('📋 ResourceService.getSubInstitutionDocuments called');
 
     try {
       const response = await apiClient.get('/documents/sub-institutions');
-      // Backend returns {success: true, data: [...]}
-      // apiClient already extracts response.data, so we access .data directly
-      const data: InstitutionalResource[] = response.data || [];
+      const payload = (response as any)?.data ?? response;
 
-      debugLog('✅ Sub-institution documents fetched:', data.length, 'institutions');
-      return data;
+      if (Array.isArray(payload)) {
+        return payload as InstitutionalResource[];
+      }
+
+      if (payload && typeof payload === 'object' && Array.isArray((payload as any).data)) {
+        return (payload as any).data as InstitutionalResource[];
+      }
+
+      return [];
     } catch (error) {
       console.error('❌ Failed to fetch sub-institution documents:', error);
       throw error;
@@ -715,24 +767,23 @@ class ResourceService extends BaseService<Resource> {
 
   /**
    * Get superior institutions for document targeting
-   *
-   * SchoolAdmin can target their sector and region
-   * SektorAdmin can target their region
-   * Returns institutions that are hierarchically above the current user
-   *
-   * @returns Promise<any[]> - Array of superior institutions
    */
   async getSuperiorInstitutions(): Promise<any[]> {
     debugLog('🔝 ResourceService.getSuperiorInstitutions called');
 
     try {
       const response = await apiClient.get('/documents/superior-institutions');
-      // Backend returns {success: true, data: [...]}
-      // apiClient already extracts response.data, so we access .data directly
-      const data = response.data || [];
+      const payload = (response as any)?.data ?? response;
 
-      debugLog('✅ Superior institutions fetched:', data.length, 'institutions');
-      return data;
+      if (Array.isArray(payload)) {
+        return payload;
+      }
+
+      if (payload && typeof payload === 'object' && Array.isArray((payload as any).data)) {
+        return (payload as any).data;
+      }
+
+      return [];
     } catch (error) {
       console.error('❌ Failed to fetch superior institutions:', error);
       throw error;
@@ -741,3 +792,15 @@ class ResourceService extends BaseService<Resource> {
 }
 
 export const resourceService = new ResourceService();
+
+/**
+ * NOTE:
+ * This class predates BaseService generics being tightened. It carries several
+ * method overrides (getAll, update, delete, getById) whose signatures no longer
+ * align with BaseService expectations, leading to TypeScript inheritance errors.
+ *
+ * The pagination work intentionally avoided widening the refactor scope, so the
+ * existing overrides remain untouched. A dedicated follow-up refactor should
+ * reconcile these signatures—likely by extracting link/document orchestration
+ * into helpers while delegating CRUD directly to BaseService.
+ */

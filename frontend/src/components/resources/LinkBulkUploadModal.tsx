@@ -3,16 +3,26 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import { UploadCloud, FileUp, AlertTriangle, CheckCircle2, Info, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   MinimalDialog,
   MinimalDialogContent,
   MinimalDialogDescription,
   MinimalDialogTitle,
 } from '@/components/ui/minimal-dialog';
+import { Switch } from '@/components/ui/switch';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { linkService, LinkBulkMetadata, LinkBulkUploadResult } from '@/services/links';
+import { cn } from '@/lib/utils';
 
 interface LinkBulkUploadModalProps {
   isOpen: boolean;
@@ -29,10 +39,20 @@ const DEFAULT_REQUIRED_COLUMNS = [
   'link_type',
 ];
 
+type RowIssue = {
+  column: string;
+  message: string;
+};
+
 type ParsedRow = {
   index: number;
   values: Record<string, string>;
-  issues: string[];
+  issues: RowIssue[];
+};
+
+type SubmitError = {
+  message: string;
+  column?: string;
 };
 
 const normalizeKey = (value: string) => value.trim().toLowerCase();
@@ -48,10 +68,13 @@ const isValidUrl = (value: string) => {
 export function LinkBulkUploadModal({ isOpen, onClose, onSuccess }: LinkBulkUploadModalProps) {
   const { toast } = useToast();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [submitErrors, setSubmitErrors] = useState<string[]>([]);
+  const [submitErrors, setSubmitErrors] = useState<SubmitError[]>([]);
   const [summary, setSummary] = useState<LinkBulkUploadResult | null>(null);
   const [previewRows, setPreviewRows] = useState<ParsedRow[]>([]);
   const [isParsing, setIsParsing] = useState(false);
+  const [showOnlyErroredRows, setShowOnlyErroredRows] = useState(false);
+  const [allowUploadWithErrors, setAllowUploadWithErrors] = useState(false);
+  const [sheetColumns, setSheetColumns] = useState<string[]>(DEFAULT_REQUIRED_COLUMNS);
 
   const {
     data: metadata,
@@ -81,10 +104,36 @@ export function LinkBulkUploadModal({ isOpen, onClose, onSuccess }: LinkBulkUplo
   }, [metadata?.institutions]);
 
   const invalidRowCount = previewRows.filter((row) => row.issues.length > 0).length;
+  const validRows = useMemo(() => previewRows.filter((row) => row.issues.length === 0), [previewRows]);
+  const validRowCount = validRows.length;
+  const displayedRows = useMemo(() => {
+    if (!showOnlyErroredRows) {
+      return previewRows;
+    }
+    return previewRows.filter((row) => row.issues.length > 0);
+  }, [previewRows, showOnlyErroredRows]);
+
+  const groupedSubmitErrors = useMemo(() => {
+    if (!submitErrors.length) {
+      return [] as Array<{ group: string; items: SubmitError[] }>;
+    }
+
+    const groups = submitErrors.reduce<Record<string, SubmitError[]>>((acc, error) => {
+      const key = error.column ? `Sütun: ${error.column}` : 'Digər xətalar';
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+      acc[key].push(error);
+      return acc;
+    }, {});
+
+    return Object.entries(groups).map(([group, items]) => ({ group, items }));
+  }, [submitErrors]);
+
   const canUpload = Boolean(
     selectedFile &&
     previewRows.length > 0 &&
-    invalidRowCount === 0 &&
+    ((invalidRowCount === 0) || (allowUploadWithErrors && validRowCount > 0)) &&
     !isParsing
   );
 
@@ -92,7 +141,8 @@ export function LinkBulkUploadModal({ isOpen, onClose, onSuccess }: LinkBulkUplo
     mutationFn: (formData: FormData) => linkService.uploadBulkLinks(formData),
     onSuccess: (result) => {
       setSummary(result);
-      setSubmitErrors(result.errors || []);
+      const apiErrors = (result.errors || []).map<SubmitError>((message) => ({ message }));
+      setSubmitErrors(apiErrors);
       toast({
         title: 'Yükləmə tamamlandı',
         description: `Yaradılan link: ${result.created}, uğursuz: ${result.failed}`,
@@ -100,10 +150,12 @@ export function LinkBulkUploadModal({ isOpen, onClose, onSuccess }: LinkBulkUplo
       onSuccess?.(result);
       setSelectedFile(null);
       setPreviewRows([]);
+      setAllowUploadWithErrors(false);
+      setSheetColumns(DEFAULT_REQUIRED_COLUMNS);
     },
     onError: (error: any) => {
       const message = error?.message || 'Yükləmə zamanı xəta baş verdi';
-      setSubmitErrors([message]);
+      setSubmitErrors([{ message }]);
       toast({
         title: 'Xəta baş verdi',
         description: message,
@@ -116,13 +168,7 @@ export function LinkBulkUploadModal({ isOpen, onClose, onSuccess }: LinkBulkUplo
     onClose();
   };
 
-  const parseFile = async (file: File, meta: LinkBulkMetadata | undefined) => {
-    if (!meta) {
-      setSubmitErrors(['Metadata yüklənmədi. Zəhmət olmasa yenidən cəhd edin.']);
-      setPreviewRows([]);
-      return;
-    }
-
+  const parseFile = async (file: File, meta: LinkBulkMetadata) => {
     setIsParsing(true);
     setSubmitErrors([]);
     try {
@@ -143,38 +189,53 @@ export function LinkBulkUploadModal({ isOpen, onClose, onSuccess }: LinkBulkUplo
         throw new Error(`Maksimum ${maxRows} sətr yükləmək olar.`);
       }
 
+      const columnSet = new Set<string>();
+      rawRows.forEach((row) => {
+        Object.keys(row).forEach((key) => {
+          if (key) {
+            columnSet.add(key);
+          }
+        });
+      });
+      requiredColumns.forEach((column) => columnSet.add(column));
+      const columns = Array.from(columnSet);
+      setSheetColumns(columns);
+
       const parsedRows: ParsedRow[] = rawRows.map((row, index) => {
         const values: Record<string, string> = {};
-        requiredColumns.forEach((column) => {
+        columns.forEach((column) => {
           values[column] = String(row[column] ?? '').trim();
         });
 
-        const issues: string[] = [];
+        const issues: RowIssue[] = [];
 
         if (!values.link_title) {
-          issues.push('link_title boşdur');
+          issues.push({ column: 'link_title', message: 'link_title boşdur' });
         }
 
         if (!values.url || !isValidUrl(values.url)) {
-          issues.push('URL düzgün formatda deyil');
+          issues.push({ column: 'url', message: 'URL düzgün formatda deyil' });
         }
 
         const linkType = values.link_type.toLowerCase();
         if (!linkType) {
-          issues.push('link_type boşdur');
+          issues.push({ column: 'link_type', message: 'link_type boşdur' });
         } else if (!allowedLinkTypes.includes(linkType)) {
-          issues.push(`link_type dəyəri düzgün deyil (${allowedLinkTypes.join(', ')})`);
+          issues.push({
+            column: 'link_type',
+            message: `link_type dəyəri düzgün deyil (${allowedLinkTypes.join(', ')})`,
+          });
         } else {
           values.link_type = linkType;
         }
 
         const institutionName = values.institution_unique_name;
         if (!institutionName) {
-          issues.push('institution_unique_name boşdur');
+          issues.push({ column: 'institution_unique_name', message: 'institution_unique_name boşdur' });
         } else {
           const institutionId = institutionLookup.get(normalizeKey(institutionName));
           if (!institutionId) {
-            issues.push('Müəssisə tapılmadı');
+            issues.push({ column: 'institution_unique_name', message: 'Müəssisə tapılmadı' });
           }
         }
 
@@ -187,12 +248,13 @@ export function LinkBulkUploadModal({ isOpen, onClose, onSuccess }: LinkBulkUplo
 
       setPreviewRows(parsedRows);
       if (!parsedRows.length) {
-        setSubmitErrors(['Faylda istifadə edilə bilən məlumat tapılmadı.']);
+        setSubmitErrors([{ message: 'Faylda istifadə edilə bilən məlumat tapılmadı.' }]);
       }
     } catch (error: any) {
       console.error('Excel parsing error:', error);
       setPreviewRows([]);
-      setSubmitErrors([error?.message || 'Fayl oxunarkən xəta baş verdi']);
+      setSubmitErrors([{ message: error?.message || 'Fayl oxunarkən xəta baş verdi' }]);
+      setSheetColumns(DEFAULT_REQUIRED_COLUMNS);
     } finally {
       setIsParsing(false);
     }
@@ -204,9 +266,13 @@ export function LinkBulkUploadModal({ isOpen, onClose, onSuccess }: LinkBulkUplo
     setSummary(null);
     setPreviewRows([]);
     setSubmitErrors([]);
+    setAllowUploadWithErrors(false);
+    setSheetColumns(DEFAULT_REQUIRED_COLUMNS);
 
     if (file) {
-      parseFile(file, metadata);
+      if (metadata) {
+        parseFile(file, metadata);
+      }
     }
   };
 
@@ -264,22 +330,70 @@ export function LinkBulkUploadModal({ isOpen, onClose, onSuccess }: LinkBulkUplo
       setSubmitErrors([]);
       setSummary(null);
       setPreviewRows([]);
+      setAllowUploadWithErrors(false);
+      setSheetColumns(DEFAULT_REQUIRED_COLUMNS);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    if (!metadata || !selectedFile) {
+      return;
+    }
+    if (previewRows.length > 0 || isParsing) {
+      return;
+    }
+
+    parseFile(selectedFile, metadata);
+  }, [metadata, selectedFile, isOpen, previewRows.length, isParsing]);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (!selectedFile) {
-      setSubmitErrors(['Excel faylı seçilməlidir.']);
+      setSubmitErrors([{ message: 'Excel faylı seçilməlidir.' }]);
       return;
     }
-    if (invalidRowCount > 0 || previewRows.length === 0) {
-      setSubmitErrors(['Xətalı sətirlər aradan qaldırılmadan yükləmək mümkün deyil.']);
+    if (previewRows.length === 0) {
+      setSubmitErrors([{ message: 'Yükləmək üçün faylda etibarlı sətrlər tapılmadı.' }]);
+      return;
+    }
+    if (invalidRowCount > 0 && !allowUploadWithErrors) {
+      setSubmitErrors([{ message: 'Xətalı sətirlərlə davam etmək istəyirsinizsə təsdiq edin.' }]);
+      return;
+    }
+    if (allowUploadWithErrors && invalidRowCount > 0 && validRowCount === 0) {
+      setSubmitErrors([{ message: 'Yükləmək üçün etibarlı sətr tapılmadı.' }]);
       return;
     }
     setSubmitErrors([]);
     const formData = new FormData();
-    formData.append('file', selectedFile);
+
+    let fileToUpload = selectedFile;
+    if (fileToUpload && allowUploadWithErrors && invalidRowCount > 0) {
+      const rowsForExport = validRows.map((row) => {
+        const entry: Record<string, string> = {};
+        sheetColumns.forEach((column) => {
+          entry[column] = row.values[column] ?? '';
+        });
+        return entry;
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(rowsForExport, { header: sheetColumns });
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Links');
+      const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const sanitizedFileName = selectedFile.name.replace(/\.(xlsx|xls|csv)$/i, '') + '-valid.xlsx';
+      fileToUpload = new File([blob], sanitizedFileName, { type: blob.type });
+    }
+
+    if (fileToUpload) {
+      formData.append('file', fileToUpload);
+    }
     bulkMutation.mutate(formData);
   };
 
@@ -360,31 +474,77 @@ export function LinkBulkUploadModal({ isOpen, onClose, onSuccess }: LinkBulkUplo
             </div>
 
             {submitErrors.length > 0 && (
-              <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive space-y-1">
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm space-y-3 text-destructive">
                 <div className="flex items-center gap-2 font-medium">
                   <AlertTriangle className="h-4 w-4" />
                   Yükləmə ilə bağlı qeydlər
                 </div>
-                <ul className="list-disc pl-4 space-y-1">
-                  {submitErrors.slice(0, 5).map((error, index) => (
-                    <li key={`${error}-${index}`}>{error}</li>
+                <div className="space-y-3">
+                  {groupedSubmitErrors.map(({ group, items }) => (
+                    <div key={group} className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="destructive" className="bg-destructive text-destructive-foreground">
+                          {items.length}
+                        </Badge>
+                        <span className="text-xs font-semibold uppercase tracking-wide">
+                          {group}
+                        </span>
+                      </div>
+                      <ul className="list-disc pl-4 space-y-1 text-xs text-destructive">
+                        {items.slice(0, 4).map((error, index) => (
+                          <li key={`${group}-${index}`}>{error.message}</li>
+                        ))}
+                        {items.length > 4 && (
+                          <li className="text-muted-foreground">
+                            ... və digər {items.length - 4} xəta
+                          </li>
+                        )}
+                      </ul>
+                    </div>
                   ))}
-                  {submitErrors.length > 5 && (
-                    <li>... və digər {submitErrors.length - 5} xəta</li>
-                  )}
-                </ul>
+                </div>
               </div>
             )}
 
             {previewRows.length > 0 && (
               <div className="rounded-lg border p-3 space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                  <div>
-                    {previewRows.length} sətir tapıldı. Doğrulanan: {previewRows.length - invalidRowCount}.
+                  <div className="space-y-1">
+                    <div>
+                      {previewRows.length} sətir tapıldı. Doğrulanan: {previewRows.length - invalidRowCount}.
+                      {invalidRowCount > 0 && (
+                        <span className="text-destructive ml-2">
+                          Xəta olan sətirlər: {invalidRowCount}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Switch
+                        id="only-error-rows"
+                        checked={showOnlyErroredRows}
+                        onCheckedChange={setShowOnlyErroredRows}
+                        className="h-5 w-9"
+                      />
+                      <Label htmlFor="only-error-rows" className="text-xs text-muted-foreground">
+                        Yalnız xətalı sətirlər
+                      </Label>
+                      {showOnlyErroredRows && (
+                        <span className="text-[11px] text-muted-foreground">
+                          Göstərilən: {displayedRows.length} sətir
+                        </span>
+                      )}
+                    </div>
                     {invalidRowCount > 0 && (
-                      <span className="text-destructive ml-2">
-                        Xəta olan sətirlər: {invalidRowCount}
-                      </span>
+                      <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                        <Checkbox
+                          id="allow-upload-with-errors"
+                          checked={allowUploadWithErrors}
+                          onCheckedChange={(checked) => setAllowUploadWithErrors(Boolean(checked))}
+                        />
+                        <Label htmlFor="allow-upload-with-errors" className="text-xs text-muted-foreground">
+                          Xətalı sətirləri istisna edib yalnız düzgün sətrləri yüklə ({validRowCount} sətr göndəriləcək)
+                        </Label>
+                      </div>
                     )}
                   </div>
                   {invalidRowCount === 0 ? (
@@ -399,43 +559,96 @@ export function LinkBulkUploadModal({ isOpen, onClose, onSuccess }: LinkBulkUplo
                     </div>
                   )}
                 </div>
+
                 <div className="max-h-64 overflow-x-auto overflow-y-auto rounded border bg-muted/40">
-                  <table className="w-full min-w-[640px] text-xs">
-                    <thead className="bg-muted text-muted-foreground">
-                      <tr>
-                        <th className="px-3 py-2 text-left">Sətir</th>
-                        {requiredColumns.map((column) => (
-                          <th key={column} className="px-3 py-2 text-left">
-                            {column}
-                          </th>
-                        ))}
-                        <th className="px-3 py-2 text-left">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previewRows.slice(0, 20).map((row) => (
-                        <tr key={row.index} className={row.issues.length ? 'bg-red-50/70' : ''}>
-                          <td className="border-t px-3 py-1">{row.index}</td>
+                  <TooltipProvider>
+                    <table className="w-full min-w-[680px] text-xs">
+                      <thead className="bg-muted text-muted-foreground">
+                        <tr>
+                          <th className="px-3 py-2 text-left">Sətir</th>
                           {requiredColumns.map((column) => (
-                            <td key={`${row.index}-${column}`} className="border-t px-3 py-1">
-                              {row.values[column] || <span className="text-muted-foreground">—</span>}
-                            </td>
+                            <th key={column} className="px-3 py-2 text-left">
+                              {column}
+                            </th>
                           ))}
-                          <td className="border-t px-3 py-1">
-                            {row.issues.length ? (
-                              <span className="text-destructive">{row.issues.join('; ')}</span>
-                            ) : (
-                              <span className="text-green-600">OK</span>
-                            )}
-                          </td>
+                          <th className="px-3 py-2 text-left">Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {displayedRows.slice(0, 20).map((row) => (
+                          <tr key={row.index} className={row.issues.length ? 'bg-red-50/40' : ''}>
+                            <td className="border-t px-3 py-1 align-top">
+                              <div className="flex flex-col gap-1">
+                                <span>{row.index}</span>
+                                {row.issues.length > 0 ? (
+                                  <Badge variant="destructive" className="w-fit">
+                                    {row.issues.length} xəta
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="w-fit border-emerald-200 bg-emerald-50 text-emerald-700">
+                                    OK
+                                  </Badge>
+                                )}
+                              </div>
+                            </td>
+                            {requiredColumns.map((column) => {
+                              const cellIssue = row.issues.find((issue) => issue.column === column);
+                              const cellValue = row.values[column] || '';
+                              return (
+                                <td
+                                  key={`${row.index}-${column}`}
+                                  className={cn(
+                                    'border-t px-3 py-1 align-top',
+                                    cellIssue && 'border-destructive/60 bg-destructive/10 text-destructive'
+                                  )}
+                                >
+                                  {cellIssue ? (
+                                    <Tooltip delayDuration={200}>
+                                      <TooltipTrigger className="text-left">
+                                        {cellValue || <span className="italic text-muted-foreground">—</span>}
+                                      </TooltipTrigger>
+                                      <TooltipContent className="max-w-xs text-xs">
+                                        {cellIssue.message}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  ) : (
+                                    cellValue || <span className="text-muted-foreground">—</span>
+                                  )}
+                                </td>
+                              );
+                            })}
+                            <td className="border-t px-3 py-1 align-top">
+                              {row.issues.length ? (
+                                <div className="space-y-1">
+                                  {row.issues.slice(0, 2).map((issue, idx) => (
+                                    <div key={`${row.index}-issue-${idx}`} className="text-destructive">
+                                      {issue.message}
+                                    </div>
+                                  ))}
+                                  {row.issues.length > 2 && (
+                                    <div className="text-xs text-muted-foreground">
+                                      ... və digər {row.issues.length - 2} xəta
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-green-600">Təsdiq edildi</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </TooltipProvider>
                 </div>
-                {previewRows.length > 20 && (
+                {displayedRows.length === 0 && showOnlyErroredRows && (
                   <p className="text-xs text-muted-foreground">
-                    Yalnız ilk 20 sətir göstərilir. Cəmi sətir: {previewRows.length}.
+                    Filtr nəticəsində heç bir xəta sətri göstərilmir. Filtri söndürərək bütün sətirləri görə bilərsiniz.
+                  </p>
+                )}
+                {displayedRows.length > 20 && (
+                  <p className="text-xs text-muted-foreground">
+                    Yalnız ilk 20 sətir göstərilir. Cəmi sətir: {displayedRows.length}.
                   </p>
                 )}
               </div>

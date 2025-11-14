@@ -128,9 +128,13 @@ export function useResourceForm({
 
   const { data: institutions } = useQuery({
     queryKey: shouldUseSuperiorInstitutions ? ['superior-institutions'] : ['institutions'],
-    queryFn: () => shouldUseSuperiorInstitutions
-      ? resourceService.getSuperiorInstitutions()
-      : institutionService.getAll({ per_page: 100 }).then(res => res.data),
+    queryFn: async () => {
+      if (shouldUseSuperiorInstitutions) {
+        return resourceService.getSuperiorInstitutions();
+      }
+      const response = await institutionService.getAll({ per_page: 100 });
+      return response.data;
+    },
     enabled: shouldLoadInstitutions,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes (institutions rarely change)
   });
