@@ -28,7 +28,7 @@ class SurveyApprovalBridge extends ApprovalWorkflowService
 
     public function __construct()
     {
-        parent::__construct();
+        // Don't call parent::__construct() as BaseService/ApprovalWorkflowService don't define constructors
         $this->workflowResolver = app(SurveyApprovalWorkflowResolver::class);
     }
     /**

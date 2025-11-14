@@ -39,13 +39,13 @@ const accessLevelLabels: Record<string, string> = {
   institution: 'Müəssisə daxili',
 };
 
-const statusVariantMap: Record<string, string> = {
-  active: 'bg-green-50 text-green-700 border border-green-100',
-  expired: 'bg-amber-50 text-amber-700 border border-amber-100',
-  disabled: 'bg-gray-100 text-gray-600 border border-gray-200',
-  inactive: 'bg-gray-100 text-gray-600 border border-gray-200',
-  draft: 'bg-blue-50 text-blue-700 border border-blue-100',
-  archived: 'bg-purple-50 text-purple-700 border border-purple-100',
+const statusColorMap: Record<string, string> = {
+  active: 'bg-emerald-500',
+  expired: 'bg-amber-500',
+  disabled: 'bg-slate-400',
+  inactive: 'bg-slate-400',
+  draft: 'bg-sky-500',
+  archived: 'bg-violet-500',
 };
 
 export function ResourceGrid({
@@ -102,11 +102,44 @@ export function ResourceGrid({
       return <span className="text-sm text-muted-foreground">—</span>;
     }
 
+    const dotColor = statusColorMap[resource.status] || 'bg-slate-300';
+
     return (
-      <span className={`text-xs font-medium px-2 py-1 rounded ${statusVariantMap[resource.status] || 'bg-gray-100 text-gray-600 border border-gray-200'}`}>
-        {resource.status}
+      <span className="inline-flex items-center" aria-label={`Status: ${resource.status.replace('-', ' ')}`}>
+        <span className={`h-2.5 w-2.5 rounded-full ${dotColor}`} aria-hidden />
+        <span className="sr-only">
+          {resource.status.replace('-', ' ')}
+        </span>
       </span>
     );
+  };
+
+  const getCreatorLabel = (resource: Resource) => {
+    const firstName = resource.creator?.first_name?.trim();
+    const lastName = resource.creator?.last_name?.trim();
+    const fullName = [firstName, lastName].filter(Boolean).join(' ');
+
+    if (fullName) {
+      return fullName;
+    }
+
+    if (resource.creator?.username) {
+      return resource.creator.username;
+    }
+
+    const creatorId = typeof resource.created_by === 'string'
+      ? Number(resource.created_by)
+      : resource.created_by;
+
+    if (creatorId && userDirectory[creatorId]) {
+      return userDirectory[creatorId];
+    }
+
+    if (creatorId) {
+      return `İstifadəçi #${creatorId}`;
+    }
+
+    return '—';
   };
 
   const renderMetrics = (resource: Resource) => {
@@ -347,8 +380,8 @@ export function ResourceGrid({
                     {renderMetrics(resource)}
                   </td>
                   <td className="p-4">
-                    <div className="text-sm">
-                      {resource.creator?.first_name} {resource.creator?.last_name}
+                    <div className="text-sm text-foreground">
+                      {getCreatorLabel(resource)}
                     </div>
                   </td>
                   <td className="p-4">

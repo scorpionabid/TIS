@@ -384,6 +384,22 @@ export default function Resources() {
     return Array.from(ids);
   }, [resourcesData]);
 
+  const resourceCreatorIds = useMemo(() => {
+    const ids = new Set<number>();
+    resourcesData.forEach((resource) => {
+      const creatorId = typeof resource.created_by === 'string'
+        ? Number(resource.created_by)
+        : resource.created_by;
+
+      if (!creatorId || Number.isNaN(creatorId)) {
+        return;
+      }
+
+      ids.add(creatorId);
+    });
+    return Array.from(ids);
+  }, [resourcesData]);
+
   const linkTargetInstitutionIds = useMemo(() => {
     const ids = new Set<number>();
     resourcesData.forEach((resource) => {
@@ -443,6 +459,54 @@ export default function Resources() {
       isCancelled = true;
     };
   }, [linkTargetUserIds, userDirectory]);
+
+  useEffect(() => {
+    if (!canLoadCreators) {
+      return;
+    }
+
+    const missing = resourceCreatorIds.filter((id) => !userDirectory[id]);
+    if (missing.length === 0) {
+      return;
+    }
+
+    let isCancelled = false;
+    (async () => {
+      try {
+        const fetched = await Promise.all(
+          missing.map(async (userId) => {
+            try {
+              const user = await userService.getUser(userId);
+              const label = `${user.first_name || ''} ${user.last_name || ''}`.trim()
+                || user.username
+                || user.email
+                || `İstifadəçi #${userId}`;
+              return { id: userId, name: label };
+            } catch (error) {
+              console.warn('Failed to fetch creator info for', userId, error);
+              return { id: userId, name: `İstifadəçi #${userId}` };
+            }
+          })
+        );
+
+        if (isCancelled) return;
+
+        setUserDirectory((prev) => {
+          const next = { ...prev };
+          fetched.forEach(({ id, name }) => {
+            next[id] = name;
+          });
+          return next;
+        });
+      } catch (error) {
+        console.error('Failed to load creator names', error);
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [resourceCreatorIds, canLoadCreators, userDirectory]);
 
   useEffect(() => {
     const missing = linkTargetInstitutionIds.filter((id) => !institutionDirectory[id]);

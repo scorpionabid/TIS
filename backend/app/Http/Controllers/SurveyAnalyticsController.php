@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Survey;
-use App\Services\SurveyAnalyticsService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Traits\ValidationRules;
@@ -13,11 +12,12 @@ class SurveyAnalyticsController extends Controller
 {
     use ValidationRules, ResponseHelpers;
 
-    protected SurveyAnalyticsService $analyticsService;
+    protected $analyticsService;
 
-    public function __construct(SurveyAnalyticsService $analyticsService)
+    public function __construct()
     {
-        $this->analyticsService = $analyticsService;
+        // Resolve service dynamically through container to support feature flag switching
+        $this->analyticsService = app(\App\Services\SurveyAnalyticsService::class);
     }
 
     /**
