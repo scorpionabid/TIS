@@ -25,6 +25,7 @@ export interface Resource extends BaseEntity {
     id: number;
     name: string;
     type: string;
+    utis_code?: string | null;
   };
 
   // Link specific fields

@@ -6,6 +6,7 @@ export type GroupingMode = 'none' | 'sector' | 'title' | 'link_type' | 'date';
 interface Institution {
   id: number;
   name: string;
+  utis_code?: string | null;
   level?: number;
   parent_id?: number;
 }
@@ -130,8 +131,13 @@ function groupBySector(
       const groupLabel = institution?.name || 'Ümumi';
       const resourcesArray = Array.from(resourceSet);
 
+      // Use UTIS code for groupKey if available, otherwise use ID
+      const groupKey = institution?.utis_code
+        ? `sector-utis-${institution.utis_code}`
+        : `sector-id-${sectorId}`;
+
       return {
-        groupKey: `sector-${sectorId}`,
+        groupKey,
         groupLabel,
         resources: resourcesArray,
         count: resourcesArray.length,

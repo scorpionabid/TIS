@@ -230,6 +230,7 @@ export default function Resources() {
       return flattenResponseArray(response).map((institution: any) => ({
         id: institution.id,
         name: institution.name,
+        utis_code: institution.utis_code,   // ADDED: Include utis_code for identification
         level: institution.level,           // FIXED: Include level for grouping
         parent_id: institution.parent_id,   // FIXED: Include parent_id for hierarchy
       }));
@@ -803,20 +804,38 @@ export default function Resources() {
     ? resourceResponse?.meta?.total ?? resourcesData.length ?? tabTotals.documents
     : (tabTotals.documents || statsToRender.total_documents || 0);
 
+  // Helper: Match institution by UTIS code or ID
+  const institutionMatchesFilter = useCallback((institutionId: number | undefined): boolean => {
+    if (!institutionId || !minimalistFilters.institution_ids?.length) return false;
+
+    // Find institution in available list
+    const institution = availableInstitutions.find(inst => inst.id === institutionId);
+
+    // Try to match by UTIS code first (if available)
+    if (institution?.utis_code) {
+      const filterInstitution = availableInstitutions.find(
+        inst => minimalistFilters.institution_ids!.includes(inst.id) && inst.utis_code === institution.utis_code
+      );
+      if (filterInstitution) return true;
+    }
+
+    // Fallback to ID match (for institutions without UTIS code)
+    return minimalistFilters.institution_ids!.includes(institutionId);
+  }, [minimalistFilters.institution_ids, availableInstitutions]);
+
   // NEW: Apply minimalist filters to resources
   const filteredResourcesData = useMemo(() => {
     let filtered = resourcesData;
 
-    // Institution filter (multi-select) - FIXED: Check both institution_id and target_institutions
+    // Institution filter (multi-select) - ENHANCED: Use UTIS code when available, fallback to ID
     if (minimalistFilters.institution_ids && minimalistFilters.institution_ids.length > 0) {
       filtered = filtered.filter(resource => {
         const resourceInstitutionId = resource.institution?.id ?? (resource as { institution_id?: number }).institution_id;
-        const creatorInstitutionMatch = typeof resourceInstitutionId === 'number' &&
-          minimalistFilters.institution_ids!.includes(resourceInstitutionId);
+        const creatorInstitutionMatch = institutionMatchesFilter(resourceInstitutionId);
 
-        // Check if any target institution matches
+        // Check if any target institution matches (by UTIS code or ID)
         const targetInstitutionMatch = resource.target_institutions?.some(id =>
-          minimalistFilters.institution_ids!.includes(id)
+          institutionMatchesFilter(id)
         );
 
         // Return true if either matches
@@ -839,7 +858,7 @@ export default function Resources() {
     }
 
     return filtered;
-  }, [resourcesData, minimalistFilters]);
+  }, [resourcesData, minimalistFilters, institutionMatchesFilter]);
 
   // NEW: Apply grouping to filtered resources
   const linksForGrouping = useMemo(() => {

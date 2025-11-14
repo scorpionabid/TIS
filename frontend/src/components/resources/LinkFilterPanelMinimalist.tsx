@@ -16,7 +16,7 @@ export interface MinimalistFilters {
 interface LinkFilterPanelMinimalistProps {
   filters: MinimalistFilters;
   onFiltersChange: (filters: MinimalistFilters) => void;
-  availableInstitutions?: Array<{ id: number; name: string }>;
+  availableInstitutions?: Array<{ id: number; name: string; utis_code?: string | null }>;
   isOpen: boolean;
   onToggle: () => void;
 }
