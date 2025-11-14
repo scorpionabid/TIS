@@ -13,6 +13,8 @@ use App\Notifications\SurveyApprovalNotification;
 use Illuminate\Support\Facades\Notification;
 use App\Services\LoggingService;
 use App\Services\NotificationService;
+use App\Services\SurveyApproval\Domains\Security\ApprovalSecurityService;
+use App\Services\SurveyApproval\Utilities\SurveyApprovalWorkflowResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -24,6 +26,15 @@ class SurveyApprovalService extends BaseService
     protected string $modelClass = SurveyResponse::class;
     protected array $relationships = ['institution', 'department', 'respondent', 'approvalRequest'];
     protected int $cacheMinutes = 3; // Short cache for approval data
+    protected ApprovalSecurityService $securityService;
+    protected SurveyApprovalWorkflowResolver $workflowResolver;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->securityService = app(ApprovalSecurityService::class);
+        $this->workflowResolver = app(SurveyApprovalWorkflowResolver::class);
+    }
     /**
      * Get survey responses that need approval for a specific survey
      */
@@ -110,6 +121,8 @@ class SurveyApprovalService extends BaseService
 
     /**
      * Create approval request for a survey response
+     *
+     * REFACTORED: Uses SurveyApprovalWorkflowResolver (2025-11-14)
      */
     public function createApprovalRequest(SurveyResponse $response, array $data = []): DataApprovalRequest
     {
@@ -118,18 +131,11 @@ class SurveyApprovalService extends BaseService
             throw new \Exception('Approval request already exists for this response');
         }
 
-        // Find appropriate workflow for survey responses
-        $workflow = ApprovalWorkflow::where('workflow_type', 'survey_response')
-            ->where('status', 'active')
-            ->first();
-
-        if (!$workflow) {
-            // Create default workflow if none exists
-            $workflow = $this->createDefaultSurveyResponseWorkflow();
-        }
+        // Get workflow using resolver (single source of truth)
+        $workflow = $this->workflowResolver->getOrCreateSurveyApprovalWorkflow();
 
         return DB::transaction(function () use ($response, $workflow, $data) {
-            $initialLevel = $this->getInitialApprovalLevel($workflow);
+            $initialLevel = $this->workflowResolver->getInitialApprovalLevel($workflow);
 
             $approvalRequest = DataApprovalRequest::create([
                 'workflow_id' => $workflow->id,
@@ -151,7 +157,7 @@ class SurveyApprovalService extends BaseService
 
             // Update response status
             $response->update(['status' => 'submitted']);
-            
+
             // Clear cache for approval stats
             $this->clearApprovalCache($response->survey_id);
 
@@ -605,187 +611,24 @@ class SurveyApprovalService extends BaseService
 
     /**
      * Apply user access control based on role hierarchy
+     *
+     * REFACTORED: Delegated to ApprovalSecurityService (2025-11-14)
+     * REASON: Single source of truth for security logic
      */
     private function applyUserAccessControl($query, User $user): void
     {
-        // Get role name as string
-        $role = $user->role?->name ?? $user->roles->pluck('name')->first();
-
-        switch ($role) {
-            case 'superadmin':
-                // SuperAdmin can see everything
-                break;
-            case 'regionadmin':
-                // RegionAdmin can see responses from all subordinate institutions
-                // (sectors, schools, and other institutions in their hierarchy)
-                if ($user->institution) {
-                    $childIds = $user->institution->getAllChildrenIds();
-                    $query->whereIn('institution_id', $childIds);
-                }
-                break;
-            case 'sektoradmin':
-                // SektorAdmin can see responses ONLY from subordinate schools in their sector
-                // (not from other sectors in the same region)
-                if ($user->institution) {
-                    $childIds = $user->institution->getAllChildrenIds();
-                    $query->whereIn('institution_id', $childIds);
-                }
-                break;
-            case 'schooladmin':
-            case 'deputy':
-            default:
-                // School level users can only see responses from their institution,
-                // but NOT their own responses (those go to SektorAdmin for approval)
-                if ($user->institution_id) {
-                    $query->where('institution_id', $user->institution_id)
-                          ->where('respondent_id', '!=', $user->id);
-                }
-                break;
-        }
+        $this->securityService->applyUserAccessControl($query, $user);
     }
 
     /**
      * Determine the appropriate approval level for the current approver
+     *
+     * REFACTORED: Delegated to ApprovalSecurityService (2025-11-14)
+     * REASON: Single source of truth for security logic
      */
     private function determineApprovalLevelForApprover(DataApprovalRequest $approvalRequest, ApprovalWorkflow $workflow, User $approver): int
     {
-        $currentLevel = (int) ($approvalRequest->current_approval_level ?? 1);
-
-        // SuperAdmin operates at the highest configured level
-        if ($approver->hasRole('superadmin')) {
-            $levels = collect($workflow->approval_chain ?? [])
-                ->pluck('level')
-                ->filter()
-                ->map(fn ($level) => (int) $level)
-                ->all();
-
-            return !empty($levels) ? max($levels) : $currentLevel;
-        }
-
-        $approverLevel = $this->resolveApproverLevel($workflow, $approver);
-
-        if ($approverLevel === null) {
-            // Fallback: infer level from role ordering if workflow uses legacy role slugs
-            $approverLevel = $this->inferLevelFromRoleAliases($workflow, $approver);
-        }
-
-        if ($approverLevel === null) {
-            return $currentLevel;
-        }
-
-        return max($currentLevel, (int) $approverLevel);
-    }
-
-    /**
-     * Resolve approver level from workflow configuration
-     */
-    private function resolveApproverLevel(ApprovalWorkflow $workflow, User $approver): ?int
-    {
-        $chain = $workflow->approval_chain ?? [];
-        $userRoles = $this->collectUserRoles($approver);
-
-        foreach ($chain as $step) {
-            $role = $step['role'] ?? null;
-            $level = isset($step['level']) ? (int) $step['level'] : null;
-
-            if (!$role || !$level) {
-                continue;
-            }
-
-            $normalizedStepRole = $this->normalizeRoleSlug($role);
-
-            if ($userRoles->contains($normalizedStepRole)) {
-                return $level;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Attempt to infer approver level when workflow uses legacy role aliases
-     */
-    private function inferLevelFromRoleAliases(ApprovalWorkflow $workflow, User $approver): ?int
-    {
-        $chain = $workflow->approval_chain ?? [];
-        $userRoles = $this->collectUserRoles($approver);
-
-        foreach ($chain as $step) {
-            $role = $step['role'] ?? null;
-            $level = isset($step['level']) ? (int) $step['level'] : null;
-
-            if (!$role || !$level) {
-                continue;
-            }
-
-            $normalizedStepRole = $this->normalizeRoleSlug($role);
-
-            foreach ($userRoles as $userRole) {
-                if ($this->rolesMatch($normalizedStepRole, $userRole)) {
-                    return $level;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Collect user roles (primary + assigned) in normalized form
-     */
-    private function collectUserRoles(User $approver): \Illuminate\Support\Collection
-    {
-        $roleNames = collect();
-
-        if (method_exists($approver, 'getRoleNames')) {
-            $roleNames = $approver->getRoleNames();
-        } elseif (method_exists($approver, 'roles')) {
-            $roleNames = $approver->roles->pluck('name');
-        }
-
-        if ($approver->role && !empty($approver->role->name)) {
-            $roleNames->push($approver->role->name);
-        }
-
-        return $roleNames
-            ->filter()
-            ->map(fn ($name) => $this->normalizeRoleSlug($name))
-            ->filter()
-            ->unique();
-    }
-
-    /**
-     * Normalize role slugs and apply known aliases
-     */
-    private function normalizeRoleSlug(?string $role): ?string
-    {
-        if (!$role) {
-            return null;
-        }
-
-        $normalized = strtolower(trim($role));
-
-        $aliases = [
-            'sectoradmin' => 'sektoradmin',
-            'sector_admin' => 'sektoradmin',
-            'region_admin' => 'regionadmin',
-            'regionaladmin' => 'regionadmin',
-            'regional_admin' => 'regionadmin',
-        ];
-
-        return $aliases[$normalized] ?? $normalized;
-    }
-
-    /**
-     * Determine if two normalized role slugs should be treated as identical
-     */
-    private function rolesMatch(?string $workflowRole, ?string $userRole): bool
-    {
-        if (!$workflowRole || !$userRole) {
-            return false;
-        }
-
-        return $workflowRole === $userRole;
+        return $this->securityService->determineApprovalLevelForApprover($approvalRequest, $workflow, $approver);
     }
 
     /**
@@ -828,44 +671,11 @@ class SurveyApprovalService extends BaseService
     }
 
     /**
-     * Determine the initial approval level for a new approval request
-     */
-    private function getInitialApprovalLevel(ApprovalWorkflow $workflow): int
-    {
-        return $this->getNextRequiredApprovalLevel($workflow, 0)
-            ?? (int) ($workflow->approval_chain[0]['level'] ?? 1);
-    }
-
-    /**
      * Allow external services to refresh approval caches after status changes
      */
     public static function refreshCacheForSurvey(int $surveyId): void
     {
         (new self())->clearApprovalCache($surveyId);
-    }
-
-    /**
-     * Create default survey response approval workflow
-     */
-    private function createDefaultSurveyResponseWorkflow(): ApprovalWorkflow
-    {
-        return ApprovalWorkflow::create([
-            'name' => 'Survey Response Approval',
-            'workflow_type' => 'survey_response',
-            'status' => 'active',
-            'approval_chain' => [
-                ['level' => 1, 'role' => 'schooladmin', 'required' => true, 'title' => 'School Admin Review'],
-                ['level' => 2, 'role' => 'sektoradmin', 'required' => true, 'title' => 'Sector Admin Approval'],
-                ['level' => 3, 'role' => 'regionadmin', 'required' => false, 'title' => 'Regional Review'],
-            ],
-            'workflow_config' => [
-                'auto_approve_after' => '7_days',
-                'require_all_levels' => false,
-                'allow_skip_levels' => true,
-            ],
-            'description' => 'Default workflow for survey response approvals',
-            'created_by' => Auth::id() ?? 1,
-        ]);
     }
 
     /**

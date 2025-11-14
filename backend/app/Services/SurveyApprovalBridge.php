@@ -8,18 +8,29 @@ use App\Models\User;
 use App\Models\DataApprovalRequest;
 use App\Models\ApprovalWorkflow;
 use App\Services\ApprovalWorkflowService;
+use App\Services\SurveyApproval\Utilities\SurveyApprovalWorkflowResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Exception;
 
 /**
  * Survey Approval Bridge Service
- * 
+ *
  * Köprü xidməti - mövcud ApprovalWorkflowService və Survey model arasında
  * Mövcud kodu pozmadan survey-specific approval funksionallığı təmin edir
+ *
+ * REFACTORED: 2025-11-14
+ * - Uses SurveyApprovalWorkflowResolver for workflow management
  */
 class SurveyApprovalBridge extends ApprovalWorkflowService
 {
+    protected SurveyApprovalWorkflowResolver $workflowResolver;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->workflowResolver = app(SurveyApprovalWorkflowResolver::class);
+    }
     /**
      * Survey response üçün approval workflow başlat
      * 
@@ -30,8 +41,8 @@ class SurveyApprovalBridge extends ApprovalWorkflowService
     public function initiateSurveyResponseApproval(SurveyResponse $response, array $additionalData = []): DataApprovalRequest
     {
         return DB::transaction(function () use ($response, $additionalData) {
-            // Survey approval workflow-nu tap və ya yarat
-            $workflow = $this->getOrCreateSurveyApprovalWorkflow();
+            // Survey approval workflow-nu tap və ya yarat (using resolver)
+            $workflow = $this->workflowResolver->getOrCreateSurveyApprovalWorkflow();
             
             // Approval request yarat
             $approvalRequest = $this->createApprovalRequest([
@@ -268,36 +279,15 @@ class SurveyApprovalBridge extends ApprovalWorkflowService
 
     /**
      * Survey approval workflow-nu tap və ya yarat
+     *
+     * REFACTORED: Delegated to SurveyApprovalWorkflowResolver (2025-11-14)
+     * DEPRECATED: Use $this->workflowResolver->getOrCreateSurveyApprovalWorkflow() directly
+     *
+     * @deprecated 2025-11-14
      */
     private function getOrCreateSurveyApprovalWorkflow(): ApprovalWorkflow
     {
-        $workflow = ApprovalWorkflow::where('workflow_type', 'survey_response')
-            ->where('status', 'active')
-            ->first();
-
-        if (!$workflow) {
-            $workflow = ApprovalWorkflow::create([
-                'name' => 'Survey Cavabların Təsdiqi',
-                'workflow_type' => 'survey_response',
-                'status' => 'active',
-                'approval_chain' => [
-                    ['level' => 1, 'role' => 'schooladmin', 'required' => false],
-                    ['level' => 2, 'role' => 'sektoradmin', 'required' => true],
-                    ['level' => 3, 'role' => 'regionadmin', 'required' => true],
-                ],
-                'workflow_config' => [
-                    'auto_approve_after' => '72_hours',
-                    'require_all_levels' => false,
-                    'allow_skip_levels' => true,
-                    'first_approver_role' => 'sektoradmin',
-                    'approval_hierarchy' => ['schooladmin', 'sektoradmin', 'regionadmin'],
-                ],
-                'description' => 'Survey cavablarının ierarxik təsdiq prosesi',
-                'created_by' => auth()->id() ?? 1,
-            ]);
-        }
-
-        return $workflow;
+        return $this->workflowResolver->getOrCreateSurveyApprovalWorkflow();
     }
 
     /**

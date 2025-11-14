@@ -20,6 +20,30 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\SurveyApprovalBridge::class, function ($app) {
             return new \App\Services\SurveyApprovalBridge();
         });
+
+        // REFACTOR: Register SurveyAnalytics services (Phase 1)
+        // FEATURE FLAG: USE_REFACTORED_ANALYTICS (default: true for gradual rollout)
+        $useRefactoredAnalytics = config('features.use_refactored_analytics', true);
+
+        if ($useRefactoredAnalytics) {
+            // Register domain services
+            $this->app->singleton(\App\Services\SurveyAnalytics\Domains\Basic\BasicStatsService::class);
+            $this->app->singleton(\App\Services\SurveyAnalytics\Domains\Response\ResponseAnalyticsService::class);
+            $this->app->singleton(\App\Services\SurveyAnalytics\Domains\Demographic\DemographicAnalyticsService::class);
+            $this->app->singleton(\App\Services\SurveyAnalytics\Domains\Temporal\TemporalAnalyticsService::class);
+            $this->app->singleton(\App\Services\SurveyAnalytics\Domains\Completion\CompletionAnalyticsService::class);
+            $this->app->singleton(\App\Services\SurveyAnalytics\Domains\Performance\PerformanceMetricsService::class);
+            $this->app->singleton(\App\Services\SurveyAnalytics\Domains\Question\QuestionAnalyticsService::class);
+
+            // Register facade
+            $this->app->singleton(\App\Services\SurveyAnalytics\SurveyAnalyticsFacade::class);
+
+            // Alias: SurveyAnalyticsService → SurveyAnalyticsFacade (backward compatibility)
+            $this->app->bind(\App\Services\SurveyAnalyticsService::class, \App\Services\SurveyAnalytics\SurveyAnalyticsFacade::class);
+        } else {
+            // Use legacy monolithic service
+            $this->app->singleton(\App\Services\SurveyAnalyticsService::class);
+        }
     }
 
     /**
