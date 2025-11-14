@@ -13,6 +13,9 @@ import {
 } from "lucide-react";
 import { ResourceModal } from "@/components/modals/ResourceModal";
 import { LinkFilterPanel, LinkFilters } from "@/components/resources/LinkFilterPanel";
+import { LinkFilterPanelMinimalist, MinimalistFilters } from "@/components/resources/LinkFilterPanelMinimalist";
+import { GroupedResourceDisplay } from "@/components/resources/GroupedResourceDisplay";
+import { ResourceGroupingToolbar } from "@/components/resources/ResourceGroupingToolbar";
 import { ResourceHeader } from "@/components/resources/ResourceHeader";
 import { ResourceToolbar } from "@/components/resources/ResourceToolbar";
 import { ResourceGrid } from "@/components/resources/ResourceGrid";
@@ -29,6 +32,7 @@ import RegionalFolderManager from "@/components/documents/RegionalFolderManager"
 import { hasAnyRole } from "@/utils/permissions";
 import { useResourceFilters } from "@/hooks/useResourceFilters";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
+import { useResourceGrouping, GroupingMode } from "@/hooks/useResourceGrouping";
 
 const flattenResponseArray = (payload: any): any[] => {
   if (!payload) return [];
@@ -98,6 +102,12 @@ export default function Resources() {
   const [sortBy, setSortBy] = useState<'created_at' | 'title'>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
+  // NEW: Grouping state (default: sector grouping)
+  const [groupingMode, setGroupingMode] = useState<GroupingMode>('sector');
+
+  // NEW: Minimalist filters state
+  const [minimalistFilters, setMinimalistFilters] = useState<MinimalistFilters>({});
+
   useEffect(() => {
     const timeout = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
@@ -134,6 +144,8 @@ export default function Resources() {
       return flattenResponseArray(response).map((institution: any) => ({
         id: institution.id,
         name: institution.name,
+        level: institution.level,           // FIXED: Include level for grouping
+        parent_id: institution.parent_id,   // FIXED: Include parent_id for hierarchy
       }));
     },
     enabled: shouldLoadFilterSources && canLoadCreatorOptions,
@@ -558,6 +570,54 @@ export default function Resources() {
     ? resourceResponse?.meta?.total ?? resourcesData.length ?? tabTotals.documents
     : (tabTotals.documents || statsToRender.total_documents || 0);
 
+  // NEW: Apply minimalist filters to resources
+  const filteredResourcesData = useMemo(() => {
+    let filtered = resourcesData;
+
+    // Institution filter (multi-select) - FIXED: Check both institution_id and target_institutions
+    if (minimalistFilters.institution_ids && minimalistFilters.institution_ids.length > 0) {
+      filtered = filtered.filter(resource => {
+        // Check if resource creator's institution matches
+        const creatorInstitutionMatch = resource.institution_id &&
+          minimalistFilters.institution_ids!.includes(resource.institution_id);
+
+        // Check if any target institution matches
+        const targetInstitutionMatch = resource.target_institutions &&
+          resource.target_institutions.some(id => minimalistFilters.institution_ids!.includes(id));
+
+        // Return true if either matches
+        return creatorInstitutionMatch || targetInstitutionMatch;
+      });
+    }
+
+    // Link type filter
+    if (minimalistFilters.link_type) {
+      filtered = filtered.filter(resource =>
+        resource.link_type === minimalistFilters.link_type
+      );
+    }
+
+    // Status filter
+    if (minimalistFilters.status) {
+      filtered = filtered.filter(resource =>
+        resource.status === minimalistFilters.status
+      );
+    }
+
+    return filtered;
+  }, [resourcesData, minimalistFilters]);
+
+  // NEW: Apply grouping to filtered resources
+  const linksForGrouping = useMemo(() => {
+    return filteredResourcesData.filter(r => r.type === 'link');
+  }, [filteredResourcesData]);
+
+  const { groupedResources } = useResourceGrouping(
+    linksForGrouping,
+    availableInstitutions,
+    groupingMode
+  );
+
   // Security checks - moved after all hooks
   if (!isAuthenticated) {
     return (
@@ -804,21 +864,34 @@ export default function Resources() {
         </TabsList>
 
         <TabsContent value="links" className="mt-6 space-y-4">
-          {/* Advanced Link Filters */}
-          <LinkFilterPanel
-            filters={linkFilters}
-            onFiltersChange={setLinkFilters}
-            availableInstitutions={institutionFilterOptions}
-            availableCreators={availableCreators}
+          {/* NEW: Grouping Toolbar */}
+          <ResourceGroupingToolbar
+            groupingMode={groupingMode}
+            onGroupingModeChange={setGroupingMode}
+            sortBy={sortBy}
+            sortDirection={sortDirection}
+            onSortChange={(by, dir) => {
+              setSortBy(by);
+              setSortDirection(dir);
+            }}
+          />
+
+          {/* NEW: Minimalist Filter */}
+          <LinkFilterPanelMinimalist
+            filters={minimalistFilters}
+            onFiltersChange={setMinimalistFilters}
+            availableInstitutions={availableInstitutions}
             isOpen={filterPanelOpen}
             onToggle={toggleFilterPanel}
-            mode="links"
           />
-          <ResourceGrid
-            resources={resourcesData.filter(r => r.type === 'link')}
+
+          {/* NEW: Grouped Display */}
+          <GroupedResourceDisplay
+            groups={groupedResources}
             onResourceAction={handleResourceAction}
             institutionDirectory={institutionDirectory}
             userDirectory={userDirectory}
+            defaultExpanded={groupingMode !== 'none'}
           />
         </TabsContent>
 
