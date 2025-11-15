@@ -96,12 +96,26 @@ export interface ClassImportResult {
   success: boolean;
   message: string;
   data: {
+    session_id?: string; // NEW: Session ID for progress tracking
     success_count: number;
     error_count: number;
     errors: string[]; // Simple string errors (backward compatible)
     structured_errors?: ImportError[]; // New: detailed error objects
     total_processed: number;
   };
+}
+
+export interface ImportProgress {
+  status: 'initializing' | 'parsing' | 'validating' | 'importing' | 'complete';
+  processed_rows: number;
+  total_rows: number;
+  success_count: number;
+  error_count: number;
+  current_institution?: string | null;
+  elapsed_seconds: number;
+  estimated_remaining_seconds: number;
+  percentage: number;
+  timestamp: string;
 }
 
 export interface Institution {
@@ -215,6 +229,20 @@ class RegionAdminClassService {
         },
       }
     );
+
+    // apiClient returns the full backend response: { success, message, data }
+    // We need to return the entire response as ClassImportResult
+    return response as any as ClassImportResult;
+  }
+
+  /**
+   * Get import progress for real-time tracking
+   */
+  async getImportProgress(sessionId: string): Promise<ImportProgress> {
+    const response = await apiClient.get<{
+      success: boolean;
+      data: ImportProgress;
+    }>(`${this.baseUrl}/import/progress/${sessionId}`);
 
     return response.data;
   }

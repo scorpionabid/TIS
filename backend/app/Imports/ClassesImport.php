@@ -12,10 +12,11 @@ use Maatwebsite\Excel\Concerns\WithValidation;
 use Maatwebsite\Excel\Concerns\WithBatchInserts;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
 
-class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatchInserts, WithChunkReading
+class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithChunkReading
 {
     protected $region;
     protected $allowedInstitutionIds;
@@ -26,6 +27,13 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
     protected $academicYearCache = [];
     protected $teacherCache = [];
 
+    // Progress tracking
+    protected $importSessionId;
+    protected $totalRows = 0;
+    protected $processedRows = 0;
+    protected $currentInstitution = null;
+    protected $startTime;
+
     /**
      * Specify which row contains the headings.
      * Row 1 is instruction row, Row 2 is actual headers.
@@ -35,16 +43,23 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
         return 2;
     }
 
-    public function __construct($region)
+    public function __construct($region, $sessionId = null)
     {
         $this->region = $region;
         // Get all institutions in this region
         $this->allowedInstitutionIds = $region->getAllChildrenIds();
         $this->allowedInstitutionIds[] = $region->id;
 
+        // Initialize progress tracking
+        $this->importSessionId = $sessionId ?? Str::uuid()->toString();
+        $this->startTime = microtime(true);
+
         // Pre-cache institutions for performance
         $this->cacheInstitutions();
         $this->cacheAcademicYears();
+
+        // Initialize progress in cache
+        $this->updateProgress('initializing', 0, 0);
     }
 
     /**
@@ -99,6 +114,10 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
         // We want to display Excel row numbers, so: Excel Row = headingRow + 1 + $index
         $normalized['_row_index'] = 3 + $index; // Row 3 is first data row (after instruction + headers)
 
+        // CRITICAL: Mark empty rows with a special flag for conditional validation
+        // This prevents "required field" errors for blank Excel rows
+        $normalized['_is_empty_row'] = $this->isRowEmpty($normalized);
+
         // Convert UTIS code to string (Excel reads numbers as integers)
         if (array_key_exists('utis_code', $normalized) && $normalized['utis_code'] !== null && $normalized['utis_code'] !== '') {
             $digits = preg_replace('/\D+/', '', (string) $normalized['utis_code']);
@@ -140,14 +159,21 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
     public function model(array $row)
     {
         try {
-            $row = $this->normalizeRowKeys($row);
-
-            // Skip completely empty rows (all values are null/empty)
-            if ($this->isRowEmpty($row)) {
+            // Skip completely empty rows (double-check from prepareForValidation)
+            if (!empty($row['_is_empty_row'])) {
                 Log::debug('Skipping empty row at index: ' . ($row['_row_index'] ?? 'unknown'));
                 return null;
             }
 
+            // Update progress tracking
+            $this->processedRows++;
+            if ($this->processedRows % 10 === 0 || $this->processedRows === 1) {
+                // Update progress every 10 rows to avoid excessive cache writes
+                $this->updateProgress('importing', $this->processedRows, $this->totalRows);
+            }
+
+            // NOTE: Do NOT call normalizeRowKeys() here - already done in prepareForValidation()
+            // Calling it again would lose the parsed class_level and class_name values
             Log::info('Processing class import row:', $row);
 
             // Validate class identifiers (either combined "Sinif adı" or level + letter)
@@ -198,6 +224,9 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
                     return null;
                 }
                 $identifierUsed = "UTIS: {$utisCode}";
+
+                // Update current institution for progress tracking
+                $this->currentInstitution = $institution->name;
             }
 
             // 2. FALLBACK: Find by institution code
@@ -259,19 +288,20 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
 
             // If not found, use current academic year
             if (!$academicYear) {
-                $academicYear = AcademicYear::where('is_current', true)->first();
+                $academicYear = AcademicYear::where('is_active', true)->first();
                 if (!$academicYear) {
                     // Create default academic year if none exists
                     $currentYear = date('Y');
                     $nextYear = $currentYear + 1;
+                    $yearName = "{$currentYear}-{$nextYear}";
                     $academicYear = AcademicYear::firstOrCreate([
-                        'year' => "{$currentYear}-{$nextYear}",
+                        'name' => $yearName,
                     ], [
-                        'is_current' => true,
+                        'is_active' => true,
                         'start_date' => "{$currentYear}-09-15",
                         'end_date' => "{$nextYear}-06-15",
                     ]);
-                    $this->academicYearCache[$academicYear->year] = $academicYear;
+                    $this->academicYearCache[$academicYear->name] = $academicYear;
                 }
             }
 
@@ -698,57 +728,6 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
     }
 
     /**
-     * Validation rules for each row
-     */
-    public function rules(): array
-    {
-        return [
-            // At least one institution identifier required (handled in model())
-            'utis_code' => ['nullable', 'string', 'size:9'],
-            'institution_code' => ['nullable', 'string', 'max:20'],
-            'institution_name' => ['nullable', 'string', 'max:200'],
-
-            // Required fields
-            'class_level' => ['required', 'integer', 'min:0', 'max:12'],
-            'class_name' => ['required', 'string', 'max:3'],
-
-            // Optional fields with validation
-            'student_count' => ['nullable', 'integer', 'min:0', 'max:100'],
-            'male_count' => ['nullable', 'integer', 'min:0', 'max:100'],
-            'female_count' => ['nullable', 'integer', 'min:0', 'max:100'],
-            'specialty' => ['nullable', 'string', 'max:100'],
-            'grade_category' => ['nullable', 'string', 'max:50'],
-            'grade_type' => ['nullable', 'string', Rule::in(['ümumi', 'ixtisaslaşdırılmış', 'xüsusi'])],
-            'education_program' => ['nullable', 'string', 'max:50'],
-            'teaching_language' => ['nullable', 'string', Rule::in(['azərbaycan', 'rus', 'gürcü', 'ingilis'])],
-            'teaching_week' => ['nullable', 'string', Rule::in(['4_günlük', '5_günlük', '6_günlük'])],
-            'teaching_shift' => ['nullable', 'string', 'max:50'],
-            'class_type' => ['nullable', 'string', 'max:120'],
-            'class_profile' => ['nullable', 'string', 'max:120'],
-            'homeroom_teacher' => ['nullable', 'string', 'max:150'],
-            'academic_year' => ['nullable', 'string', 'max:20'],
-        ];
-    }
-
-    /**
-     * Custom validation messages
-     */
-    public function customValidationMessages(): array
-    {
-        return [
-            'utis_code.size' => 'UTIS kod 9 simvol (rəqəm) olmalıdır',
-            'class_level.required' => 'Sinif səviyyəsi mütləqdir',
-            'class_level.min' => 'Sinif səviyyəsi ən az 0 ola bilər',
-            'class_level.max' => 'Sinif səviyyəsi ən çox 12 ola bilər',
-            'class_name.required' => 'Sinif index-i (hərf və ya sərbəst kod) mütləqdir',
-            'class_name.max' => 'Sinif index-i maksimum 3 simvol ola bilər',
-            'student_count.max' => 'Şagird sayı maksimum 100 ola bilər',
-            'male_count.max' => 'Oğlan sayı maksimum 100 ola bilər',
-            'female_count.max' => 'Qız sayı maksimum 100 ola bilər',
-        ];
-    }
-
-    /**
      * Batch insert size
      */
     public function batchSize(): int
@@ -831,7 +810,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
     private function isRowEmpty(array $row): bool
     {
         // Remove internal tracking fields before checking
-        $checkableFields = array_diff_key($row, array_flip(['_row_index']));
+        $checkableFields = array_diff_key($row, array_flip(['_row_index', '_is_empty_row']));
 
         // Check if all values are null, empty string, or whitespace-only
         foreach ($checkableFields as $value) {
@@ -841,5 +820,48 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
         }
 
         return true; // All fields are empty
+    }
+
+    /**
+     * Update progress in cache for frontend polling
+     */
+    protected function updateProgress(string $status, int $processed, int $total): void
+    {
+        $elapsed = microtime(true) - $this->startTime;
+        $estimatedTotal = $processed > 0 ? ($elapsed / $processed) * $total : 0;
+        $remaining = max(0, $estimatedTotal - $elapsed);
+
+        $progress = [
+            'status' => $status, // 'initializing', 'parsing', 'validating', 'importing', 'complete'
+            'processed_rows' => $processed,
+            'total_rows' => $total,
+            'success_count' => $this->successCount,
+            'error_count' => count($this->errors),
+            'current_institution' => $this->currentInstitution,
+            'elapsed_seconds' => round($elapsed, 2),
+            'estimated_remaining_seconds' => round($remaining, 2),
+            'percentage' => $total > 0 ? round(($processed / $total) * 100, 2) : 0,
+            'timestamp' => now()->toISOString(),
+        ];
+
+        // Store in cache for 10 minutes (progress will be polled by frontend)
+        Cache::put("import_progress:{$this->importSessionId}", $progress, 600);
+    }
+
+    /**
+     * Get the import session ID for progress tracking
+     */
+    public function getSessionId(): string
+    {
+        return $this->importSessionId;
+    }
+
+    /**
+     * Set total rows for progress calculation
+     */
+    public function setTotalRows(int $total): void
+    {
+        $this->totalRows = $total;
+        $this->updateProgress('parsing', 0, $total);
     }
 }

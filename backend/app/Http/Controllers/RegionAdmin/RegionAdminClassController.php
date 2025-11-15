@@ -11,7 +11,10 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RegionAdminClassController extends Controller
@@ -203,7 +206,7 @@ class RegionAdminClassController extends Controller
     {
         try {
             $request->validate([
-                'file' => 'required|file|mimes:xlsx,xls,csv|max:5120', // 5MB max
+                'file' => 'required|file|mimes:xlsx,xls,csv|max:10240', // 10MB max (increased from 5MB)
             ]);
 
             $user = Auth::user();
@@ -213,11 +216,37 @@ class RegionAdminClassController extends Controller
 
             $file = $request->file('file');
 
-            // Create import instance
-            $import = new ClassesImport($region);
+            // Generate unique session ID for progress tracking
+            $sessionId = Str::uuid()->toString();
+
+            // Create import instance with session ID
+            $import = new ClassesImport($region, $sessionId);
+
+            // Count total rows for progress tracking
+            try {
+                $reader = IOFactory::createReaderForFile($file->getRealPath());
+                $spreadsheet = $reader->load($file->getRealPath());
+                $worksheet = $spreadsheet->getActiveSheet();
+                $totalRows = $worksheet->getHighestDataRow() - 2; // Subtract instruction row and header row
+                $import->setTotalRows($totalRows);
+                Log::info("Total rows to import: {$totalRows}");
+            } catch (\Exception $e) {
+                Log::warning('Could not count rows for progress tracking: ' . $e->getMessage());
+            }
 
             // Execute import
             Excel::import($import, $file);
+
+            // Mark progress as complete
+            Cache::put("import_progress:{$sessionId}", [
+                'status' => 'complete',
+                'processed_rows' => $import->getStatistics()['total_processed'] ?? 0,
+                'total_rows' => $totalRows ?? 0,
+                'success_count' => $import->getStatistics()['success_count'],
+                'error_count' => $import->getStatistics()['error_count'],
+                'percentage' => 100,
+                'timestamp' => now()->toISOString(),
+            ], 600);
 
             // Get statistics
             $stats = $import->getStatistics();
@@ -228,6 +257,7 @@ class RegionAdminClassController extends Controller
                 'success' => true,
                 'message' => 'Siniflərin idxalı tamamlandı',
                 'data' => [
+                    'session_id' => $sessionId, // Return session ID for frontend
                     'success_count' => $stats['success_count'],
                     'error_count' => $stats['error_count'],
                     'errors' => $stats['errors'],
@@ -668,6 +698,37 @@ class RegionAdminClassController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch institutions',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get import progress for real-time tracking
+     */
+    public function getImportProgress(Request $request, string $sessionId): JsonResponse
+    {
+        try {
+            $progress = Cache::get("import_progress:{$sessionId}");
+
+            if (!$progress) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'İdxal sessiyası tapılmadı və ya müddəti bitib',
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $progress
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch import progress: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Progress məlumatı əldə ediləmədi',
                 'error' => $e->getMessage()
             ], 500);
         }

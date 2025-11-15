@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
-import { Upload, FileSpreadsheet, CheckCircle, XCircle, AlertCircle, Download, Table as TableIcon, Filter } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle, XCircle, AlertCircle, Download, Table as TableIcon, Filter, Loader2 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { regionAdminClassService, ClassImportResult, ImportError } from '@/services/regionadmin/classes';
+import { regionAdminClassService, ClassImportResult, ImportError, ImportProgress } from '@/services/regionadmin/classes';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { ImportProgressBar } from '@/components/common/ImportProgressBar';
 import * as XLSX from 'xlsx';
 
 interface RegionClassImportModalProps {
@@ -21,11 +22,22 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
   const [importError, setImportError] = useState<{ message: string; details: string[] } | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'table'>('list'); // View mode for errors
   const [filterField, setFilterField] = useState<string>('all'); // Filter errors by field
+
+  // Progress tracking state
+  const [importSessionId, setImportSessionId] = useState<string | null>(null);
+  const [showProgress, setShowProgress] = useState(false);
+
   const queryClient = useQueryClient();
 
   const importMutation = useMutation({
     mutationFn: (file: File) => regionAdminClassService.importClasses(file),
     onSuccess: (result) => {
+      // Extract session ID for progress tracking
+      if (result.data.session_id) {
+        setImportSessionId(result.data.session_id);
+        setShowProgress(true);
+      }
+
       setImportResult(result);
       setImportError(null);
       queryClient.invalidateQueries({ queryKey: ['regionadmin', 'classes'] });
@@ -106,11 +118,11 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
   };
 
   const validateFile = (file: File): { valid: boolean; error?: string } => {
-    // Check file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
+    // Check file size (max 10MB - updated to match backend)
+    if (file.size > 10 * 1024 * 1024) {
       return {
         valid: false,
-        error: 'Fayl ölçüsü çox böyükdür (maksimum 5MB)'
+        error: 'Fayl ölçüsü çox böyükdür (maksimum 10MB)'
       };
     }
 
@@ -137,6 +149,8 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
     setImportError(null);
     setViewMode('list');
     setFilterField('all');
+    setImportSessionId(null);
+    setShowProgress(false);
     onClose();
   };
 
@@ -323,33 +337,50 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
               </div>
 
               {selectedFile && (
-                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <FileSpreadsheet className="h-6 w-6 text-green-600" />
-                    <div>
-                      <p className="font-medium text-sm">{selectedFile.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {(selectedFile.size / 1024).toFixed(2)} KB
-                      </p>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <FileSpreadsheet className="h-6 w-6 text-green-600" />
+                      <div>
+                        <p className="font-medium text-sm">{selectedFile.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(selectedFile.size / 1024).toFixed(2)} KB
+                        </p>
+                      </div>
                     </div>
+                    <Button
+                      onClick={handleImport}
+                      disabled={importMutation.isLoading}
+                      className="gap-2"
+                    >
+                      {importMutation.isLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          İdxal edilir...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4" />
+                          İdxal Et
+                        </>
+                      )}
+                    </Button>
                   </div>
-                  <Button
-                    onClick={handleImport}
-                    disabled={importMutation.isLoading}
-                    className="gap-2"
-                  >
-                    {importMutation.isLoading ? (
-                      <>
-                        <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                        İdxal edilir...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-4 w-4" />
-                        İdxal Et
-                      </>
-                    )}
-                  </Button>
+
+                  {/* Progress Tracking */}
+                  {showProgress && importSessionId && importMutation.isLoading && (
+                    <div className="border rounded-lg p-4 bg-white">
+                      <ImportProgressBar
+                        sessionId={importSessionId}
+                        onComplete={() => {
+                          console.log('✅ Import completed!');
+                        }}
+                        onError={(error) => {
+                          console.error('❌ Progress tracking error:', error);
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>

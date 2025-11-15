@@ -29,6 +29,7 @@ Route::middleware(['auth:sanctum', 'role:regionadmin'])
 
         // Import/Export operations
         Route::post('/import', [RegionAdminClassController::class, 'importClasses']);
+        Route::get('/import/progress/{sessionId}', [RegionAdminClassController::class, 'getImportProgress']);
         Route::get('/export/template', [RegionAdminClassController::class, 'exportClassesTemplate']);
         Route::post('/export', [RegionAdminClassController::class, 'exportClasses']);
 
