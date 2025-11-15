@@ -129,20 +129,35 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
             $normalized['institution_code'] = (string) $normalized['institution_code'];
         }
 
-        // Convert class_level to integer (Excel may read as string)
+        // Handle class_level column - may contain combined format like "9 a" or just "9"
         $levelValue = $normalized['class_level'] ?? null;
-        if ($levelValue !== null && $levelValue !== '') {
-            $normalized['class_level'] = (int) $levelValue;
-        }
-
         $classIndex = $normalized['class_name'] ?? null;
 
+        // Try to parse combined format in class_level column first (e.g., "9 a", "10B")
+        if ($levelValue !== null && $levelValue !== '') {
+            $levelStr = trim((string) $levelValue);
+
+            // Check if it contains both number and letter (combined format)
+            if (preg_match('/^(\d{1,2})\s*([a-zA-Zə-üƏ-Ü]{1,3})$/u', $levelStr, $matches)) {
+                // Combined format found: "9 a" → level=9, name=a
+                $normalized['class_level'] = (int) $matches[1];
+                $normalized['class_name'] = $this->sanitizeClassIndex($matches[2]);
+            } else {
+                // Pure number format: "9" → level=9, name from separate column
+                $normalized['class_level'] = (int) $levelValue;
+            }
+        }
+
+        // If class_full_name column exists and class_level is still empty, try parsing it
         if (($levelValue === null || $levelValue === '') && !empty($normalized['class_full_name'])) {
             $parsed = $this->parseCombinedClassName($normalized['class_full_name']);
             if ($parsed) {
                 [$normalized['class_level'], $normalized['class_name']] = $parsed;
             }
-        } elseif (($levelValue === null || $levelValue === '') && !empty($classIndex)) {
+        }
+
+        // If class_name column has combined format and class_level is empty, parse it
+        if (($levelValue === null || $levelValue === '') && !empty($classIndex)) {
             $parsed = $this->parseCombinedClassName($classIndex);
             if ($parsed) {
                 [$normalized['class_level'], $normalized['class_name']] = $parsed;
