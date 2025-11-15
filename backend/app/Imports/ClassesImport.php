@@ -129,24 +129,14 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
             $normalized['institution_code'] = (string) $normalized['institution_code'];
         }
 
-        // Handle class_level column - may contain combined format like "9 a" or just "9"
+        // Convert class_level to integer (Excel may read as string)
+        // STRICT: Only accept pure numbers - no combined format like "9 a"
         $levelValue = $normalized['class_level'] ?? null;
-        $classIndex = $normalized['class_name'] ?? null;
-
-        // Try to parse combined format in class_level column first (e.g., "9 a", "10B")
         if ($levelValue !== null && $levelValue !== '') {
-            $levelStr = trim((string) $levelValue);
-
-            // Check if it contains both number and letter (combined format)
-            if (preg_match('/^(\d{1,2})\s*([a-zA-Zə-üƏ-Ü]{1,3})$/u', $levelStr, $matches)) {
-                // Combined format found: "9 a" → level=9, name=a
-                $normalized['class_level'] = (int) $matches[1];
-                $normalized['class_name'] = $this->sanitizeClassIndex($matches[2]);
-            } else {
-                // Pure number format: "9" → level=9, name from separate column
-                $normalized['class_level'] = (int) $levelValue;
-            }
+            $normalized['class_level'] = (int) $levelValue;
         }
+
+        $classIndex = $normalized['class_name'] ?? null;
 
         // If class_full_name column exists and class_level is still empty, try parsing it
         if (($levelValue === null || $levelValue === '') && !empty($normalized['class_full_name'])) {
@@ -204,7 +194,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
                         $row,
                         'class_level',
                         null,
-                        '📋 Excel-də D sütunu "Sinif Səviyyəsi (1-12)" → 0-12 arası rəqəm daxil edin (məs: 5). E sütunu "Sinif index-i" → hərf/kod daxil edin (məs: A, B, r2).',
+                        '⚠️ DİQQƏT: D və E sütunları AYRILIQDADIR! D sütununa YALNIZ rəqəm (məs: 5), E sütununa YALNIZ hərf/kod (məs: A) yazın. "9 a" kimi birləşdirməyin!',
                         'error'
                     );
                 } elseif (empty($classLevel)) {
@@ -213,7 +203,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
                         $row,
                         'class_level',
                         $classLevel,
-                        '📋 Excel-də D sütunu "Sinif Səviyyəsi (1-12)" → 0-12 arası rəqəm daxil edin (məsələn: 5)',
+                        '📋 D sütunu "Sinif Səviyyəsi (1-12)" → YALNIZ rəqəm yazın: 0, 1, 2...12 (hərf YAZA BİLMƏZSİNİZ)',
                         'error'
                     );
                 } elseif (empty($className)) {
@@ -222,7 +212,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
                         $row,
                         'class_name',
                         $className,
-                        '📋 Excel-də E sütunu "Sinif index-i" → hərf/kod daxil edin (məsələn: A, B, r2)',
+                        '📋 E sütunu "Sinif index-i" → YALNIZ hərf/kod yazın: A, B, C, ə, r2 (rəqəm ƏLAVƏ ETMƏYİN)',
                         'error'
                     );
                 }
