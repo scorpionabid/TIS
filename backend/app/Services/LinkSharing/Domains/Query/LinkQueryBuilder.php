@@ -101,19 +101,41 @@ class LinkQueryBuilder
             $query->where('shared_by', auth()->id());
         }
 
-        // Institution filter (covers owner + target institutions + descendants)
-        if ($request->filled('institution_id')) {
-            $institutionIds = $this->resolveInstitutionHierarchyIds((int) $request->institution_id);
+        // Institution filter (supports single or multiple selections)
+        $institutionFilterIds = [];
 
-            $query->where(function ($q) use ($institutionIds) {
-                $q->whereIn('institution_id', $institutionIds)
-                  ->orWhere(function ($targetQuery) use ($institutionIds) {
-                      foreach ($institutionIds as $index => $institutionId) {
+        if ($request->has('institution_ids')) {
+            $selectedInstitutionIds = (array) $request->input('institution_ids', []);
+            foreach ($selectedInstitutionIds as $institutionId) {
+                $id = (int) $institutionId;
+                if ($id > 0) {
+                    $institutionFilterIds = array_merge(
+                        $institutionFilterIds,
+                        $this->resolveInstitutionHierarchyIds($id)
+                    );
+                }
+            }
+        } elseif ($request->filled('institution_id')) {
+            $institutionFilterIds = $this->resolveInstitutionHierarchyIds((int) $request->institution_id);
+        }
+
+        if (!empty($institutionFilterIds)) {
+            $institutionFilterIds = array_values(array_unique(array_filter(
+                array_map('intval', $institutionFilterIds),
+                static function ($value) {
+                    return $value > 0;
+                }
+            )));
+
+            $query->where(function ($q) use ($institutionFilterIds) {
+                $q->whereIn('institution_id', $institutionFilterIds)
+                  ->orWhere(function ($targetQuery) use ($institutionFilterIds) {
+                      foreach ($institutionFilterIds as $index => $institutionId) {
                           if ($index === 0) {
-                              $targetQuery->whereJsonContains('target_institutions', $institutionId)
+                              $targetQuery->whereJsonContains('target_institutions', (int) $institutionId)
                                           ->orWhereJsonContains('target_institutions', (string) $institutionId);
                           } else {
-                              $targetQuery->orWhereJsonContains('target_institutions', $institutionId)
+                              $targetQuery->orWhereJsonContains('target_institutions', (int) $institutionId)
                                           ->orWhereJsonContains('target_institutions', (string) $institutionId);
                           }
                       }

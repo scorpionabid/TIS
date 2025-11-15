@@ -22,6 +22,7 @@ export interface LinkFilters {
   status?: string;
   creator_id?: number;
   institution_id?: number;
+  institution_ids?: number[];
   is_featured?: boolean;
   my_links?: boolean;
   date_from?: string;

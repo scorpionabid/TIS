@@ -68,6 +68,7 @@ export interface LinkFilters extends PaginationParams {
   status?: string;
   creator_id?: number;
   institution_id?: number;
+  institution_ids?: number[];
   date_from?: string;
   date_to?: string;
   my_links?: boolean;
@@ -142,6 +143,43 @@ export interface LinkBulkMetadata {
     institution_code?: string;
     utis_code?: string;
   }>;
+}
+
+export interface LinkSharingSectorSummary {
+  id: number | null;
+  name: string;
+  region_id?: number | null;
+  region_name?: string | null;
+  is_full_coverage: boolean;
+  school_count: number;
+  schools: Array<{
+    id: number;
+    name: string;
+    utis_code?: string | null;
+    institution_code?: string | null;
+  }>;
+}
+
+export interface LinkSharingOverviewResponse {
+  link_id: number;
+  link_title: string;
+  share_scope?: string | null;
+  target_counts?: {
+    regions: number;
+    sectors: number;
+    schools: number;
+    users: number;
+  };
+  total_sectors: number;
+  total_schools: number;
+  target_users?: Array<{
+    id: number;
+    name: string;
+    username?: string | null;
+    email?: string | null;
+    roles?: string[];
+  }>;
+  sectors: LinkSharingSectorSummary[];
 }
 
 class LinkService extends BaseService<LinkShare> {
@@ -299,6 +337,23 @@ class LinkService extends BaseService<LinkShare> {
       return response.data;
     } catch (error) {
       console.error('❌ Link sharing options failed:', error);
+      throw error;
+    }
+  }
+
+  async getSharingOverview(linkId: number): Promise<LinkSharingOverviewResponse> {
+    try {
+      const response = await apiClient.get<LinkSharingOverviewResponse>(`${this.baseEndpoint}/${linkId}/sharing-overview`);
+      return response.data ?? {
+        link_id: linkId,
+        link_title: '',
+        share_scope: null,
+        total_sectors: 0,
+        total_schools: 0,
+        sectors: [],
+      };
+    } catch (error) {
+      console.error('❌ LinkService.getSharingOverview failed:', error);
       throw error;
     }
   }

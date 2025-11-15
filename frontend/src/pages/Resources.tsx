@@ -13,13 +13,13 @@ import {
 } from "lucide-react";
 import { ResourceModal } from "@/components/modals/ResourceModal";
 import { LinkFilterPanel, LinkFilters } from "@/components/resources/LinkFilterPanel";
-import { LinkFilterPanelMinimalist, MinimalistFilters } from "@/components/resources/LinkFilterPanelMinimalist";
-import { GroupedResourceDisplay } from "@/components/resources/GroupedResourceDisplay";
-import { ResourceGroupingToolbar } from "@/components/resources/ResourceGroupingToolbar";
 import { ResourceHeader } from "@/components/resources/ResourceHeader";
 import { ResourceToolbar } from "@/components/resources/ResourceToolbar";
 import { ResourceGrid } from "@/components/resources/ResourceGrid";
 import { LinkBulkUploadModal } from "@/components/resources/LinkBulkUploadModal";
+import LinkSelectionCard from "@/components/resources/LinkSelectionCard";
+import LinkSharingOverview from "@/components/resources/LinkSharingOverview";
+import LinkManagementTable from "@/components/resources/LinkManagementTable";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,16 +33,8 @@ import RegionalFolderManager from "@/components/documents/RegionalFolderManager"
 import { hasAnyRole } from "@/utils/permissions";
 import { useResourceFilters } from "@/hooks/useResourceFilters";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
-import { useResourceGrouping, GroupingMode } from "@/hooks/useResourceGrouping";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+import { useLinkSelection } from "@/hooks/resources/useLinkSelection";
+import { useLinkSharingOverview } from "@/hooks/resources/useLinkSharingOverview";
 import {
   Select,
   SelectTrigger,
@@ -50,6 +42,14 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
+
+type InstitutionOption = {
+  id: number;
+  name: string;
+  utis_code?: string | null;
+  level?: number | null;
+  parent_id?: number | null;
+};
 
 const flattenResponseArray = (payload: any): any[] => {
   if (!payload) return [];
@@ -143,12 +143,6 @@ export default function Resources() {
     return Number.isNaN(perPageParam) || perPageParam <= 0 ? DEFAULT_PER_PAGE : perPageParam;
   });
 
-  // NEW: Grouping state (default: sector grouping)
-  const [groupingMode, setGroupingMode] = useState<GroupingMode>('sector');
-
-  // NEW: Minimalist filters state
-  const [minimalistFilters, setMinimalistFilters] = useState<MinimalistFilters>({});
-
   useEffect(() => {
     const timeout = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
@@ -202,19 +196,38 @@ export default function Resources() {
   }, [page, perPage, searchParams, setSearchParams]);
 
   const {
-    linkFilters,
     documentFilters,
-    setLinkFilters,
     setDocumentFilters,
     filterPanelOpen,
     toggleFilterPanel,
     getFiltersForTab,
   } = useResourceFilters();
 
+  const {
+    selectedLink,
+    links: linkSelectionData,
+    totalLinks: linkSelectionTotal,
+    isLoading: linksLoading,
+    selectLink,
+  } = useLinkSelection(isAuthenticated && canViewLinks);
+
+  const {
+    data: linkSharingOverview,
+    isLoading: sharingOverviewLoading,
+    refetch: refetchLinkSharingOverview,
+  } = useLinkSharingOverview(selectedLink, isAuthenticated && canViewLinks);
+
   const [tabTotals, setTabTotals] = useState<{ links: number; documents: number }>({
     links: 0,
     documents: 0,
   });
+
+  useEffect(() => {
+    setTabTotals((prev) => ({
+      ...prev,
+      links: linkSelectionTotal || prev.links,
+    }));
+  }, [linkSelectionTotal]);
 
   const canLoadCreators = hasPermission?.('users.read') ?? false;
   const shouldLoadFilterSources = isAuthenticated && canViewResources && hasAdminResourceAccess;
@@ -235,7 +248,7 @@ export default function Resources() {
         parent_id: institution.parent_id,   // FIXED: Include parent_id for hierarchy
       }));
     },
-    enabled: shouldLoadFilterSources && canLoadCreatorOptions,
+    enabled: shouldLoadFilterSources,
     staleTime: 10 * 60 * 1000,
   });
 
@@ -279,23 +292,27 @@ export default function Resources() {
 
   // Fetch resources (enhanced with filters)
   const appliedFilters = useMemo(() => {
-    if (activeTab === 'folders') {
-      return {} as Partial<ResourceFilters>;
+    if (activeTab === 'documents') {
+      return getFiltersForTab('documents') as Partial<ResourceFilters>;
     }
-    return getFiltersForTab(activeTab === 'links' ? 'links' : 'documents') as Partial<ResourceFilters>;
+    return {} as Partial<ResourceFilters>;
   }, [activeTab, getFiltersForTab]);
 
-  const resourceType: ResourceFilters['type'] | undefined = activeTab === 'links'
-    ? 'link'
-    : activeTab === 'documents'
-      ? 'document'
-      : undefined;
+  const activeFilterSignature = useMemo(() => JSON.stringify(appliedFilters || {}), [appliedFilters]);
+
+  useEffect(() => {
+    setPage(DEFAULT_PAGE);
+  }, [debouncedSearchTerm, activeFilterSignature, activeTab]);
+
+  const resourceType: ResourceFilters['type'] | undefined = activeTab === 'documents'
+    ? 'document'
+    : undefined;
 
   const { type: _ignoredFilterType, ...sanitizedFilters } = appliedFilters || {};
 
   const resourceQueryParams = {
     type: resourceType,
-    search: debouncedSearchTerm || undefined,
+    search: activeTab === 'documents' ? (debouncedSearchTerm || undefined) : undefined,
     sort_by: sortBy,
     sort_direction: sortDirection,
     page,
@@ -305,7 +322,6 @@ export default function Resources() {
 
   const shouldForceAssignedFetch =
     shouldUseAssignedResources ||
-    (resourceType === 'link' && !canFetchLinkList) ||
     (resourceType === 'document' && !canFetchDocumentList);
 
   const { data: resourceResponse, isLoading, isFetching, error, refetch } = useQuery({
@@ -319,7 +335,7 @@ export default function Resources() {
       }
       return resourceService.getAll(resourceQueryParams);
     },
-    enabled: isAuthenticated && canViewResources && activeTab !== 'folders',
+    enabled: isAuthenticated && canViewResources && activeTab === 'documents',
     staleTime: 2 * 60 * 1000, // 2 minutes
     meta: {
       debug: {
@@ -370,91 +386,46 @@ export default function Resources() {
   const paginationMeta = resourceResponse?.meta;
   const currentPage = paginationMeta?.current_page ?? page;
   const effectivePerPage = paginationMeta?.per_page ?? perPage;
-  const totalItems = paginationMeta?.total ?? resourcesData.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / Math.max(1, effectivePerPage)));
-  const canGoPrevious = currentPage > 1;
-  const canGoNext = currentPage < totalPages;
-  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * effectivePerPage + 1;
-  const endItem = totalItems === 0 ? 0 : startItem + resourcesData.length - 1;
-  const pageSizeOptions = useMemo(() => {
-    const baseOptions = [25, 50, 100];
-    if (!baseOptions.includes(effectivePerPage)) {
-      baseOptions.push(effectivePerPage);
-    }
-    return baseOptions
-      .filter((value, index, self) => self.indexOf(value) === index)
-      .sort((a, b) => a - b);
-  }, [effectivePerPage]);
-
-  const paginationItems = useMemo<(number | 'ellipsis-prev' | 'ellipsis-next')[]>(() => {
-    if (totalPages <= 1) {
-      return [currentPage];
-    }
-
-    if (totalPages <= 5) {
-      return Array.from({ length: totalPages }, (_, index) => index + 1);
-    }
-
-    const items: (number | 'ellipsis-prev' | 'ellipsis-next')[] = [1];
-    const windowStart = Math.max(2, currentPage - 1);
-    const windowEnd = Math.min(totalPages - 1, currentPage + 1);
-
-    if (windowStart > 2) {
-      items.push('ellipsis-prev');
-    }
-
-    for (let pageNumber = windowStart; pageNumber <= windowEnd; pageNumber += 1) {
-      items.push(pageNumber);
-    }
-
-    if (windowEnd < totalPages - 1) {
-      items.push('ellipsis-next');
-    }
-
-    items.push(totalPages);
-    return items;
-  }, [currentPage, totalPages]);
-
-  const handlePageChange = useCallback((targetPage: number) => {
-    if (targetPage < 1 || targetPage > totalPages || targetPage === currentPage) {
-      return;
-    }
-    setPage(targetPage);
-  }, [currentPage, totalPages]);
-
-  const handlePerPageChange = useCallback((value: string) => {
-    const nextPerPage = Number.parseInt(value, 10);
-    if (Number.isNaN(nextPerPage) || nextPerPage <= 0) {
-      return;
-    }
-    setPerPage(nextPerPage);
-    setPage(1);
-  }, []);
-
   useEffect(() => {
     if (resourceResponse?.meta?.total === undefined || resourceResponse?.meta?.total === null) {
       return;
     }
-    if (activeTab === 'links' || activeTab === 'documents') {
+    if (activeTab === 'documents') {
       setTabTotals((prev) => ({
         ...prev,
-        [activeTab]: resourceResponse.meta?.total ?? resourcesData.length,
+        documents: resourceResponse.meta?.total ?? resourcesData.length,
       }));
     }
-  }, [resourceResponse?.meta?.total, resourcesData, activeTab]);
+  }, [resourceResponse?.meta?.total, resourcesData.length, activeTab]);
+
+  const [institutionDirectory, setInstitutionDirectory] = useState<Record<number, string>>({});
+  const [institutionMetadata, setInstitutionMetadata] = useState<Record<number, InstitutionOption>>({});
+  const [userDirectory, setUserDirectory] = useState<Record<number, string>>({});
 
   const fallbackInstitutionOptions = useMemo(() => {
-    const unique = new Map<number, { id: number; name: string }>();
+    const unique = new Map<number, InstitutionOption>();
     resourcesData.forEach((resource) => {
       if (resource.institution?.id) {
         unique.set(resource.institution.id, {
           id: resource.institution.id,
           name: resource.institution.name,
+          utis_code: resource.institution.utis_code,
         });
       }
     });
+    Object.values(institutionMetadata).forEach((meta) => {
+      if (!meta?.id) return;
+      const existing = unique.get(meta.id);
+      unique.set(meta.id, {
+        id: meta.id,
+        name: meta.name || existing?.name || `Müəssisə #${meta.id}`,
+        utis_code: meta.utis_code ?? existing?.utis_code,
+        level: meta.level ?? existing?.level,
+        parent_id: meta.parent_id ?? existing?.parent_id,
+      });
+    });
     return Array.from(unique.values());
-  }, [resourcesData]);
+  }, [resourcesData, institutionMetadata]);
 
   const fallbackCreatorOptions = useMemo(() => {
     const unique = new Map<number, { id: number; first_name: string; last_name: string }>();
@@ -471,16 +442,43 @@ export default function Resources() {
     return Array.from(unique.values());
   }, [resourcesData]);
 
-  const availableInstitutions = remoteInstitutionOptions && remoteInstitutionOptions.length > 0
-    ? remoteInstitutionOptions
-    : fallbackInstitutionOptions;
+  const availableInstitutions = useMemo<InstitutionOption[]>(() => {
+    const map = new Map<number, InstitutionOption>();
+    (remoteInstitutionOptions ?? []).forEach((institution) => {
+      if (!institution?.id) return;
+      map.set(institution.id, institution);
+    });
+    Object.values(institutionMetadata).forEach((meta) => {
+      if (!meta?.id) return;
+      const existing = map.get(meta.id);
+      map.set(meta.id, {
+        id: meta.id,
+        name: meta.name || existing?.name || `Müəssisə #${meta.id}`,
+        utis_code: meta.utis_code ?? existing?.utis_code,
+        level: meta.level ?? existing?.level,
+        parent_id: meta.parent_id ?? existing?.parent_id,
+      });
+    });
+    fallbackInstitutionOptions.forEach((institution) => {
+      if (!institution?.id || map.has(institution.id)) return;
+      map.set(institution.id, institution);
+    });
+    return Array.from(map.values());
+  }, [remoteInstitutionOptions, institutionMetadata, fallbackInstitutionOptions]);
+
+  const availableInstitutionMap = useMemo(() => {
+    const map = new Map<number, InstitutionOption>();
+    availableInstitutions?.forEach((inst) => {
+      if (inst?.id) {
+        map.set(inst.id, inst);
+      }
+    });
+    return map;
+  }, [availableInstitutions]);
 
   const availableCreators = remoteCreatorOptions && remoteCreatorOptions.length > 0
     ? remoteCreatorOptions
     : fallbackCreatorOptions;
-
-  const [institutionDirectory, setInstitutionDirectory] = useState<Record<number, string>>({});
-  const [userDirectory, setUserDirectory] = useState<Record<number, string>>({});
 
   useEffect(() => {
     if (!availableInstitutions?.length && !resourcesData.length) {
@@ -506,6 +504,69 @@ export default function Resources() {
   }, [availableInstitutions, resourcesData]);
 
   useEffect(() => {
+    if (!resourcesData.length) {
+      return;
+    }
+    setInstitutionMetadata((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      resourcesData.forEach((resource) => {
+        const institution = resource.institution;
+        if (institution?.id) {
+          const existing = next[institution.id];
+          const updated: InstitutionOption = {
+            id: institution.id,
+            name: institution.name || existing?.name || `Müəssisə #${institution.id}`,
+            utis_code: institution.utis_code ?? existing?.utis_code,
+            level: existing?.level ?? undefined,
+            parent_id: existing?.parent_id ?? undefined,
+          };
+          if (
+            !existing ||
+            existing.name !== updated.name ||
+            existing.utis_code !== updated.utis_code
+          ) {
+            next[institution.id] = { ...existing, ...updated };
+            changed = true;
+          }
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [resourcesData]);
+
+  useEffect(() => {
+    if (!remoteInstitutionOptions?.length) {
+      return;
+    }
+    setInstitutionMetadata((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      remoteInstitutionOptions.forEach((institution) => {
+        if (!institution?.id) return;
+        const existing = next[institution.id];
+        if (
+          !existing ||
+          existing.name !== institution.name ||
+          existing.utis_code !== institution.utis_code ||
+          existing.level !== institution.level ||
+          existing.parent_id !== institution.parent_id
+        ) {
+          next[institution.id] = {
+            id: institution.id,
+            name: institution.name,
+            utis_code: institution.utis_code,
+            level: institution.level,
+            parent_id: institution.parent_id,
+          };
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [remoteInstitutionOptions]);
+
+  useEffect(() => {
     setUserDirectory((prev) => {
       const next = { ...prev };
       let changed = false;
@@ -528,14 +589,8 @@ export default function Resources() {
         map.set(inst.id, inst.name);
       }
     });
-    Object.entries(institutionDirectory).forEach(([id, name]) => {
-      const numericId = Number(id);
-      if (!Number.isNaN(numericId) && typeof name === 'string' && name.trim()) {
-        map.set(numericId, name);
-      }
-    });
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [availableInstitutions, institutionDirectory]);
+  }, [availableInstitutions]);
 
   const linkTargetUserIds = useMemo(() => {
     const ids = new Set<number>();
@@ -569,18 +624,13 @@ export default function Resources() {
     return Array.from(ids);
   }, [resourcesData]);
 
-  const linkTargetInstitutionIds = useMemo(() => {
+  const resourceInstitutionIds = useMemo(() => {
     const ids = new Set<number>();
     resourcesData.forEach((resource) => {
-      if (!Array.isArray(resource.target_institutions)) {
-        return;
+      const resourceInstitutionId = resource.institution?.id ?? (resource as { institution_id?: number }).institution_id;
+      if (resourceInstitutionId) {
+        ids.add(resourceInstitutionId);
       }
-      resource.target_institutions.forEach((id) => {
-        const numericId = typeof id === 'string' ? Number(id) : id;
-        if (!Number.isNaN(numericId)) {
-          ids.add(numericId);
-        }
-      });
     });
     return Array.from(ids);
   }, [resourcesData]);
@@ -678,48 +728,84 @@ export default function Resources() {
   }, [resourceCreatorIds, canLoadCreators, userDirectory]);
 
   useEffect(() => {
-    const missing = linkTargetInstitutionIds.filter((id) => !institutionDirectory[id]);
+    const allRelevantInstitutions = Array.from(new Set(resourceInstitutionIds));
+
+    const missing = allRelevantInstitutions.filter((id) => {
+      const meta = institutionMetadata[id];
+      if (!meta) {
+        return true;
+      }
+      if (meta.level === undefined || meta.level === null) {
+        return true;
+      }
+      if (meta.level >= 4 && (meta.parent_id === undefined || meta.parent_id === null)) {
+        return true;
+      }
+      return false;
+    });
     if (missing.length === 0) {
       return;
     }
 
     let isCancelled = false;
     (async () => {
-      const resolvedMap: Record<number, string> = {};
+      const resolvedEntries: Record<number, InstitutionOption> = {};
 
       try {
         const summaries = await institutionService.getSummaries(missing);
         Object.entries(summaries || {}).forEach(([key, summary]) => {
           const numericId = Number(key);
-          if (Number.isNaN(numericId) || resolvedMap[numericId]) {
+          if (Number.isNaN(numericId)) {
             return;
           }
-          const label = summary?.name || summary?.short_name || `Müəssisə #${numericId}`;
-          resolvedMap[numericId] = label;
+          resolvedEntries[numericId] = {
+            id: numericId,
+            name: summary?.name || summary?.short_name || `Müəssisə #${numericId}`,
+            level: summary?.level ?? null,
+          };
         });
       } catch (error) {
         console.error('Failed to load institution summaries', error);
       }
 
-      const unresolved = missing.filter((id) => !resolvedMap[id]);
+      const needsDetails = missing.filter((id) => {
+        const summary = resolvedEntries[id];
+        if (!summary) {
+          return true;
+        }
+        if (summary.level === undefined || summary.level === null) {
+          return true;
+        }
+        return summary.level >= 4;
+      });
 
-      if (unresolved.length > 0) {
+      if (needsDetails.length > 0) {
         const fetched = await Promise.all(
-          unresolved.map(async (institutionId) => {
+          needsDetails.map(async (institutionId) => {
             try {
               const detail = await institutionService.getById(institutionId);
               const institutionDetail = normalizeInstitution(detail);
               const label = institutionDetail?.name || institutionDetail?.short_name || `Müəssisə #${institutionId}`;
-              return { id: institutionId, name: label };
+              return {
+                id: institutionId,
+                name: label,
+                utis_code: institutionDetail?.utis_code,
+                level: institutionDetail?.level ?? null,
+                parent_id: institutionDetail?.parent_id ?? null,
+              } as InstitutionOption;
             } catch (error) {
               console.warn('Failed to fetch institution detail', { institutionId, error });
-              return { id: institutionId, name: `Müəssisə #${institutionId}` };
+              return {
+                id: institutionId,
+                name: `Müəssisə #${institutionId}`,
+                level: null,
+              } as InstitutionOption;
             }
           })
         );
 
-        fetched.forEach(({ id, name }) => {
-          resolvedMap[id] = name;
+        fetched.forEach((detail) => {
+          resolvedEntries[detail.id] = detail;
         });
       }
 
@@ -727,22 +813,51 @@ export default function Resources() {
 
       setInstitutionDirectory((prev) => {
         const next = { ...prev };
-        Object.entries(resolvedMap).forEach(([key, name]) => {
-          const numericId = Number(key);
-          if (!Number.isNaN(numericId) && !next[numericId]) {
-            next[numericId] = name as string;
+        Object.values(resolvedEntries).forEach((entry) => {
+          if (entry?.id && entry?.name && !next[entry.id]) {
+            next[entry.id] = entry.name;
           }
         });
         return next;
+      });
+
+      setInstitutionMetadata((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        Object.values(resolvedEntries).forEach((entry) => {
+          if (!entry?.id) return;
+          const existing = next[entry.id];
+          if (
+            !existing ||
+            existing.name !== entry.name ||
+            existing.utis_code !== entry.utis_code ||
+            existing.level !== entry.level ||
+            existing.parent_id !== entry.parent_id
+          ) {
+            next[entry.id] = {
+              id: entry.id,
+              name: entry.name,
+              utis_code: entry.utis_code ?? existing?.utis_code,
+              level: entry.level ?? existing?.level ?? null,
+              parent_id: entry.parent_id ?? existing?.parent_id ?? null,
+            };
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
       });
     })();
 
     return () => {
       isCancelled = true;
     };
-  }, [linkTargetInstitutionIds, institutionDirectory]);
+  }, [resourceInstitutionIds, institutionMetadata]);
 
   const hasAppliedFilters = useMemo(() => {
+    if (activeTab === 'links') {
+      return false;
+    }
+
     const filterValues = Object.values(appliedFilters || {});
     const hasFilterValue = filterValues.some((value) => {
       if (Array.isArray(value)) {
@@ -754,7 +869,7 @@ export default function Resources() {
       return value !== undefined && value !== '';
     });
     return Boolean(debouncedSearchTerm) || hasFilterValue;
-  }, [appliedFilters, debouncedSearchTerm]);
+  }, [appliedFilters, debouncedSearchTerm, activeTab]);
 
   const filteredStats = useMemo<ResourceStats>(() => {
     const total = resourceResponse?.meta?.total ?? resourcesData.length;
@@ -797,80 +912,14 @@ export default function Resources() {
   const statsToRender = shouldUseGlobalStats ? stats! : filteredStats;
 
   const linkTabCount = activeTab === 'links'
-    ? resourceResponse?.meta?.total ?? resourcesData.length ?? tabTotals.links
-    : (tabTotals.links || statsToRender.total_links || 0);
+    ? linkSelectionTotal || tabTotals.links
+    : (tabTotals.links || linkSelectionTotal || statsToRender.total_links || 0);
 
   const documentTabCount = activeTab === 'documents'
     ? resourceResponse?.meta?.total ?? resourcesData.length ?? tabTotals.documents
     : (tabTotals.documents || statsToRender.total_documents || 0);
 
-  // Helper: Match institution by UTIS code or ID
-  const institutionMatchesFilter = useCallback((institutionId: number | undefined): boolean => {
-    if (!institutionId || !minimalistFilters.institution_ids?.length) return false;
-
-    // Find institution in available list
-    const institution = availableInstitutions.find(inst => inst.id === institutionId);
-
-    // Try to match by UTIS code first (if available)
-    if (institution?.utis_code) {
-      const filterInstitution = availableInstitutions.find(
-        inst => minimalistFilters.institution_ids!.includes(inst.id) && inst.utis_code === institution.utis_code
-      );
-      if (filterInstitution) return true;
-    }
-
-    // Fallback to ID match (for institutions without UTIS code)
-    return minimalistFilters.institution_ids!.includes(institutionId);
-  }, [minimalistFilters.institution_ids, availableInstitutions]);
-
-  // NEW: Apply minimalist filters to resources
-  const filteredResourcesData = useMemo(() => {
-    let filtered = resourcesData;
-
-    // Institution filter (multi-select) - ENHANCED: Use UTIS code when available, fallback to ID
-    if (minimalistFilters.institution_ids && minimalistFilters.institution_ids.length > 0) {
-      filtered = filtered.filter(resource => {
-        const resourceInstitutionId = resource.institution?.id ?? (resource as { institution_id?: number }).institution_id;
-        const creatorInstitutionMatch = institutionMatchesFilter(resourceInstitutionId);
-
-        // Check if any target institution matches (by UTIS code or ID)
-        const targetInstitutionMatch = resource.target_institutions?.some(id =>
-          institutionMatchesFilter(id)
-        );
-
-        // Return true if either matches
-        return creatorInstitutionMatch || Boolean(targetInstitutionMatch);
-      });
-    }
-
-    // Link type filter
-    if (minimalistFilters.link_type) {
-      filtered = filtered.filter(resource =>
-        resource.link_type === minimalistFilters.link_type
-      );
-    }
-
-    // Status filter
-    if (minimalistFilters.status) {
-      filtered = filtered.filter(resource =>
-        resource.status === minimalistFilters.status
-      );
-    }
-
-    return filtered;
-  }, [resourcesData, minimalistFilters, institutionMatchesFilter]);
-
-  // NEW: Apply grouping to filtered resources
-  const linksForGrouping = useMemo(() => {
-    return filteredResourcesData.filter(r => r.type === 'link');
-  }, [filteredResourcesData]);
-
-  const { groupedResources } = useResourceGrouping(
-    linksForGrouping,
-    availableInstitutions,
-    groupingMode
-  );
-
+  // Apply grouping to the currently loaded resources
   // Security checks - moved after all hooks
   if (!isAuthenticated) {
     return (
@@ -909,7 +958,8 @@ export default function Resources() {
       switch (action) {
         case 'edit':
           if (resource.type === 'link') {
-            setLinkBeingEdited(resource);
+            const detailedLink = await resourceService.getLinkById(resource.id);
+            setLinkBeingEdited(detailedLink);
             setIsLinkModalOpen(true);
           } else {
             setDocumentBeingEdited(resource);
@@ -947,6 +997,7 @@ export default function Resources() {
     // Cancel any pending queries first to avoid race conditions
     queryClient.cancelQueries({ queryKey: ['resources'] });
     queryClient.cancelQueries({ queryKey: ['resource-stats'] });
+    queryClient.cancelQueries({ queryKey: ['links-selection'] });
 
     // Then invalidate (will trigger controlled refetch)
     queryClient.invalidateQueries({
@@ -957,6 +1008,16 @@ export default function Resources() {
       queryKey: ['resource-stats'],
       refetchType: 'active'
     });
+    queryClient.invalidateQueries({
+      queryKey: ['links-selection'],
+      refetchType: 'active'
+    });
+    if (resource.type === 'link') {
+      queryClient.invalidateQueries({
+        queryKey: ['link-sharing-overview', resource.id],
+        refetchType: 'all'
+      });
+    }
 
     // UX IMPROVEMENT: Keep user on current tab to see their creation
     // Only reset search term for better UX
@@ -969,6 +1030,9 @@ export default function Resources() {
   const handleLinkSaved = (resource: Resource) => {
     const isEditing = !!linkBeingEdited;
     handleAfterResourceSaved(resource, isEditing);
+    if (resource.type === 'link') {
+      selectLink(resource);
+    }
     setLinkBeingEdited(null);
     setIsLinkModalOpen(false);
   };
@@ -983,6 +1047,10 @@ export default function Resources() {
   const handleBulkUploadSuccess = (result: LinkBulkUploadResult) => {
     queryClient.invalidateQueries({ queryKey: ['resources'] });
     queryClient.invalidateQueries({ queryKey: ['resource-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['links-selection'] });
+    if (selectedLink) {
+      queryClient.invalidateQueries({ queryKey: ['link-sharing-overview', selectedLink.id] });
+    }
 
     toast({
       title: 'Kütləvi yükləmə tamamlandı',
@@ -990,7 +1058,7 @@ export default function Resources() {
     });
   };
 
-  if (isLoading) {
+  if (activeTab === 'documents' && isLoading) {
     return (
       <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
         <div className="text-center">
@@ -1001,7 +1069,7 @@ export default function Resources() {
     );
   }
 
-  if (error) {
+  if (activeTab === 'documents' && error) {
     return (
       <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
         <div className="text-center">
@@ -1035,17 +1103,19 @@ export default function Resources() {
         onBulkUpload={() => setIsBulkUploadModalOpen(true)}
       />
 
-      <ResourceToolbar
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        sortValue={`${sortBy}-${sortDirection}`}
-        onSortChange={(value) => {
-          const [field, direction] = value.split('-');
-          setSortBy(field as 'created_at' | 'title');
-          setSortDirection(direction as 'asc' | 'desc');
-        }}
-        isUpdating={isUpdatingResults}
-      />
+      {activeTab !== 'links' && (
+        <ResourceToolbar
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          sortValue={`${sortBy}-${sortDirection}`}
+          onSortChange={(value) => {
+            const [field, direction] = value.split('-');
+            setSortBy(field as 'created_at' | 'title');
+            setSortDirection(direction as 'asc' | 'desc');
+          }}
+          isUpdating={isUpdatingResults}
+        />
+      )}
 
       {/* Statistics Cards */}
       {statsToRender && (
@@ -1117,97 +1187,24 @@ export default function Resources() {
         </TabsList>
 
         <TabsContent value="links" className="mt-6 space-y-4">
-          {/* NEW: Grouping Toolbar */}
-          <ResourceGroupingToolbar
-            groupingMode={groupingMode}
-            onGroupingModeChange={setGroupingMode}
-            sortBy={sortBy}
-            sortDirection={sortDirection}
-            onSortChange={(by, dir) => {
-              setSortBy(by);
-              setSortDirection(dir);
-            }}
-          />
-
-          {/* NEW: Minimalist Filter */}
-          <LinkFilterPanelMinimalist
-            filters={minimalistFilters}
-            onFiltersChange={setMinimalistFilters}
-            availableInstitutions={availableInstitutions}
-            isOpen={filterPanelOpen}
-            onToggle={toggleFilterPanel}
-          />
-
-          {/* NEW: Grouped Display */}
-          <GroupedResourceDisplay
-            groups={groupedResources}
+          <LinkManagementTable
+            links={linkSelectionData}
+            isLoading={linksLoading}
             onResourceAction={handleResourceAction}
-            institutionDirectory={institutionDirectory}
-            userDirectory={userDirectory}
-            defaultExpanded={groupingMode !== 'none'}
+          />
+          <LinkSelectionCard
+            links={linkSelectionData}
+            selectedLink={selectedLink}
+            onSelect={selectLink}
+            isLoading={linksLoading}
           />
 
-          {resourceResponse && (
-            <div className="space-y-4 border-t pt-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-muted-foreground">
-                  {totalItems === 0
-                    ? 'Heç bir resurs tapılmadı'
-                    : `${startItem.toLocaleString('az-AZ')}-${endItem.toLocaleString('az-AZ')} / ${totalItems.toLocaleString('az-AZ')}`}
-                </p>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Səhifə ölçüsü</span>
-                  <Select value={String(effectivePerPage)} onValueChange={handlePerPageChange}>
-                    <SelectTrigger className="w-[120px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {pageSizeOptions.map((option) => (
-                        <SelectItem key={option} value={String(option)}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {totalPages > 1 && (
-                <Pagination className="justify-center">
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
-                        onClick={canGoPrevious ? () => handlePageChange(currentPage - 1) : undefined}
-                        className={canGoPrevious ? undefined : 'pointer-events-none opacity-50'}
-                      />
-                    </PaginationItem>
-
-                    {paginationItems.map((item) => (
-                      <PaginationItem key={typeof item === 'number' ? `page-${item}` : item}>
-                        {typeof item === 'number' ? (
-                          <PaginationLink
-                            isActive={item === currentPage}
-                            onClick={item === currentPage ? undefined : () => handlePageChange(item)}
-                          >
-                            {item}
-                          </PaginationLink>
-                        ) : (
-                          <PaginationEllipsis />
-                        )}
-                      </PaginationItem>
-                    ))}
-
-                    <PaginationItem>
-                      <PaginationNext
-                        onClick={canGoNext ? () => handlePageChange(currentPage + 1) : undefined}
-                        className={canGoNext ? undefined : 'pointer-events-none opacity-50'}
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              )}
-            </div>
-          )}
+          <LinkSharingOverview
+            selectedLink={selectedLink}
+            overview={linkSharingOverview}
+            isLoading={sharingOverviewLoading}
+            onRetry={() => refetchLinkSharingOverview()}
+          />
         </TabsContent>
 
         <TabsContent value="documents" className="mt-6 space-y-4">
@@ -1237,7 +1234,7 @@ export default function Resources() {
       </Tabs>
 
       {/* Loading State */}
-      {isLoading && (
+      {activeTab === 'documents' && isLoading && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[...Array(6)].map((_, i) => (
             <Card key={i}>

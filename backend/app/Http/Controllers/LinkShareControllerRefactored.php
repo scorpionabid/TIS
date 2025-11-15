@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\BaseController;
 use App\Models\Institution;
+use App\Models\LinkShare;
 use App\Services\LinkSharingService;
 use App\Services\LinkAnalyticsService;
 use App\Services\NotificationService;
@@ -44,6 +45,8 @@ class LinkShareControllerRefactored extends BaseController
                 'document_type' => 'nullable|string',
                 'creator_id' => 'nullable|exists:users,id',
                 'institution_id' => 'nullable|exists:institutions,id',
+                'institution_ids' => 'nullable|array',
+                'institution_ids.*' => 'integer|exists:institutions,id',
                 'is_active' => 'nullable|boolean',
                 'has_password' => 'nullable|boolean',
                 'date_from' => 'nullable|date',
@@ -76,6 +79,17 @@ class LinkShareControllerRefactored extends BaseController
             
             return $this->successResponse($linkShare, 'Bağlantı məlumatları alındı');
         }, 'linkshare.show');
+    }
+
+    /**
+     * Get sharing overview (sector → school) for a specific link
+     */
+    public function sharingOverview(LinkShare $linkShare): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($linkShare) {
+            $overview = $this->linkSharingService->getLinkSharingOverview($linkShare);
+            return $this->successResponse($overview, 'Link paylaşım xülasəsi uğurla alındı');
+        }, 'linkshare.sharing_overview');
     }
 
     /**

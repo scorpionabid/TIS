@@ -112,6 +112,7 @@ export interface ResourceFilters {
   target_institutions?: number[];
   creator_id?: number;
   institution_id?: number;
+  institution_ids?: number[];
   date_from?: string;
   date_to?: string;
 

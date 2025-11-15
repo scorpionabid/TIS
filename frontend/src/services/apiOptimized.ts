@@ -595,12 +595,26 @@ class ApiClientOptimized {
       if (method === 'GET' && params) {
         const url = new URL(requestUrl);
         Object.keys(params).forEach(key => {
-          if (params[key] !== undefined && params[key] !== null) {
-            let value = params[key];
-            if (typeof value === 'boolean') {
-              value = value ? '1' : '0';
+          const paramValue = params[key];
+          if (paramValue === undefined || paramValue === null) {
+            return;
+          }
+
+          const appendValue = (value: any, paramKey: string) => {
+            if (value === undefined || value === null || value === '') {
+              return;
             }
-            url.searchParams.append(key, value.toString());
+            let normalized = value;
+            if (typeof normalized === 'boolean') {
+              normalized = normalized ? '1' : '0';
+            }
+            url.searchParams.append(paramKey, normalized.toString());
+          };
+
+          if (Array.isArray(paramValue)) {
+            paramValue.forEach((value) => appendValue(value, `${key}[]`));
+          } else {
+            appendValue(paramValue, key);
           }
         });
         requestUrl = url.toString();

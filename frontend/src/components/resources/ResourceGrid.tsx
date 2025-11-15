@@ -54,7 +54,7 @@ export function ResourceGrid({
   institutionDirectory = {},
   userDirectory = {},
 }: ResourceGridProps) {
-  const { currentUser } = useAuth();
+  const { currentUser, hasPermission } = useAuth();
   const { toast } = useToast();
   const [resourcePendingDelete, setResourcePendingDelete] = useState<Resource | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -62,6 +62,16 @@ export function ResourceGrid({
   const canEditResource = (resource: Resource) => {
     if (!currentUser) return false;
     if (currentUser.role === 'superadmin') return true;
+    if (resource.type === 'link' && hasPermission?.('links.update')) return true;
+    if (resource.type === 'document' && hasPermission?.('documents.update')) return true;
+    return resource.created_by === currentUser.id;
+  };
+
+  const canDeleteResource = (resource: Resource) => {
+    if (!currentUser) return false;
+    if (currentUser.role === 'superadmin') return true;
+    if (resource.type === 'link' && hasPermission?.('links.delete')) return true;
+    if (resource.type === 'document' && hasPermission?.('documents.delete')) return true;
     return resource.created_by === currentUser.id;
   };
 
@@ -319,78 +329,81 @@ export function ResourceGrid({
               </tr>
             </thead>
             <tbody>
-              {resources.map((resource) => (
-                <tr key={`${resource.type}-${resource.id}`} className="border-t hover:bg-muted/50">
-                  <td className="p-4">
-                    <div className="flex items-center gap-2">
-                      {resourceIcon(resource)}
-                      <span className="text-sm font-medium">
-                        {resource.type === 'link' ? 'Link' : 'Sənəd'}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <div>
-                      <div
-                        className="font-medium hover:text-primary cursor-pointer hover:underline"
-                        onClick={() => handleResourceAccess(resource)}
-                      >
-                        {resource.title}
+              {resources.map((resource) => {
+                const canEdit = canEditResource(resource);
+                const canDelete = canDeleteResource(resource);
+
+                return (
+                  <tr key={`${resource.type}-${resource.id}`} className="border-t hover:bg-muted/50">
+                    <td className="p-4">
+                      <div className="flex items-center gap-2">
+                        {resourceIcon(resource)}
+                        <span className="text-sm font-medium">
+                          {resource.type === 'link' ? 'Link' : 'Sənəd'}
+                        </span>
                       </div>
-                      {resource.type === 'document' && resource.original_filename && (
-                        <div className="text-sm text-muted-foreground">
-                          📎 {resource.original_filename}
+                    </td>
+                    <td className="p-4">
+                      <div>
+                        <div
+                          className="font-medium hover:text-primary cursor-pointer hover:underline"
+                          onClick={() => handleResourceAccess(resource)}
+                        >
+                          {resource.title}
                         </div>
-                      )}
-                      {resource.type === 'document' && resource.file_extension && (
-                        <div className="text-xs text-blue-600 font-medium uppercase">
-                          {resource.file_extension} • {resourceService.formatResourceSize(resource)}
-                        </div>
-                      )}
-                      {resource.type === 'link' && resource.url && (
-                        <div className="text-sm text-muted-foreground truncate max-w-xs">
-                          🔗 {(() => {
-                            try {
-                              return new URL(resource.url).hostname;
-                            } catch {
-                              return resource.url.length > 40 ? `${resource.url.substring(0, 40)}...` : resource.url;
-                            }
-                          })()}
-                        </div>
-                      )}
-                      {resource.type === 'link' && resource.link_type && (
-                        <div className="text-xs text-purple-600 font-medium uppercase">
-                          {resource.link_type} • {resource.click_count || 0} kliklər
-                        </div>
-                      )}
-                      {resource.description && (
-                        <div className="text-sm text-muted-foreground truncate max-w-xs mt-1">
-                          {resource.description}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    {renderShareTargets(resource)}
-                  </td>
-                  <td className="p-4">
-                    {renderStatusBadge(resource)}
-                  </td>
-                  <td className="p-4">
-                    {renderMetrics(resource)}
-                  </td>
-                  <td className="p-4">
-                    <div className="text-sm text-foreground">
-                      {getCreatorLabel(resource)}
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <div className="text-sm">{formatDate(resource.created_at)}</div>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex gap-1 flex-wrap">
-                      {canEditResource(resource) && (
-                        <>
+                        {resource.type === 'document' && resource.original_filename && (
+                          <div className="text-sm text-muted-foreground">
+                            📎 {resource.original_filename}
+                          </div>
+                        )}
+                        {resource.type === 'document' && resource.file_extension && (
+                          <div className="text-xs text-blue-600 font-medium uppercase">
+                            {resource.file_extension} • {resourceService.formatResourceSize(resource)}
+                          </div>
+                        )}
+                        {resource.type === 'link' && resource.url && (
+                          <div className="text-sm text-muted-foreground truncate max-w-xs">
+                            🔗 {(() => {
+                              try {
+                                return new URL(resource.url).hostname;
+                              } catch {
+                                return resource.url.length > 40 ? `${resource.url.substring(0, 40)}...` : resource.url;
+                              }
+                            })()}
+                          </div>
+                        )}
+                        {resource.type === 'link' && resource.link_type && (
+                          <div className="text-xs text-purple-600 font-medium uppercase">
+                            {resource.link_type} • {resource.click_count || 0} kliklər
+                          </div>
+                        )}
+                        {resource.description && (
+                          <div className="text-sm text-muted-foreground truncate max-w-xs mt-1">
+                            {resource.description}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      {renderShareTargets(resource)}
+                    </td>
+                    <td className="p-4">
+                      {renderStatusBadge(resource)}
+                    </td>
+                    <td className="p-4">
+                      {renderMetrics(resource)}
+                    </td>
+                    <td className="p-4">
+                      <div className="text-sm text-foreground">
+                        {getCreatorLabel(resource)}
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <div className="text-sm">{formatDate(resource.created_at)}</div>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex gap-1 flex-wrap">
+                        {canEdit && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -398,6 +411,8 @@ export function ResourceGrid({
                           >
                             <Edit className="h-3 w-3" />
                           </Button>
+                        )}
+                        {canDelete && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -406,12 +421,15 @@ export function ResourceGrid({
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        )}
+                        {!canEdit && !canDelete && (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

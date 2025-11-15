@@ -2,7 +2,7 @@
 // both link and document services and therefore diverges from the usual CRUD
 // contract. (See note at bottom of file.)
 import { apiClient } from './api';
-import { linkService, LinkFilters, LinkShare } from './links';
+import { linkService, LinkFilters, LinkShare, LinkSharingOverviewResponse } from './links';
 import { documentService } from './documents';
 import {
   Resource,
@@ -16,6 +16,8 @@ import {
   ResourceListResponse
 } from '@/types/resources';
 import { AssignableUser } from '@/services/tasks';
+
+export type LinkSharingOverview = LinkSharingOverviewResponse;
 
 const isDevEnv = typeof import.meta !== 'undefined' ? Boolean(import.meta.env?.DEV) : false;
 const debugLog = (...args: unknown[]) => {
@@ -109,19 +111,20 @@ class ResourceService {
 
       // Fetch links if needed
       if (shouldFetchLinks) {
-        const linkFilters = {
-          search: filters.search,
-          link_type: filters.link_type,
-          share_scope: filters.share_scope,
-          is_featured: filters.is_featured,
-          status: filters.status,
-          creator_id: filters.creator_id,
-          institution_id: filters.institution_id,
-          date_from: filters.date_from || filters.created_after,
-          date_to: filters.date_to || filters.created_before,
-          my_links: filters.my_links,
-          sort_by: filters.sort_by,
-          sort_direction: filters.sort_direction,
+      const linkFilters = {
+        search: filters.search,
+        link_type: filters.link_type,
+        share_scope: filters.share_scope,
+        is_featured: filters.is_featured,
+        status: filters.status,
+        creator_id: filters.creator_id,
+        institution_id: filters.institution_id,
+        institution_ids: filters.institution_ids,
+        date_from: filters.date_from || filters.created_after,
+        date_to: filters.date_to || filters.created_before,
+        my_links: filters.my_links,
+        sort_by: filters.sort_by,
+        sort_direction: filters.sort_direction,
           per_page: filters.per_page,
         };
         typedRequests.push({
@@ -270,6 +273,7 @@ class ResourceService {
       status: filters.status,
       creator_id: filters.creator_id,
       institution_id: filters.institution_id,
+      institution_ids: filters.institution_ids,
       date_from: filters.date_from || filters.created_after,
       date_to: filters.date_to || filters.created_before,
       my_links: filters.my_links,
@@ -305,6 +309,26 @@ class ResourceService {
         current_page: currentPage,
       },
     };
+  }
+
+  async getLinkById(id: number): Promise<Resource> {
+    try {
+      const link = await linkService.getById(id);
+      return this.transformLinkResult(link);
+    } catch (error) {
+      console.error('❌ ResourceService.getLinkById failed:', error);
+      throw error;
+    }
+  }
+
+  async getLinkSharingOverview(linkId: number): Promise<LinkSharingOverviewResponse | null> {
+    try {
+      const overview = await linkService.getSharingOverview(linkId);
+      return overview ?? null;
+    } catch (error) {
+      console.error('❌ ResourceService.getLinkSharingOverview failed:', error);
+      throw error;
+    }
   }
 
   /**

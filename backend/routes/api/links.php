@@ -25,6 +25,7 @@ Route::prefix('links')->group(function () {
     Route::get('/bulk-metadata', [LinkShareController::class, 'getBulkMetadata'])->middleware('permission:links.bulk');
     Route::get('/tracking/activity', [LinkShareController::class, 'getTrackingActivity'])->middleware('permission:links.tracking');
     Route::get('/{linkShare}/tracking/history', [LinkShareController::class, 'getLinkHistory'])->middleware('permission:links.tracking');
+    Route::get('/{linkShare}/sharing-overview', [LinkShareController::class, 'sharingOverview'])->middleware('permission:links.read');
     Route::get('/{linkShare}', [LinkShareController::class, 'show'])->middleware('permission:links.read');
     Route::put('/{linkShare}', [LinkShareController::class, 'update'])->middleware('permission:links.update');
     Route::delete('/{linkShare}', [LinkShareController::class, 'destroy'])->middleware('permission:links.delete');
