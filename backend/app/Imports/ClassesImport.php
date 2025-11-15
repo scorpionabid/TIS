@@ -114,6 +114,17 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
         // We want to display Excel row numbers, so: Excel Row = headingRow + 1 + $index
         $normalized['_row_index'] = 3 + $index; // Row 3 is first data row (after instruction + headers)
 
+        // DIAGNOSTIC: Log first 5 rows to help debug column structure
+        if ($index < 5) {
+            Log::info("Excel Row " . (3 + $index) . " - Original columns:", array_keys($row));
+            Log::info("Excel Row " . (3 + $index) . " - Normalized data:", [
+                'class_level' => $normalized['class_level'] ?? 'MISSING',
+                'class_name' => $normalized['class_name'] ?? 'MISSING',
+                'class_full_name' => $normalized['class_full_name'] ?? 'MISSING',
+                'institution_name' => $normalized['institution_name'] ?? 'MISSING',
+            ]);
+        }
+
         // CRITICAL: Mark empty rows with a special flag for conditional validation
         // This prevents "required field" errors for blank Excel rows
         $normalized['_is_empty_row'] = $this->isRowEmpty($normalized);

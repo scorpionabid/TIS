@@ -381,19 +381,81 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
               </Alert>
             )}
 
-            {/* Headers Preview */}
+            {/* Column Detection Diagnostic */}
             {validation.headers.length > 0 && (
-              <div>
-                <h4 className="font-medium text-sm mb-2">Sütun Başlıqları ({validation.headers.length}):</h4>
+              <div className="border rounded-lg p-4 bg-gray-50">
+                <h4 className="font-medium text-sm mb-3">📊 Sütun Təhlili (Diaqnostika):</h4>
+
+                {/* Critical Columns Status */}
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  {(() => {
+                    const normalizedHeaders = validation.headers.map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+                    const hasClassLevel = normalizedHeaders.some(h =>
+                      h.includes('sinifsviyysi') || h.includes('sinifsviyy') ||
+                      h.includes('classlevel') || h.includes('sviyy')
+                    );
+                    const hasClassName = normalizedHeaders.some(h =>
+                      h.includes('sinifindex') || h.includes('sinifherfi') ||
+                      h.includes('classname') || h.includes('sinifindexi')
+                    );
+
+                    return (
+                      <>
+                        <div className={`p-2 rounded border ${hasClassLevel ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                          {hasClassLevel ? (
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                              <span className="text-xs text-green-900">D sütunu (Səviyyə) ✓</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <XCircle className="h-4 w-4 text-red-600" />
+                              <span className="text-xs text-red-900">D sütunu YOXDUR!</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className={`p-2 rounded border ${hasClassName ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                          {hasClassName ? (
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                              <span className="text-xs text-green-900">E sütunu (İndex) ✓</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <XCircle className="h-4 w-4 text-red-600" />
+                              <span className="text-xs text-red-900">E sütunu YOXDUR!</span>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+
+                <h4 className="font-medium text-sm mb-2">Bütün Sütunlar ({validation.headers.length}):</h4>
                 <div className="flex flex-wrap gap-2">
-                  {validation.headers.slice(0, 15).map((header, idx) => (
-                    <Badge key={idx} variant="outline" className="text-xs">
-                      {header}
-                    </Badge>
-                  ))}
+                  {validation.headers.map((header, idx) => {
+                    const normalized = header.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const isClassLevel = normalized.includes('sinifsviyysi') || normalized.includes('sinifsviyy') ||
+                                        normalized.includes('classlevel') || normalized.includes('sviyy');
+                    const isClassName = normalized.includes('sinifindex') || normalized.includes('sinifherfi') ||
+                                       normalized.includes('classname') || normalized.includes('sinifindexi');
+
+                    return (
+                      <Badge
+                        key={idx}
+                        variant="outline"
+                        className={`text-xs ${isClassLevel || isClassName ? 'bg-blue-100 border-blue-300 font-semibold' : ''}`}
+                      >
+                        {String.fromCharCode(65 + idx)}: {header}
+                        {isClassLevel && ' 📐'}
+                        {isClassName && ' 📝'}
+                      </Badge>
+                    );
+                  }).slice(0, 15)}
                   {validation.headers.length > 15 && (
                     <Badge variant="secondary" className="text-xs">
-                      +{validation.headers.length - 15} daha çox
+                      +{validation.headers.length - 15} daha
                     </Badge>
                   )}
                 </div>
