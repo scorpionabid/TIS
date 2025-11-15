@@ -37,10 +37,34 @@ interface ValidationResult {
 }
 
 const REQUIRED_HEADERS = [
-  { name: 'utis_code', aliases: ['utis_kod', 'utis_kodu', 'utis kod'] },
-  { name: 'institution_name', aliases: ['mektebin_adi', 'mekteb_adi', 'muessise_adi'] },
-  { name: 'class_level', aliases: ['sinif_seviyyesi', 'sinif_seviyyəsi', 'sinif seviyyesi'] },
-  { name: 'class_name', aliases: ['sinif_herfi', 'sinif_hərfi', 'sinif_index'] },
+  {
+    name: 'utis_code',
+    aliases: ['utis_kod', 'utis_kodu', 'utis kod', 'utis']
+  },
+  {
+    name: 'institution_name',
+    aliases: [
+      'muessise_adi', 'müəssisə_adı', 'muəssisə_adı',
+      'mektebin_adi', 'məktəbin_adı', 'mektəbin_adı',
+      'institution_name', 'institution name'
+    ]
+  },
+  {
+    name: 'class_level',
+    aliases: [
+      'sinif_seviyyesi', 'sinif_səviyyəsi', 'sinif seviyyəsi',
+      'sinif_seviyyəsi_(1-12)', 'sinif_seviyyesi_(1-12)',
+      'class_level', 'class level', 'seviyye', 'səviyyə'
+    ]
+  },
+  {
+    name: 'class_name',
+    aliases: [
+      'sinif_index-i', 'sinif_index_i', 'sinif_indexi',
+      'sinif_herfi', 'sinif_hərfi', 'sinif herfi',
+      'class_index', 'class_name', 'sinif_adi'
+    ]
+  },
 ];
 
 export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
@@ -73,10 +97,27 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
       const headerRowIndex = 1; // 0-indexed (Excel row 2)
       const headers = rawData[headerRowIndex] || [];
 
-      // Normalize headers for comparison
-      const normalizedHeaders = headers.map(h =>
-        String(h || '').toLowerCase().trim().replace(/\s+/g, '_')
-      );
+      // Normalize headers for comparison (handle Azerbaijani characters)
+      const normalizedHeaders = headers.map(h => {
+        let normalized = String(h || '')
+          .toLowerCase()
+          .trim()
+          .replace(/\s+/g, '_')
+          .replace(/[()]/g, '') // Remove parentheses
+          .replace(/-/g, '_');  // Replace hyphens with underscores
+
+        // Normalize Azerbaijani characters to standard forms
+        normalized = normalized
+          .replace(/ə/g, 'e')
+          .replace(/ı/g, 'i')
+          .replace(/ö/g, 'o')
+          .replace(/ü/g, 'u')
+          .replace(/ş/g, 's')
+          .replace(/ç/g, 'c')
+          .replace(/ğ/g, 'g');
+
+        return normalized;
+      });
 
       // Validate headers
       const errors: string[] = [];
@@ -86,9 +127,30 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
       // Check for required headers
       const missingHeaders: string[] = [];
       REQUIRED_HEADERS.forEach(required => {
-        const found = normalizedHeaders.some(h =>
-          h === required.name || required.aliases.some(alias => h.includes(alias.replace(/\s+/g, '_')))
-        );
+        const found = normalizedHeaders.some(h => {
+          // Check exact name match
+          if (h === required.name) return true;
+
+          // Check all aliases
+          return required.aliases.some(alias => {
+            // Normalize alias the same way
+            const normalizedAlias = alias
+              .toLowerCase()
+              .replace(/\s+/g, '_')
+              .replace(/[()]/g, '')
+              .replace(/-/g, '_')
+              .replace(/ə/g, 'e')
+              .replace(/ı/g, 'i')
+              .replace(/ö/g, 'o')
+              .replace(/ü/g, 'u')
+              .replace(/ş/g, 's')
+              .replace(/ç/g, 'c')
+              .replace(/ğ/g, 'g');
+
+            // Check if header contains the alias or vice versa
+            return h.includes(normalizedAlias) || normalizedAlias.includes(h);
+          });
+        });
 
         if (!found) {
           missingHeaders.push(required.name);
@@ -100,14 +162,21 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
       }
 
       // Get data rows (skip instruction row and header row)
-      const dataRows = rawData.slice(headerRowIndex + 1);
+      const allDataRows = rawData.slice(headerRowIndex + 1);
 
-      // Count empty rows
-      const emptyRows = dataRows.filter(row =>
-        !row || row.every(cell => cell === null || cell === undefined || String(cell).trim() === '')
-      ).length;
+      // Filter completely empty rows (all cells null/undefined/empty)
+      const dataRows = allDataRows.filter(row => {
+        if (!row || row.length === 0) return false;
+        // Row is non-empty if at least one cell has content
+        return row.some(cell =>
+          cell !== null &&
+          cell !== undefined &&
+          String(cell).trim() !== ''
+        );
+      });
 
-      const nonEmptyRows = dataRows.length - emptyRows;
+      const emptyRows = allDataRows.length - dataRows.length;
+      const nonEmptyRows = dataRows.length;
 
       // Stats
       const stats = {
@@ -117,9 +186,9 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
         dataRows: nonEmptyRows
       };
 
-      // Warnings
-      if (emptyRows > 0) {
-        warnings.push(`${emptyRows} boş sətir tapıldı (avtomatik olaraq atlanacaq)`);
+      // Warnings - only show if significant number of empty rows (> 10% or > 50 rows)
+      if (emptyRows > 50 || (nonEmptyRows > 0 && emptyRows / (nonEmptyRows + emptyRows) > 0.1)) {
+        warnings.push(`${emptyRows} boş sətir tapıldı və avtomatik atlanacaq`);
       }
 
       if (nonEmptyRows === 0) {
