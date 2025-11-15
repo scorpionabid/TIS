@@ -194,6 +194,7 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
 
       if (nonEmptyRows === 0) {
         errors.push('Fayl boşdur - heç bir data sətri tapılmadı');
+        info.push('💡 Şablon faylı yükləyin və nümunə sətirlərə baxaraq məlumatları doldurun.');
       } else if (nonEmptyRows > 500) {
         info.push(`${nonEmptyRows} sətir idxal ediləcək (təxmini vaxt: ${Math.ceil(nonEmptyRows / 20)} san)`);
       }
@@ -231,12 +232,12 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
           }
         });
 
-        // If most sample rows are empty, warn user
+        // If most sample rows are empty, BLOCK import with error (not just warning)
         if (emptyClassLevelCount >= sampleRows.length * 0.8) {
-          warnings.push(`⚠️ DİQQƏT: "${headers[classLevelIndex]}" sütunu əksər sətirlərdə BOŞdur! Bu sütuna 0-12 arası rəqəm daxil edin.`);
+          errors.push(`❌ "${headers[classLevelIndex]}" sütunu əksər sətirlərdə BOŞdur! Excel-də D sütununa 0-12 arası rəqəm daxil edin (məsələn: 5, 8, 11).`);
         }
         if (emptyClassNameCount >= sampleRows.length * 0.8) {
-          warnings.push(`⚠️ DİQQƏT: "${headers[classNameIndex]}" sütunu əksər sətirlərdə BOŞdur! Bu sütuna sinif hərfi/kodu daxil edin (A, B, r2 və s.).`);
+          errors.push(`❌ "${headers[classNameIndex]}" sütunu əksər sətirlərdə BOŞdur! Excel-də E sütununa sinif hərfi/kodu daxil edin (məsələn: A, B, r2).`);
         }
       }
 
