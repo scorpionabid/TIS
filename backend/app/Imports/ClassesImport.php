@@ -26,6 +26,15 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
     protected $academicYearCache = [];
     protected $teacherCache = [];
 
+    /**
+     * Specify which row contains the headings.
+     * Row 1 is instruction row, Row 2 is actual headers.
+     */
+    public function headingRow(): int
+    {
+        return 2;
+    }
+
     public function __construct($region)
     {
         $this->region = $region;
