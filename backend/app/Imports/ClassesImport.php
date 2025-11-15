@@ -20,6 +20,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
     protected $region;
     protected $allowedInstitutionIds;
     protected $errors = [];
+    protected $structuredErrors = []; // New: structured error format
     protected $successCount = 0;
     protected $institutionCache = [];
     protected $academicYearCache = [];
@@ -85,6 +86,27 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
     {
         $normalized = $this->normalizeRowKeys($row);
         $normalized['_row_index'] = $index + 2; // +2 to account for heading row (row 1)
+
+        if (array_key_exists('utis_code', $normalized) && $normalized['utis_code'] !== null && $normalized['utis_code'] !== '') {
+            $digits = preg_replace('/\D+/', '', (string) $normalized['utis_code']);
+            $normalized['utis_code'] = $digits !== '' ? $digits : null;
+        }
+
+        $levelValue = $normalized['class_level'] ?? null;
+        $classIndex = $normalized['class_name'] ?? null;
+
+        if (($levelValue === null || $levelValue === '') && !empty($normalized['class_full_name'])) {
+            $parsed = $this->parseCombinedClassName($normalized['class_full_name']);
+            if ($parsed) {
+                [$normalized['class_level'], $normalized['class_name']] = $parsed;
+            }
+        } elseif (($levelValue === null || $levelValue === '') && !empty($classIndex)) {
+            $parsed = $this->parseCombinedClassName($classIndex);
+            if ($parsed) {
+                [$normalized['class_level'], $normalized['class_name']] = $parsed;
+            }
+        }
+
         return $normalized;
     }
 
@@ -101,14 +123,26 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
             // Validate class identifiers (either combined "Sinif adı" or level + letter)
             $classIdentifiers = $this->parseClassIdentifiers($row);
             if (!$classIdentifiers) {
-                $this->addError('Sinif səviyyəsi və ya sinif adı düzgün doldurulmayıb', $row);
+                $this->addError(
+                    'Sinif səviyyəsi və ya sinif adı düzgün doldurulmayıb',
+                    $row,
+                    'class_level',
+                    $row['class_level'] ?? null,
+                    '0-12 arası rəqəm daxil edin (məsələn: 5)'
+                );
                 return null;
             }
             [$classLevel, $className] = $classIdentifiers;
 
             if ($classLevel < 0 || $classLevel > 12) {
                 Log::warning("Invalid class level: {$classLevel}");
-                $this->addError("Sinif səviyyəsi düzgün deyil: {$classLevel} (0-12 intervalında olmalıdır)", $row);
+                $this->addError(
+                    "Sinif səviyyəsi düzgün deyil: {$classLevel}",
+                    $row,
+                    'class_level',
+                    $classLevel,
+                    '0-12 arası rəqəm daxil edin'
+                );
                 return null;
             }
 
@@ -122,7 +156,15 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
                 $institution = $this->institutionCache['utis:' . $utisCode] ?? null;
 
                 if (!$institution) {
-                    $this->addError("UTIS kod '{$utisCode}' tapılmadı və ya bu regiona aid deyil", $row);
+                    // Try to find similar UTIS codes for suggestion
+                    $suggestion = $this->findSimilarUTISCode($utisCode);
+                    $this->addError(
+                        "UTIS kod '{$utisCode}' tapılmadı və ya bu regiona aid deyil",
+                        $row,
+                        'utis_code',
+                        $utisCode,
+                        $suggestion
+                    );
                     return null;
                 }
                 $identifierUsed = "UTIS: {$utisCode}";
@@ -134,7 +176,13 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
                 $institution = $this->institutionCache['code:' . $instCode] ?? null;
 
                 if (!$institution) {
-                    $this->addError("Müəssisə kodu '{$instCode}' tapılmadı və ya bu regiona aid deyil", $row);
+                    $this->addError(
+                        "Müəssisə kodu '{$instCode}' tapılmadı və ya bu regiona aid deyil",
+                        $row,
+                        'institution_code',
+                        $instCode,
+                        'Müəssisə kodunu yoxlayın və ya UTIS kod istifadə edin'
+                    );
                     return null;
                 }
                 $identifierUsed = "Code: {$instCode}";
@@ -323,16 +371,18 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
                 continue;
             }
 
-            $slug = Str::slug($key, '_');
-            if ($slug && !array_key_exists($slug, $normalized)) {
-                $normalized[$slug] = $value;
+            $asciiKey = Str::lower(Str::ascii($key));
+            $normalizedKey = trim(preg_replace('/[^a-z0-9]+/', '_', $asciiKey), '_');
+
+            if ($normalizedKey && !array_key_exists($normalizedKey, $normalized)) {
+                $normalized[$normalizedKey] = $value;
             }
 
-            if (!array_key_exists('class_level', $normalized) && Str::contains($slug, 'sinif_seviy')) {
+            if (!array_key_exists('class_level', $normalized) && Str::contains($normalizedKey, 'sinif_seviy')) {
                 $normalized['class_level'] = $value;
             }
 
-            if (!array_key_exists('class_name', $normalized) && Str::contains($slug, 'sinif_herf')) {
+            if (!array_key_exists('class_name', $normalized) && (Str::contains($normalizedKey, 'sinif_index') || Str::contains($normalizedKey, 'sinif_herf'))) {
                 $normalized['class_name'] = $value;
             }
         }
@@ -356,6 +406,9 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
             'sinif_indexi' => 'class_name',
             'sinif_herfi_a_b_c_c' => 'class_name',
             'sinif_letter' => 'class_name',
+            'sinif_full' => 'class_full_name',
+            'sinif_adi' => 'class_full_name',
+            'sinfin_adi' => 'class_full_name',
             'sinif' => 'homeroom_teacher',
             'sinif_rehberi' => 'homeroom_teacher',
             'sinif_muellimi' => 'homeroom_teacher',
@@ -416,12 +469,34 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
     }
 
     /**
-     * Append a formatted error message.
+     * Append a formatted error message with structured data.
      */
-    protected function addError(string $message, array $row = []): void
+    protected function addError(string $message, array $row = [], string $field = null, $value = null, string $suggestion = null): void
     {
         $context = $this->formatRowContext($row);
-        $this->errors[] = $context ? "{$message} ({$context})" : $message;
+        $errorMessage = $context ? "{$message} ({$context})" : $message;
+        $this->errors[] = $errorMessage;
+
+        // Add structured error for better frontend handling
+        $rowIndex = $row['_row_index'] ?? $row['row_index'] ?? null;
+
+        $structuredError = [
+            'row' => $rowIndex,
+            'field' => $field,
+            'value' => $value,
+            'error' => $message,
+            'suggestion' => $suggestion,
+            'severity' => 'error',
+            'context' => [
+                'utis_code' => $row['utis_code'] ?? null,
+                'institution_code' => $row['institution_code'] ?? null,
+                'institution_name' => $row['institution_name'] ?? null,
+                'class_level' => $row['class_level'] ?? null,
+                'class_name' => $row['class_name'] ?? null,
+            ]
+        ];
+
+        $this->structuredErrors[] = $structuredError;
     }
 
     /**
@@ -429,14 +504,45 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
      */
     protected function parseClassIdentifiers(array $row): ?array
     {
-        if (isset($row['class_level']) && $row['class_level'] !== '' && !empty($row['class_name'])) {
+        if (isset($row['class_level']) && $row['class_level'] !== '' && isset($row['class_name']) && $row['class_name'] !== '') {
             return [
                 (int) $row['class_level'],
-                trim($row['class_name']),
+                $this->sanitizeClassIndex($row['class_name']),
             ];
         }
 
         return null;
+    }
+
+    /**
+     * Parse combined class name formats (e.g., "5A", "10 B", "8-r2").
+     */
+    protected function parseCombinedClassName(string $value): ?array
+    {
+        $clean = trim(str_replace(['-', '_'], ' ', $value));
+        if ($clean === '') {
+            return null;
+        }
+
+        if (preg_match('/^(?<level>\d{1,2})\s*(?<index>.+)$/u', $clean, $matches)) {
+            $level = (int) $matches['level'];
+            $index = $this->sanitizeClassIndex($matches['index']);
+            if ($index === '') {
+                return null;
+            }
+            return [$level, $index];
+        }
+
+        if (preg_match('/^(?<level>\d{1,2})$/', $clean, $matches)) {
+            return [(int) $matches['level'], ''];
+        }
+
+        return null;
+    }
+
+    protected function sanitizeClassIndex(string $value): string
+    {
+        return mb_substr(trim($value), 0, 3);
     }
 
     /**
@@ -569,7 +675,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
 
             // Required fields
             'class_level' => ['required', 'integer', 'min:0', 'max:12'],
-            'class_name' => ['required', 'string', 'max:20'],
+            'class_name' => ['required', 'string', 'max:3'],
 
             // Optional fields with validation
             'student_count' => ['nullable', 'integer', 'min:0', 'max:100'],
@@ -600,7 +706,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
             'class_level.min' => 'Sinif səviyyəsi ən az 0 ola bilər',
             'class_level.max' => 'Sinif səviyyəsi ən çox 12 ola bilər',
             'class_name.required' => 'Sinif index-i (hərf və ya sərbəst kod) mütləqdir',
-            'class_name.max' => 'Sinif index-i maksimum 20 simvol ola bilər',
+            'class_name.max' => 'Sinif index-i maksimum 3 simvol ola bilər',
             'student_count.max' => 'Şagird sayı maksimum 100 ola bilər',
             'male_count.max' => 'Oğlan sayı maksimum 100 ola bilər',
             'female_count.max' => 'Qız sayı maksimum 100 ola bilər',
@@ -640,7 +746,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
     }
 
     /**
-     * Get import statistics
+     * Get import statistics with structured errors
      */
     public function getStatistics(): array
     {
@@ -648,6 +754,36 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
             'success_count' => $this->successCount,
             'error_count' => count($this->errors),
             'errors' => $this->errors,
+            'structured_errors' => $this->structuredErrors, // Enhanced error format
+            'total_processed' => $this->successCount + count($this->errors),
         ];
+    }
+
+    /**
+     * Find similar UTIS code for smart suggestions
+     */
+    protected function findSimilarUTISCode(string $utisCode): ?string
+    {
+        // Search for UTIS codes with similar patterns (e.g., one digit off)
+        $searchPattern = substr($utisCode, 0, 6); // First 6 digits
+
+        foreach ($this->institutionCache as $key => $institution) {
+            if (str_starts_with($key, 'utis:')) {
+                $cachedCode = substr($key, 5); // Remove 'utis:' prefix
+                if (str_starts_with($cachedCode, $searchPattern)) {
+                    return "Demək istədiniz: {$cachedCode}? (Müəssisə: {$institution->name})";
+                }
+            }
+        }
+
+        return 'Regionunuzdakı UTIS kod siyahısını yoxlayın';
+    }
+
+    /**
+     * Get structured errors for detailed frontend display
+     */
+    public function getStructuredErrors(): array
+    {
+        return $this->structuredErrors;
     }
 }

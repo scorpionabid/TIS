@@ -76,13 +76,30 @@ export interface ClassFilters {
   page?: number;
 }
 
+export interface ImportError {
+  row: number | null;
+  field: string | null;
+  value: any;
+  error: string;
+  suggestion: string | null;
+  severity: 'error' | 'warning';
+  context: {
+    utis_code?: string | null;
+    institution_code?: string | null;
+    institution_name?: string | null;
+    class_level?: number | null;
+    class_name?: string | null;
+  };
+}
+
 export interface ClassImportResult {
   success: boolean;
   message: string;
   data: {
     success_count: number;
     error_count: number;
-    errors: string[];
+    errors: string[]; // Simple string errors (backward compatible)
+    structured_errors?: ImportError[]; // New: detailed error objects
     total_processed: number;
   };
 }

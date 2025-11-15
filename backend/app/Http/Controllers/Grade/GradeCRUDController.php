@@ -11,7 +11,6 @@ use App\Models\AcademicYear;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 
 class GradeCRUDController extends Controller
 {
@@ -256,9 +255,8 @@ class GradeCRUDController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'name' => 'required_without:class_full_name|string|max:255',
-            'class_full_name' => 'sometimes|string|max:25',
-            'class_level' => 'required_without:class_full_name|integer|min:0|max:12',
+            'name' => 'required|string|max:3',
+            'class_level' => 'required|integer|min:0|max:12',
             'academic_year_id' => 'required|exists:academic_years,id',
             'institution_id' => 'required|exists:institutions,id',
             'room_id' => 'nullable|exists:rooms,id',
@@ -280,18 +278,7 @@ class GradeCRUDController extends Controller
         }
 
         $classLevel = (int) $request->input('class_level');
-        $className = $request->input('name');
-
-        if ($request->filled('class_full_name')) {
-            $parsedIdentifiers = $this->parseClassFullName($request->input('class_full_name'));
-            if (!$parsedIdentifiers) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Sinif adı formatı düzgün deyil (məs: 5A, 7-B)',
-                ], 422);
-            }
-            [$classLevel, $className] = $parsedIdentifiers;
-        }
+        $className = trim($request->input('name'));
 
         // Check regional access
         $user = $request->user();
@@ -518,8 +505,7 @@ class GradeCRUDController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'name' => 'sometimes|string|max:255',
-            'class_full_name' => 'sometimes|string|max:25',
+            'name' => 'sometimes|string|max:3',
             'class_level' => 'sometimes|integer|min:0|max:12',
             'room_id' => 'sometimes|nullable|exists:rooms,id',
             'homeroom_teacher_id' => 'sometimes|nullable|exists:users,id',
@@ -541,21 +527,10 @@ class GradeCRUDController extends Controller
         }
 
         $classLevel = $request->has('class_level') ? (int) $request->class_level : $grade->class_level;
-        $className = $request->has('name') ? $request->name : $grade->name;
-
-        if ($request->filled('class_full_name')) {
-            $parsedIdentifiers = $this->parseClassFullName($request->input('class_full_name'));
-            if (!$parsedIdentifiers) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Sinif adı formatı düzgün deyil (məs: 5A, 7-B)',
-                ], 422);
-            }
-            [$classLevel, $className] = $parsedIdentifiers;
-        }
+        $className = $request->has('name') ? trim($request->name) : $grade->name;
 
         // Check for unique grade name if name or class_level is being updated
-        if ($request->has('name') || $request->has('class_level') || $request->filled('class_full_name')) {
+        if ($request->has('name') || $request->has('class_level')) {
             $checkName = $className;
             $checkClassLevel = $classLevel;
 
@@ -696,27 +671,6 @@ class GradeCRUDController extends Controller
     /**
      * Helper methods
      */
-    private function parseClassFullName(?string $value): ?array
-    {
-        if (!$value) {
-            return null;
-        }
-
-        $clean = Str::of($value)
-            ->replace(['-', '_'], ' ')
-            ->squish()
-            ->toString();
-
-        if (preg_match('/(?P<level>\d{1,2})\s*(?P<letter>[\p{L}\d]+)/u', $clean, $matches)) {
-            $level = (int) $matches['level'];
-            $letter = Str::upper($matches['letter']);
-
-            return [$level, mb_substr($letter, 0, 5)];
-        }
-
-        return null;
-    }
-
     private function getUserAccessibleInstitutions($user): array
     {
         if ($user->hasRole('superadmin')) {

@@ -231,10 +231,60 @@ class RegionAdminClassController extends Controller
                     'success_count' => $stats['success_count'],
                     'error_count' => $stats['error_count'],
                     'errors' => $stats['errors'],
-                    'total_processed' => $stats['success_count'] + $stats['error_count'],
+                    'structured_errors' => $stats['structured_errors'] ?? [], // NEW: Structured error format
+                    'total_processed' => $stats['total_processed'] ?? ($stats['success_count'] + $stats['error_count']),
                 ]
             ]);
 
+        } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
+            // Laravel Excel validation errors - convert to structured format
+            $failures = $e->failures();
+            $simpleErrors = [];
+            $structuredErrors = [];
+
+            foreach ($failures as $failure) {
+                $rowNumber = $failure->row();
+                $attribute = $failure->attribute();
+                $errors = $failure->errors();
+                $values = $failure->values();
+
+                foreach ($errors as $error) {
+                    $simpleErrors[] = "Sətir {$rowNumber}: {$error}";
+
+                    $structuredErrors[] = [
+                        'row' => $rowNumber,
+                        'field' => $attribute,
+                        'value' => $values[$attribute] ?? null,
+                        'error' => $error,
+                        'suggestion' => $this->getValidationSuggestion($attribute, $error),
+                        'severity' => 'error',
+                        'context' => [
+                            'utis_code' => $values['utis_code'] ?? null,
+                            'institution_code' => $values['institution_code'] ?? null,
+                            'institution_name' => $values['institution_name'] ?? null,
+                            'class_level' => $values['class_level'] ?? null,
+                            'class_name' => $values['class_name'] ?? null,
+                        ]
+                    ];
+                }
+            }
+
+            Log::warning('Import validation failed', [
+                'error_count' => count($simpleErrors),
+                'first_errors' => array_slice($simpleErrors, 0, 5)
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Fayl validasiya xətası',
+                'data' => [
+                    'success_count' => 0,
+                    'error_count' => count($simpleErrors),
+                    'errors' => $simpleErrors,
+                    'structured_errors' => $structuredErrors,
+                    'total_processed' => count($simpleErrors),
+                ]
+            ], 422);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -522,6 +572,25 @@ class RegionAdminClassController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Get validation suggestion based on field and error
+     */
+    private function getValidationSuggestion(string $field, string $error): ?string
+    {
+        $suggestions = [
+            'class_level' => '0-12 arası rəqəm daxil edin (0=Anasinfi, 1-12=Sinif)',
+            'class_name' => 'Sinif hərfini daxil edin (məsələn: A, B, C)',
+            'utis_code' => '9 rəqəmli UTIS kod daxil edin',
+            'institution_code' => 'Müəssisə kodunu daxil edin və ya UTIS kod istifadə edin',
+            'teaching_language' => 'azərbaycan, rus, gürcü və ya ingilis seçin',
+            'teaching_week' => '4_günlük, 5_günlük və ya 6_günlük seçin',
+            'teaching_shift' => '1 növbə, 2 növbə, 3 növbə və ya fərdi seçin',
+            'education_program' => 'umumi, xususi, ferdi_mekteb və ya ferdi_ev seçin',
+        ];
+
+        return $suggestions[$field] ?? 'Düzgün format daxil edin';
     }
 
     /**

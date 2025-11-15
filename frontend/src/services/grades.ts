@@ -87,7 +87,6 @@ export interface GradeCreateData {
   class_level: number;
   academic_year_id: number;
   institution_id: number;
-  class_full_name?: string;
   room_id?: number;
   homeroom_teacher_id?: number;
   specialty?: string;
@@ -109,7 +108,6 @@ export interface GradeUpdateData {
   name?: string;
   room_id?: number | null;
   homeroom_teacher_id?: number | null;
-  class_full_name?: string;
   class_level?: number;
   specialty?: string;
   grade_category?: string;

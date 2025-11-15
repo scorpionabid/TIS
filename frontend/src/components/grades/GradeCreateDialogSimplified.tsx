@@ -38,43 +38,11 @@ import {
 } from 'lucide-react';
 import { User } from '@/contexts/AuthContext';
 import { USER_ROLES } from '@/constants/roles';
-import { formatGradeName, getCapacityRecommendation, getEducationStageColor } from '@/constants/gradeNaming';
+import { formatGradeName, getCapacityRecommendation, getEducationStageColor, CLASS_LEVEL_OPTIONS } from '@/constants/gradeNaming';
 import { TagSelector } from './TagSelector';
 import { EducationProgramSelector } from './EducationProgramSelector';
 import { GenderCountInput } from './GenderCountInput';
 import type { EducationProgramType } from '@/types/gradeTag';
-
-const CLASS_NAME_REGEX = /^(?:\s*)(\d{1,2})\s*([A-Za-zƏÖÜÇĞŞIİəöüğçı]+)$/iu;
-
-const parseClassFullName = (value: string) => {
-  const clean = value.replace(/[-_]/g, ' ').trim();
-  if (!clean) {
-    return null;
-  }
-
-  const match = clean.match(CLASS_NAME_REGEX);
-  if (!match) {
-    return null;
-  }
-
-  const level = parseInt(match[1], 10);
-  if (Number.isNaN(level)) {
-    return null;
-  }
-
-  const letter = (match[2] || '').toUpperCase();
-  return {
-    level,
-    letter: letter.slice(0, 5),
-  };
-};
-
-const formatClassFullName = (level?: number, letter?: string) => {
-  if (level === undefined || level === null) {
-    return letter || '';
-  }
-  return `${level}${letter ?? ''}`;
-};
 
 const TEACHING_SHIFT_OPTIONS = ['1 növbə', '2 növbə', '3 növbə', 'Fərdi'];
 
@@ -109,7 +77,6 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
     male_student_count: 0,
     female_student_count: 0,
     education_program: 'umumi',
-    class_full_name: '',
     class_type: '',
     class_profile: '',
     teaching_shift: '',
@@ -135,7 +102,6 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
         male_student_count: (editingGrade as any).male_student_count || 0,
         female_student_count: (editingGrade as any).female_student_count || 0,
         education_program: (editingGrade as any).education_program || 'umumi',
-        class_full_name: formatClassFullName(editingGrade.class_level, editingGrade.name),
         class_type: (editingGrade as any).class_type || '',
         class_profile: (editingGrade as any).class_profile || '',
         teaching_shift: (editingGrade as any).teaching_shift || '',
@@ -157,7 +123,6 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
         male_student_count: 0,
         female_student_count: 0,
         education_program: 'umumi',
-        class_full_name: '',
         class_type: '',
         class_profile: '',
         teaching_shift: '',
@@ -168,7 +133,7 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
   }, [editingGrade, open, availableAcademicYears, availableInstitutions, isSchoolAdmin, userInstitution]);
 
   // Fetch naming options from backend
-  const { data: namingOptions, isLoading: loadingNamingOptions } = useQuery({
+  const { data: namingOptions } = useQuery({
     queryKey: ['grade-naming-options', formData.institution_id, formData.class_level, formData.academic_year_id],
     queryFn: () =>
       gradeService.getNamingOptions(
@@ -179,6 +144,9 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
     enabled: open && !!formData.institution_id && !!formData.academic_year_id,
     staleTime: 1000 * 60 * 5, // 5 minutes cache
   });
+  const classLevelOptions = namingOptions?.data?.class_levels && namingOptions.data.class_levels.length > 0
+    ? namingOptions.data.class_levels
+    : CLASS_LEVEL_OPTIONS;
 
   // Fetch available teachers for homeroom teacher selection
   const { data: availableTeachers } = useQuery({
@@ -247,10 +215,14 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
 
     // Basic validation
     const errors: Record<string, string> = {};
-    if (!formData.class_full_name?.trim()) {
-      errors.class_full_name = 'Sinif adı mütləqdir';
-    } else if (!parseClassFullName(formData.class_full_name)) {
-      errors.class_full_name = 'Sinif adı 5A və ya 10B formatında olmalıdır';
+    if (formData.class_level === null || formData.class_level === undefined) {
+      errors.class_level = 'Sinif səviyyəsi mütləqdir';
+    }
+    const classIndex = formData.name?.trim() || '';
+    if (!classIndex) {
+      errors.name = 'Sinif index-i mütləqdir';
+    } else if (classIndex.length > 3) {
+      errors.name = 'Sinif index-i maksimum 3 simvol ola bilər';
     }
     if (!formData.academic_year_id) errors.academic_year_id = 'Akademik il mütləqdir';
     if (!formData.institution_id) errors.institution_id = 'Məktəb mütləqdir';
@@ -264,8 +236,7 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
 
     if (editingGrade) {
       const updateData: GradeUpdateData = {
-        name: formData.name,
-        class_full_name: formData.class_full_name,
+        name: classIndex,
         class_level: formData.class_level,
         specialty: formData.specialty,
         student_count: formData.student_count,
@@ -279,33 +250,11 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
       };
       updateMutation.mutate({ id: editingGrade.id, updates: updateData });
     } else {
-      createMutation.mutate(formData);
+      createMutation.mutate({
+        ...formData,
+        name: classIndex,
+      });
     }
-  };
-
-  const handleClassFullNameChange = (value: string) => {
-    handleFieldChange('class_full_name', value);
-
-    if (!value.trim()) {
-      setValidationErrors(prev => ({ ...prev, class_full_name: 'Sinif adı mütləqdir' }));
-      return;
-    }
-
-    const parsed = parseClassFullName(value);
-    if (!parsed) {
-      setValidationErrors(prev => ({ ...prev, class_full_name: 'Format 5A, 7B və ya 0A olmalıdır' }));
-      return;
-    }
-
-    handleFieldChange('class_level', parsed.level);
-    handleFieldChange('name', parsed.letter);
-    setValidationErrors(prev => {
-      const next = { ...prev };
-      delete next.class_full_name;
-      delete next.class_level;
-      delete next.name;
-      return next;
-    });
   };
 
   // Handle field changes
@@ -359,27 +308,57 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
 
             {/* TAB 1: BASIC INFO (REQUIRED) */}
             <TabsContent value="basic" className="space-y-4 mt-4">
-              {/* Combined class name input */}
-              <div className="space-y-2">
-                <Label htmlFor="class_full_name">
-                  Sinif adı <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="class_full_name"
-                  value={formData.class_full_name || ''}
-                  onChange={(event) => handleClassFullNameChange(event.target.value)}
-                  placeholder="Məs: 5A, 7B, 10C"
-                  disabled={isLoading}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Sinif səviyyəsi və hərfini birlikdə daxil edin. Sistem səviyyə və hərfi avtomatik ayıracaq.
-                </p>
-                {validationErrors.class_full_name && (
-                  <p className="text-sm text-red-600 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    {validationErrors.class_full_name}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="class_level">
+                    Sinif səviyyəsi <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={formData.class_level?.toString() ?? ''}
+                    onValueChange={(value) => handleFieldChange('class_level', parseInt(value))}
+                    disabled={isLoading}
+                  >
+                    <SelectTrigger className={validationErrors.class_level ? 'border-red-500' : ''}>
+                      <SelectValue placeholder="Sinif səviyyəsini seçin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {classLevelOptions.map((level: any) => (
+                        <SelectItem key={level.value} value={level.value.toString()}>
+                          {level.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {validationErrors.class_level && (
+                    <p className="text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {validationErrors.class_level}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="class_index">
+                    Sinif index-i <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="class_index"
+                    value={formData.name || ''}
+                    onChange={(event) => handleFieldChange('name', event.target.value)}
+                    placeholder="Məs: A, b, r2"
+                    maxLength={3}
+                    disabled={isLoading}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Ən çox 3 simvol. Hərf, rəqəm və ya kombinasiyalar ola bilər (məs: A, B, r2).
                   </p>
-                )}
+                  {validationErrors.name && (
+                    <p className="text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {validationErrors.name}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Academic Year - AUTO-SELECTED */}
