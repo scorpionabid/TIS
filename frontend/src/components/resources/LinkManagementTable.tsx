@@ -42,7 +42,7 @@ const LinkManagementTable: React.FC<LinkManagementTableProps> = ({
 
   return (
     <>
-      <Card>
+      <Card className="h-full">
         <CardHeader className="flex items-center justify-between">
           <div>
             <CardTitle className="text-lg">Mövcud Linklər</CardTitle>
@@ -51,7 +51,7 @@ const LinkManagementTable: React.FC<LinkManagementTableProps> = ({
             </p>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="h-full flex flex-col">
           {isLoading ? (
             <div className="flex items-center justify-center py-6 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -62,7 +62,7 @@ const LinkManagementTable: React.FC<LinkManagementTableProps> = ({
               Hələlik link əlavə olunmayıb.
             </p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[420px]">
               <table className="w-full text-sm">
                 <thead className="text-left text-muted-foreground border-b">
                   <tr>

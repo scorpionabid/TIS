@@ -1187,17 +1187,19 @@ export default function Resources() {
         </TabsList>
 
         <TabsContent value="links" className="mt-6 space-y-4">
-          <LinkManagementTable
-            links={linkSelectionData}
-            isLoading={linksLoading}
-            onResourceAction={handleResourceAction}
-          />
-          <LinkSelectionCard
-            links={linkSelectionData}
-            selectedLink={selectedLink}
-            onSelect={selectLink}
-            isLoading={linksLoading}
-          />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <LinkManagementTable
+              links={linkSelectionData}
+              isLoading={linksLoading}
+              onResourceAction={handleResourceAction}
+            />
+            <LinkSelectionCard
+              links={linkSelectionData}
+              selectedLink={selectedLink}
+              onSelect={selectLink}
+              isLoading={linksLoading}
+            />
+          </div>
 
           <LinkSharingOverview
             selectedLink={selectedLink}
