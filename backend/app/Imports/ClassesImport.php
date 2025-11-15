@@ -34,18 +34,24 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
     protected $currentInstitution = null;
     protected $startTime;
 
+    // File type detection
+    protected $fileType = 'excel'; // 'excel' or 'csv'
+
     /**
      * Specify which row contains the headings.
-     * Row 1 is instruction row, Row 2 is actual headers.
+     * Excel: Row 1 is instruction, Row 2 is headers (return 2)
+     * CSV: Row 1 is headers directly (return 1)
      */
     public function headingRow(): int
     {
-        return 2;
+        return $this->fileType === 'csv' ? 1 : 2;
     }
 
-    public function __construct($region, $sessionId = null)
+    public function __construct($region, $sessionId = null, $fileType = 'excel')
     {
         $this->region = $region;
+        $this->fileType = $fileType;
+
         // Get all institutions in this region
         $this->allowedInstitutionIds = $region->getAllChildrenIds();
         $this->allowedInstitutionIds[] = $region->id;
@@ -53,6 +59,12 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
         // Initialize progress tracking
         $this->importSessionId = $sessionId ?? Str::uuid()->toString();
         $this->startTime = microtime(true);
+
+        Log::info("ClassesImport initialized", [
+            'file_type' => $this->fileType,
+            'heading_row' => $this->headingRow(),
+            'session_id' => $this->importSessionId
+        ]);
 
         // Pre-cache institutions for performance
         $this->cacheInstitutions();
@@ -110,14 +122,17 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
     {
         $normalized = $this->normalizeRowKeys($row);
         // Laravel Excel passes $index starting from 0 for first data row after headingRow
-        // headingRow = 2, so first data row is Excel Row 3
-        // We want to display Excel row numbers, so: Excel Row = headingRow + 1 + $index
-        $normalized['_row_index'] = 3 + $index; // Row 3 is first data row (after instruction + headers)
+        // Excel: headingRow = 2, so first data row is Row 3
+        // CSV: headingRow = 1, so first data row is Row 2
+        // Calculate row number: headingRow + 1 + $index
+        $normalized['_row_index'] = $this->headingRow() + 1 + $index;
 
         // DIAGNOSTIC: Log first 5 rows to help debug column structure
         if ($index < 5) {
-            Log::info("Excel Row " . (3 + $index) . " - Original columns:", array_keys($row));
-            Log::info("Excel Row " . (3 + $index) . " - Normalized data:", [
+            $rowNum = $normalized['_row_index'];
+            $fileTypeLabel = $this->fileType === 'csv' ? 'CSV' : 'Excel';
+            Log::info("{$fileTypeLabel} Row {$rowNum} - Original columns:", array_keys($row));
+            Log::info("{$fileTypeLabel} Row {$rowNum} - Normalized data:", [
                 'class_level' => $normalized['class_level'] ?? 'MISSING',
                 'class_name' => $normalized['class_name'] ?? 'MISSING',
                 'class_full_name' => $normalized['class_full_name'] ?? 'MISSING',

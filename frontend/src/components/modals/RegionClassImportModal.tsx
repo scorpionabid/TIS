@@ -138,6 +138,16 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
     }
   };
 
+  const handleDownloadExcelTemplate = () => {
+    const url = `${import.meta.env.VITE_API_URL}/api/regionadmin/classes/export/template`;
+    window.open(url, '_blank');
+  };
+
+  const handleDownloadCSVTemplate = () => {
+    const url = `${import.meta.env.VITE_API_URL}/api/regionadmin/classes/export/template/csv`;
+    window.open(url, '_blank');
+  };
+
   const validateFile = (file: File): { valid: boolean; error?: string } => {
     // Check file size (max 10MB - updated to match backend)
     if (file.size > 10 * 1024 * 1024) {
@@ -272,6 +282,30 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
               </div>
             </AlertDescription>
           </Alert>
+
+          {/* Template Download Buttons */}
+          {!importResult && (
+            <div className="flex gap-3 justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadExcelTemplate}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Excel Şablon (.xlsx)
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadCSVTemplate}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                CSV Şablon (.csv)
+              </Button>
+            </div>
+          )}
 
           {/* File Upload */}
           {!importResult && (

@@ -94,9 +94,17 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
       // Convert to array of arrays
       const rawData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-      // Find header row (row 2 in our template - after instruction row)
-      const headerRowIndex = 1; // 0-indexed (Excel row 2)
+      // Detect file type based on extension
+      const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
+      const isCSV = fileExtension === 'csv';
+
+      // Find header row
+      // CSV: Row 1 is headers directly (index 0)
+      // Excel: Row 1 is instruction, Row 2 is headers (index 1)
+      const headerRowIndex = isCSV ? 0 : 1;
       const headers = rawData[headerRowIndex] || [];
+
+      info.push(isCSV ? '📄 CSV format detected' : '📊 Excel format detected');
 
       // Normalize headers for comparison (handle Azerbaijani characters)
       const normalizedHeaders = headers.map(h => {
@@ -248,6 +256,18 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
 
       if (hasWeirdChars) {
         warnings.push('Fayl kodlaşdırma problemi ola bilər - Azərbaycan hərfləri düzgün görünmürsə, faylı UTF-8 formatında yadda saxlayın');
+      }
+
+      // CSV-specific encoding validation
+      if (isCSV) {
+        const text = await file.text();
+        const hasBrokenChars = text.includes('�') || text.includes('\ufffd');
+
+        if (hasBrokenChars) {
+          errors.push('❌ CSV faylı düzgün kodlaşdırılmayıb! Excel-də "Save As" → "CSV UTF-8 (Comma delimited)" seçin.');
+        } else {
+          info.push('✅ CSV encoding düzgündür (UTF-8)');
+        }
       }
 
       // Preview first 5 rows

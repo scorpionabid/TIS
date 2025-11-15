@@ -216,20 +216,32 @@ class RegionAdminClassController extends Controller
 
             $file = $request->file('file');
 
+            // Detect file type (CSV or Excel)
+            $fileExtension = strtolower($file->getClientOriginalExtension());
+            $fileType = ($fileExtension === 'csv') ? 'csv' : 'excel';
+
+            Log::info('Detected file type', [
+                'extension' => $fileExtension,
+                'type' => $fileType,
+                'mime' => $file->getMimeType()
+            ]);
+
             // Generate unique session ID for progress tracking
             $sessionId = Str::uuid()->toString();
 
-            // Create import instance with session ID
-            $import = new ClassesImport($region, $sessionId);
+            // Create import instance with session ID and file type
+            $import = new ClassesImport($region, $sessionId, $fileType);
 
             // Count total rows for progress tracking
             try {
                 $reader = IOFactory::createReaderForFile($file->getRealPath());
                 $spreadsheet = $reader->load($file->getRealPath());
                 $worksheet = $spreadsheet->getActiveSheet();
-                $totalRows = $worksheet->getHighestDataRow() - 2; // Subtract instruction row and header row
+                // CSV: Subtract 1 header row, Excel: Subtract instruction row + header row
+                $headerRows = ($fileType === 'csv') ? 1 : 2;
+                $totalRows = $worksheet->getHighestDataRow() - $headerRows;
                 $import->setTotalRows($totalRows);
-                Log::info("Total rows to import: {$totalRows}");
+                Log::info("Total rows to import: {$totalRows} (file type: {$fileType})");
             } catch (\Exception $e) {
                 Log::warning('Could not count rows for progress tracking: ' . $e->getMessage());
             }
@@ -449,6 +461,60 @@ class RegionAdminClassController extends Controller
                     ];
                 }
             }, 'sinif-import-shablon-' . date('Y-m-d') . '.xlsx');
+        }
+    }
+
+    /**
+     * Export CSV template for class import
+     * Simpler format without instruction row, UTF-8 encoded
+     */
+    public function exportClassesTemplateCSV()
+    {
+        try {
+            Log::info('📄 Starting CSV template export for classes');
+
+            $filename = 'sinif-import-shablon-' . date('Y-m-d') . '.csv';
+
+            Log::info('📄 Creating CSV export', ['filename' => $filename]);
+
+            $export = new \App\Exports\ClassesTemplateExportCSV();
+
+            Log::info('✅ CSV export object created, starting download');
+
+            // Export as CSV with UTF-8 BOM for Excel compatibility
+            $response = Excel::download(
+                $export,
+                $filename,
+                \Maatwebsite\Excel\Excel::CSV,
+                [
+                    'Content-Type' => 'text/csv; charset=UTF-8',
+                ]
+            );
+
+            // Set proper headers for CSV file with UTF-8 BOM
+            $response->headers->set('Content-Type', 'text/csv; charset=UTF-8');
+            $response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '"');
+            $response->headers->set('Cache-Control', 'no-cache, no-store, must-revalidate');
+            $response->headers->set('Pragma', 'no-cache');
+            $response->headers->set('Expires', '0');
+
+            Log::info('✅ CSV response headers set, returning file', [
+                'filename' => $filename,
+                'content_type' => $response->headers->get('Content-Type')
+            ]);
+
+            return $response;
+
+        } catch (\Exception $e) {
+            Log::error('❌ CSV template export failed: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'CSV şablonunun yaradılması uğursuz oldu',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 
