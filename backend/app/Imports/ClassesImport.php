@@ -179,13 +179,38 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
             // Validate class identifiers (either combined "Sinif adı" or level + letter)
             $classIdentifiers = $this->parseClassIdentifiers($row);
             if (!$classIdentifiers) {
-                $this->addError(
-                    'Sinif səviyyəsi və ya sinif adı düzgün doldurulmayıb',
-                    $row,
-                    'class_level',
-                    $row['class_level'] ?? null,
-                    '0-12 arası rəqəm daxil edin (məsələn: 5)'
-                );
+                // Check which fields are missing for better error message
+                $classLevel = $row['class_level'] ?? null;
+                $className = $row['class_name'] ?? null;
+
+                if (empty($classLevel) && empty($className)) {
+                    $this->addError(
+                        'Sinif səviyyəsi VƏ Sinif index-i hər ikisi boşdur',
+                        $row,
+                        'class_level',
+                        null,
+                        'Excel-də "Sinif Səviyyəsi (1-12)" sütununa 0-12 arası rəqəm, "Sinif index-i" sütununa isə hərf/kod (A, B, r2 və s.) daxil edin',
+                        'error'
+                    );
+                } elseif (empty($classLevel)) {
+                    $this->addError(
+                        'Sinif səviyyəsi boşdur',
+                        $row,
+                        'class_level',
+                        $classLevel,
+                        'Excel-də "Sinif Səviyyəsi (1-12)" sütununa 0-12 arası rəqəm daxil edin (məsələn: 5)',
+                        'error'
+                    );
+                } elseif (empty($className)) {
+                    $this->addError(
+                        'Sinif index-i boşdur',
+                        $row,
+                        'class_name',
+                        $className,
+                        'Excel-də "Sinif index-i" sütununa hərf/kod daxil edin (məsələn: A, B, r2)',
+                        'error'
+                    );
+                }
                 return null;
             }
             [$classLevel, $className] = $classIdentifiers;
