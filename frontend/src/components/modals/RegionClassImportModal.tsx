@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { ImportProgressBar } from '@/components/common/ImportProgressBar';
 import { EnhancedErrorDisplay } from '@/components/common/EnhancedErrorDisplay';
+import { FilePreviewModal } from '@/components/common/FilePreviewModal';
 import * as XLSX from 'xlsx';
 
 interface RegionClassImportModalProps {
@@ -25,6 +26,10 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
   // Progress tracking state
   const [importSessionId, setImportSessionId] = useState<string | null>(null);
   const [showProgress, setShowProgress] = useState(false);
+
+  // File preview state
+  const [showFilePreview, setShowFilePreview] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -101,13 +106,28 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
     if (file) {
       const validation = validateFile(file);
       if (validation.valid) {
-        setSelectedFile(file);
+        // Show preview modal instead of directly setting file
+        setPendingFile(file);
+        setShowFilePreview(true);
         setImportResult(null);
         setImportError(null);
       } else {
         alert(`Fayl səhvi: ${validation.error}`);
       }
     }
+  };
+
+  const handlePreviewConfirm = () => {
+    if (pendingFile) {
+      setSelectedFile(pendingFile);
+      setShowFilePreview(false);
+      setPendingFile(null);
+    }
+  };
+
+  const handlePreviewCancel = () => {
+    setShowFilePreview(false);
+    setPendingFile(null);
   };
 
   const handleImport = () => {
@@ -397,6 +417,14 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
           )}
         </div>
       </DialogContent>
+
+      {/* File Preview Modal */}
+      <FilePreviewModal
+        file={pendingFile}
+        isOpen={showFilePreview}
+        onClose={handlePreviewCancel}
+        onConfirm={handlePreviewConfirm}
+      />
     </Dialog>
   );
 };
