@@ -234,10 +234,10 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
 
         // If most sample rows are empty, BLOCK import with error (not just warning)
         if (emptyClassLevelCount >= sampleRows.length * 0.8) {
-          errors.push(`❌ "${headers[classLevelIndex]}" sütunu əksər sətirlərdə BOŞdur! Excel-də D sütununa 0-12 arası rəqəm daxil edin (məsələn: 5, 8, 11).`);
+          errors.push(`❌ "${headers[classLevelIndex]}" sütunu BOŞdur! D sütununa YALNIZ rəqəm yazın: 0, 1, 2...12 (hərf yazmayın, "9 a" kimi birləşdirməyin!)`);
         }
         if (emptyClassNameCount >= sampleRows.length * 0.8) {
-          errors.push(`❌ "${headers[classNameIndex]}" sütunu əksər sətirlərdə BOŞdur! Excel-də E sütununa sinif hərfi/kodu daxil edin (məsələn: A, B, r2).`);
+          errors.push(`❌ "${headers[classNameIndex]}" sütunu BOŞdur! E sütununa YALNIZ hərf/kod yazın: A, B, ə, r2 (max 3 simvol, rəqəm əlavə etməyin!)`);
         }
       }
 
