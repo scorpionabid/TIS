@@ -189,7 +189,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
                         $row,
                         'class_level',
                         null,
-                        'Excel-də "Sinif Səviyyəsi (1-12)" sütununa 0-12 arası rəqəm, "Sinif index-i" sütununa isə hərf/kod (A, B, r2 və s.) daxil edin',
+                        '📋 Excel-də D sütunu "Sinif Səviyyəsi (1-12)" → 0-12 arası rəqəm daxil edin (məs: 5). E sütunu "Sinif index-i" → hərf/kod daxil edin (məs: A, B, r2).',
                         'error'
                     );
                 } elseif (empty($classLevel)) {
@@ -198,7 +198,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
                         $row,
                         'class_level',
                         $classLevel,
-                        'Excel-də "Sinif Səviyyəsi (1-12)" sütununa 0-12 arası rəqəm daxil edin (məsələn: 5)',
+                        '📋 Excel-də D sütunu "Sinif Səviyyəsi (1-12)" → 0-12 arası rəqəm daxil edin (məsələn: 5)',
                         'error'
                     );
                 } elseif (empty($className)) {
@@ -207,7 +207,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
                         $row,
                         'class_name',
                         $className,
-                        'Excel-də "Sinif index-i" sütununa hərf/kod daxil edin (məsələn: A, B, r2)',
+                        '📋 Excel-də E sütunu "Sinif index-i" → hərf/kod daxil edin (məsələn: A, B, r2)',
                         'error'
                     );
                 }

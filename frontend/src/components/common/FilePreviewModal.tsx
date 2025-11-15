@@ -198,6 +198,48 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
         info.push(`${nonEmptyRows} sətir idxal ediləcək (təxmini vaxt: ${Math.ceil(nonEmptyRows / 20)} san)`);
       }
 
+      // Check if required columns have data (quick sample check on first 10 rows)
+      if (nonEmptyRows > 0 && !missingHeaders.includes('class_level') && !missingHeaders.includes('class_name')) {
+        // Find class_level and class_name column indices
+        const classLevelIndex = headers.findIndex(h => {
+          const normalized = String(h || '').toLowerCase().replace(/\s+/g, '_').replace(/[()]/g, '').replace(/-/g, '_');
+          return normalized.includes('sinif') && (normalized.includes('seviy') || normalized.includes('level'));
+        });
+
+        const classNameIndex = headers.findIndex(h => {
+          const normalized = String(h || '').toLowerCase().replace(/\s+/g, '_').replace(/[()]/g, '').replace(/-/g, '_');
+          return normalized.includes('sinif') && (normalized.includes('index') || normalized.includes('herf') || normalized.includes('name'));
+        });
+
+        // Check first 10 non-empty rows for missing data in required columns
+        const sampleRows = dataRows.slice(0, Math.min(10, dataRows.length));
+        let emptyClassLevelCount = 0;
+        let emptyClassNameCount = 0;
+
+        sampleRows.forEach(row => {
+          if (classLevelIndex >= 0) {
+            const cellValue = row[classLevelIndex];
+            if (cellValue === null || cellValue === undefined || String(cellValue).trim() === '') {
+              emptyClassLevelCount++;
+            }
+          }
+          if (classNameIndex >= 0) {
+            const cellValue = row[classNameIndex];
+            if (cellValue === null || cellValue === undefined || String(cellValue).trim() === '') {
+              emptyClassNameCount++;
+            }
+          }
+        });
+
+        // If most sample rows are empty, warn user
+        if (emptyClassLevelCount >= sampleRows.length * 0.8) {
+          warnings.push(`⚠️ DİQQƏT: "${headers[classLevelIndex]}" sütunu əksər sətirlərdə BOŞdur! Bu sütuna 0-12 arası rəqəm daxil edin.`);
+        }
+        if (emptyClassNameCount >= sampleRows.length * 0.8) {
+          warnings.push(`⚠️ DİQQƏT: "${headers[classNameIndex]}" sütunu əksər sətirlərdə BOŞdur! Bu sütuna sinif hərfi/kodu daxil edin (A, B, r2 və s.).`);
+        }
+      }
+
       // Check for potential encoding issues
       const hasWeirdChars = headers.some(h =>
         /[\u0000-\u001F\u007F-\u009F]/.test(String(h))
