@@ -10,7 +10,8 @@ import {
   AlertTriangle,
   FileSpreadsheet,
   Info,
-  Loader2
+  Loader2,
+  Upload
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -410,8 +411,8 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
           >
             {validation?.isValid ? (
               <>
-                <CheckCircle className="h-4 w-4" />
-                İdxal Et ({validation.stats.dataRows} sətir)
+                <Upload className="h-4 w-4" />
+                Təsdiqlə və İdxal Et ({validation.stats.dataRows} sətir)
               </>
             ) : (
               <>

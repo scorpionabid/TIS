@@ -121,6 +121,8 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
     if (pendingFile) {
       setSelectedFile(pendingFile);
       setShowFilePreview(false);
+      // Auto-start import immediately after preview confirmation
+      importMutation.mutate(pendingFile);
       setPendingFile(null);
     }
   };
