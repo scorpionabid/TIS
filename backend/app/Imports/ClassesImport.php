@@ -404,6 +404,8 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
             'sinif_harfi' => 'class_name',
             'sinif_index' => 'class_name',
             'sinif_indexi' => 'class_name',
+            'sinif_index_i' => 'class_name',
+            'sinif_index_i_mes_a_r2_11' => 'class_name', // NEW: Template header alias
             'sinif_herfi_a_b_c_c' => 'class_name',
             'sinif_letter' => 'class_name',
             'sinif_full' => 'class_full_name',
@@ -411,6 +413,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
             'sinfin_adi' => 'class_full_name',
             'sinif' => 'homeroom_teacher',
             'sinif_rehberi' => 'homeroom_teacher',
+            'sinif_rehberi_tam_ad' => 'homeroom_teacher', // NEW: Template header alias
             'sinif_muellimi' => 'homeroom_teacher',
             'sinif_müəllimi' => 'homeroom_teacher',
             'ixtisas' => 'specialty',
@@ -422,10 +425,12 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
             'qizlarin_sayi' => 'female_count',
             'tedris_dili' => 'teaching_language',
             'tedris' => 'teaching_week',
+            'tedris_heftesi' => 'teaching_week', // NEW: Template header alias
             'novbe' => 'teaching_shift',
             'sinfin_tipi' => 'class_type',
             'profil' => 'class_profile',
             'akademik_il' => 'academic_year',
+            'tedris_ili' => 'academic_year', // NEW: Template header alias
             'tehsil_proqrami' => 'education_program',
             'sinif_kateqoriyasi' => 'grade_category',
         ];
