@@ -141,6 +141,13 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
     {
         try {
             $row = $this->normalizeRowKeys($row);
+
+            // Skip completely empty rows (all values are null/empty)
+            if ($this->isRowEmpty($row)) {
+                Log::debug('Skipping empty row at index: ' . ($row['_row_index'] ?? 'unknown'));
+                return null;
+            }
+
             Log::info('Processing class import row:', $row);
 
             // Validate class identifiers (either combined "Sinif adı" or level + letter)
@@ -813,5 +820,26 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
     public function getStructuredErrors(): array
     {
         return $this->structuredErrors;
+    }
+
+    /**
+     * Check if a row is completely empty (skip blank rows in Excel)
+     *
+     * @param array $row
+     * @return bool
+     */
+    private function isRowEmpty(array $row): bool
+    {
+        // Remove internal tracking fields before checking
+        $checkableFields = array_diff_key($row, array_flip(['_row_index']));
+
+        // Check if all values are null, empty string, or whitespace-only
+        foreach ($checkableFields as $value) {
+            if ($value !== null && $value !== '' && trim((string) $value) !== '') {
+                return false; // Found a non-empty value
+            }
+        }
+
+        return true; // All fields are empty
     }
 }
