@@ -94,7 +94,10 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
     public function prepareForValidation($row, $index)
     {
         $normalized = $this->normalizeRowKeys($row);
-        $normalized['_row_index'] = $index + 2; // +2 to account for heading row (row 2, so +1 more)
+        // Laravel Excel passes $index starting from 0 for first data row after headingRow
+        // headingRow = 2, so first data row is Excel Row 3
+        // We want to display Excel row numbers, so: Excel Row = headingRow + 1 + $index
+        $normalized['_row_index'] = 3 + $index; // Row 3 is first data row (after instruction + headers)
 
         // Convert UTIS code to string (Excel reads numbers as integers)
         if (array_key_exists('utis_code', $normalized) && $normalized['utis_code'] !== null && $normalized['utis_code'] !== '') {
