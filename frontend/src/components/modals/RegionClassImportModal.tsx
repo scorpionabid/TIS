@@ -9,6 +9,7 @@ import { regionAdminClassService, ClassImportResult, ImportError, ImportProgress
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ImportProgressBar } from '@/components/common/ImportProgressBar';
+import { EnhancedErrorDisplay } from '@/components/common/EnhancedErrorDisplay';
 import * as XLSX from 'xlsx';
 
 interface RegionClassImportModalProps {
@@ -20,8 +21,6 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<ClassImportResult | null>(null);
   const [importError, setImportError] = useState<{ message: string; details: string[] } | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'table'>('list'); // View mode for errors
-  const [filterField, setFilterField] = useState<string>('all'); // Filter errors by field
 
   // Progress tracking state
   const [importSessionId, setImportSessionId] = useState<string | null>(null);
@@ -147,73 +146,11 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
     setSelectedFile(null);
     setImportResult(null);
     setImportError(null);
-    setViewMode('list');
-    setFilterField('all');
     setImportSessionId(null);
     setShowProgress(false);
     onClose();
   };
 
-  /**
-   * Export errors to Excel file
-   */
-  const exportErrorsToExcel = () => {
-    if (!importResult?.data?.structured_errors || importResult.data.structured_errors.length === 0) {
-      alert('Xəta məlumatları mövcud deyil');
-      return;
-    }
-
-    const structuredErrors = importResult.data.structured_errors;
-    const fileName = `sinif-import-xetalari-${new Date().toISOString().split('T')[0]}.xlsx`;
-
-    // Prepare data for Excel
-    const excelData = structuredErrors.map((error: ImportError) => ({
-      'Sətir №': error.row || '-',
-      'Sahə': error.field || '-',
-      'Yanlış Dəyər': error.value !== null && error.value !== undefined ? String(error.value) : '-',
-      'Xəta': error.error,
-      'Təklif': error.suggestion || '-',
-      'UTIS Kod': error.context?.utis_code || '-',
-      'Müəssisə Kodu': error.context?.institution_code || '-',
-      'Müəssisə': error.context?.institution_name || '-',
-      'Sinif Səviyyəsi': error.context?.class_level !== null ? error.context.class_level : '-',
-      'Sinif Adı': error.context?.class_name || '-',
-    }));
-
-    // Create worksheet
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
-
-    // Set column widths
-    const columnWidths = [
-      { wch: 10 }, // Sətir №
-      { wch: 20 }, // Sahə
-      { wch: 20 }, // Yanlış Dəyər
-      { wch: 50 }, // Xəta
-      { wch: 50 }, // Təklif
-      { wch: 15 }, // UTIS Kod
-      { wch: 18 }, // Müəssisə Kodu
-      { wch: 40 }, // Müəssisə
-      { wch: 15 }, // Sinif Səviyyəsi
-      { wch: 15 }, // Sinif Adı
-    ];
-    worksheet['!cols'] = columnWidths;
-
-    // Create workbook
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Xətalar');
-
-    // Add summary sheet
-    const summaryData = [
-      { 'Statistika': 'Ümumi işlənmiş sətirlər', 'Dəyər': importResult.data.total_processed },
-      { 'Statistika': 'Uğurlu', 'Dəyər': importResult.data.success_count },
-      { 'Statistika': 'Xətalı', 'Dəyər': importResult.data.error_count },
-    ];
-    const summarySheet = XLSX.utils.json_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Statistika');
-
-    // Download file
-    XLSX.writeFile(workbook, fileName);
-  };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -430,150 +367,12 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
                 </AlertDescription>
               </Alert>
 
-              {/* Errors - Enhanced with table view and export */}
+              {/* Errors - Enhanced with severity categorization */}
               {importResult.data.errors && importResult.data.errors.length > 0 && (
-                <Alert variant="destructive">
-                  <XCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between flex-wrap gap-2">
-                        <p className="font-semibold text-base">Xətalar ({importResult.data.errors.length}):</p>
-                        <div className="flex gap-2">
-                          {/* View Mode Toggle */}
-                          {importResult.data.structured_errors && importResult.data.structured_errors.length > 0 && (
-                            <div className="flex gap-1">
-                              <Button
-                                size="sm"
-                                variant={viewMode === 'list' ? 'default' : 'outline'}
-                                onClick={() => setViewMode('list')}
-                                className="h-7 text-xs"
-                              >
-                                Siyahı
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant={viewMode === 'table' ? 'default' : 'outline'}
-                                onClick={() => setViewMode('table')}
-                                className="h-7 text-xs"
-                              >
-                                <TableIcon className="h-3 w-3 mr-1" />
-                                Cədvəl
-                              </Button>
-                            </div>
-                          )}
-                          {/* Export Button */}
-                          {importResult.data.structured_errors && importResult.data.structured_errors.length > 0 && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={exportErrorsToExcel}
-                              className="h-7 text-xs"
-                            >
-                              <Download className="h-3 w-3 mr-1" />
-                              Excel Yüklə
-                            </Button>
-                          )}
-                          {/* Copy Button */}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              const errorText = importResult.data.errors.join('\n');
-                              navigator.clipboard.writeText(errorText);
-                              alert('Xətalar panoya kopyalandı');
-                            }}
-                            className="h-7 text-xs"
-                          >
-                            Kopyala
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Table View with Filter */}
-                      {viewMode === 'table' && importResult.data.structured_errors && importResult.data.structured_errors.length > 0 ? (
-                        <div className="space-y-2">
-                          {/* Field Filter */}
-                          <div className="flex items-center gap-2">
-                            <Filter className="h-4 w-4 text-muted-foreground" />
-                            <select
-                              value={filterField}
-                              onChange={(e) => setFilterField(e.target.value)}
-                              className="text-xs border rounded px-2 py-1"
-                            >
-                              <option value="all">Bütün sahələr</option>
-                              {Array.from(new Set(importResult.data.structured_errors.map(e => e.field).filter(Boolean))).map(field => (
-                                <option key={field} value={field}>{field}</option>
-                              ))}
-                            </select>
-                            {filterField !== 'all' && (
-                              <Badge variant="secondary" className="text-xs">
-                                {importResult.data.structured_errors.filter(e => e.field === filterField).length} xəta
-                              </Badge>
-                            )}
-                          </div>
-
-                          {/* Error Table */}
-                          <div className="max-h-96 overflow-y-auto border rounded">
-                            <Table>
-                              <TableHeader className="sticky top-0 bg-background">
-                                <TableRow>
-                                  <TableHead className="w-16">Sətir</TableHead>
-                                  <TableHead className="w-32">Sahə</TableHead>
-                                  <TableHead className="w-24">Dəyər</TableHead>
-                                  <TableHead>Xəta</TableHead>
-                                  <TableHead>Təklif</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {importResult.data.structured_errors
-                                  .filter(error => filterField === 'all' || error.field === filterField)
-                                  .map((error, index) => (
-                                    <TableRow key={index} className="text-xs">
-                                      <TableCell className="font-mono">
-                                        {error.row || '-'}
-                                      </TableCell>
-                                      <TableCell>
-                                        <Badge variant="outline" className="text-xs">
-                                          {error.field || '-'}
-                                        </Badge>
-                                      </TableCell>
-                                      <TableCell className="font-mono text-xs truncate max-w-24" title={String(error.value)}>
-                                        {error.value !== null && error.value !== undefined ? String(error.value) : '-'}
-                                      </TableCell>
-                                      <TableCell className="text-destructive">
-                                        {error.error}
-                                      </TableCell>
-                                      <TableCell className="text-blue-600 text-xs">
-                                        {error.suggestion || '-'}
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                              </TableBody>
-                            </Table>
-                          </div>
-                        </div>
-                      ) : (
-                        /* List View (Original) */
-                        <div className="max-h-60 overflow-y-auto space-y-1.5 pr-2">
-                          {importResult.data.errors.map((error, index) => (
-                            <div key={index} className="text-sm p-3 bg-destructive/10 rounded border border-destructive/20">
-                              <span className="font-mono text-xs text-destructive/80 mr-2">
-                                #{index + 1}
-                              </span>
-                              <span className="text-destructive">{error}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {importResult.data.errors.length > 5 && (
-                        <div className="text-xs text-muted-foreground italic text-center pt-2 border-t">
-                          💡 Məsləhət: Xətaları Excel faylına yükləyin, düzəldin və yenidən cəhd edin
-                        </div>
-                      )}
-                    </div>
-                  </AlertDescription>
-                </Alert>
+                <EnhancedErrorDisplay
+                  errors={importResult.data.errors}
+                  structuredErrors={importResult.data.structured_errors}
+                />
               )}
 
               {/* Actions */}
