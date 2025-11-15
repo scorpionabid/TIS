@@ -94,14 +94,25 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithBatc
     public function prepareForValidation($row, $index)
     {
         $normalized = $this->normalizeRowKeys($row);
-        $normalized['_row_index'] = $index + 2; // +2 to account for heading row (row 1)
+        $normalized['_row_index'] = $index + 2; // +2 to account for heading row (row 2, so +1 more)
 
+        // Convert UTIS code to string (Excel reads numbers as integers)
         if (array_key_exists('utis_code', $normalized) && $normalized['utis_code'] !== null && $normalized['utis_code'] !== '') {
             $digits = preg_replace('/\D+/', '', (string) $normalized['utis_code']);
             $normalized['utis_code'] = $digits !== '' ? $digits : null;
         }
 
+        // Convert institution_code to string (Excel may read as number)
+        if (array_key_exists('institution_code', $normalized) && $normalized['institution_code'] !== null && $normalized['institution_code'] !== '') {
+            $normalized['institution_code'] = (string) $normalized['institution_code'];
+        }
+
+        // Convert class_level to integer (Excel may read as string)
         $levelValue = $normalized['class_level'] ?? null;
+        if ($levelValue !== null && $levelValue !== '') {
+            $normalized['class_level'] = (int) $levelValue;
+        }
+
         $classIndex = $normalized['class_name'] ?? null;
 
         if (($levelValue === null || $levelValue === '') && !empty($normalized['class_full_name'])) {
