@@ -139,12 +139,16 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
   };
 
   const handleDownloadExcelTemplate = () => {
-    const url = `${import.meta.env.VITE_API_URL}/api/regionadmin/classes/export/template`;
+    // VITE_API_URL already includes /api, so use base URL
+    const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000';
+    const url = `${baseUrl}/api/regionadmin/classes/export/template`;
     window.open(url, '_blank');
   };
 
   const handleDownloadCSVTemplate = () => {
-    const url = `${import.meta.env.VITE_API_URL}/api/regionadmin/classes/export/template/csv`;
+    // VITE_API_URL already includes /api, so use base URL
+    const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000';
+    const url = `${baseUrl}/api/regionadmin/classes/export/template/csv`;
     window.open(url, '_blank');
   };
 
