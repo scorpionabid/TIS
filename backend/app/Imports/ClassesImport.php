@@ -253,7 +253,15 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
                 $institution = $this->institutionCache['name:' . $instName] ?? null;
 
                 if (!$institution) {
-                    $this->addError("Müəssisə '{$instName}' tapılmadı və ya bu regiona aid deyil", $row);
+                    // Try fuzzy matching for institution name
+                    $suggestion = $this->findSimilarInstitutionName($instName);
+                    $this->addError(
+                        "Müəssisə '{$instName}' tapılmadı və ya bu regiona aid deyil",
+                        $row,
+                        'institution_name',
+                        $instName,
+                        $suggestion
+                    );
                     return null;
                 }
 
@@ -351,7 +359,17 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
             }
 
             if ($maleCount + $femaleCount > 0 && $studentCount !== $maleCount + $femaleCount) {
-                Log::warning("Gender counts don't match total: {$studentCount} != {$maleCount} + {$femaleCount}");
+                $this->addError(
+                    "Şagird sayı uyğunsuzluğu: Ümumi ({$studentCount}) ≠ Oğlan ({$maleCount}) + Qız ({$femaleCount})",
+                    $row,
+                    'student_count',
+                    $studentCount,
+                    "Avtomatik düzəldildi: " . ($maleCount + $femaleCount) . " (oğlan + qız)",
+                    'warning' // This is a warning, not an error
+                );
+                // Don't return - just warning, auto-correct the value
+                $studentCount = $maleCount + $femaleCount;
+                Log::warning("Auto-corrected student count: {$studentCount}");
             }
 
             $specialty = $this->sanitizeString($row['specialty'] ?? $row['ixtisas'] ?? null);
@@ -372,7 +390,15 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
                 $homeroomTeacher = $this->findTeacherByFullName($homeroomTeacherName, $institution->id);
 
                 if (!$homeroomTeacher) {
-                    $this->addError("Sinif rəhbəri '{$homeroomTeacherName}' {$institution->name} üçün tapılmadı", $row);
+                    // Try to suggest similar teacher names
+                    $suggestion = $this->findSimilarTeacherName($homeroomTeacherName, $institution->id);
+                    $this->addError(
+                        "Sinif rəhbəri '{$homeroomTeacherName}' {$institution->name} üçün tapılmadı",
+                        $row,
+                        'homeroom_teacher',
+                        $homeroomTeacherName,
+                        $suggestion
+                    );
                     return null;
                 }
 
@@ -536,7 +562,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
     /**
      * Append a formatted error message with structured data.
      */
-    protected function addError(string $message, array $row = [], string $field = null, $value = null, string $suggestion = null): void
+    protected function addError(string $message, array $row = [], string $field = null, $value = null, string $suggestion = null, string $severity = 'error'): void
     {
         $context = $this->formatRowContext($row);
         $errorMessage = $context ? "{$message} ({$context})" : $message;
@@ -551,7 +577,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
             'value' => $value,
             'error' => $message,
             'suggestion' => $suggestion,
-            'severity' => 'error',
+            'severity' => $severity, // 'error', 'warning', or 'info'
             'context' => [
                 'utis_code' => $row['utis_code'] ?? null,
                 'institution_code' => $row['institution_code'] ?? null,
@@ -791,6 +817,114 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
         }
 
         return 'Regionunuzdakı UTIS kod siyahısını yoxlayın';
+    }
+
+    /**
+     * Find similar institution name using fuzzy matching (Levenshtein distance)
+     */
+    protected function findSimilarInstitutionName(string $searchName): ?string
+    {
+        $searchName = mb_strtolower(trim($searchName));
+        $bestMatch = null;
+        $bestDistance = PHP_INT_MAX;
+        $threshold = 5; // Maximum acceptable Levenshtein distance
+
+        foreach ($this->institutionCache as $key => $institution) {
+            if (str_starts_with($key, 'name:')) {
+                $cachedName = mb_strtolower($institution->name);
+                $distance = levenshtein(
+                    substr($searchName, 0, 255), // Levenshtein has 255 char limit
+                    substr($cachedName, 0, 255)
+                );
+
+                if ($distance < $bestDistance && $distance <= $threshold) {
+                    $bestDistance = $distance;
+                    $bestMatch = $institution;
+                }
+            }
+        }
+
+        if ($bestMatch) {
+            $suggestion = "Demək istədiniz: '{$bestMatch->name}'?";
+            if ($bestMatch->utis_code) {
+                $suggestion .= " (UTIS: {$bestMatch->utis_code})";
+            }
+            return $suggestion;
+        }
+
+        // If no close match, suggest available institutions
+        $availableInstitutions = array_filter($this->institutionCache, function($key) {
+            return str_starts_with($key, 'name:');
+        }, ARRAY_FILTER_USE_KEY);
+
+        if (count($availableInstitutions) <= 5) {
+            $names = array_map(fn($inst) => $inst->name, array_slice($availableInstitutions, 0, 5));
+            return 'Mövcud müəssisələr: ' . implode(', ', $names);
+        }
+
+        return 'Excel template-dən müəssisə adını dəqiq kopyalayın və ya UTIS kod istifadə edin';
+    }
+
+    /**
+     * Find similar teacher name using fuzzy matching
+     */
+    protected function findSimilarTeacherName(string $searchName, int $institutionId): ?string
+    {
+        $searchName = mb_strtolower(trim($searchName));
+
+        // Get teachers from this institution
+        $teachers = User::where('institution_id', $institutionId)
+            ->whereHas('roles', function ($query) {
+                $query->whereIn('name', ['müəllim', 'muellim', 'teacher', 'müavin']);
+            })
+            ->select('id', 'first_name', 'last_name')
+            ->get();
+
+        if ($teachers->isEmpty()) {
+            return "Bu müəssisədə müəllim tapılmadı. Əvvəlcə müəllimləri sistemə əlavə edin.";
+        }
+
+        $bestMatch = null;
+        $bestDistance = PHP_INT_MAX;
+        $threshold = 5;
+
+        foreach ($teachers as $teacher) {
+            $fullName = mb_strtolower(trim($teacher->first_name . ' ' . $teacher->last_name));
+            $reverseName = mb_strtolower(trim($teacher->last_name . ' ' . $teacher->first_name));
+
+            $distance1 = levenshtein(
+                substr($searchName, 0, 255),
+                substr($fullName, 0, 255)
+            );
+
+            $distance2 = levenshtein(
+                substr($searchName, 0, 255),
+                substr($reverseName, 0, 255)
+            );
+
+            $distance = min($distance1, $distance2);
+
+            if ($distance < $bestDistance && $distance <= $threshold) {
+                $bestDistance = $distance;
+                $bestMatch = $teacher;
+            }
+        }
+
+        if ($bestMatch) {
+            return "Demək istədiniz: '{$bestMatch->first_name} {$bestMatch->last_name}'?";
+        }
+
+        // Show first 3 available teachers
+        $availableTeachers = $teachers->take(3)->map(function($t) {
+            return $t->first_name . ' ' . $t->last_name;
+        })->toArray();
+
+        if (count($availableTeachers) > 0) {
+            return 'Mövcud müəllimlər: ' . implode(', ', $availableTeachers) .
+                   (count($teachers) > 3 ? ' və s.' : '');
+        }
+
+        return 'Müəllim adını sistemdəki adla eyni yazın (Tam ad: Ad Soyad)';
     }
 
     /**
