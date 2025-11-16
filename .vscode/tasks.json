@@ -1,0 +1,155 @@
+{
+  // ATİS Project - VS Code Tasks
+  "version": "2.0.0",
+  "tasks": [
+    // PHP/Laravel Tasks
+    {
+      "label": "Laravel Pint: Format Code",
+      "type": "shell",
+      "command": "php",
+      "args": ["vendor/bin/pint"],
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Laravel Pint: Check",
+      "type": "shell",
+      "command": "php",
+      "args": ["vendor/bin/pint", "--test"],
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "Laravel: Run Tests",
+      "type": "shell",
+      "command": "php",
+      "args": ["artisan", "test"],
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Laravel: Clear All Caches",
+      "type": "shell",
+      "command": "php",
+      "args": [
+        "artisan",
+        "optimize:clear"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "problemMatcher": []
+    },
+
+    // Frontend Tasks
+    {
+      "label": "Frontend: Lint",
+      "type": "npm",
+      "script": "lint",
+      "path": "frontend/",
+      "problemMatcher": ["$eslint-stylish"],
+      "group": "build"
+    },
+    {
+      "label": "Frontend: Type Check",
+      "type": "npm",
+      "script": "typecheck",
+      "path": "frontend/",
+      "problemMatcher": ["$tsc"],
+      "group": "build"
+    },
+    {
+      "label": "Frontend: Build",
+      "type": "npm",
+      "script": "build",
+      "path": "frontend/",
+      "problemMatcher": [],
+      "group": "build"
+    },
+
+    // Docker Tasks
+    {
+      "label": "Docker: Start All Services",
+      "type": "shell",
+      "command": "start-windows.bat",
+      "windows": {
+        "command": "start-windows.bat"
+      },
+      "linux": {
+        "command": "./start.sh"
+      },
+      "osx": {
+        "command": "./start.sh"
+      },
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "Docker: Stop All Services",
+      "type": "shell",
+      "command": "stop-windows.bat",
+      "windows": {
+        "command": "stop-windows.bat"
+      },
+      "linux": {
+        "command": "./stop.sh"
+      },
+      "osx": {
+        "command": "./stop.sh"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: View Logs (Backend)",
+      "type": "shell",
+      "command": "docker",
+      "args": ["logs", "-f", "atis_backend"],
+      "problemMatcher": [],
+      "isBackground": true
+    },
+    {
+      "label": "Docker: View Logs (Frontend)",
+      "type": "shell",
+      "command": "docker",
+      "args": ["logs", "-f", "atis_frontend"],
+      "problemMatcher": [],
+      "isBackground": true
+    },
+
+    // Compound Tasks
+    {
+      "label": "Full Quality Check",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Laravel Pint: Check",
+        "Frontend: Lint",
+        "Frontend: Type Check",
+        "Laravel: Run Tests"
+      ],
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
+}
