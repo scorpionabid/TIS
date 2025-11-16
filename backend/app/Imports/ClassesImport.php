@@ -9,14 +9,13 @@ use App\Models\User;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
-use Maatwebsite\Excel\Concerns\WithBatchInserts;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
 
-class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithChunkReading
+class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChunkReading
 {
     protected $region;
     protected $allowedInstitutionIds;
@@ -45,6 +44,13 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
     public function headingRow(): int
     {
         return $this->fileType === 'csv' ? 1 : 2;
+    }
+
+    public function rules(): array
+    {
+        // Struktur validasiyası xüsusi olaraq model() daxilində aparılır
+        // Boş qaytarmaq kifayətdir ki, prepareForValidation() çağırılsın
+        return [];
     }
 
     public function __construct($region, $sessionId = null, $fileType = 'excel')
@@ -369,6 +375,35 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
                 }
             }
 
+            // Parse student counts
+            $studentCount = isset($row['student_count']) && $row['student_count'] !== ''
+                ? (int) $row['student_count']
+                : 0;
+            $maleCount = isset($row['male_count']) && $row['male_count'] !== ''
+                ? (int) $row['male_count']
+                : 0;
+            $femaleCount = isset($row['female_count']) && $row['female_count'] !== ''
+                ? (int) $row['female_count']
+                : 0;
+
+            if ($studentCount === 0 && ($maleCount > 0 || $femaleCount > 0)) {
+                $studentCount = $maleCount + $femaleCount;
+            }
+
+            if ($maleCount + $femaleCount > 0 && $studentCount !== $maleCount + $femaleCount) {
+                $this->addError(
+                    "Şagird sayı uyğunsuzluğu: Ümumi ({$studentCount}) ≠ Oğlan ({$maleCount}) + Qız ({$femaleCount})",
+                    $row,
+                    'student_count',
+                    $studentCount,
+                    "Avtomatik düzəldildi: " . ($maleCount + $femaleCount) . " (oğlan + qız)",
+                    'warning' // This is a warning, not an error
+                );
+                // Don't return - just warning, auto-correct the value
+                $studentCount = $maleCount + $femaleCount;
+                Log::warning("Auto-corrected student count: {$studentCount}");
+            }
+
             // Check for duplicate
             $existingClass = Grade::where('institution_id', $institution->id)
                 ->where('academic_year_id', $academicYear->id)
@@ -397,35 +432,6 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
                 ]);
                 $this->successCount++;
                 return null; // Return null to avoid creating duplicate
-            }
-
-            // Parse student counts
-            $studentCount = isset($row['student_count']) && $row['student_count'] !== ''
-                ? (int) $row['student_count']
-                : 0;
-            $maleCount = isset($row['male_count']) && $row['male_count'] !== ''
-                ? (int) $row['male_count']
-                : 0;
-            $femaleCount = isset($row['female_count']) && $row['female_count'] !== ''
-                ? (int) $row['female_count']
-                : 0;
-
-            if ($studentCount === 0 && ($maleCount > 0 || $femaleCount > 0)) {
-                $studentCount = $maleCount + $femaleCount;
-            }
-
-            if ($maleCount + $femaleCount > 0 && $studentCount !== $maleCount + $femaleCount) {
-                $this->addError(
-                    "Şagird sayı uyğunsuzluğu: Ümumi ({$studentCount}) ≠ Oğlan ({$maleCount}) + Qız ({$femaleCount})",
-                    $row,
-                    'student_count',
-                    $studentCount,
-                    "Avtomatik düzəldildi: " . ($maleCount + $femaleCount) . " (oğlan + qız)",
-                    'warning' // This is a warning, not an error
-                );
-                // Don't return - just warning, auto-correct the value
-                $studentCount = $maleCount + $femaleCount;
-                Log::warning("Auto-corrected student count: {$studentCount}");
             }
 
             $specialty = $this->sanitizeString($row['specialty'] ?? $row['ixtisas'] ?? null);
@@ -489,7 +495,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
             $this->successCount++;
             Log::info("Successfully created class via {$identifierUsed}: {$institution->name} - {$classLevel}{$className}");
 
-            return $class;
+            return null;
 
         } catch (\Exception $e) {
             Log::error('Error importing class row: ' . $e->getMessage(), [
@@ -807,14 +813,6 @@ class ClassesImport implements ToModel, WithHeadingRow, WithBatchInserts, WithCh
                 $query->where('id', '!=', $ignoreGradeId);
             })
             ->exists();
-    }
-
-    /**
-     * Batch insert size
-     */
-    public function batchSize(): int
-    {
-        return 100;
     }
 
     /**

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { regionAdminClassService, ClassFilters } from '@/services/regionadmin/classes';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,7 +14,6 @@ import {
   TrendingUp,
   Upload,
   Download,
-  FileSpreadsheet,
   Search,
   Filter,
   X,
@@ -24,6 +23,7 @@ import {
 } from 'lucide-react';
 import { TablePagination } from '@/components/common/TablePagination';
 import { RegionClassImportModal } from '@/components/modals/RegionClassImportModal';
+import { toast } from '@/components/ui/use-toast';
 
 export const RegionClassManagement = () => {
   const { currentUser } = useAuth();
@@ -167,24 +167,6 @@ export const RegionClassManagement = () => {
     return sorted;
   }, [rawClasses, sortColumn, sortDirection]);
 
-  // Debug logging to inspect data structure
-  useEffect(() => {
-    if (classesData) {
-      console.log('🔍 Classes Data Structure:', {
-        fullData: classesData,
-        hasData: !!classesData?.data,
-        hasDataData: !!classesData?.data?.data,
-        dataKeys: classesData ? Object.keys(classesData) : [],
-        dataDataKeys: classesData?.data ? Object.keys(classesData.data) : [],
-        classesArray: classes,
-        classesLength: classes.length,
-        totalItems: totalItems,
-        totalPages: totalPages,
-        currentPage: currentPage
-      });
-    }
-  }, [classesData, classes, totalItems, totalPages, currentPage]);
-
   // Handle filter changes
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
@@ -235,78 +217,13 @@ export const RegionClassManagement = () => {
     return count;
   }, [searchTerm, institutionFilter, classLevelFilter, academicYearFilter, statusFilter]);
 
-  // Handle export
-  const handleExportTemplate = async () => {
-    try {
-      console.log('🔍 Starting template download...');
-      const response = await regionAdminClassService.downloadTemplate();
-
-      console.log('📦 Response received:', {
-        type: typeof response,
-        isBlob: response instanceof Blob,
-        constructor: response?.constructor?.name,
-        hasData: !!response?.data,
-        dataType: response?.data ? typeof response.data : 'none',
-        dataIsBlob: response?.data instanceof Blob
-      });
-
-      // Get the blob from response
-      let blob: Blob;
-
-      // Check if response.data is a Blob (API wrapper format)
-      if (response?.data instanceof Blob) {
-        console.log('✅ Found Blob in response.data');
-        blob = response.data;
-      }
-      // Check if response itself is a Blob
-      else if (response instanceof Blob) {
-        console.log('✅ Response is directly a Blob');
-        blob = response;
-      }
-      // Invalid response - don't create corrupt file
-      else {
-        console.error('❌ Invalid response format:', response);
-        throw new Error('Server cavabı düzgün Excel formatında deyil. Zəhmət olmasa yenidən cəhd edin.');
-      }
-
-      // Validate blob has content
-      if (!blob || blob.size === 0) {
-        console.error('❌ Empty blob received');
-        throw new Error('Boş fayl alındı. Zəhmət olmasa yenidən cəhd edin.');
-      }
-
-      console.log('✅ Valid blob ready for download:', {
-        size: blob.size,
-        type: blob.type
-      });
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `sinif-import-shablon-${new Date().toISOString().split('T')[0]}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      console.log('✅ Template download completed successfully');
-    } catch (error) {
-      console.error('❌ Template download failed:', error);
-      alert(error instanceof Error ? error.message : 'Şablon yüklənməsində xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.');
-    }
-  };
-
   const handleExport = async () => {
     try {
       const response = await regionAdminClassService.exportClasses(filterParams);
 
-      // Ensure we have a proper Blob
-      let blob: Blob;
-      if (response instanceof Blob) {
-        blob = response;
-      } else {
-        console.warn('Response is not a Blob, converting...');
-        blob = new Blob([JSON.stringify(response)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const blob = response instanceof Blob ? response : response?.data;
+      if (!(blob instanceof Blob) || blob.size === 0) {
+        throw new Error('İxrac üçün fayl yaradıla bilmədi');
       }
 
       const url = URL.createObjectURL(blob);
@@ -317,8 +234,17 @@ export const RegionClassManagement = () => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+
+      toast({
+        title: 'İxrac hazırdır',
+        description: 'Sinif siyahısı uğurla yükləndi.',
+      });
     } catch (error) {
-      console.error('Export failed:', error);
+      toast({
+        title: 'İxrac zamanı xəta',
+        description: error instanceof Error ? error.message : 'Fayl hazırlanmadı. Yenidən cəhd edin.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -406,10 +332,6 @@ export const RegionClassManagement = () => {
               <Button onClick={() => setIsImportModalOpen(true)} className="gap-2">
                 <Upload className="h-4 w-4" />
                 İdxal Et
-              </Button>
-              <Button variant="outline" onClick={handleExportTemplate} className="gap-2">
-                <FileSpreadsheet className="h-4 w-4" />
-                Şablon Yüklə
               </Button>
               <Button variant="outline" onClick={handleExport} className="gap-2">
                 <Download className="h-4 w-4" />

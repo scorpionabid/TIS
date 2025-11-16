@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { ImportProgressBar } from '@/components/common/ImportProgressBar';
 import { EnhancedErrorDisplay } from '@/components/common/EnhancedErrorDisplay';
 import { FilePreviewModal } from '@/components/common/FilePreviewModal';
+import { toast } from '@/components/ui/use-toast';
 import * as XLSX from 'xlsx';
 
 interface RegionClassImportModalProps {
@@ -26,6 +27,7 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
   // Progress tracking state
   const [importSessionId, setImportSessionId] = useState<string | null>(null);
   const [showProgress, setShowProgress] = useState(false);
+  const [isDownloadingCsvTemplate, setIsDownloadingCsvTemplate] = useState(false);
 
   // File preview state
   const [showFilePreview, setShowFilePreview] = useState(false);
@@ -49,11 +51,13 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
 
       // Show success toast
       if (result.data.success_count > 0) {
-        console.log(`✅ ${result.data.success_count} sinif uğurla idxal edildi`);
+        toast({
+          title: 'İdxal prosesi başladı',
+          description: `${result.data.success_count} sətir emal edildi.`,
+        });
       }
     },
     onError: (error: any) => {
-      console.error('❌ İdxal xətası:', error);
       const responseData = error?.response?.data;
       const userMessage =
         responseData?.message ||
@@ -98,6 +102,12 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
         message: userMessage,
         details,
       });
+
+      toast({
+        title: 'İdxal mümkün olmadı',
+        description: userMessage,
+        variant: 'destructive',
+      });
     },
   });
 
@@ -112,7 +122,11 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
         setImportResult(null);
         setImportError(null);
       } else {
-        alert(`Fayl səhvi: ${validation.error}`);
+        toast({
+          title: 'Fayl uyğun deyil',
+          description: validation.error,
+          variant: 'destructive',
+        });
       }
     }
   };
@@ -138,18 +152,43 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
     }
   };
 
-  const handleDownloadExcelTemplate = () => {
-    // VITE_API_URL already includes /api, so use base URL
-    const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000';
-    const url = `${baseUrl}/api/regionadmin/classes/export/template`;
-    window.open(url, '_blank');
-  };
+  const handleDownloadCSVTemplate = async () => {
+    setIsDownloadingCsvTemplate(true);
 
-  const handleDownloadCSVTemplate = () => {
-    // VITE_API_URL already includes /api, so use base URL
-    const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000';
-    const url = `${baseUrl}/api/regionadmin/classes/export/template/csv`;
-    window.open(url, '_blank');
+    try {
+      const response = await regionAdminClassService.downloadCsvTemplate();
+      const blob = response instanceof Blob ? response : response?.data;
+
+      if (!(blob instanceof Blob)) {
+        throw new Error('Server CSV faylı qaytarmadı. Yenidən cəhd edin.');
+      }
+
+      if (blob.size === 0) {
+        throw new Error('Boş CSV faylı alındı.');
+      }
+
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `sinif-import-shablon-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: 'CSV şablonu hazırdır',
+        description: 'Fayl UTF-8 kodlaşdırması ilə endirildi.',
+      });
+    } catch (error) {
+      toast({
+        title: 'CSV şablonu yüklənmədi',
+        description: error instanceof Error ? error.message : 'Fayl hazırlanarkən xəta baş verdi.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDownloadingCsvTemplate(false);
+    }
   };
 
   const validateFile = (file: File): { valid: boolean; error?: string } => {
@@ -229,7 +268,7 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
                 <div className="space-y-2">
                   <p className="font-medium text-sm">1. Şablon yüklə:</p>
                   <p className="text-sm text-muted-foreground pl-4">
-                    "Şablon yüklə" düyməsinə klikləyərək Excel şablonunu kompüterinizə endirin
+                    "CSV Şablonu" düyməsindən regionunuza uyğun UTF-8 şablonu endirin
                   </p>
                 </div>
 
@@ -252,7 +291,7 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
                 <div className="space-y-2">
                   <p className="font-medium text-sm">3. Faylı yüklə:</p>
                   <p className="text-sm text-muted-foreground pl-4">
-                    Doldurulmuş Excel faylını seçin və "İdxal Et" düyməsinə klikləyin
+                    Doldurulmuş CSV faylını (və ya dəstəklənən Excel faylını) seçin və "İdxal Et" düyməsinə klikləyin
                   </p>
                 </div>
 
@@ -289,25 +328,29 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
 
           {/* Template Download Buttons */}
           {!importResult && (
-            <div className="flex gap-3 justify-center">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDownloadExcelTemplate}
-                className="gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Excel Şablon (.xlsx)
-              </Button>
+            <div className="space-y-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleDownloadCSVTemplate}
                 className="gap-2"
+                disabled={isDownloadingCsvTemplate}
               >
-                <Download className="h-4 w-4" />
-                CSV Şablon (.csv)
+                {isDownloadingCsvTemplate ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Yüklənir...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" />
+                    CSV Şablon (.csv)
+                  </>
+                )}
               </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                Şablon regionunuza aid müəssisələrin UTIS/MKT kodları ilə gəlir və yalnız UTF-8 kodlaşdırılmış CSV formatındadır.
+              </p>
             </div>
           )}
 
@@ -370,10 +413,15 @@ export const RegionClassImportModal: React.FC<RegionClassImportModalProps> = ({ 
                       <ImportProgressBar
                         sessionId={importSessionId}
                         onComplete={() => {
-                          console.log('✅ Import completed!');
+                          setShowProgress(false);
                         }}
-                        onError={(error) => {
-                          console.error('❌ Progress tracking error:', error);
+                        onError={(errorMessage) => {
+                          setShowProgress(false);
+                          toast({
+                            title: 'Proses izlənmədi',
+                            description: errorMessage,
+                            variant: 'destructive',
+                          });
                         }}
                       />
                     </div>

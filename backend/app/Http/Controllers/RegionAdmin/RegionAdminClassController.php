@@ -10,6 +10,7 @@ use App\Imports\ClassesImport;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
@@ -206,11 +207,14 @@ class RegionAdminClassController extends Controller
     {
         try {
             $request->validate([
-                'file' => 'required|file|mimes:xlsx,xls,csv|max:10240', // 10MB max (increased from 5MB)
+                // CSV faylları bəzi mühitlərdə "txt" kimi tanındığı üçün onu da əlavə edirik
+                'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
             ]);
 
             $user = Auth::user();
             $region = Institution::findOrFail($user->institution_id);
+
+            $this->syncSqliteSequenceIfNeeded();
 
             Log::info('Starting class import for region: ' . $region->name);
 
@@ -359,50 +363,12 @@ class RegionAdminClassController extends Controller
 
             Log::info('📍 User region found', ['region_id' => $region->id, 'name' => $region->name]);
 
-            // Use recursive CTE for efficient child querying
-            $institutions = \DB::table('institutions as i')
-                ->select('i.id', 'i.name', 'i.utis_code', 'i.institution_code', 'i.type')
-                ->whereRaw("
-                    i.id IN (
-                        WITH RECURSIVE institution_tree AS (
-                            SELECT id, parent_id, type FROM institutions WHERE id = ?
-                            UNION ALL
-                            SELECT i2.id, i2.parent_id, i2.type
-                            FROM institutions i2
-                            INNER JOIN institution_tree it ON i2.parent_id = it.id
-                        )
-                        SELECT id FROM institution_tree
-                    )
-                ", [$region->id])
-                ->where(function($query) {
-                    $query->where('i.type', 'LIKE', '%məktəb%')
-                          ->orWhere('i.type', 'LIKE', '%Bağça%')
-                          ->orWhere('i.type', 'LIKE', '%Lisey%')
-                          ->orWhere('i.type', 'LIKE', '%Gimnaziya%')
-                          ->orWhere('i.type', 'LIKE', '%təhsil%');
-                })
-                ->whereNull('i.deleted_at')
-                ->orderBy('i.name')
-                ->get();
+            $institutions = $this->getTemplateInstitutions($region);
 
             Log::info('🏫 Institutions loaded', [
                 'count' => $institutions->count(),
                 'first_few' => $institutions->take(3)->pluck('name')->toArray()
             ]);
-
-            // If no institutions found, create a basic template
-            if ($institutions->count() === 0) {
-                Log::warning('⚠️ No institutions found, creating basic template');
-                $institutions = collect([
-                    (object)[
-                        'id' => null,
-                        'name' => 'Nümunə Məktəb',
-                        'utis_code' => 'UTIS001',
-                        'institution_code' => 'MKT001',
-                        'type' => 'Ümumi təhsil məktəbi'
-                    ]
-                ]);
-            }
 
             $filename = 'sinif-import-shablon-' . date('Y-m-d') . '.xlsx';
 
@@ -473,11 +439,21 @@ class RegionAdminClassController extends Controller
         try {
             Log::info('📄 Starting CSV template export for classes');
 
+            $user = Auth::user();
+            $region = Institution::findOrFail($user->institution_id);
+
+            $institutions = $this->getTemplateInstitutions($region);
+
+            Log::info('🏫 CSV institutions loaded', [
+                'count' => $institutions->count(),
+                'first_few' => $institutions->take(3)->pluck('name')->toArray()
+            ]);
+
             $filename = 'sinif-import-shablon-' . date('Y-m-d') . '.csv';
 
             Log::info('📄 Creating CSV export', ['filename' => $filename]);
 
-            $export = new \App\Exports\ClassesTemplateExportCSV();
+            $export = new \App\Exports\ClassesTemplateExportCSV($institutions);
 
             Log::info('✅ CSV export object created, starting download');
 
@@ -797,6 +773,71 @@ class RegionAdminClassController extends Controller
                 'message' => 'Progress məlumatı əldə ediləmədi',
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Load institutions that belong to the current region for template generation.
+     */
+    protected function getTemplateInstitutions(Institution $region)
+    {
+        $institutionIds = $region->getAllChildrenIds();
+        $institutionIds[] = $region->id;
+
+        $typeKeywords = [
+            'məktəb',
+            'bağça',
+            'lisey',
+            'gimnaziya',
+            'təhsil',
+        ];
+
+        $institutions = Institution::query()
+            ->select('id', 'name', 'utis_code', 'institution_code', 'type')
+            ->whereIn('id', $institutionIds)
+            ->whereNull('deleted_at')
+            ->where(function ($query) use ($typeKeywords) {
+                foreach ($typeKeywords as $index => $keyword) {
+                    $method = $index === 0 ? 'whereRaw' : 'orWhereRaw';
+                    $query->{$method}('LOWER(type) LIKE ?', ['%' . Str::lower($keyword) . '%']);
+                }
+            })
+            ->orderBy('name')
+            ->get();
+
+        if ($institutions->isEmpty()) {
+            return collect([
+                (object)[
+                    'id' => null,
+                    'name' => 'Nümunə Məktəb',
+                    'utis_code' => 'UTIS001',
+                    'institution_code' => 'MKT001',
+                    'type' => 'Ümumi təhsil məktəbi',
+                ],
+            ]);
+        }
+
+        return $institutions;
+    }
+
+    /**
+     * SQLite mühitində auto-increment sırasının qırılmaması üçün seq dəyərini sinxron saxlayır.
+     */
+    protected function syncSqliteSequenceIfNeeded(): void
+    {
+        if (DB::getDriverName() !== 'sqlite') {
+            return;
+        }
+
+        $maxId = Grade::max('id') ?? 0;
+
+        // sqlite_sequence cədvəlində grades üçün seq dəyərini güncəllə
+        $currentSeq = DB::table('sqlite_sequence')->where('name', 'grades')->value('seq');
+
+        if ($currentSeq === null) {
+            DB::statement("INSERT INTO sqlite_sequence (name, seq) VALUES ('grades', ?)", [$maxId]);
+        } elseif ($currentSeq < $maxId) {
+            DB::statement("UPDATE sqlite_sequence SET seq = ? WHERE name = 'grades'", [$maxId]);
         }
     }
 }

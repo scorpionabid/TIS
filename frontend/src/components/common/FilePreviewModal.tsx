@@ -94,6 +94,11 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
       // Convert to array of arrays
       const rawData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
+      // Prepare validation containers early (info used below)
+      const errors: string[] = [];
+      const warnings: string[] = [];
+      const info: string[] = [];
+
       // Detect file type based on extension
       const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
       const isCSV = fileExtension === 'csv';
@@ -127,11 +132,6 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
 
         return normalized;
       });
-
-      // Validate headers
-      const errors: string[] = [];
-      const warnings: string[] = [];
-      const info: string[] = [];
 
       // Check for required headers
       const missingHeaders: string[] = [];

@@ -248,51 +248,25 @@ class RegionAdminClassService {
   }
 
   /**
-   * Download Excel template for class import
+   * Download CSV template aligned with Grades table structure
    */
-  async downloadTemplate(): Promise<Blob> {
+  async downloadCsvTemplate(): Promise<Blob> {
     try {
-      console.log('🔍 Service: Calling API for template download...');
-
-      // IMPORTANT: apiClient.get(endpoint, params, options)
-      // Second param is query params, third is options
       const response = await apiClient.get(
-        `${this.baseUrl}/export/template`,
-        undefined, // No query params
+        `${this.baseUrl}/export/template/csv`,
+        undefined,
         {
           responseType: 'blob',
-          cache: false, // Don't cache blob responses
+          cache: false,
         }
       );
 
-      console.log('📦 Service: API response received:', {
-        hasResponse: !!response,
-        hasData: !!response?.data,
-        dataType: typeof response?.data,
-        dataIsBlob: response?.data instanceof Blob,
-        dataSize: response?.data instanceof Blob ? response.data.size : 'N/A',
-        responseKeys: response ? Object.keys(response) : [],
-        fullResponse: response
-      });
-
-      // Log every property of response for debugging
-      if (response) {
-        console.log('📊 Response properties:', {
-          data: response.data,
-          message: response.message,
-          errors: response.errors,
-          status: response.status
-        });
-      }
-
       if (!response?.data) {
-        console.error('❌ Service: No data in response');
-        throw new Error('API cavabında məlumat yoxdur');
+        throw new Error('API cavabında CSV məlumatı tapılmadı');
       }
 
       return response.data;
     } catch (error) {
-      console.error('❌ Service: Template download error:', error);
       throw error;
     }
   }
