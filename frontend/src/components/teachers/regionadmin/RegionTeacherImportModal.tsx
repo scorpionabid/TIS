@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
 import {
   Upload,
   Download,
@@ -28,6 +29,8 @@ import {
   Loader2,
   AlertCircle,
   Info,
+  FileText,
+  Clock,
 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
@@ -51,6 +54,12 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
   const [importResult, setImportResult] = useState<any>(null);
   const [skipDuplicates, setSkipDuplicates] = useState(true);
   const [updateExisting, setUpdateExisting] = useState(false);
+
+  // Progress tracking
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [importStatus, setImportStatus] = useState<'idle' | 'uploading' | 'processing' | 'completed'>('idle');
+  const [estimatedRows, setEstimatedRows] = useState(0);
+  const [fileSizeMB, setFileSizeMB] = useState(0);
 
   // Download template handler - Matches institutions.ts pattern
   const handleDownloadTemplate = async () => {
@@ -83,12 +92,25 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
 
   // Import mutation
   const importMutation = useMutation({
-    mutationFn: (file: File) =>
-      regionAdminTeacherService.importTeachers(file, {
+    mutationFn: (file: File) => {
+      setImportStatus('uploading');
+      setUploadProgress(0);
+
+      return regionAdminTeacherService.importTeachers(file, {
         skip_duplicates: skipDuplicates,
         update_existing: updateExisting,
-      }),
+        onUploadProgress: (progress) => {
+          const percent = Math.round((progress.loaded / progress.total) * 100);
+          setUploadProgress(percent);
+
+          if (percent === 100) {
+            setImportStatus('processing');
+          }
+        },
+      });
+    },
     onSuccess: (result) => {
+      setImportStatus('completed');
       setImportResult(result);
       queryClient.invalidateQueries({ queryKey: ['regionadmin-teachers'] });
 
@@ -114,6 +136,9 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
       }
     },
     onError: (error: any) => {
+      setImportStatus('idle');
+      setUploadProgress(0);
+
       toast({
         title: 'İdxal xətası',
         description: error.message || 'Müəllimləri idxal edərkən xəta baş verdi',
@@ -126,8 +151,30 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // File size validation (10MB max)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        toast({
+          title: 'Fayl çox böyükdür',
+          description: `Maksimum fayl ölçüsü: 10MB (Sizin fayl: ${(file.size / 1024 / 1024).toFixed(2)}MB)`,
+          variant: 'destructive',
+        });
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        return;
+      }
+
+      // Calculate file info
+      const sizeMB = file.size / 1024 / 1024;
+      const estimatedRowCount = Math.floor(file.size / 250); // Average row size ~250 bytes
+
       setSelectedFile(file);
+      setFileSizeMB(sizeMB);
+      setEstimatedRows(estimatedRowCount);
       setImportResult(null); // Clear previous results
+      setImportStatus('idle');
+      setUploadProgress(0);
     }
   };
 
@@ -254,6 +301,79 @@ export const RegionTeacherImportModal: React.FC<RegionTeacherImportModalProps> =
                 </div>
               </CardContent>
             </Card>
+
+            {/* File Info Preview */}
+            {selectedFile && (
+              <Alert className="bg-blue-50 border-blue-200">
+                <FileText className="h-4 w-4 text-blue-600" />
+                <AlertDescription>
+                  <div className="space-y-2 text-sm">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="font-medium">Fayl:</span>
+                        <p className="text-xs text-muted-foreground">{selectedFile.name}</p>
+                      </div>
+                      <div>
+                        <span className="font-medium">Ölçü:</span>
+                        <p className="text-xs text-muted-foreground">{fileSizeMB.toFixed(2)} MB</p>
+                      </div>
+                      <div>
+                        <span className="font-medium">Təxmini sətir sayı:</span>
+                        <p className="text-xs text-muted-foreground">~{estimatedRows} müəllim</p>
+                      </div>
+                      <div>
+                        <span className="font-medium">Təxmini vaxt:</span>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          ~{Math.ceil(estimatedRows / 50)} saniyə
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Progress Bar */}
+            {importStatus !== 'idle' && (
+              <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+                <CardContent className="pt-6">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="font-medium flex items-center gap-2">
+                        {importStatus === 'uploading' && (
+                          <>
+                            <Upload className="h-4 w-4 animate-pulse" />
+                            Yüklənir...
+                          </>
+                        )}
+                        {importStatus === 'processing' && (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Proses edilir...
+                          </>
+                        )}
+                        {importStatus === 'completed' && (
+                          <>
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            Tamamlandı
+                          </>
+                        )}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {uploadProgress}%
+                      </span>
+                    </div>
+                    <Progress value={uploadProgress} className="h-2" />
+                    <p className="text-xs text-muted-foreground text-center">
+                      {importStatus === 'uploading' && 'Fayl serverə yüklənir...'}
+                      {importStatus === 'processing' && 'Müəllimlər database-ə əlavə edilir...'}
+                      {importStatus === 'completed' && 'İdxal prosesi uğurla tamamlandı!'}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* File Upload */}
             <Card>

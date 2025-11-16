@@ -55,7 +55,7 @@ class UpdateUserRequest extends FormRequest
         ];
 
         foreach (RegionOperatorPermissionService::CRUD_FIELDS as $field) {
-            $rules[\"region_operator_permissions.$field\"] = 'sometimes|boolean';
+            $rules["region_operator_permissions.$field"] = 'sometimes|boolean';
             $rules[$field] = 'sometimes|boolean';
         }
 

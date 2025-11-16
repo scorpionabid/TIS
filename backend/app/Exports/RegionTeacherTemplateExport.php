@@ -32,6 +32,7 @@ class RegionTeacherTemplateExport implements WithMultipleSheets
             new RegionTeacherTemplateSheet($this->region),
             new InstitutionReferenceSheet($this->region),
             new FieldReferenceSheet(),
+            new QuickStartGuideSheet(), // NEW: Quick start guide
         ];
     }
 }
@@ -50,23 +51,25 @@ class RegionTeacherTemplateSheet implements FromArray, WithHeadings, WithStyles,
 
     public function array(): array
     {
-        // Get first institution as example
+        // Get multiple institutions for varied examples
         $institutionIds = $this->region->getAllChildrenIds();
-        $firstInstitution = Institution::whereIn('id', $institutionIds)
+        $institutions = Institution::whereIn('id', $institutionIds)
             ->where('level', '>=', 3) // Sectors and schools
             ->orderBy('level')
             ->orderBy('name')
-            ->first();
+            ->limit(3)
+            ->get();
 
-        $institutionId = $firstInstitution ? $firstInstitution->id : '';
-        $utisCode = $firstInstitution?->utis_code ?? '';
-        $instCode = $firstInstitution?->institution_code ?? '';
+        $firstInst = $institutions->first();
+        $secondInst = $institutions->skip(1)->first() ?? $firstInst;
+        $thirdInst = $institutions->skip(2)->first() ?? $firstInst;
 
         return [
+            // Example 1: Regular teacher with full data
             [
-                $utisCode, // NEW: institution_utis_code
-                $instCode, // NEW: institution_code
-                $institutionId, // Keep for backward compatibility
+                $firstInst?->utis_code ?? '',
+                $firstInst?->institution_code ?? '',
+                $firstInst?->id ?? '',
                 'ali.mammadov@example.com',
                 'ali.mammadov',
                 'Əli',
@@ -78,18 +81,20 @@ class RegionTeacherTemplateSheet implements FromArray, WithHeadings, WithStyles,
                 'miq_100',
                 '85.50',
                 'teacher123',
-                '+994501234567', // Optional: contact_phone
-                '', // Optional: contract_start_date
-                '', // Optional: contract_end_date
-                '', // Optional: education_level
-                '', // Optional: graduation_university
-                '', // Optional: graduation_year
-                '', // Optional: notes
+                '+994501234567',
+                '2024-09-01',
+                '2025-06-30',
+                'master',
+                'Bakı Dövlət Universiteti',
+                '2015',
+                'Riyaziyyat müəllimi, təcrübəli',
             ],
+
+            // Example 2: Deputy director (administrative)
             [
-                '', // Different institution example (empty codes)
-                $instCode,
-                $institutionId,
+                '',
+                $secondInst?->institution_code ?? '',
+                '',
                 'leyla.hasanova@example.com',
                 'leyla.hasanova',
                 'Leyla',
@@ -102,12 +107,162 @@ class RegionTeacherTemplateSheet implements FromArray, WithHeadings, WithStyles,
                 '92.00',
                 'teacher456',
                 '+994555555555',
+                '2023-01-15',
+                '',
+                'bachelor',
+                'ADU',
+                '2008',
+                '',
+            ],
+
+            // Example 3: Psychologist
+            [
+                $thirdInst?->utis_code ?? '',
+                '',
+                '',
+                'nərgiz.əliyeva@example.com',
+                'nergiz.aliyeva',
+                'Nərgiz',
+                'Əliyeva',
+                'Kamran',
+                'psixoloq',
+                'secondary',
+                'Psixologiya',
+                'miq_60',
+                '78.30',
+                'psych789',
+                '+994701234567',
+                '',
+                '',
+                'master',
+                'Xəzər Universiteti',
+                '2018',
+                'Məktəb psixoloqu',
+            ],
+
+            // Example 4: Director
+            [
+                '',
+                $firstInst?->institution_code ?? '',
+                '',
+                'rəşad.məmmədov@example.com',
+                'resad.mammadov',
+                'Rəşad',
+                'Məmmədov',
+                'Tofiq',
+                'direktor',
+                'secondary',
+                'İdarəetmə',
+                'sertifikasiya',
+                '95.00',
+                'director2024',
+                '+994502345678',
+                '2020-01-01',
+                '',
+                'phd',
+                'BDU',
+                '2005',
+                'Məktəb direktoru, 15 il təcrübə',
+            ],
+
+            // Example 5: Librarian (minimal data)
+            [
+                $secondInst?->utis_code ?? '',
+                '',
+                '',
+                'aynur.qasimova@example.com',
+                'aynur.gasimova',
+                'Aynur',
+                'Qasımova',
+                'Elşən',
+                'kitabxanaçı',
+                'primary',
+                'Kitabxanaçılıq',
+                'diaqnostik',
+                '65.00',
+                'library123',
                 '',
                 '',
                 '',
                 '',
                 '',
                 '',
+                '',
+            ],
+
+            // Example 6: Teacher (subject: Physics)
+            [
+                '',
+                '',
+                $thirdInst?->id ?? '',
+                'elvin.hüseynov@example.com',
+                'elvin.huseynov',
+                'Elvin',
+                'Hüseynov',
+                'Məhəmməd',
+                'müəllim',
+                'secondary',
+                'Fizika',
+                'miq_100',
+                '88.75',
+                'physics2024',
+                '+994553456789',
+                '2024-09-01',
+                '2025-06-30',
+                'master',
+                'BDU Fizika fakültəsi',
+                '2012',
+                'Fizika müəllimi',
+            ],
+
+            // Example 7: Methodist
+            [
+                $firstInst?->utis_code ?? '',
+                $firstInst?->institution_code ?? '',
+                '',
+                'gülnarə.əhmədova@example.com',
+                'gulnara.ahmadova',
+                'Gülnarə',
+                'Əhmədova',
+                'Rauf',
+                'metodist',
+                'primary',
+                'İbtidai sinif pedaqogikası',
+                'sertifikasiya',
+                '90.50',
+                'metodist2024',
+                '+994504567890',
+                '',
+                '',
+                'master',
+                'ADU',
+                '2010',
+                'Metodist, ibtidai siniflər üzrə',
+            ],
+
+            // Example 8: Technical worker
+            [
+                '',
+                $secondInst?->institution_code ?? '',
+                $secondInst?->id ?? '',
+                'tural.məhərrəmov@example.com',
+                'tural.maharramov',
+                'Tural',
+                'Məhərrəmov',
+                'Şəhriyar',
+                'texniki_işçi',
+                'secondary',
+                'Texniki xidmət',
+                'diaqnostik',
+                '60.00',
+                'tech2024',
+                '+994555678901',
+                '',
+                '',
+                '',
+                '',
+                '',
+                'Texniki işçi',
             ],
         ];
     }
@@ -351,6 +506,168 @@ class FieldReferenceSheet implements FromArray, WithHeadings, WithStyles, WithCo
             'B' => 15,
             'C' => 50,
             'D' => 30,
+        ];
+    }
+}
+
+/**
+ * Quick Start Guide Sheet
+ * Comprehensive step-by-step instructions for teacher import
+ */
+class QuickStartGuideSheet implements FromArray, WithHeadings, WithStyles, WithColumnWidths
+{
+    public function array(): array
+    {
+        return [
+            [''],
+            ['📋 MÜƏLLIM İDXALI ÜZRƏ ƏTRAFL TƏLİMAT'],
+            [''],
+
+            ['══════════════════════════════════════════════════════════════'],
+            ['ADDIM 1: İNSTITUSIYA MƏLUMATLARINI HAZIRLAYIN'],
+            ['══════════════════════════════════════════════════════════════'],
+            [''],
+            ['▶ 2-ci vərəq (Institutions) sizin regionunuzdakı bütün məktəbləri göstərir'],
+            ['▶ Hər məktəbin 3 identifikatorundan BİRİNİ istifadə edə bilərsiniz:'],
+            [''],
+            ['  1️⃣ UTİS Kod (ən etibarlı, tövsiyyə olunur)'],
+            ['     Nümunə: 118863433'],
+            ['     ✅ Hökumət standartı, unikal'],
+            [''],
+            ['  2️⃣ Institution Kod (insan oxuya bilən)'],
+            ['     Nümunə: SHZRT-001'],
+            ['     ✅ Asan oxuna bilir'],
+            [''],
+            ['  3️⃣ ID (köhnə üsul, geriyə uyğunluq üçün)'],
+            ['     Nümunə: 123'],
+            ['     ⚠️ Ən az tövsiyyə olunur'],
+            [''],
+            ['💡 TÖVSİYYƏ: UTİS kod istifadə edin!'],
+            [''],
+
+            ['══════════════════════════════════════════════════════════════'],
+            ['ADDIM 2: MÜƏLLIM MƏLUMATLARINI DOLDURUN'],
+            ['══════════════════════════════════════════════════════════════'],
+            [''],
+            ['▶ 1-ci vərəq (Template) 8 müxtəlif nümunə göstərir:'],
+            ['  • Nümunə 1: Adi müəllim (tam məlumatlarla)'],
+            ['  • Nümunə 2: Direktor müavini'],
+            ['  • Nümunə 3: Psixoloq'],
+            ['  • Nümunə 4: Direktor'],
+            ['  • Nümunə 5: Kitabxanaçı (minimal məlumat)'],
+            ['  • Nümunə 6-8: Digər vəzifələr'],
+            [''],
+            ['▶ Sütun rəngləri:'],
+            ['  🔵 MAVİ = Müəssisə axtarışı (ən azı 1-i tələb olunur)'],
+            ['  🟢 YAŞIL = MƏCBURI sahələr'],
+            ['  ⚪ BOZ = Könüllü sahələr'],
+            [''],
+            ['▶ Məcburi sahələr:'],
+            ['  ✓ email (unikal olmalı)'],
+            ['  ✓ username (unikal olmalı)'],
+            ['  ✓ first_name, last_name, patronymic'],
+            ['  ✓ position_type (vəzifə)'],
+            ['  ✓ workplace_type (primary və ya secondary)'],
+            ['  ✓ specialty (ixtisas)'],
+            ['  ✓ assessment_type və assessment_score'],
+            ['  ✓ password (minimum 8 simvol)'],
+            [''],
+
+            ['══════════════════════════════════════════════════════════════'],
+            ['ADDIM 3: FAYLIN KONTROLu'],
+            ['══════════════════════════════════════════════════════════════'],
+            [''],
+            ['▶ Yükləmədən əvvəl yoxlayın:'],
+            ['  ✓ Bütün email-lər unikaldır'],
+            ['  ✓ Bütün username-lər unikaldır'],
+            ['  ✓ Müəssisə kodları düzgündür (2-ci vərəqdə var)'],
+            ['  ✓ Vəzifə növləri düzgündür (3-cü vərəqdə siyahı)'],
+            ['  ✓ Qiymətləndirmə növləri düzgündür'],
+            ['  ✓ Şifrələr minimum 8 simvol'],
+            [''],
+            ['▶ Fayl tələbləri:'],
+            ['  • Format: .xlsx'],
+            ['  • Maksimum ölçü: 10 MB'],
+            ['  • Maksimum sətir: ~4000 müəllim'],
+            [''],
+            ['💡 TÖVSİYYƏ: 1000-dən çox müəllim üçün bir neçə fayla bölün'],
+            [''],
+
+            ['══════════════════════════════════════════════════════════════'],
+            ['ADDIM 4: SİSTEMƏ YÜKLƏYİN'],
+            ['══════════════════════════════════════════════════════════════'],
+            [''],
+            ['1. Sistemə daxil olun (RegionAdmin rolu)'],
+            ['2. "Müəllim İdarəetməsi" səhifəsinə keçin'],
+            ['3. "İdxal/İxrac" düyməsinə klikləyin'],
+            ['4. Faylı seçin'],
+            ['5. Seçimləri təyin edin:'],
+            ['   □ Təkrarlananları keç (tövsiyyə)'],
+            ['   □ Mövcudları yenilə (ehtiyatla)'],
+            ['6. "İdxal Et" düyməsinə klikləyin'],
+            ['7. Progress bar-ı izləyin'],
+            ['8. Nəticələri yoxlayın'],
+            [''],
+
+            ['══════════════════════════════════════════════════════════════'],
+            ['⏱️ PERFORMANS GÖZLƏNTİLƏRİ'],
+            ['══════════════════════════════════════════════════════════════'],
+            [''],
+            ['Təxmini idxal vaxtları:'],
+            ['  • 100 müəllim: ~3-5 saniyə'],
+            ['  • 500 müəllim: ~10-15 saniyə'],
+            ['  • 1000 müəllim: ~20-30 saniyə'],
+            ['  • 2000 müəllim: ~40-60 saniyə'],
+            [''],
+            ['💡 Sistemimiz 500 chunk size ilə işləyir (5x sürətli!)'],
+            [''],
+
+            ['══════════════════════════════════════════════════════════════'],
+            ['⚠️ VACIB QEYDLƏR'],
+            ['══════════════════════════════════════════════════════════════'],
+            [''],
+            ['✗ YANLIŞLAR:'],
+            ['  ❌ Email və ya username təkrarlanır'],
+            ['  ❌ Müəssisə regionunuza aid deyil'],
+            ['  ❌ Vəzifə növü düzgün yazılmayıb'],
+            ['  ❌ Qiymətləndirmə balı 0-100 deyil'],
+            ['  ❌ Şifrə çox qısadır (min 8 simvol)'],
+            [''],
+            ['✓ DÜZGÜN TƏCRÜBƏLƏR:'],
+            ['  ✅ Nümunə sətirlərə baxın'],
+            ['  ✅ UTİS kod istifadə edin'],
+            ['  ✅ Böyük faylları test edin'],
+            ['  ✅ Xəta mesajlarını oxuyun'],
+            [''],
+            ['✅ UĞURLAR!'],
+        ];
+    }
+
+    public function headings(): array
+    {
+        return [
+            'İSTİFADƏ TƏLİMATI',
+        ];
+    }
+
+    public function styles(Worksheet $sheet)
+    {
+        $sheet->getStyle('A1')->applyFromArray([
+            'font' => ['bold' => true, 'size' => 16, 'color' => ['argb' => 'FFFFFFFF']],
+            'fill' => ['fillType' => 'solid', 'startColor' => ['argb' => 'FF1976D2']],
+        ]);
+
+        $sheet->getStyle('A2')->applyFromArray([
+            'font' => ['bold' => true, 'size' => 14, 'color' => ['argb' => 'FF1976D2']],
+        ]);
+
+        return [];
+    }
+
+    public function columnWidths(): array
+    {
+        return [
+            'A' => 70,
         ];
     }
 }

@@ -73,6 +73,12 @@
         "test": [
             "@php artisan config:clear --ansi",
             "@php artisan test"
+        ],
+        "lint": [
+            "./vendor/bin/pint"
+        ],
+        "lint:check": [
+            "./vendor/bin/pint --test"
         ]
     },
     "extra": {

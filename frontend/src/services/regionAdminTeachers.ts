@@ -366,6 +366,7 @@ class RegionAdminTeacherService extends BaseService {
     options?: {
       skip_duplicates?: boolean;
       update_existing?: boolean;
+      onUploadProgress?: (progress: { loaded: number; total: number }) => void;
     }
   ): Promise<ImportResult> {
     console.log('🎯 Starting teacher import', {
@@ -418,16 +419,50 @@ class RegionAdminTeacherService extends BaseService {
       const baseURL = (apiClient as any).baseURL || 'http://localhost:8000/api';
       const fullURL = `${baseURL}/regionadmin/teachers/import`;
 
-      // Use fetch for better error handling
-      const response = await fetch(fullURL, {
-        method: 'POST',
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest',
-          ...apiClient.getAuthHeaders(),
-          // Don't set Content-Type for FormData, let browser set it with boundary
-        },
-        credentials: 'include',
-        body: formData,
+      // Use XMLHttpRequest for progress tracking
+      const response = await new Promise<Response>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        // Upload progress tracking
+        if (options?.onUploadProgress) {
+          xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+              options.onUploadProgress?.({
+                loaded: e.loaded,
+                total: e.total,
+              });
+            }
+          });
+        }
+
+        // Load complete
+        xhr.addEventListener('load', () => {
+          resolve(new Response(xhr.response, {
+            status: xhr.status,
+            statusText: xhr.statusText,
+            headers: new Headers(xhr.getAllResponseHeaders().split('\r\n').reduce((acc, line) => {
+              const [key, value] = line.split(': ');
+              if (key && value) acc[key] = value;
+              return acc;
+            }, {} as Record<string, string>)),
+          }));
+        });
+
+        // Error handling
+        xhr.addEventListener('error', () => reject(new Error('Network error')));
+        xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
+
+        // Open and send
+        xhr.open('POST', fullURL);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+        // Set auth headers
+        const authHeaders = apiClient.getAuthHeaders();
+        Object.entries(authHeaders).forEach(([key, value]) => {
+          xhr.setRequestHeader(key, value);
+        });
+
+        xhr.send(formData);
       });
 
       console.log('📥 Import response:', {

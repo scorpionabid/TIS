@@ -12,25 +12,42 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
-use Maatwebsite\Excel\Concerns\WithValidation;
 use Maatwebsite\Excel\Concerns\WithBatchInserts;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Maatwebsite\Excel\Concerns\SkipsOnError;
+use Maatwebsite\Excel\Concerns\SkipsOnFailure;
+use Maatwebsite\Excel\Validators\Failure;
 
 /**
  * RegionAdmin Teachers Import
  * Imports teachers from Excel file with all required fields
+ * Optimized for importing 1000+ teachers efficiently
  */
-class RegionTeachersImport implements ToCollection, WithHeadingRow, WithBatchInserts, WithChunkReading
+class RegionTeachersImport implements
+    ToCollection,
+    WithHeadingRow,
+    WithBatchInserts,
+    WithChunkReading,
+    SkipsOnError,
+    SkipsOnFailure
 {
     protected $region;
     protected $skipDuplicates;
     protected $updateExisting;
     protected $successCount = 0;
     protected $errorCount = 0;
+    protected $skippedCount = 0;
     protected $details = [
         'success' => [],
         'errors' => [],
+        'skipped' => [],
     ];
+
+    // Cache for bulk operations
+    protected $existingEmails = [];
+    protected $existingUsernames = [];
+    protected $processedRows = 0;
+    protected $totalRows = 0;
 
     public function __construct(
         Institution $region,
@@ -44,13 +61,18 @@ class RegionTeachersImport implements ToCollection, WithHeadingRow, WithBatchIns
 
     /**
      * Process collection of rows
+     * Optimized with bulk validation for better performance
      */
-    public function collection(Collection $rows)
+    public function collection(Collection $rows): void
     {
-        $rowNumber = 1; // Start from 1 (header is row 0, skipped automatically)
+        // Bulk load existing emails and usernames for this chunk
+        $this->loadExistingData($rows);
+
+        $rowNumber = $this->processedRows + 1; // Continue from last processed
 
         foreach ($rows as $row) {
             $rowNumber++;
+            $this->processedRows++;
 
             try {
                 // Convert row to array and trim values
@@ -131,6 +153,43 @@ class RegionTeachersImport implements ToCollection, WithHeadingRow, WithBatchIns
     }
 
     /**
+     * Bulk load existing emails and usernames for this chunk
+     * Performance optimization: One query instead of N queries
+     */
+    private function loadExistingData(Collection $rows): void
+    {
+        // Extract emails and usernames from this chunk
+        $emails = $rows->map(function ($row) {
+            return trim($row['email'] ?? '');
+        })->filter()->unique()->toArray();
+
+        $usernames = $rows->map(function ($row) {
+            return trim($row['username'] ?? '');
+        })->filter()->unique()->toArray();
+
+        // Bulk query existing users
+        if (!empty($emails)) {
+            $this->existingEmails = User::whereIn('email', $emails)
+                ->pluck('email')
+                ->flip()
+                ->toArray();
+        }
+
+        if (!empty($usernames)) {
+            $this->existingUsernames = User::whereIn('username', $usernames)
+                ->pluck('username')
+                ->flip()
+                ->toArray();
+        }
+
+        Log::info('RegionTeachersImport - Bulk validation loaded', [
+            'chunk_size' => $rows->count(),
+            'existing_emails' => count($this->existingEmails),
+            'existing_usernames' => count($this->existingUsernames),
+        ]);
+    }
+
+    /**
      * Prepare row data
      */
     private function prepareRowData($row): array
@@ -166,13 +225,15 @@ class RegionTeachersImport implements ToCollection, WithHeadingRow, WithBatchIns
 
     /**
      * Validate row data
+     * Uses bulk-loaded cache for better performance
      */
-    private function validateRow(array $data)
+    private function validateRow(array $data): \Illuminate\Validation\Validator
     {
-        return Validator::make($data, [
+        // Custom validation rules using cached data
+        $rules = [
             // Required fields
-            'email' => 'required|email|unique:users,email',
-            'username' => 'required|string|min:3|max:50|unique:users,username',
+            'email' => 'required|email',
+            'username' => 'required|string|min:3|max:50',
             'first_name' => 'required|string|max:100',
             'last_name' => 'required|string|max:100',
             'patronymic' => 'required|string|max:100',
@@ -206,7 +267,24 @@ class RegionTeachersImport implements ToCollection, WithHeadingRow, WithBatchIns
             'graduation_university' => 'nullable|string|max:255',
             'graduation_year' => 'nullable|integer|min:1950|max:' . date('Y'),
             'notes' => 'nullable|string|max:1000',
-        ]);
+        ];
+
+        $validator = Validator::make($data, $rules);
+
+        // Custom validation: Check uniqueness using cached data
+        $validator->after(function ($validator) use ($data) {
+            // Check email uniqueness
+            if (isset($this->existingEmails[$data['email']])) {
+                $validator->errors()->add('email', 'Email artıq istifadə olunur');
+            }
+
+            // Check username uniqueness
+            if (isset($this->existingUsernames[$data['username']])) {
+                $validator->errors()->add('username', 'Username artıq istifadə olunur');
+            }
+        });
+
+        return $validator;
     }
 
     /**
@@ -372,18 +450,55 @@ class RegionTeachersImport implements ToCollection, WithHeadingRow, WithBatchIns
 
     /**
      * Batch size for processing
+     * Increased for better performance with large imports
      */
     public function batchSize(): int
     {
-        return 100;
+        return 500; // Increased from 100 to 500
     }
 
     /**
      * Chunk size for reading
+     * Increased for better performance with large imports
      */
     public function chunkSize(): int
     {
-        return 100;
+        return 500; // Increased from 100 to 500
+    }
+
+    /**
+     * Handle errors during import
+     * Implements SkipsOnError interface
+     */
+    public function onError(\Throwable $e): void
+    {
+        Log::error('RegionTeachersImport - Row processing error', [
+            'error' => $e->getMessage(),
+            'row' => $this->processedRows,
+        ]);
+
+        $this->errorCount++;
+        $this->details['errors'][] = "Sətir {$this->processedRows}: {$e->getMessage()}";
+    }
+
+    /**
+     * Handle validation failures
+     * Implements SkipsOnFailure interface
+     */
+    public function onFailure(Failure ...$failures): void
+    {
+        foreach ($failures as $failure) {
+            $row = $failure->row();
+            $errors = implode(', ', $failure->errors());
+
+            Log::warning('RegionTeachersImport - Validation failure', [
+                'row' => $row,
+                'errors' => $errors,
+            ]);
+
+            $this->errorCount++;
+            $this->details['errors'][] = "Sətir {$row}: {$errors}";
+        }
     }
 
     /**
@@ -394,6 +509,8 @@ class RegionTeachersImport implements ToCollection, WithHeadingRow, WithBatchIns
         return [
             'success_count' => $this->successCount,
             'error_count' => $this->errorCount,
+            'skipped_count' => $this->skippedCount,
+            'total_processed' => $this->processedRows,
             'details' => $this->details,
         ];
     }

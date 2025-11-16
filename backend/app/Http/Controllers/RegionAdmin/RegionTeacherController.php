@@ -55,12 +55,27 @@ class RegionTeacherController extends Controller
 
             $region = $user->institution;
 
-            // Verify user's institution is a region (level 2)
-            if (!$region || $region->level !== 2) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
-                ], 400);
+            // SuperAdmin can view any region - get first available region
+            if ($user->hasRole('superadmin')) {
+                if (!$region) {
+                    // Get first region (level 2)
+                    $region = Institution::where('level', 2)->first();
+                }
+
+                if (!$region) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Sistemdə heç bir region tapılmadı'
+                    ], 404);
+                }
+            } else {
+                // Regular RegionAdmin - must have level 2 institution
+                if (!$region || $region->level !== 2) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                    ], 400);
+                }
             }
 
             // Validation
@@ -239,14 +254,30 @@ class RegionTeacherController extends Controller
 
             $region = $user->institution;
 
-            if (!$region || $region->level !== 2) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid region'
-                ], 400);
+            // SuperAdmin can export from any region - get first available region
+            if ($user->hasRole('superadmin')) {
+                if (!$region) {
+                    $region = Institution::where('level', 2)->first();
+                }
+
+                if (!$region) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Sistemdə heç bir region tapılmadı'
+                    ], 404);
+                }
+            } else {
+                // Regular RegionAdmin - must have level 2 institution
+                if (!$region || $region->level !== 2) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                    ], 400);
+                }
             }
 
             Log::info('RegionTeacherController - Export teachers', [
+                'user_role' => $user->hasRole('superadmin') ? 'superadmin' : 'regionadmin',
                 'region_id' => $region->id,
             ]);
 
@@ -282,11 +313,26 @@ class RegionTeacherController extends Controller
             $user = Auth::user();
             $region = $user->institution;
 
-            if (!$region || $region->level !== 2) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid region'
-                ], 400);
+            // SuperAdmin can view sectors from any region - get first available region
+            if ($user->hasRole('superadmin')) {
+                if (!$region) {
+                    $region = Institution::where('level', 2)->first();
+                }
+
+                if (!$region) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Sistemdə heç bir region tapılmadı'
+                    ], 404);
+                }
+            } else {
+                // Regular RegionAdmin - must have level 2 institution
+                if (!$region || $region->level !== 2) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                    ], 400);
+                }
             }
 
             $sectors = $this->teacherService->getRegionSectors($region);
@@ -320,11 +366,26 @@ class RegionTeacherController extends Controller
             $user = Auth::user();
             $region = $user->institution;
 
-            if (!$region || $region->level !== 2) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid region'
-                ], 400);
+            // SuperAdmin can view schools from any region - get first available region
+            if ($user->hasRole('superadmin')) {
+                if (!$region) {
+                    $region = Institution::where('level', 2)->first();
+                }
+
+                if (!$region) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Sistemdə heç bir region tapılmadı'
+                    ], 404);
+                }
+            } else {
+                // Regular RegionAdmin - must have level 2 institution
+                if (!$region || $region->level !== 2) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                    ], 400);
+                }
             }
 
             $sectorIds = $request->input('sector_ids');
@@ -371,11 +432,27 @@ class RegionTeacherController extends Controller
             }
 
             $region = $user->institution;
-            if (!$region || $region->level !== 2) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid region'
-                ], 400);
+
+            // SuperAdmin can view teachers from any region - get first available region
+            if ($user->hasRole('superadmin')) {
+                if (!$region) {
+                    $region = Institution::where('level', 2)->first();
+                }
+
+                if (!$region) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Sistemdə heç bir region tapılmadı'
+                    ], 404);
+                }
+            } else {
+                // Regular RegionAdmin - must have level 2 institution
+                if (!$region || $region->level !== 2) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                    ], 400);
+                }
             }
 
             // Get teacher with full details
@@ -426,11 +503,27 @@ class RegionTeacherController extends Controller
             }
 
             $region = $user->institution;
-            if (!$region || $region->level !== 2) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid region'
-                ], 400);
+
+            // SuperAdmin can create teachers in any region - get first available region
+            if ($user->hasRole('superadmin')) {
+                if (!$region) {
+                    $region = Institution::where('level', 2)->first();
+                }
+
+                if (!$region) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Sistemdə heç bir region tapılmadı'
+                    ], 404);
+                }
+            } else {
+                // Regular RegionAdmin - must have level 2 institution
+                if (!$region || $region->level !== 2) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                    ], 400);
+                }
             }
 
             // Validation
@@ -493,11 +586,27 @@ class RegionTeacherController extends Controller
             }
 
             $region = $user->institution;
-            if (!$region || $region->level !== 2) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid region'
-                ], 400);
+
+            // SuperAdmin can update teachers in any region - get first available region
+            if ($user->hasRole('superadmin')) {
+                if (!$region) {
+                    $region = Institution::where('level', 2)->first();
+                }
+
+                if (!$region) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Sistemdə heç bir region tapılmadı'
+                    ], 404);
+                }
+            } else {
+                // Regular RegionAdmin - must have level 2 institution
+                if (!$region || $region->level !== 2) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                    ], 400);
+                }
             }
 
             // Validation
@@ -566,14 +675,31 @@ class RegionTeacherController extends Controller
             }
 
             $region = $user->institution;
-            if (!$region || $region->level !== 2) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid region'
-                ], 400);
+
+            // SuperAdmin can delete teachers from any region - get first available region
+            if ($user->hasRole('superadmin')) {
+                if (!$region) {
+                    $region = Institution::where('level', 2)->first();
+                }
+
+                if (!$region) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Sistemdə heç bir region tapılmadı'
+                    ], 404);
+                }
+            } else {
+                // Regular RegionAdmin - must have level 2 institution
+                if (!$region || $region->level !== 2) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                    ], 400);
+                }
             }
 
             Log::info('RegionTeacherController - Soft deleting teacher', [
+                'user_role' => $user->hasRole('superadmin') ? 'superadmin' : 'regionadmin',
                 'teacher_id' => $id,
             ]);
 
@@ -624,14 +750,31 @@ class RegionTeacherController extends Controller
             }
 
             $region = $user->institution;
-            if (!$region || $region->level !== 2) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid region'
-                ], 400);
+
+            // SuperAdmin can hard delete teachers from any region - get first available region
+            if ($user->hasRole('superadmin')) {
+                if (!$region) {
+                    $region = Institution::where('level', 2)->first();
+                }
+
+                if (!$region) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Sistemdə heç bir region tapılmadı'
+                    ], 404);
+                }
+            } else {
+                // Regular RegionAdmin - must have level 2 institution
+                if (!$region || $region->level !== 2) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                    ], 400);
+                }
             }
 
             Log::info('RegionTeacherController - Hard deleting teacher', [
+                'user_role' => $user->hasRole('superadmin') ? 'superadmin' : 'regionadmin',
                 'teacher_id' => $id,
             ]);
 
@@ -696,11 +839,28 @@ class RegionTeacherController extends Controller
             }
 
             $region = $user->institution;
-            if (!$region || $region->level !== 2) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid region'
-                ], 400);
+
+            // SuperAdmin can import to any region - get first available region
+            if ($user->hasRole('superadmin')) {
+                if (!$region) {
+                    // Get first region (level 2)
+                    $region = Institution::where('level', 2)->first();
+                }
+
+                if (!$region) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Sistemdə heç bir region tapılmadı'
+                    ], 404);
+                }
+            } else {
+                // Regular RegionAdmin - must have level 2 institution
+                if (!$region || $region->level !== 2) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                    ], 400);
+                }
             }
 
             // Validation
@@ -711,6 +871,8 @@ class RegionTeacherController extends Controller
             ]);
 
             Log::info('RegionTeacherController - Importing teachers', [
+                'user_role' => $user->hasRole('superadmin') ? 'superadmin' : 'regionadmin',
+                'region_id' => $region->id,
                 'file_name' => $request->file('file')->getClientOriginalName(),
                 'file_size' => $request->file('file')->getSize(),
                 'skip_duplicates' => $request->boolean('skip_duplicates'),
@@ -779,17 +941,39 @@ class RegionTeacherController extends Controller
 
             $region = $user->institution;
 
-            if (!$region || $region->level !== 2) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid region'
-                ], 400);
-            }
+            // SuperAdmin can use any region - get first available region for template
+            if ($user->hasRole('superadmin')) {
+                if (!$region) {
+                    // Get first region (level 2) for template generation
+                    $region = Institution::where('level', 2)->first();
+                }
 
-            Log::info('RegionTeacherController - Downloading Excel import template', [
-                'region_id' => $region->id,
-                'region_name' => $region->name,
-            ]);
+                if (!$region) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Sistemdə heç bir region tapılmadı'
+                    ], 404);
+                }
+
+                Log::info('RegionTeacherController - SuperAdmin downloading template', [
+                    'user_id' => $user->id,
+                    'region_id' => $region->id,
+                    'region_name' => $region->name,
+                ]);
+            } else {
+                // Regular RegionAdmin - must have level 2 institution
+                if (!$region || $region->level !== 2) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                    ], 400);
+                }
+
+                Log::info('RegionTeacherController - RegionAdmin downloading template', [
+                    'region_id' => $region->id,
+                    'region_name' => $region->name,
+                ]);
+            }
 
             return $this->teacherService->generateImportTemplate($region);
 
