@@ -51,7 +51,8 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
                 'responses', 'status', 'submitted_at', 'approved_at', 'created_at'
             ])
             ->with([
-                'institution:id,name,type,short_name',
+                'institution:id,name,type,short_name,parent_id,level',
+                'institution.parent:id,name,type,short_name', // Load sector (parent institution)
                 'department:id,name',
                 'respondent:id,name,email',
                 'approvalRequest' => function($query) {
@@ -114,7 +115,16 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
         $results = collect();
         $chunkSize = 100; // Process in chunks of 100 for memory efficiency
 
-        $query->orderBy('created_at', 'desc')->chunk($chunkSize, function ($responses) use ($results) {
+        // Sort by sector (via parent institution), then by institution name, then by submission date
+        // Note: We need to join institutions table for proper sorting
+        $query->leftJoin('institutions', 'survey_responses.institution_id', '=', 'institutions.id')
+              ->leftJoin('institutions as sectors', 'institutions.parent_id', '=', 'sectors.id')
+              ->orderBy('sectors.name', 'asc')        // Group by sector
+              ->orderBy('institutions.name', 'asc')   // Then by school name
+              ->orderBy('survey_responses.created_at', 'desc')  // Finally by submission date
+              ->select('survey_responses.*'); // Ensure we only select survey_responses columns
+
+        $query->chunk($chunkSize, function ($responses) use ($results) {
             foreach ($responses as $response) {
                 $results->push($response);
             }
@@ -136,13 +146,21 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
         if (app()->environment('local', 'development')) {
             \Log::debug('[EXPORT] Mapping response', [
                 'response_id' => $response->id,
-                'institution_name' => $response->institution?->name
+                'institution_name' => $response->institution?->name,
+                'institution_level' => $response->institution?->level,
+                'sector_name' => $this->getSectorName($response->institution)
             ]);
         }
 
-        // Start with institution info - the institution that responded to the survey
+        // Get sector and institution names
+        $sectorName = $this->getSectorName($response->institution);
         $institutionName = $response->institution?->name ?? 'N/A';
-        $row = [$institutionName];
+
+        // Start with sector, then institution
+        $row = [
+            $sectorName,        // NEW - Sector column
+            $institutionName    // Institution column
+        ];
 
         // Get survey questions and add response for each question
         $questions = $this->survey->questions;
@@ -189,8 +207,11 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
 
     public function headings(): array
     {
-        // Start with institution column
-        $headings = ['Müəssisə'];
+        // Start with sector and institution columns
+        $headings = [
+            'Sektor',      // NEW - Sector column
+            'Müəssisə'     // Institution column
+        ];
 
         // Add column for each survey question
         $questions = $this->survey->questions;
@@ -235,12 +256,15 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
         $widths = [];
         $columns = range('A', 'Z');
 
-        // First column - Institution name
+        // Column A - Sector name (NEW)
         $widths['A'] = 30;
 
-        // Dynamic columns for questions
+        // Column B - Institution name (moved from A)
+        $widths['B'] = 30;
+
+        // Dynamic columns for questions (start from C instead of B)
         $questions = $this->survey->questions;
-        $columnIndex = 1; // Start from B (A=0, B=1)
+        $columnIndex = 2; // Start from C (A=0, B=1, C=2)
 
         foreach ($questions as $question) {
             if ($columnIndex < count($columns)) {
@@ -369,5 +393,32 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
             'returned' => 'Geri qaytarıldı',
             default => ucfirst($status)
         };
+    }
+
+    /**
+     * Get sector name for an institution
+     * Handles hierarchical institution structure:
+     * - Level 4 (schools): Returns parent institution name (sector)
+     * - Level 3 (sectors): Returns own name
+     * - Other levels: Returns N/A
+     */
+    private function getSectorName($institution): string
+    {
+        if (!$institution) {
+            return 'N/A';
+        }
+
+        // If institution is a school (level 4), parent is sector (level 3)
+        if ($institution->level == 4) {
+            return $institution->parent?->name ?? 'N/A';
+        }
+
+        // If institution is a sector (level 3), return its own name
+        if ($institution->level == 3) {
+            return $institution->name;
+        }
+
+        // For other levels (region, ministry), return N/A
+        return 'N/A';
     }
 }
