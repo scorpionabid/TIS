@@ -777,6 +777,157 @@ class RegionAdminClassController extends Controller
     }
 
     /**
+     * Update class information
+     */
+    public function update(Request $request, $id): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $region = Institution::findOrFail($user->institution_id);
+
+            $allowedInstitutionIds = $region->getAllChildrenIds();
+            $allowedInstitutionIds[] = $region->id;
+
+            $class = Grade::whereIn('institution_id', $allowedInstitutionIds)->findOrFail($id);
+
+            $validated = $request->validate([
+                'name' => 'sometimes|string|max:50',
+                'class_level' => 'sometimes|integer|min:0|max:12',
+                'specialty' => 'nullable|string|max:120',
+                'grade_category' => 'nullable|string|max:120',
+                'grade_type' => 'nullable|string|max:120',
+                'class_type' => 'nullable|string|max:120',
+                'class_profile' => 'nullable|string|max:120',
+                'education_program' => 'nullable|in:umumi,xususi,ferdi_mekteb,ferdi_ev',
+                'teaching_language' => 'nullable|string|max:50',
+                'teaching_shift' => 'nullable|string|max:50',
+                'teaching_week' => 'nullable|string|max:50',
+                'student_count' => 'sometimes|integer|min:0',
+                'male_student_count' => 'sometimes|integer|min:0',
+                'female_student_count' => 'sometimes|integer|min:0',
+                'is_active' => 'sometimes|boolean',
+            ]);
+
+            if (array_key_exists('name', $validated)) {
+                $validated['name'] = trim($validated['name']);
+            }
+
+            if (array_key_exists('male_student_count', $validated) || array_key_exists('female_student_count', $validated)) {
+                $male = array_key_exists('male_student_count', $validated)
+                    ? (int) $validated['male_student_count']
+                    : $class->male_student_count;
+                $female = array_key_exists('female_student_count', $validated)
+                    ? (int) $validated['female_student_count']
+                    : $class->female_student_count;
+
+                if (!array_key_exists('student_count', $validated)) {
+                    $validated['student_count'] = $male + $female;
+                }
+            }
+
+            $class->fill($validated);
+            $class->save();
+
+            $class->load([
+                'institution:id,name,type,utis_code,institution_code',
+                'homeroomTeacher:id,username,first_name,last_name',
+                'academicYear:id,year,is_current'
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Sinif məlumatları yeniləndi',
+                'data' => $class,
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            Log::error('Failed to update class: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Sinif yenilənə bilmədi',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete a single class
+     */
+    public function destroy($id): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $region = Institution::findOrFail($user->institution_id);
+
+            $allowedInstitutionIds = $region->getAllChildrenIds();
+            $allowedInstitutionIds[] = $region->id;
+
+            $class = Grade::whereIn('institution_id', $allowedInstitutionIds)->findOrFail($id);
+            $className = "{$class->class_level}{$class->name}";
+            $class->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$className} sinifi silindi",
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to delete class: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Sinif silinə bilmədi',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Bulk delete classes
+     */
+    public function bulkDelete(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'ids' => 'required|array|min:1',
+                'ids.*' => 'integer'
+            ]);
+
+            $user = Auth::user();
+            $region = Institution::findOrFail($user->institution_id);
+
+            $allowedInstitutionIds = $region->getAllChildrenIds();
+            $allowedInstitutionIds[] = $region->id;
+
+            $ids = $validated['ids'];
+
+            $deleted = Grade::whereIn('id', $ids)
+                ->whereIn('institution_id', $allowedInstitutionIds)
+                ->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Seçilmiş siniflər silindi',
+                'data' => [
+                    'deleted' => $deleted,
+                    'requested' => count($ids),
+                ]
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            Log::error('Bulk delete failed: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Seçilmiş siniflər silinə bilmədi',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Load institutions that belong to the current region for template generation.
      */
     protected function getTemplateInstitutions(Institution $region)

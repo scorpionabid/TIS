@@ -33,6 +33,9 @@ Route::middleware(['auth:sanctum', 'role:regionadmin'])
         Route::get('/export/template', [RegionAdminClassController::class, 'exportClassesTemplate']);
         Route::get('/export/template/csv', [RegionAdminClassController::class, 'exportClassesTemplateCSV']);
         Route::post('/export', [RegionAdminClassController::class, 'exportClasses']);
+        Route::post('/bulk-delete', [RegionAdminClassController::class, 'bulkDelete']);
+        Route::put('/{id}', [RegionAdminClassController::class, 'update']);
+        Route::delete('/{id}', [RegionAdminClassController::class, 'destroy']);
 
         // Get specific class details
         Route::get('/{id}', [RegionAdminClassController::class, 'show']);

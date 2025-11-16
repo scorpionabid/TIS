@@ -118,6 +118,24 @@ export interface ImportProgress {
   timestamp: string;
 }
 
+export interface UpdateClassPayload {
+  name?: string;
+  class_level?: number;
+  specialty?: string | null;
+  grade_category?: string | null;
+  grade_type?: string | null;
+  class_type?: string | null;
+  class_profile?: string | null;
+  education_program?: string | null;
+  teaching_language?: string | null;
+  teaching_shift?: string | null;
+  teaching_week?: string | null;
+  student_count?: number;
+  male_student_count?: number;
+  female_student_count?: number;
+  is_active?: boolean;
+}
+
 export interface Institution {
   id: number;
   name: string;
@@ -332,6 +350,38 @@ class RegionAdminClassService {
 
     // Handle both response formats: { data: { data: [] } } and { data: [] }
     return response.data?.data || response.data || [];
+  }
+
+  /**
+   * Update a class
+   */
+  async updateClass(id: number, payload: UpdateClassPayload) {
+    const response = await apiClient.put<{ success: boolean; message: string; data: ClassData }>(
+      `${this.baseUrl}/${id}`,
+      payload
+    );
+
+    return response;
+  }
+
+  /**
+   * Delete a single class
+   */
+  async deleteClass(id: number) {
+    const response = await apiClient.delete<{ success: boolean; message: string }>(`${this.baseUrl}/${id}`);
+    return response;
+  }
+
+  /**
+   * Bulk delete classes
+   */
+  async bulkDeleteClasses(ids: number[]) {
+    const response = await apiClient.post<{ success: boolean; data: { deleted: number; requested: number } }>(
+      `${this.baseUrl}/bulk-delete`,
+      { ids }
+    );
+
+    return response;
   }
 }
 

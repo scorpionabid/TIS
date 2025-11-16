@@ -1,12 +1,17 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { regionAdminClassService, ClassFilters } from '@/services/regionadmin/classes';
+import { regionAdminClassService, ClassFilters, ClassData, UpdateClassPayload } from '@/services/regionadmin/classes';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { type CheckedState } from '@radix-ui/react-checkbox';
 import {
   GraduationCap,
   Users,
@@ -19,15 +24,62 @@ import {
   X,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 import { TablePagination } from '@/components/common/TablePagination';
 import { RegionClassImportModal } from '@/components/modals/RegionClassImportModal';
 import { toast } from '@/components/ui/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
+type EditFormState = {
+  name: string;
+  class_level: string;
+  specialty: string;
+  class_type: string;
+  class_profile: string;
+  education_program: string;
+  teaching_shift: string;
+  teaching_week: string;
+  student_count: string;
+  is_active: boolean;
+};
+
+const defaultEditFormState: EditFormState = {
+  name: '',
+  class_level: '',
+  specialty: '',
+  class_type: '',
+  class_profile: '',
+  education_program: 'umumi',
+  teaching_shift: '',
+  teaching_week: '',
+  student_count: '',
+  is_active: true,
+};
 
 export const RegionClassManagement = () => {
   const { currentUser } = useAuth();
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingClass, setEditingClass] = useState<ClassData | null>(null);
+  const [editForm, setEditForm] = useState<EditFormState>({ ...defaultEditFormState });
+  const [isSaving, setIsSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ClassData | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -166,6 +218,180 @@ export const RegionClassManagement = () => {
 
     return sorted;
   }, [rawClasses, sortColumn, sortDirection]);
+
+  useEffect(() => {
+    setSelectedClasses(prev => prev.filter(id => rawClasses.some(cls => cls.id === id)));
+  }, [rawClasses]);
+
+  const classesOnPageIds = classes.map(cls => cls.id);
+  const allPageSelected = classesOnPageIds.length > 0 && classesOnPageIds.every(id => selectedClasses.includes(id));
+  const partiallySelected = !allPageSelected && classesOnPageIds.some(id => selectedClasses.includes(id));
+
+  const handleSelectRow = (id: number) => {
+    setSelectedClasses(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllOnPage = (checked: CheckedState) => {
+    const shouldSelect = checked === true || checked === 'indeterminate';
+    if (shouldSelect) {
+      setSelectedClasses(prev => {
+        const combined = new Set(prev);
+        classesOnPageIds.forEach(id => combined.add(id));
+        return Array.from(combined);
+      });
+    } else {
+      setSelectedClasses(prev => prev.filter(id => !classesOnPageIds.includes(id)));
+    }
+  };
+
+  const handleClearSelection = () => setSelectedClasses([]);
+
+  const openEditDialog = (cls: ClassData) => {
+    setEditingClass(cls);
+    setEditForm({
+      name: cls.name || '',
+      class_level: cls.class_level !== undefined && cls.class_level !== null ? String(cls.class_level) : '',
+      specialty: cls.specialty || '',
+      class_type: cls.class_type || '',
+      class_profile: cls.class_profile || '',
+      education_program: cls.education_program || 'umumi',
+      teaching_shift: cls.teaching_shift || '',
+      teaching_week: cls.teaching_week || '',
+      student_count: cls.student_count !== undefined && cls.student_count !== null ? String(cls.student_count) : '',
+      is_active: !!cls.is_active,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleCloseEditDialog = () => {
+    if (isSaving) return;
+    setIsEditDialogOpen(false);
+    setEditingClass(null);
+    setEditForm({ ...defaultEditFormState });
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editingClass) return;
+
+    if (!editForm.name.trim()) {
+      toast({
+        title: 'Ad tələb olunur',
+        description: 'Sinif adı boş ola bilməz.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!editForm.class_level) {
+      toast({
+        title: 'Sinif səviyyəsi tələb olunur',
+        description: 'Zəhmət olmasa sinif səviyyəsini seçin.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const classLevelValue = parseInt(editForm.class_level, 10);
+    if (Number.isNaN(classLevelValue)) {
+      toast({
+        title: 'Yanlış səviyyə',
+        description: 'Sinif səviyyəsi düzgün seçilməyib.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const payload: UpdateClassPayload = {
+      name: editForm.name.trim(),
+      class_level: classLevelValue,
+      specialty: editForm.specialty.trim() || null,
+      class_type: editForm.class_type.trim() || null,
+      class_profile: editForm.class_profile.trim() || null,
+      education_program: editForm.education_program || 'umumi',
+      teaching_shift: editForm.teaching_shift.trim() || null,
+      teaching_week: editForm.teaching_week.trim() || null,
+      is_active: editForm.is_active,
+    };
+
+    if (editForm.student_count) {
+      const parsed = parseInt(editForm.student_count, 10);
+      if (!Number.isNaN(parsed)) {
+        payload.student_count = parsed;
+      }
+    }
+
+    setIsSaving(true);
+    try {
+      await regionAdminClassService.updateClass(editingClass.id, payload);
+      toast({
+        title: 'Sinif yeniləndi',
+        description: `${payload.name || editingClass.name} məlumatları uğurla yeniləndi.`,
+      });
+      handleCloseEditDialog();
+      refetch();
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Sinif yenilənmədi';
+      toast({
+        title: 'Xəta',
+        description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    const classLabelBase = `${deleteTarget.class_level ?? ''}${deleteTarget.name ?? ''}`.trim();
+    const classLabel = classLabelBase || deleteTarget.name || 'Sinif';
+    try {
+      await regionAdminClassService.deleteClass(deleteTarget.id);
+      toast({
+        title: 'Sinif silindi',
+        description: `${classLabel} sinifi silindi.`,
+      });
+      setSelectedClasses(prev => prev.filter(id => id !== deleteTarget.id));
+      refetch();
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Sinif silinə bilmədi';
+      toast({
+        title: 'Xəta',
+        description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteTarget(null);
+    }
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    if (selectedClasses.length === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      await regionAdminClassService.bulkDeleteClasses(selectedClasses);
+      toast({
+        title: 'Seçilən siniflər silindi',
+        description: `${selectedClasses.length} sinif siyahıdan silindi.`,
+      });
+      setSelectedClasses([]);
+      setIsBulkDeleteDialogOpen(false);
+      refetch();
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Siniflər silinə bilmədi';
+      toast({
+        title: 'Xəta',
+        description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
 
   // Handle filter changes
   const handleSearchChange = (value: string) => {
@@ -339,6 +565,26 @@ export const RegionClassManagement = () => {
               </Button>
             </div>
 
+            {selectedClasses.length > 0 && (
+              <div className="flex flex-wrap items-center gap-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
+                <span className="text-sm font-medium">
+                  {selectedClasses.length} sinif seçildi
+                </span>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="gap-2"
+                  onClick={() => setIsBulkDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Seçilənləri Sil
+                </Button>
+                <Button size="sm" variant="ghost" onClick={handleClearSelection}>
+                  Seçimi sıfırla
+                </Button>
+              </div>
+            )}
+
             {/* Active Filters Info */}
             {hasActiveFilters && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 px-3 py-2 rounded-md">
@@ -485,6 +731,13 @@ export const RegionClassManagement = () => {
                 <table className="w-full min-w-max">
                   <thead>
                     <tr className="border-b bg-muted/50">
+                      <th className="p-3 w-10">
+                        <Checkbox
+                          aria-label="Hamısını seç"
+                          checked={allPageSelected ? true : partiallySelected ? 'indeterminate' : false}
+                          onCheckedChange={handleSelectAllOnPage}
+                        />
+                      </th>
                       <th
                         className="p-3 text-left font-medium cursor-pointer hover:bg-muted/70 transition select-none"
                         onClick={() => handleSort('institution')}
@@ -571,11 +824,19 @@ export const RegionClassManagement = () => {
                           {getSortIcon('status')}
                         </div>
                       </th>
+                      <th className="p-3 text-right font-medium text-xs">Əməliyyatlar</th>
                     </tr>
                   </thead>
                   <tbody>
                     {classes.map((cls) => (
                       <tr key={cls.id} className="border-b hover:bg-muted/30 transition">
+                        <td className="p-3 w-10">
+                          <Checkbox
+                            checked={selectedClasses.includes(cls.id)}
+                            onCheckedChange={() => handleSelectRow(cls.id)}
+                            aria-label={`${cls.name} seç`}
+                          />
+                        </td>
                         {/* Institution */}
                         <td className="p-3">
                           <div className="font-medium text-sm">{cls.institution?.name || '-'}</div>
@@ -705,6 +966,27 @@ export const RegionClassManagement = () => {
                             {cls.is_active ? 'Aktiv' : 'Passiv'}
                           </Badge>
                         </td>
+                        <td className="p-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => openEditDialog(cls)}
+                              aria-label="Düzəliş et"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => setDeleteTarget(cls)}
+                              aria-label="Sil"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -718,28 +1000,56 @@ export const RegionClassManagement = () => {
                     <CardContent className="p-4">
                       {/* Header */}
                       <div className="flex items-start justify-between mb-3 pb-3 border-b">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge variant="secondary" className="font-semibold text-base">
-                              {cls.class_level}
-                            </Badge>
-                            <span className="font-bold text-xl">{cls.name}</span>
+                        <div className="flex items-start gap-3 flex-1 pr-2">
+                          <Checkbox
+                            checked={selectedClasses.includes(cls.id)}
+                            onCheckedChange={() => handleSelectRow(cls.id)}
+                            aria-label={`${cls.name} seç`}
+                          />
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant="secondary" className="font-semibold text-base">
+                                {cls.class_level}
+                              </Badge>
+                              <span className="font-bold text-xl">{cls.name}</span>
+                            </div>
+                            <div className="text-sm font-medium text-muted-foreground">
+                              {cls.institution?.name}
+                            </div>
+                            {cls.institution?.utis_code && (
+                              <Badge variant="outline" className="text-xs font-mono mt-1">
+                                {cls.institution.utis_code}
+                              </Badge>
+                            )}
                           </div>
-                          <div className="text-sm font-medium text-muted-foreground">
-                            {cls.institution?.name}
-                          </div>
-                          {cls.institution?.utis_code && (
-                            <Badge variant="outline" className="text-xs font-mono mt-1">
-                              {cls.institution.utis_code}
-                            </Badge>
-                          )}
                         </div>
-                        <Badge
-                          variant={cls.is_active ? 'default' : 'secondary'}
-                          className={cls.is_active ? 'bg-green-600' : 'bg-gray-400'}
-                        >
-                          {cls.is_active ? 'Aktiv' : 'Passiv'}
-                        </Badge>
+                        <div className="flex flex-col items-end gap-2">
+                          <Badge
+                            variant={cls.is_active ? 'default' : 'secondary'}
+                            className={cls.is_active ? 'bg-green-600' : 'bg-gray-400'}
+                          >
+                            {cls.is_active ? 'Aktiv' : 'Passiv'}
+                          </Badge>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => openEditDialog(cls)}
+                              aria-label="Düzəliş et"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => setDeleteTarget(cls)}
+                              aria-label="Sil"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
                       </div>
 
                       {/* Details Grid */}
@@ -863,6 +1173,188 @@ export const RegionClassManagement = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => { if (!open) handleCloseEditDialog(); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Sinif məlumatlarını redaktə et</DialogTitle>
+            <DialogDescription>
+              {editingClass ? `${editingClass.class_level}${editingClass.name} sinifi üçün dəyişiklik edin.` : 'Sinif seçilməyib.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="edit-name">Sinif adı</Label>
+                <Input
+                  id="edit-name"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Sinif səviyyəsi</Label>
+                <Select value={editForm.class_level} onValueChange={(value) => setEditForm(prev => ({ ...prev, class_level: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seçin" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((level) => (
+                      <SelectItem key={level} value={level.toString()}>
+                        {level === 0 ? 'Hazırlıq' : `${level}-ci sinif`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="edit-specialty">İxtisas</Label>
+                <Input
+                  id="edit-specialty"
+                  value={editForm.specialty}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, specialty: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit-class-type">Sinfin tipi</Label>
+                <Input
+                  id="edit-class-type"
+                  value={editForm.class_type}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, class_type: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="edit-class-profile">Profil</Label>
+                <Input
+                  id="edit-class-profile"
+                  value={editForm.class_profile}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, class_profile: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit-program">Təhsil proqramı</Label>
+                <Select
+                  value={editForm.education_program}
+                  onValueChange={(value) => setEditForm(prev => ({ ...prev, education_program: value }))}
+                >
+                  <SelectTrigger id="edit-program">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="umumi">Ümumi</SelectItem>
+                    <SelectItem value="xususi">Xüsusi</SelectItem>
+                    <SelectItem value="ferdi_mekteb">Fərdi (Məktəb)</SelectItem>
+                    <SelectItem value="ferdi_ev">Fərdi (Ev)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="edit-shift">Növbə</Label>
+                <Input
+                  id="edit-shift"
+                  value={editForm.teaching_shift}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, teaching_shift: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit-week">Tədris həftəsi</Label>
+                <Input
+                  id="edit-week"
+                  value={editForm.teaching_week}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, teaching_week: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="edit-student-count">Şagird sayı</Label>
+                <Input
+                  id="edit-student-count"
+                  type="number"
+                  min={0}
+                  value={editForm.student_count}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, student_count: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Sinif statusu</Label>
+                <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+                  <Switch
+                    checked={editForm.is_active}
+                    onCheckedChange={(checked) => setEditForm(prev => ({ ...prev, is_active: !!checked }))}
+                  />
+                  <span className="text-sm">{editForm.is_active ? 'Aktiv' : 'Passiv'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCloseEditDialog} disabled={isSaving}>
+              Ləğv et
+            </Button>
+            <Button onClick={handleEditSubmit} disabled={isSaving}>
+              {isSaving ? 'Yenilənir...' : 'Yadda saxla'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open && !isDeleting) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sinifi silmək istəyirsiniz?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu əməliyyat geri qaytarılmayacaq. Seçilmiş sinif sistemdən silinəcək.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Ləğv et</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Silinir...' : 'Sil'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Dialog */}
+      <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={(open) => { if (!open && !isBulkDeleting) setIsBulkDeleteDialogOpen(false); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Seçilmiş siniflər silinsin?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedClasses.length} sinifi silmək üzrəsiniz. Bu əməliyyat geri qaytarıla bilməz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkDeleting}>Ləğv et</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmBulkDelete}
+              disabled={isBulkDeleting || selectedClasses.length === 0}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBulkDeleting ? 'Silinir...' : 'Seçilənləri sil'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Import Modal */}
       <RegionClassImportModal
