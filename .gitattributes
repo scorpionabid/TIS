@@ -1,0 +1,101 @@
+# ATİS Project - Git Attributes for Cross-Platform Compatibility
+#
+# Purpose: Ensure consistent line endings across Windows, macOS, and Linux
+# Reference: https://git-scm.com/docs/gitattributes
+
+# Auto-detect text files and perform LF normalization
+* text=auto
+
+# Shell Scripts - Always use LF (Unix-style)
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Windows Scripts - Always use CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Source Code - Auto-detect with LF preference
+*.php text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.vue text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.xml text eol=lf
+
+# Stylesheets - LF
+*.css text eol=lf
+*.scss text eol=lf
+*.sass text eol=lf
+*.less text eol=lf
+
+# Documentation - LF
+*.md text eol=lf
+*.txt text eol=lf
+*.rst text eol=lf
+
+# Configuration Files - LF
+.env* text eol=lf
+.editorconfig text eol=lf
+.eslintrc* text eol=lf
+.prettierrc* text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+Dockerfile* text eol=lf
+docker-compose*.yml text eol=lf
+
+# Lock Files - Binary (exact preservation)
+package-lock.json binary
+composer.lock binary
+yarn.lock binary
+
+# Binary Files (no LF conversion)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.webp binary
+*.pdf binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.7z binary
+*.rar binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.otf binary
+
+# Database Files - Binary
+*.sqlite binary
+*.db binary
+*.sql linguist-detectable=false
+
+# Archives and Compiled
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+
+# Git LFS (if used)
+# *.psd filter=lfs diff=lfs merge=lfs -text
+# *.ai filter=lfs diff=lfs merge=lfs -text
+
+# Language-specific attributes
+*.blade.php text eol=lf linguist-language=PHP
+*.vue text eol=lf linguist-language=Vue
+
+# Export Ignore (files not needed in production archives)
+.gitattributes export-ignore
+.gitignore export-ignore
+.github/ export-ignore
+tests/ export-ignore
+*.md export-ignore
+docker-compose.*.example.yml export-ignore

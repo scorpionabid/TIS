@@ -177,3 +177,26 @@ yarn.lock
 
 # Development tools
 tools/
+
+# Platform-specific overrides (Windows, macOS, Linux)
+docker-compose.override.yml
+docker-compose.*.local.yml
+.env.platform
+
+# Windows-specific
+*.bat.local
+start.bat.local
+stop.bat.local
+
+# macOS-specific
+.DS_Store
+*.command.local
+
+# Backup directories
+*_backup_*/
+backend_backup_*/
+frontend_backup_*/
+
+# Platform-specific package locks (keep cross-platform compatible)
+# Note: package-lock.json is tracked for consistency
+frontend/backend_backup_20250820_143825/
