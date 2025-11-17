@@ -4,7 +4,9 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use App\Rules\ValidRoleAssignment;
+use App\Rules\DepartmentBelongsToInstitution;
 use App\Services\RegionOperatorPermissionService;
+use App\Models\Role;
 
 class StoreUserRequest extends FormRequest
 {
@@ -24,31 +26,42 @@ class StoreUserRequest extends FormRequest
     public function rules(): array
     {
         return array_merge([
+            // ========================================
+            // USERS TABLE FIELDS
+            // ========================================
             'username' => 'required|string|min:3|max:50|unique:users',
             'email' => 'required|string|email|max:100|unique:users',
             'utis_code' => 'nullable|string|regex:/^\d{1,12}$/|unique:users,utis_code',
             'password' => 'required|string|min:8',
+            'first_name' => 'nullable|string|max:100',  // Saved to: users table
+            'last_name' => 'nullable|string|max:100',   // Saved to: users table
             'role_id' => [
-            'required',
-            'exists:roles,id',
-            new ValidRoleAssignment
-        ],
+                'required',
+                'exists:roles,id',
+                new ValidRoleAssignment
+            ],
             'institution_id' => 'nullable|exists:institutions,id',
-            'department_id' => 'nullable|exists:departments,id',
+            'department_id' => [
+                'nullable',
+                'exists:departments,id',
+                new DepartmentBelongsToInstitution($this->input('institution_id'))
+            ],
             'departments' => 'nullable|array',
             'departments.*' => 'string',
             'is_active' => 'nullable|boolean',
-            
-            // Profile data
-            'first_name' => 'nullable|string|max:100',
-            'last_name' => 'nullable|string|max:100',
-            'patronymic' => 'nullable|string|max:100',
-            'birth_date' => 'nullable|date',
-            'gender' => 'nullable|in:male,female,other',
-            'national_id' => 'nullable|string|max:20',
-            'contact_phone' => 'nullable|string|max:20',
-            'emergency_contact' => 'nullable|string|max:20',
-            'address' => 'nullable|array'
+
+            // ========================================
+            // USER_PROFILES TABLE FIELDS
+            // ========================================
+            // Note: These are validated at root level but saved to user_profiles table
+            // by UserCrudService (see app/Services/UserCrudService.php lines 140-144)
+            'patronymic' => 'nullable|string|max:100',      // Saved to: user_profiles
+            'birth_date' => 'nullable|date',                // Saved to: user_profiles
+            'gender' => 'nullable|in:male,female,other',    // Saved to: user_profiles
+            'national_id' => 'nullable|string|max:20',      // Saved to: user_profiles
+            'contact_phone' => 'nullable|string|max:20',    // Saved to: user_profiles
+            'emergency_contact' => 'nullable|string|max:20',// Saved to: user_profiles
+            'address' => 'nullable|array',                  // Saved to: user_profiles
         ], $this->regionOperatorPermissionRules());
     }
 
@@ -71,5 +84,36 @@ class StoreUserRequest extends FormRequest
         }
 
         return $rules;
+    }
+
+    /**
+     * Configure the validator instance.
+     *
+     * @param  \Illuminate\Validation\Validator  $validator
+     * @return void
+     */
+    public function withValidator($validator)
+    {
+        $validator->after(function ($validator) {
+            // Check if the role being assigned is RegionOperator
+            $role = Role::find($this->input('role_id'));
+
+            if ($role && $role->name === 'regionoperator') {
+                // Verify at least one permission is selected
+                $hasPermissions = collect(RegionOperatorPermissionService::CRUD_FIELDS)
+                    ->some(function($field) {
+                        // Check both nested and flat structures
+                        return $this->input($field) === true ||
+                               $this->input("region_operator_permissions.$field") === true;
+                    });
+
+                if (!$hasPermissions) {
+                    $validator->errors()->add(
+                        'region_operator_permissions',
+                        'RegionOperator roluna malik istifadəçi üçün ən azı 1 səlahiyyət seçilməlidir.'
+                    );
+                }
+            }
+        });
     }
 }

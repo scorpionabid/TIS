@@ -4,6 +4,8 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use App\Services\RegionOperatorPermissionService;
+use App\Rules\DepartmentBelongsToInstitution;
+use App\Models\Role;
 
 class UpdateUserRequest extends FormRequest
 {
@@ -28,7 +30,11 @@ class UpdateUserRequest extends FormRequest
             'utis_code' => 'nullable|string|regex:/^\d{1,12}$/|unique:users,utis_code,' . $this->route('user')->id,
             'role_id' => 'sometimes|exists:roles,id',
             'institution_id' => 'nullable|exists:institutions,id',
-            'department_id' => 'nullable|exists:departments,id',
+            'department_id' => [
+                'nullable',
+                'exists:departments,id',
+                new DepartmentBelongsToInstitution($this->input('institution_id'))
+            ],
             'departments' => 'nullable|array',
             'departments.*' => 'string',
             'is_active' => 'sometimes|boolean',
@@ -64,5 +70,37 @@ class UpdateUserRequest extends FormRequest
         }
 
         return $rules;
+    }
+
+    /**
+     * Configure the validator instance.
+     *
+     * @param  \Illuminate\Validation\Validator  $validator
+     * @return void
+     */
+    public function withValidator($validator)
+    {
+        $validator->after(function ($validator) {
+            // Check if the role being assigned is RegionOperator
+            $roleId = $this->input('role_id') ?? $this->route('user')->role_id;
+            $role = Role::find($roleId);
+
+            if ($role && $role->name === 'regionoperator') {
+                // Verify at least one permission is selected
+                $hasPermissions = collect(RegionOperatorPermissionService::CRUD_FIELDS)
+                    ->some(function($field) {
+                        // Check both nested and flat structures
+                        return $this->input($field) === true ||
+                               $this->input("region_operator_permissions.$field") === true;
+                    });
+
+                if (!$hasPermissions) {
+                    $validator->errors()->add(
+                        'region_operator_permissions',
+                        'RegionOperator roluna malik istifadəçi üçün ən azı 1 səlahiyyət seçilməlidir.'
+                    );
+                }
+            }
+        });
     }
 }
