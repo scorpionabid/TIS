@@ -587,7 +587,7 @@ class InstitutionBulkController extends Controller
             ]);
 
             // Use the ImportOrchestrator to handle the import process
-            $importOrchestrator = new \App\Services\Import\ImportOrchestrator();
+            $importOrchestrator = app(\App\Services\Import\ImportOrchestrator::class);
             $result = $importOrchestrator->importInstitutionsByType(
                 $validated['file'],
                 $validated['type']
