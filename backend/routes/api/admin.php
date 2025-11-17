@@ -7,6 +7,7 @@ use App\Http\Controllers\InstitutionTypeController;
 use App\Http\Controllers\InstitutionHierarchyController;
 use App\Http\Controllers\InstitutionDepartmentController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\API\AssessmentExcelController;
 use App\Http\Controllers\API\BulkAssessmentController;
@@ -227,6 +228,20 @@ Route::middleware('permission:roles.write')->group(function () {
     Route::delete('roles/{role}/permissions/{permission}', [RoleController::class, 'detachPermission']);
     Route::post('roles/{role}/users', [RoleController::class, 'assignToUser']);
     Route::delete('roles/{role}/users/{user}', [RoleController::class, 'removeFromUser']);
+});
+
+// Permission Management Routes (SuperAdmin only)
+Route::middleware('role:superadmin')->prefix('permissions')->group(function () {
+    Route::get('/', [PermissionController::class, 'index']);
+    Route::get('/categories', [PermissionController::class, 'getCategories']);
+    Route::get('/scopes', [PermissionController::class, 'getScopes']);
+    Route::get('/grouped', [PermissionController::class, 'getGroupedPermissions']);
+    Route::get('/matrix', [PermissionController::class, 'getPermissionMatrix']);
+    Route::get('/{permission}', [PermissionController::class, 'show']);
+    Route::get('/{permission}/usage', [PermissionController::class, 'getUsageStats']);
+    Route::put('/{permission}', [PermissionController::class, 'update']);
+    Route::post('/bulk-update', [PermissionController::class, 'bulkUpdate']);
+    Route::post('/sync-role', [PermissionController::class, 'syncRolePermissions']);
 });
 
 // System configuration (admin only)

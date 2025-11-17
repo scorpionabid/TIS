@@ -18,6 +18,7 @@ const Index = lazy(() => import("./pages/Index"));
 const Users = lazy(() => import("./pages/Users"));
 const Students = lazy(() => import("./pages/Students"));
 const Roles = lazy(() => import("./pages/Roles"));
+const Permissions = lazy(() => import("./pages/Permissions"));
 const Departments = lazy(() => import("./pages/Departments"));
 const Institutions = lazy(() => import("./pages/Institutions"));
 const Preschools = lazy(() => import("./pages/Preschools"));
@@ -326,6 +327,7 @@ const App = () => {
               <Route path="users" element={<LazyWrapper><Users /></LazyWrapper>} />
               <Route path="students" element={<LazyWrapper><Students /></LazyWrapper>} />
               <Route path="roles" element={<LazyWrapper><Roles /></LazyWrapper>} />
+              <Route path="permissions" element={<LazyWrapper><Permissions /></LazyWrapper>} />
               <Route path="departments" element={<LazyWrapper><Departments /></LazyWrapper>} />
               <Route path="institutions" element={<LazyWrapper><Institutions /></LazyWrapper>} />
               <Route path="preschools" element={<LazyWrapper><Preschools /></LazyWrapper>} />

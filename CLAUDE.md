@@ -939,3 +939,1122 @@ This enhanced protocol ensures ATİS maintains its technical excellence while le
 ```
 
 **🎯 REMEMBER: ATİS serves real institutions with real data - every change matters!**
+
+---
+
+## 📋 SUPERADMIN SƏLAHIYYƏT İDARƏETMƏ SƏHİFƏSİ - İMPLEMENTASİYA PLANI
+
+### 🎯 Layihə Məqsədi
+SuperAdmin üçün 290+ sistemdə mövcud səlahiyyəti idarə edə biləcək, istifadəçilərə və rollara səlahiyyət verə/dəyişə biləcək, analitika və statistika görə biləcək tam funksional səlahiyyət idarəetmə paneli.
+
+### 📊 Mövcud Sistem Analizi
+
+#### Texniki Məlumatlar:
+- **Paket**: Spatie Laravel Permission v6.20
+- **Guard**: sanctum (API autentifikasiya)
+- **Səlahiyyət sayı**: 290+ granular permissions
+- **Rol sayı**: 10 sistem rolu (SuperAdmin → Müəllim)
+- **İerarxiya səviyyələri**: 1-10 (1=ən yüksək səlahiyyət)
+
+#### Cədvəl Strukturu:
+```sql
+permissions:
+  - id, name, display_name, description
+  - guard_name, category, department
+  - resource, action, is_active
+  - created_at, updated_at
+
+roles:
+  - id, name, display_name, description
+  - guard_name, level, department_access
+  - max_institutions, is_active, role_category
+  - created_by_user_id, hierarchy_scope
+  - can_create_roles_below_level
+  - max_institutions_scope, parent_role
+  - created_at, updated_at
+
+permission_role (pivot):
+  - permission_id, role_id
+```
+
+#### Səlahiyyət Kateqoriyaları:
+1. User Management (9 permissions)
+2. Institution Management (5 permissions)
+3. Survey Management (12 permissions)
+4. Role Management (4 permissions)
+5. Academic Management (12 permissions)
+6. Document Management (8 permissions)
+7. Task Management (6 permissions)
+8. Assessment Management (12 permissions)
+9. Student Management (17 permissions)
+10. Class Management (13 permissions)
+11. Subject Management (6 permissions)
+12. Approval Workflow (14 permissions)
+13. Room Management (6 permissions)
+14. Event Management (8 permissions)
+15. Psychology Support (6 permissions)
+16. Inventory Management (7 permissions)
+17. Teacher Performance (6 permissions)
+18. Department Management (6 permissions)
+19. Teaching Load (7 permissions)
+20. Teacher Management (10 permissions)
+21. Link Share Management (8 permissions)
+22. Institution Types (2 permissions)
+23. System Management (2 permissions)
+24. Reports (3 permissions)
+
+#### Permission Scope Sistemi:
+- **global**: Sistem səviyyəli səlahiyyətlər (SuperAdmin only)
+- **system**: Sistem operasiyaları (Level 1-2)
+- **regional**: Regional əməliyyatlar (Level 1-4)
+- **sector**: Sektor əməliyyatları (Level 1-6)
+- **institution**: Məktəb səviyyəsi (Level 1-8)
+- **classroom**: Sinif səviyyəsi (Level 1-10)
+
+---
+
+## 🏗️ İMPLEMENTASİYA PLANI - 6 FAZA
+
+### **FAZA 1: Backend API Hazırlığı** ⏱️ 3-4 saat
+
+#### 1.1 PermissionController Yaratmaq
+**Fayl**: `backend/app/Http/Controllers/PermissionController.php`
+
+**Metodlar**:
+```php
+class PermissionController extends Controller
+{
+    // 1. Bütün səlahiyyətləri əldə et (filterlənmiş)
+    public function index(Request $request): JsonResponse
+    // Params: ?search, ?category, ?scope, ?resource, ?action, ?is_active
+    // Returns: paginated permissions with role count, user count
+
+    // 2. Xüsusi səlahiyyət detalları
+    public function show(Permission $permission): JsonResponse
+    // Returns: permission details + usage stats + affected roles/users
+
+    // 3. Səlahiyyət metadata yeniləməsi
+    public function update(Request $request, Permission $permission): JsonResponse
+    // Allowed: display_name, description, is_active
+    // Forbidden: name, guard_name (immutable)
+
+    // 4. Kütləvi yeniləmə
+    public function bulkUpdate(Request $request): JsonResponse
+    // Body: {permission_ids: [], data: {is_active: true}}
+
+    // 5. İstifadə statistikası
+    public function getUsageStats(Permission $permission): JsonResponse
+    // Returns: roles count, users count, recent assignments, timeline
+
+    // 6. Rol-Səlahiyyət matrisi
+    public function getPermissionMatrix(Request $request): JsonResponse
+    // Returns: roles[], permissions[], matrix[roleId][permissionId]
+
+    // 7. Qruplaşdırılmış səlahiyyətlər
+    public function getGroupedPermissions(Request $request): JsonResponse
+    // Params: ?group_by=category|resource|scope
+    // Returns: grouped structure with counts
+
+    // 8. Rolle səlahiyyət sinxronlaşdırma
+    public function syncRolePermissions(Request $request): JsonResponse
+    // Body: {role_id, permission_ids[], action: 'assign|revoke|replace'}
+
+    // 9. Kateqoriyalar siyahısı
+    public function getCategories(): JsonResponse
+    // Returns: unique categories with permission counts
+
+    // 10. Scope siyahısı
+    public function getScopes(): JsonResponse
+    // Returns: available scopes with permission counts
+}
+```
+
+**Validasiya Qaydaları**:
+- SuperAdmin-only access (middleware: role:superadmin)
+- System permissions cannot be deactivated (validation)
+- Permission name is immutable (validation)
+- Impact analysis for deactivation (>50 users warning)
+- Hierarchy-aware permission assignment (level checking)
+
+#### 1.2 API Route-lar Əlavə Etmək
+**Fayl**: `backend/routes/api.php`
+
+```php
+Route::middleware(['auth:sanctum', 'role:superadmin'])->prefix('permissions')->group(function () {
+    Route::get('/', [PermissionController::class, 'index']);
+    Route::get('/categories', [PermissionController::class, 'getCategories']);
+    Route::get('/scopes', [PermissionController::class, 'getScopes']);
+    Route::get('/grouped', [PermissionController::class, 'getGroupedPermissions']);
+    Route::get('/matrix', [PermissionController::class, 'getPermissionMatrix']);
+    Route::get('/{permission}', [PermissionController::class, 'show']);
+    Route::put('/{permission}', [PermissionController::class, 'update']);
+    Route::post('/bulk-update', [PermissionController::class, 'bulkUpdate']);
+    Route::get('/{permission}/usage', [PermissionController::class, 'getUsageStats']);
+    Route::post('/sync-role', [PermissionController::class, 'syncRolePermissions']);
+});
+```
+
+#### 1.3 Permission Model Genişləndirmək
+**Fayl**: `backend/app/Models/Permission.php`
+
+**Əlavə metodlar**:
+```php
+// Təsir olunan rolların sayı
+public function getAffectedRolesCount(): int
+
+// Təsir olunan istifadəçilərin sayı
+public function getAffectedUsersCount(): int
+
+// Kateqoriya adının tərcüməsi
+public function getCategoryLabel(): string
+
+// Scope adının tərcüməsi
+public function getScopeLabel(): string
+
+// Scope təyini (helper)
+public function getScopeAttribute(): string
+
+// İstifadə olunub-olunmadığını yoxla
+public function isUsed(): bool
+```
+
+---
+
+### **FAZA 2: Frontend Service Layer** ⏱️ 1-2 saat
+
+#### 2.1 Permission Service Yaratmaq
+**Fayl**: `frontend/src/services/permissions.ts`
+
+```typescript
+export interface Permission {
+  id: number;
+  name: string;
+  display_name: string | null;
+  description: string | null;
+  guard_name: string;
+  category: string | null;
+  department: string | null;
+  resource: string | null;
+  action: string | null;
+  is_active: boolean;
+  scope: 'global' | 'system' | 'regional' | 'sector' | 'institution' | 'classroom';
+  created_at: string;
+  updated_at: string;
+  roles_count?: number;
+  users_count?: number;
+}
+
+export interface PermissionUsageStats {
+  permission: Permission;
+  roles_count: number;
+  users_count: number;
+  roles: Array<{ id: number; name: string; display_name: string }>;
+  recent_assignments: Array<{
+    user_id: number;
+    user_name: string;
+    role_name: string;
+    assigned_at: string;
+  }>;
+  usage_timeline: Array<{
+    date: string;
+    assignments: number;
+    revocations: number;
+  }>;
+}
+
+export interface PermissionMatrix {
+  roles: Array<Role>;
+  permissions: Array<Permission>;
+  matrix: Record<number, Record<number, boolean>>; // [roleId][permissionId]
+  hierarchy_info: any;
+}
+
+export interface GroupedPermissions {
+  [key: string]: {
+    label: string;
+    permissions: Permission[];
+    count: number;
+  };
+}
+
+export const permissionService = {
+  async getAll(params?: {
+    search?: string;
+    category?: string;
+    scope?: string;
+    resource?: string;
+    action?: string;
+    is_active?: boolean;
+    page?: number;
+    per_page?: number;
+  }): Promise<{ permissions: Permission[]; total: number; }>,
+
+  async getById(id: number): Promise<{ permission: Permission }>,
+
+  async getGrouped(groupBy: 'category' | 'resource' | 'scope'): Promise<GroupedPermissions>,
+
+  async getMatrix(): Promise<PermissionMatrix>,
+
+  async update(id: number, data: {
+    display_name?: string;
+    description?: string;
+    is_active?: boolean;
+  }): Promise<{ permission: Permission; message: string }>,
+
+  async bulkUpdate(permissionIds: number[], data: {
+    is_active?: boolean;
+  }): Promise<{ updated_count: number; message: string }>,
+
+  async getUsageStats(id: number): Promise<PermissionUsageStats>,
+
+  async syncRolePermissions(roleId: number, permissionIds: number[], action: 'assign' | 'revoke' | 'replace'): Promise<{
+    role: Role;
+    permissions: Permission[];
+    message: string;
+  }>,
+
+  async getCategories(): Promise<Array<{ name: string; count: number }>>,
+
+  async getScopes(): Promise<Array<{ name: string; count: number }>>,
+};
+```
+
+---
+
+### **FAZA 3: Frontend Səhifə Strukturu** ⏱️ 4-5 saat
+
+#### 3.1 Permissions.tsx - Əsas Səhifə
+**Fayl**: `frontend/src/pages/Permissions.tsx`
+
+**Komponent Strukturu**:
+```tsx
+export default function Permissions() {
+  // State Management
+  const [viewMode, setViewMode] = useState<'list' | 'matrix' | 'grouped'>('list');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [scopeFilter, setScopeFilter] = useState<string>('all');
+  const [resourceFilter, setResourceFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedPermissions, setSelectedPermissions] = useState<number[]>([]);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedPermission, setSelectedPermission] = useState<Permission | null>(null);
+
+  // Data Fetching
+  const { data: permissionsData } = useQuery({
+    queryKey: ['permissions', searchTerm, categoryFilter, scopeFilter, statusFilter],
+    queryFn: () => permissionService.getAll({...filters})
+  });
+
+  const { data: categories } = useQuery({
+    queryKey: ['permission-categories'],
+    queryFn: permissionService.getCategories
+  });
+
+  return (
+    <div className="px-4 py-4 space-y-4">
+      {/* Header */}
+      <PermissionsHeader
+        totalCount={permissionsData?.total}
+        activeCount={activePermissions}
+      />
+
+      {/* View Mode Switcher */}
+      <ViewModeSwitcher mode={viewMode} onChange={setViewMode} />
+
+      {/* Filters */}
+      <PermissionFilters
+        searchTerm={searchTerm}
+        categoryFilter={categoryFilter}
+        scopeFilter={scopeFilter}
+        statusFilter={statusFilter}
+        onSearchChange={setSearchTerm}
+        onCategoryChange={setCategoryFilter}
+        onScopeChange={setScopeFilter}
+        onStatusChange={setStatusFilter}
+      />
+
+      {/* View Content */}
+      {viewMode === 'list' && (
+        <PermissionListView
+          permissions={permissionsData?.permissions}
+          selectedPermissions={selectedPermissions}
+          onSelectionChange={setSelectedPermissions}
+          onPermissionClick={handlePermissionClick}
+        />
+      )}
+
+      {viewMode === 'matrix' && (
+        <PermissionMatrixView />
+      )}
+
+      {viewMode === 'grouped' && (
+        <PermissionGroupedView groupBy={groupBy} />
+      )}
+
+      {/* Modals */}
+      <PermissionDetailModal
+        open={detailModalOpen}
+        permission={selectedPermission}
+        onClose={() => setDetailModalOpen(false)}
+      />
+
+      <BulkPermissionModal
+        open={bulkModalOpen}
+        selectedPermissions={selectedPermissions}
+        onClose={() => setBulkModalOpen(false)}
+      />
+    </div>
+  );
+}
+```
+
+**Alt Komponentlər**:
+
+1. **PermissionsHeader.tsx** - Başlıq və statistika
+2. **ViewModeSwitcher.tsx** - Görünüş dəyişdirici
+3. **PermissionFilters.tsx** - Filter paneli
+4. **PermissionListView.tsx** - Cədvəl görünüşü
+5. **PermissionMatrixView.tsx** - Matrix görünüşü
+6. **PermissionGroupedView.tsx** - Qruplaşdırılmış görünüş
+
+#### 3.2 PermissionListView Komponenti
+**Fayl**: `frontend/src/components/permissions/PermissionListView.tsx`
+
+**Cədvəl Sütunları**:
+```tsx
+const columns: ResponsiveTableColumn[] = [
+  {
+    key: 'select',
+    label: '',
+    render: (_, permission) => (
+      <Checkbox
+        checked={selectedPermissions.includes(permission.id)}
+        onCheckedChange={() => handleSelect(permission.id)}
+      />
+    )
+  },
+  {
+    key: 'name',
+    label: 'Səlahiyyət Adı',
+    render: (value) => (
+      <div className="flex items-center gap-2">
+        <Shield className="h-4 w-4 text-muted-foreground" />
+        <span className="font-medium">{value}</span>
+      </div>
+    ),
+    sortable: true
+  },
+  {
+    key: 'display_name',
+    label: 'Göstəriş Adı',
+    render: (value, permission) => value || permission.name,
+    hideOnMobile: true
+  },
+  {
+    key: 'category',
+    label: 'Kateqoriya',
+    render: (value) => (
+      <Badge variant="secondary">{value || 'N/A'}</Badge>
+    ),
+    sortable: true
+  },
+  {
+    key: 'scope',
+    label: 'Scope',
+    render: (value) => (
+      <Badge className={getScopeBadgeColor(value)}>
+        {getScopeLabel(value)}
+      </Badge>
+    ),
+    sortable: true
+  },
+  {
+    key: 'roles_count',
+    label: 'Rollar',
+    render: (value) => (
+      <span className="text-sm">{value || 0} rol</span>
+    ),
+    hideOnMobile: true
+  },
+  {
+    key: 'users_count',
+    label: 'İstifadəçilər',
+    render: (value) => (
+      <span className="text-sm">{value || 0} istifadəçi</span>
+    ),
+    hideOnMobile: true
+  },
+  {
+    key: 'is_active',
+    label: 'Status',
+    render: (value, permission) => (
+      <Switch
+        checked={value}
+        onCheckedChange={() => handleToggleStatus(permission)}
+        disabled={isSystemPermission(permission)}
+      />
+    )
+  },
+  {
+    key: 'actions',
+    label: '',
+    render: (_, permission) => (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem onClick={() => handleViewDetails(permission)}>
+            <Eye className="h-4 w-4 mr-2" />
+            Detallar
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleEdit(permission)}>
+            <Edit className="h-4 w-4 mr-2" />
+            Redaktə
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  }
+];
+```
+
+**Funksionallıqlar**:
+- ✅ Multi-select with checkboxes
+- ✅ Sorting on all columns
+- ✅ Pagination (20/50/100 per page)
+- ✅ Bulk actions toolbar
+- ✅ Quick status toggle
+- ✅ Responsive mobile view
+
+---
+
+### **FAZA 4: Əlavə Komponentlər** ⏱️ 2-3 saat
+
+#### 4.1 PermissionDetailModal
+**Fayl**: `frontend/src/components/modals/PermissionDetailModal.tsx`
+
+**Məlumatlar**:
+```tsx
+<Dialog open={open} onOpenChange={onClose}>
+  <DialogContent className="max-w-4xl">
+    <DialogHeader>
+      <DialogTitle>{permission.display_name || permission.name}</DialogTitle>
+    </DialogHeader>
+
+    <Tabs defaultValue="overview">
+      <TabsList>
+        <TabsTrigger value="overview">Ümumi</TabsTrigger>
+        <TabsTrigger value="roles">Rollar</TabsTrigger>
+        <TabsTrigger value="users">İstifadəçilər</TabsTrigger>
+        <TabsTrigger value="stats">Statistika</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="overview">
+        {/* Permission metadata */}
+        <div className="grid grid-cols-2 gap-4">
+          <DetailItem label="Ad" value={permission.name} />
+          <DetailItem label="Kateqoriya" value={permission.category} />
+          <DetailItem label="Scope" value={permission.scope} />
+          <DetailItem label="Resource" value={permission.resource} />
+          <DetailItem label="Action" value={permission.action} />
+          <DetailItem label="Status" value={permission.is_active ? 'Aktiv' : 'Qeyri-aktiv'} />
+        </div>
+        <Separator />
+        <div>
+          <label>Təsvir</label>
+          <p>{permission.description || 'Təsvir yoxdur'}</p>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="roles">
+        {/* Roles that have this permission */}
+        <ScrollArea className="h-[300px]">
+          {usageStats?.roles.map(role => (
+            <RoleCard key={role.id} role={role} />
+          ))}
+        </ScrollArea>
+      </TabsContent>
+
+      <TabsContent value="users">
+        {/* Users that have this permission (top 50) */}
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            Cəmi {usageStats?.users_count} istifadəçi bu səlahiyyətə sahibdir
+          </p>
+          {/* User list preview */}
+        </div>
+      </TabsContent>
+
+      <TabsContent value="stats">
+        {/* Usage timeline chart */}
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={usageStats?.usage_timeline}>
+            <XAxis dataKey="date" />
+            <YAxis />
+            <Tooltip />
+            <Line type="monotone" dataKey="assignments" stroke="#8884d8" />
+            <Line type="monotone" dataKey="revocations" stroke="#82ca9d" />
+          </LineChart>
+        </ResponsiveContainer>
+      </TabsContent>
+    </Tabs>
+
+    <DialogFooter>
+      <Button variant="outline" onClick={onClose}>Bağla</Button>
+      <Button onClick={() => handleEdit(permission)}>
+        <Edit className="h-4 w-4 mr-2" />
+        Redaktə
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+```
+
+#### 4.2 PermissionMatrixView
+**Fayl**: `frontend/src/components/permissions/PermissionMatrixView.tsx`
+
+**Görünüş**:
+```tsx
+export function PermissionMatrixView() {
+  const { data: matrixData } = useQuery({
+    queryKey: ['permission-matrix'],
+    queryFn: permissionService.getMatrix
+  });
+
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
+
+  // Virtual scrolling for performance
+  const parentRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: filteredPermissions.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 40,
+  });
+
+  return (
+    <div className="space-y-4">
+      {/* Filters */}
+      <div className="flex gap-4">
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Kateqoriya" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Bütün kateqoriyalar</SelectItem>
+            {/* Categories */}
+          </SelectContent>
+        </Select>
+
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Rol" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Bütün rollar</SelectItem>
+            {/* Roles */}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Matrix Table */}
+      <div className="border rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="sticky top-0 bg-background z-10">
+              <tr>
+                <th className="sticky left-0 bg-background z-20 p-2 border-r">
+                  Səlahiyyət
+                </th>
+                {filteredRoles.map(role => (
+                  <th key={role.id} className="p-2 border-r text-sm">
+                    <div className="flex flex-col items-center">
+                      <span>{role.display_name}</span>
+                      <Badge variant="outline" className="text-xs mt-1">
+                        L{role.level}
+                      </Badge>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody ref={parentRef} style={{ height: '600px', overflow: 'auto' }}>
+              {rowVirtualizer.getVirtualItems().map(virtualRow => {
+                const permission = filteredPermissions[virtualRow.index];
+                return (
+                  <tr key={permission.id} style={{
+                    height: `${virtualRow.size}px`,
+                    transform: `translateY(${virtualRow.start}px)`
+                  }}>
+                    <td className="sticky left-0 bg-background border-r p-2">
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-3 w-3" />
+                        <span className="text-sm">{permission.name}</span>
+                      </div>
+                    </td>
+                    {filteredRoles.map(role => {
+                      const hasPermission = matrixData?.matrix[role.id]?.[permission.id];
+                      const isAllowed = isPermissionAllowedForRole(permission, role);
+
+                      return (
+                        <td key={role.id} className="border-r p-2 text-center">
+                          <Checkbox
+                            checked={hasPermission}
+                            disabled={!isAllowed}
+                            onCheckedChange={() => handleTogglePermission(role, permission)}
+                            className={cn(
+                              hasPermission && 'border-green-500 bg-green-50',
+                              !isAllowed && 'opacity-30'
+                            )}
+                          />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex gap-4 text-sm">
+        <div className="flex items-center gap-2">
+          <Checkbox checked disabled={false} className="border-green-500 bg-green-50" />
+          <span>Verilmiş səlahiyyət</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox checked={false} disabled={false} />
+          <span>Verilməmiş səlahiyyət</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox checked={false} disabled={true} className="opacity-30" />
+          <span>Bu rol səviyyəsi üçün uyğun deyil</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+#### 4.3 BulkPermissionModal
+**Fayl**: `frontend/src/components/modals/BulkPermissionModal.tsx`
+
+**Funksionallıq**:
+```tsx
+export function BulkPermissionModal({ open, selectedPermissions, onClose }: Props) {
+  const [action, setAction] = useState<'assign' | 'revoke' | 'replace'>('assign');
+  const [selectedRoles, setSelectedRoles] = useState<number[]>([]);
+  const [impactAnalysis, setImpactAnalysis] = useState<any>(null);
+
+  // Impact preview
+  useEffect(() => {
+    if (selectedRoles.length > 0 && selectedPermissions.length > 0) {
+      // Calculate impact
+      analyzeImpact();
+    }
+  }, [selectedRoles, selectedPermissions, action]);
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Kütləvi Səlahiyyət Əməliyyatı</DialogTitle>
+          <DialogDescription>
+            {selectedPermissions.length} səlahiyyət seçildi
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Action Type */}
+          <div>
+            <Label>Əməliyyat növü</Label>
+            <RadioGroup value={action} onValueChange={(v) => setAction(v as any)}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="assign" id="assign" />
+                <Label htmlFor="assign">Əlavə et (Assign)</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="revoke" id="revoke" />
+                <Label htmlFor="revoke">Çıxart (Revoke)</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="replace" id="replace" />
+                <Label htmlFor="replace">Əvəz et (Replace)</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {/* Role Selection */}
+          <div>
+            <Label>Rollar</Label>
+            <ScrollArea className="h-[200px] border rounded-lg p-4">
+              {roles.map(role => (
+                <div key={role.id} className="flex items-center gap-2 mb-2">
+                  <Checkbox
+                    checked={selectedRoles.includes(role.id)}
+                    onCheckedChange={() => handleRoleToggle(role.id)}
+                  />
+                  <Label>{role.display_name}</Label>
+                  <Badge variant="outline">Level {role.level}</Badge>
+                </div>
+              ))}
+            </ScrollArea>
+          </div>
+
+          {/* Impact Analysis */}
+          {impactAnalysis && (
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Təsir Analizi</AlertTitle>
+              <AlertDescription>
+                <ul className="list-disc list-inside mt-2">
+                  <li>{impactAnalysis.affected_users} istifadəçi təsir olunacaq</li>
+                  <li>{impactAnalysis.affected_roles} rol dəyişəcək</li>
+                  {impactAnalysis.warnings.map((warning, i) => (
+                    <li key={i} className="text-destructive">{warning}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>İmtina</Button>
+          <Button
+            onClick={handleConfirm}
+            disabled={selectedRoles.length === 0}
+          >
+            Təsdiq et
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+---
+
+### **FAZA 5: UX/UI Təkmilləşdirmələr** ⏱️ 2-3 saat
+
+#### 5.1 Dizayn Sistemi
+**Rəng Kodlaşdırması**:
+```tsx
+const scopeColors = {
+  global: 'bg-red-100 text-red-800 border-red-300',
+  system: 'bg-orange-100 text-orange-800 border-orange-300',
+  regional: 'bg-blue-100 text-blue-800 border-blue-300',
+  sector: 'bg-green-100 text-green-800 border-green-300',
+  institution: 'bg-purple-100 text-purple-800 border-purple-300',
+  classroom: 'bg-gray-100 text-gray-800 border-gray-300'
+};
+
+const categoryIcons = {
+  'users': Users,
+  'institutions': Building2,
+  'surveys': FileText,
+  'roles': Shield,
+  'system': Settings,
+  'academic': GraduationCap,
+  // ...
+};
+```
+
+#### 5.2 Performance Optimizasyon
+```tsx
+// Virtual scrolling for large lists
+import { useVirtualizer } from '@tanstack/react-virtual';
+
+// Debounced search
+const debouncedSearch = useMemo(
+  () => debounce((value: string) => setSearchTerm(value), 300),
+  []
+);
+
+// Memoized filters
+const filteredPermissions = useMemo(() => {
+  return permissions.filter(/* filter logic */);
+}, [permissions, searchTerm, categoryFilter, scopeFilter]);
+
+// React Query caching
+const { data } = useQuery({
+  queryKey: ['permissions', filters],
+  queryFn: () => permissionService.getAll(filters),
+  staleTime: 1000 * 60 * 10, // 10 minutes
+  cacheTime: 1000 * 60 * 30, // 30 minutes
+});
+```
+
+#### 5.3 Responsive Design
+```tsx
+// Mobile-first breakpoints
+const isMobile = useMediaQuery('(max-width: 768px)');
+const isTablet = useMediaQuery('(max-width: 1024px)');
+
+return (
+  <div className="px-2 sm:px-4 lg:px-6">
+    {isMobile ? (
+      <PermissionCards permissions={permissions} />
+    ) : (
+      <PermissionTable permissions={permissions} />
+    )}
+  </div>
+);
+```
+
+---
+
+### **FAZA 6: Testing və Validasiya** ⏱️ 2-3 saat
+
+#### 6.1 Backend Tests
+**Fayl**: `backend/tests/Feature/PermissionControllerTest.php`
+
+```php
+class PermissionControllerTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_superadmin_can_list_permissions()
+    {
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('superadmin');
+
+        $response = $this->actingAs($superadmin, 'sanctum')
+            ->getJson('/api/permissions');
+
+        $response->assertStatus(200)
+            ->assertJsonStructure(['permissions', 'total']);
+    }
+
+    public function test_non_superadmin_cannot_access_permissions()
+    {
+        $user = User::factory()->create();
+        $user->assignRole('müəllim');
+
+        $response = $this->actingAs($user, 'sanctum')
+            ->getJson('/api/permissions');
+
+        $response->assertStatus(403);
+    }
+
+    public function test_can_update_permission_metadata()
+    {
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('superadmin');
+
+        $permission = Permission::first();
+
+        $response = $this->actingAs($superadmin, 'sanctum')
+            ->putJson("/api/permissions/{$permission->id}", [
+                'display_name' => 'New Display Name',
+                'description' => 'New description'
+            ]);
+
+        $response->assertStatus(200);
+        $this->assertDatabaseHas('permissions', [
+            'id' => $permission->id,
+            'display_name' => 'New Display Name'
+        ]);
+    }
+
+    public function test_cannot_deactivate_system_permission()
+    {
+        // Test logic
+    }
+
+    public function test_bulk_update_permissions()
+    {
+        // Test logic
+    }
+
+    public function test_permission_matrix_returns_correct_structure()
+    {
+        // Test logic
+    }
+}
+```
+
+#### 6.2 Frontend Tests
+**Fayl**: `frontend/src/pages/__tests__/Permissions.test.tsx`
+
+```tsx
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import Permissions from '../Permissions';
+
+describe('Permissions Page', () => {
+  const queryClient = new QueryClient();
+
+  const wrapper = ({ children }) => (
+    <QueryClientProvider client={queryClient}>
+      {children}
+    </QueryClientProvider>
+  );
+
+  it('renders permissions list', async () => {
+    render(<Permissions />, { wrapper });
+
+    await waitFor(() => {
+      expect(screen.getByText(/səlahiyyət idarəetməsi/i)).toBeInTheDocument();
+    });
+  });
+
+  it('filters permissions by category', async () => {
+    const user = userEvent.setup();
+    render(<Permissions />, { wrapper });
+
+    const categorySelect = screen.getByLabelText(/kateqoriya/i);
+    await user.click(categorySelect);
+    await user.click(screen.getByText(/user management/i));
+
+    await waitFor(() => {
+      // Verify filtered results
+    });
+  });
+
+  it('toggles permission status', async () => {
+    const user = userEvent.setup();
+    render(<Permissions />, { wrapper });
+
+    const statusSwitch = screen.getAllByRole('switch')[0];
+    await user.click(statusSwitch);
+
+    await waitFor(() => {
+      expect(screen.getByText(/status dəyişdirildi/i)).toBeInTheDocument();
+    });
+  });
+
+  it('opens permission detail modal', async () => {
+    const user = userEvent.setup();
+    render(<Permissions />, { wrapper });
+
+    const viewButton = screen.getAllByText(/detallar/i)[0];
+    await user.click(viewButton);
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+  });
+});
+```
+
+---
+
+## 📊 İMPLEMENTASİYA TƏQVİMİ
+
+| Faza | Təsvir | Təxmini Müddət | Status |
+|------|--------|----------------|--------|
+| 1 | Backend API hazırlığı | 3-4 saat | ⏳ Pending |
+| 2 | Frontend service layer | 1-2 saat | ⏳ Pending |
+| 3 | Frontend səhifə strukturu | 4-5 saat | ⏳ Pending |
+| 4 | Əlavə komponentlər | 2-3 saat | ⏳ Pending |
+| 5 | UX/UI təkmilləşdirmələr | 2-3 saat | ⏳ Pending |
+| 6 | Testing və validasiya | 2-3 saat | ⏳ Pending |
+| **TOPLAM** | | **14-20 saat** | |
+
+---
+
+## 🎯 ƏSASİ FUNKSİYALAR
+
+### ✅ List View
+- 290+ səlahiyyətin cədvəl formatında göstərilməsi
+- Multi-column sorting
+- Advanced filtering (category, scope, resource, action, status)
+- Real-time search
+- Pagination (20/50/100 per page)
+- Bulk selection and operations
+- Quick status toggle
+- Responsive mobile view
+
+### ✅ Matrix View
+- Interactive role-permission matrix
+- Virtual scrolling for performance
+- Click-to-toggle functionality
+- Hierarchy-aware validation
+- Color-coded cells (active/inactive/not-allowed)
+- Role and category filters
+- Export to Excel
+
+### ✅ Grouped View
+- Group by category/resource/scope
+- Accordion structure
+- Group-level statistics
+- Bulk operations per group
+- Search within groups
+
+### ✅ Permission Details
+- Full metadata display
+- Usage statistics (roles count, users count)
+- Roles list that have this permission
+- Users preview (top 50)
+- Usage timeline chart
+- Edit capability (display_name, description)
+- Impact analysis before deactivation
+
+### ✅ Bulk Operations
+- Multi-select permissions
+- Bulk activate/deactivate
+- Bulk assign to roles
+- Bulk revoke from roles
+- Replace role permissions
+- Impact preview
+- Confirmation with detailed changes
+
+### ✅ Analytics & Statistics
+- Total permissions count
+- Active/inactive breakdown
+- Category distribution
+- Scope distribution
+- Most used permissions
+- Unused permissions
+- Recent changes log
+
+---
+
+## 🔐 TƏHLÜKƏSİZLİK PROTOKOLLARİ
+
+### Giriş Nəzarəti
+- ✅ SuperAdmin-only route protection
+- ✅ Middleware: `auth:sanctum` + `role:superadmin`
+- ✅ Frontend component-level checks
+- ✅ API-level authorization
+
+### Validasiya Qaydaları
+- ✅ System permissions cannot be deactivated
+- ✅ Permission name is immutable
+- ✅ Hierarchy-aware permission assignment
+- ✅ Impact analysis before critical operations
+- ✅ Audit logging for all changes
+
+### Performans
+- ✅ Virtual scrolling for large lists
+- ✅ Debounced search (300ms)
+- ✅ React Query caching (10 min)
+- ✅ Lazy loading for modals
+- ✅ Memoized filters and calculations
+
+---
+
+## 📝 QEYDİYYAT
+
+Bu plan **Spatie Permission** paketinə əsaslanaraq hazırlanmışdır və ATİS sisteminin mövcud arxitekturasına tam uyğundur. İmplementasiya zamanı:
+
+1. **Təhlükəsizlik** prioritetdir (SuperAdmin-only)
+2. **Performans** optimizasiya edilməlidir (290+ səlahiyyət)
+3. **UX** istifadəçi dostu olmalıdır
+4. **Testlər** yazılmalıdır (backend + frontend)
+5. **Dokumentasiya** yenilənməlidir
+
+---
+
+**Plan hazırlayan**: Claude Code
+**Tarix**: 2025-11-16
+**Versiya**: 1.0

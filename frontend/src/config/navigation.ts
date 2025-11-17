@@ -484,10 +484,18 @@ export const improvedNavigationConfig: MenuGroup[] = [
       },
       {
         id: 'roles',
-        label: 'Rollar və İcazələr',
+        label: 'Rollar',
         path: '/roles',
         icon: Shield,
         roles: [USER_ROLES.SUPERADMIN]
+      },
+      {
+        id: 'permissions',
+        label: 'Səlahiyyətlər',
+        path: '/permissions',
+        icon: CheckSquare,
+        roles: [USER_ROLES.SUPERADMIN],
+        description: 'Sistem səlahiyyətlərinin idarə edilməsi'
       },
       {
         id: 'departments',

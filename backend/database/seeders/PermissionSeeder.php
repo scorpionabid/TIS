@@ -4,8 +4,8 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
+use App\Models\Permission;
+use App\Models\Role;
 
 class PermissionSeeder extends Seeder
 {
@@ -227,6 +227,17 @@ class PermissionSeeder extends Seeder
             'psychology.delete',
             'psychology.manage',
             'psychology.assess',
+            'psychology.write',
+            'psychology.schedule',
+            'psychology.reports',
+            'psychology.analytics',
+            'psychology.recommend',
+            'psychology.templates',
+            'psychology.interventions',
+            'psychology.progress',
+            'psychology.referrals',
+            'psychology.statistics',
+            'psychology.export',
 
             // Inventory Management - Phase 3 API
             'inventory.create',
@@ -236,6 +247,8 @@ class PermissionSeeder extends Seeder
             'inventory.manage',
             'inventory.assign',
             'inventory.maintenance',
+            'inventory.transactions',
+            'inventory.analytics',
 
             // Teacher Performance Management - Phase 3 API
             'view teacher_performance',
@@ -301,11 +314,11 @@ class PermissionSeeder extends Seeder
             'superadmin' => [
                 'users.create', 'users.read', 'users.update', 'users.delete', 'users.write', 'users.import', 'users.export', 'users.bulk', 'users.test',
                 'institutions.create', 'institutions.read', 'institutions.update', 'institutions.delete', 'institutions.write', 'institutions.hierarchy',
-                'surveys.create', 'surveys.read', 'surveys.update', 'surveys.delete', 'surveys.write', 'surveys.publish', 'surveys.manage', 'surveys.target', 'survey_responses.read', 'survey_responses.write', 'survey_responses.approve', 'survey_responses.bulk_approve',
+                'surveys.create', 'surveys.read', 'surveys.update', 'surveys.delete', 'surveys.write', 'surveys.publish', 'surveys.manage', 'surveys.respond', 'surveys.approve', 'surveys.target', 'survey_responses.read', 'survey_responses.write', 'survey_responses.approve', 'survey_responses.bulk_approve',
                 'roles.read', 'roles.create', 'roles.update', 'roles.delete',
                 'schedules.create', 'schedules.read', 'schedules.update', 'schedules.delete', 'schedules.approve',
                 'attendance.manage', 'attendance.create', 'attendance.read', 'attendance.update', 'attendance.delete', 'attendance.approve',
-                'documents.create', 'documents.read', 'documents.update', 'documents.delete', 'documents.share',
+                'documents.create', 'documents.read', 'documents.update', 'documents.delete', 'documents.share', 'documents.bulk', 'documents.analytics', 'documents.tracking',
                 'tasks.create', 'tasks.read', 'tasks.update', 'tasks.delete', 'tasks.bulk', 'tasks.analytics',
                 'reports.read', 'reports.create', 'reports.export',
                 'assessments.create', 'assessments.read', 'assessments.update', 'assessments.delete', 'assessments.approve', 'assessments.manage', 'assessments.export',
@@ -318,10 +331,10 @@ class PermissionSeeder extends Seeder
                 'rooms.create', 'rooms.read', 'rooms.update', 'rooms.delete', 'rooms.manage', 'rooms.assign',
                 'grades.create', 'grades.read', 'grades.update', 'grades.delete', 'grades.manage', 'grades.assign',
                 'events.create', 'events.read', 'events.update', 'events.delete', 'events.manage', 'events.approve', 'events.register', 'events.cancel',
-                'psychology.create', 'psychology.read', 'psychology.update', 'psychology.delete', 'psychology.manage', 'psychology.assess',
-                'inventory.create', 'inventory.read', 'inventory.update', 'inventory.delete', 'inventory.manage', 'inventory.assign', 'inventory.maintenance',
+                'psychology.create', 'psychology.read', 'psychology.update', 'psychology.delete', 'psychology.manage', 'psychology.assess', 'psychology.write', 'psychology.schedule', 'psychology.reports', 'psychology.analytics', 'psychology.recommend', 'psychology.templates', 'psychology.interventions', 'psychology.progress', 'psychology.referrals', 'psychology.statistics', 'psychology.export',
+                'inventory.create', 'inventory.read', 'inventory.update', 'inventory.delete', 'inventory.manage', 'inventory.assign', 'inventory.maintenance', 'inventory.transactions', 'inventory.analytics',
                 'view teacher_performance', 'create teacher_performance', 'edit teacher_performance', 'delete teacher_performance', 'manage teacher_performance', 'approve teacher_performance',
-                'departments.create', 'departments.read', 'departments.update', 'departments.delete', 'departments.manage',
+                'departments.create', 'departments.read', 'departments.update', 'departments.delete', 'departments.write', 'departments.manage',
                 'teaching_loads.create', 'teaching_loads.read', 'teaching_loads.update', 'teaching_loads.delete', 'teaching_loads.write', 'teaching_loads.bulk', 'teaching_loads.analytics',
                 'teachers.create', 'teachers.read', 'teachers.update', 'teachers.delete', 'teachers.write', 'teachers.manage', 'teachers.assign', 'teachers.bulk', 'teachers.analytics', 'teachers.performance',
                 'links.create', 'links.read', 'links.update', 'links.delete', 'links.share', 'links.bulk', 'links.analytics', 'links.tracking',
