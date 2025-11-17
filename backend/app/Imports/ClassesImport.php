@@ -404,13 +404,62 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
                 Log::warning("Auto-corrected student count: {$studentCount}");
             }
 
-            // Check for duplicate
+            // ✅ FIX: Parse all fields BEFORE checking for existing class
+            // This ensures variables are defined for both update and create operations
+            $specialty = $this->sanitizeString($row['specialty'] ?? $row['ixtisas'] ?? null);
+            $gradeType = $this->sanitizeString($row['grade_type'] ?? null);
+            $classType = $this->sanitizeString($row['class_type'] ?? null);
+            $classProfile = $this->sanitizeString($row['class_profile'] ?? null);
+            $gradeCategory = $this->sanitizeString($row['grade_category'] ?? null) ?? $classType ?? 'ümumi';
+
+            $teachingLanguage = $this->sanitizeString($row['teaching_language'] ?? null) ?? 'azərbaycan';
+            $teachingWeek = $this->normalizeTeachingWeek($row['teaching_week'] ?? null) ?? '6_günlük';
+            $teachingShift = $this->normalizeTeachingShift($row['teaching_shift'] ?? null);
+
+            $educationProgram = $this->sanitizeString($row['education_program'] ?? null) ?? 'umumi';
+            $homeroomTeacherName = $this->sanitizeString($row['homeroom_teacher'] ?? null);
+            $homeroomTeacher = null;
+
+            // Check for duplicate BEFORE teacher lookup (optimization - don't lookup if no teacher field)
             $existingClass = Grade::where('institution_id', $institution->id)
                 ->where('academic_year_id', $academicYear->id)
                 ->where('class_level', $classLevel)
                 ->where('name', $className)
                 ->first();
 
+            // Lookup homeroom teacher if provided
+            if ($homeroomTeacherName) {
+                $homeroomTeacher = $this->findTeacherByFullName($homeroomTeacherName, $institution->id);
+
+                if (!$homeroomTeacher) {
+                    // Try to suggest similar teacher names
+                    $suggestion = $this->findSimilarTeacherName($homeroomTeacherName, $institution->id);
+                    $this->addError(
+                        "Sinif rəhbəri '{$homeroomTeacherName}' {$institution->name} üçün tapılmadı. Mövcud müəllimlər: " . ($suggestion ?: 'heç biri'),
+                        $row,
+                        'homeroom_teacher',
+                        $homeroomTeacherName,
+                        $suggestion
+                    );
+                    // ⚠️ Don't return - just log warning and skip teacher assignment
+                    Log::warning("Teacher not found, class will be created/updated without homeroom teacher", [
+                        'teacher_name' => $homeroomTeacherName,
+                        'institution' => $institution->name,
+                        'class' => "{$classLevel}{$className}"
+                    ]);
+                    $homeroomTeacher = null; // Explicitly set to null to skip assignment
+                } elseif ($this->teacherAlreadyAssigned($homeroomTeacher->id, $academicYear->id, $existingClass?->id)) {
+                    $this->addError("Müəllim '{$homeroomTeacherName}' artıq digər sinifə təyin edilib", $row, 'homeroom_teacher', $homeroomTeacherName);
+                    // ⚠️ Don't return - just log warning and skip teacher assignment
+                    Log::warning("Teacher already assigned, class will be created/updated without homeroom teacher", [
+                        'teacher_name' => $homeroomTeacherName,
+                        'class' => "{$classLevel}{$className}"
+                    ]);
+                    $homeroomTeacher = null; // Skip teacher assignment
+                }
+            }
+
+            // Update existing class or create new one
             if ($existingClass) {
                 Log::info("Class already exists, updating: {$institution->name} - {$classLevel}{$className}");
                 // Update existing class
@@ -432,42 +481,6 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
                 ]);
                 $this->successCount++;
                 return null; // Return null to avoid creating duplicate
-            }
-
-            $specialty = $this->sanitizeString($row['specialty'] ?? $row['ixtisas'] ?? null);
-            $gradeType = $this->sanitizeString($row['grade_type'] ?? null);
-            $classType = $this->sanitizeString($row['class_type'] ?? null);
-            $classProfile = $this->sanitizeString($row['class_profile'] ?? null);
-            $gradeCategory = $this->sanitizeString($row['grade_category'] ?? null) ?? $classType ?? 'ümumi';
-
-            $teachingLanguage = $this->sanitizeString($row['teaching_language'] ?? null) ?? 'azərbaycan';
-            $teachingWeek = $this->normalizeTeachingWeek($row['teaching_week'] ?? null) ?? '6_günlük';
-            $teachingShift = $this->normalizeTeachingShift($row['teaching_shift'] ?? null);
-
-            $educationProgram = $this->sanitizeString($row['education_program'] ?? null) ?? 'umumi';
-            $homeroomTeacherName = $this->sanitizeString($row['homeroom_teacher'] ?? null);
-            $homeroomTeacher = null;
-
-            if ($homeroomTeacherName) {
-                $homeroomTeacher = $this->findTeacherByFullName($homeroomTeacherName, $institution->id);
-
-                if (!$homeroomTeacher) {
-                    // Try to suggest similar teacher names
-                    $suggestion = $this->findSimilarTeacherName($homeroomTeacherName, $institution->id);
-                    $this->addError(
-                        "Sinif rəhbəri '{$homeroomTeacherName}' {$institution->name} üçün tapılmadı",
-                        $row,
-                        'homeroom_teacher',
-                        $homeroomTeacherName,
-                        $suggestion
-                    );
-                    return null;
-                }
-
-                if ($this->teacherAlreadyAssigned($homeroomTeacher->id, $academicYear->id, $existingClass?->id)) {
-                    $this->addError("Müəllim '{$homeroomTeacherName}' artıq digər sinifə təyin edilib", $row);
-                    return null;
-                }
             }
 
             // Create new class
@@ -498,11 +511,25 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
             return null;
 
         } catch (\Exception $e) {
+            // Enhanced error logging with row context
+            $classInfo = isset($row['class_name']) && isset($row['class_level'])
+                ? "{$row['class_level']}{$row['class_name']}"
+                : 'naməlum sinif';
+
+            $institutionInfo = $row['utis_code'] ?? $row['institution_code'] ?? $row['institution_name'] ?? 'naməlum müəssisə';
+
             Log::error('Error importing class row: ' . $e->getMessage(), [
-                'row' => $row,
-                'exception' => $e->getTraceAsString()
+                'class' => $classInfo,
+                'institution' => $institutionInfo,
+                'row_data' => $row,
+                'exception' => $e->getTraceAsString(),
+                'line' => $e->getLine(),
+                'file' => basename($e->getFile())
             ]);
-            $this->addError('Gözlənilməz xəta baş verdi: ' . $e->getMessage(), $row);
+
+            // User-friendly error message with context
+            $errorMessage = "Xəta ({$institutionInfo} - {$classInfo}): {$e->getMessage()}";
+            $this->addError($errorMessage, $row, 'system_error', null, 'Sətir məlumatlarını yoxlayın və ya dəstək komandası ilə əlaqə saxlayın');
             return null;
         }
     }
