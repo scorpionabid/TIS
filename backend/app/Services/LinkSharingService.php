@@ -4,7 +4,10 @@ namespace App\Services;
 
 use App\Models\Institution;
 use App\Models\LinkShare;
+use App\Models\LinkAccessLog;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use App\Services\BaseService;
 use App\Services\LinkSharing\Domains\Permission\LinkPermissionService;
 use App\Services\LinkSharing\Domains\Query\LinkQueryBuilder;
@@ -301,8 +304,13 @@ class LinkSharingService extends BaseService
                 ->get(['id', 'name', 'parent_id', 'utis_code', 'institution_code'])
                 ->groupBy('parent_id');
 
+        // Get access stats for all schools - which institutions have accessed this link
+        $accessStats = $this->getInstitutionAccessStats($linkShare->id);
+
         $sectors = [];
         $totalSchools = 0;
+        $accessedCount = 0;
+        $notAccessedCount = 0;
 
         foreach ($sectorConfigs as $sectorId => $config) {
             $coverage = $config['coverage'] ?? 'partial';
@@ -313,12 +321,25 @@ class LinkSharingService extends BaseService
                     continue;
                 }
 
-                $schoolsData = $ungroupedSchools->map(function ($school) {
+                $schoolsData = $ungroupedSchools->map(function ($school) use ($accessStats, &$accessedCount, &$notAccessedCount) {
+                    $stats = $accessStats[$school->id] ?? null;
+                    $hasAccessed = $stats !== null && $stats['access_count'] > 0;
+
+                    if ($hasAccessed) {
+                        $accessedCount++;
+                    } else {
+                        $notAccessedCount++;
+                    }
+
                     return [
                         'id' => $school->id,
                         'name' => $school->name,
                         'utis_code' => $school->utis_code,
                         'institution_code' => $school->institution_code,
+                        'has_accessed' => $hasAccessed,
+                        'access_count' => $stats['access_count'] ?? 0,
+                        'last_accessed_at' => $stats['last_accessed_at'] ?? null,
+                        'first_accessed_at' => $stats['first_accessed_at'] ?? null,
                     ];
                 })->values()->toArray();
 
@@ -343,12 +364,25 @@ class LinkSharingService extends BaseService
                 ? ($fullSectorSchools->get($sectorId) ?? collect())
                 : ($schoolsGrouped->get($sectorId) ?? collect());
 
-            $schoolsData = $schoolsCollection->map(function ($school) {
+            $schoolsData = $schoolsCollection->map(function ($school) use ($accessStats, &$accessedCount, &$notAccessedCount) {
+                $stats = $accessStats[$school->id] ?? null;
+                $hasAccessed = $stats !== null && $stats['access_count'] > 0;
+
+                if ($hasAccessed) {
+                    $accessedCount++;
+                } else {
+                    $notAccessedCount++;
+                }
+
                 return [
                     'id' => $school->id,
                     'name' => $school->name,
                     'utis_code' => $school->utis_code,
                     'institution_code' => $school->institution_code,
+                    'has_accessed' => $hasAccessed,
+                    'access_count' => $stats['access_count'] ?? 0,
+                    'last_accessed_at' => $stats['last_accessed_at'] ?? null,
+                    'first_accessed_at' => $stats['first_accessed_at'] ?? null,
                 ];
             })->values()->toArray();
 
@@ -375,8 +409,44 @@ class LinkSharingService extends BaseService
 
         $overview['total_sectors'] = count($sectors);
         $overview['total_schools'] = $totalSchools;
+        $overview['accessed_count'] = $accessedCount;
+        $overview['not_accessed_count'] = $notAccessedCount;
+        $overview['access_rate'] = $totalSchools > 0
+            ? round(($accessedCount / $totalSchools) * 100, 1)
+            : 0;
         $overview['sectors'] = $sectors;
 
         return $overview;
+    }
+
+    /**
+     * Get access statistics for institutions from link_access_logs
+     * Groups by institution_id through user's institution
+     */
+    private function getInstitutionAccessStats(int $linkShareId): array
+    {
+        $stats = DB::table('link_access_logs as lal')
+            ->join('users as u', 'lal.user_id', '=', 'u.id')
+            ->where('lal.link_share_id', $linkShareId)
+            ->whereNotNull('u.institution_id')
+            ->select(
+                'u.institution_id',
+                DB::raw('COUNT(lal.id) as access_count'),
+                DB::raw('MIN(lal.created_at) as first_accessed_at'),
+                DB::raw('MAX(lal.created_at) as last_accessed_at')
+            )
+            ->groupBy('u.institution_id')
+            ->get();
+
+        $result = [];
+        foreach ($stats as $stat) {
+            $result[$stat->institution_id] = [
+                'access_count' => (int) $stat->access_count,
+                'first_accessed_at' => $stat->first_accessed_at,
+                'last_accessed_at' => $stat->last_accessed_at,
+            ];
+        }
+
+        return $result;
     }
 }
