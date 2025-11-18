@@ -505,11 +505,21 @@ class GradeCRUDController extends Controller
      */
     public function update(Request $request, Grade $grade): JsonResponse
     {
+        \Log::info('🔄 Grade Update Request', [
+            'grade_id' => $grade->id,
+            'user_id' => $request->user()->id,
+            'request_data' => $request->all(),
+        ]);
+
         // Check regional access
         $user = $request->user();
         if (!$user->hasRole('superadmin')) {
             $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
             if (!in_array($grade->institution_id, $accessibleInstitutions)) {
+                \Log::warning('⛔ Grade Update: Access denied', [
+                    'grade_id' => $grade->id,
+                    'user_id' => $user->id,
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu sinif üçün icazəniz yoxdur',
@@ -537,6 +547,10 @@ class GradeCRUDController extends Controller
         ]);
 
         if ($validator->fails()) {
+            \Log::error('❌ Grade Update: Validation failed', [
+                'grade_id' => $grade->id,
+                'errors' => $validator->errors()->toArray(),
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -618,12 +632,19 @@ class GradeCRUDController extends Controller
             $updateData['class_level'] = $classLevel;
 
             $grade->update($updateData);
+            \Log::info('✅ Grade data updated', ['grade_id' => $grade->id]);
 
             // Sync tags if provided
             if ($request->has('tag_ids')) {
                 $tagIds = $request->tag_ids ?? [];
                 $grade->tags()->sync($tagIds);
+                \Log::info('🏷️ Tags synced', ['grade_id' => $grade->id, 'tag_ids' => $tagIds]);
             }
+
+            \Log::info('✅ Grade Update: Success', [
+                'grade_id' => $grade->id,
+                'updated_data' => $updateData,
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -639,6 +660,11 @@ class GradeCRUDController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            \Log::error('❌ Grade Update: Exception', [
+                'grade_id' => $grade->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Sinif yenilənərkən xəta baş verdi',
