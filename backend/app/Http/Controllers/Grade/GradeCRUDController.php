@@ -263,10 +263,15 @@ class GradeCRUDController extends Controller
             'homeroom_teacher_id' => 'nullable|exists:users,id',
             'specialty' => 'nullable|string|max:100',
             'student_count' => 'nullable|integer|min:0|max:500',
+            'male_student_count' => 'nullable|integer|min:0|max:500',
+            'female_student_count' => 'nullable|integer|min:0|max:500',
+            'education_program' => 'nullable|string|max:50',
             'metadata' => 'nullable|array',
             'class_type' => 'nullable|string|max:120',
             'class_profile' => 'nullable|string|max:120',
             'teaching_shift' => 'nullable|string|max:50',
+            'tag_ids' => 'nullable|array',
+            'tag_ids.*' => 'exists:grade_tags,id',
         ]);
 
         if ($validator->fails()) {
@@ -351,12 +356,20 @@ class GradeCRUDController extends Controller
                 'homeroom_teacher_id' => $request->homeroom_teacher_id,
                 'specialty' => $request->specialty,
                 'student_count' => $request->student_count ?? 0,
+                'male_student_count' => $request->male_student_count ?? 0,
+                'female_student_count' => $request->female_student_count ?? 0,
+                'education_program' => $request->education_program,
                 'class_type' => $request->class_type,
                 'class_profile' => $request->class_profile,
                 'teaching_shift' => $request->teaching_shift,
                 'metadata' => $request->metadata ?? [],
                 'is_active' => true,
             ]);
+
+            // Sync tags if provided
+            if ($request->has('tag_ids') && is_array($request->tag_ids)) {
+                $grade->tags()->sync($request->tag_ids);
+            }
 
             return response()->json([
                 'success' => true,
@@ -511,11 +524,16 @@ class GradeCRUDController extends Controller
             'homeroom_teacher_id' => 'sometimes|nullable|exists:users,id',
             'specialty' => 'sometimes|nullable|string|max:100',
             'student_count' => 'sometimes|nullable|integer|min:0|max:500',
+            'male_student_count' => 'sometimes|nullable|integer|min:0|max:500',
+            'female_student_count' => 'sometimes|nullable|integer|min:0|max:500',
+            'education_program' => 'sometimes|nullable|string|max:50',
             'is_active' => 'sometimes|boolean',
             'metadata' => 'sometimes|nullable|array',
             'class_type' => 'sometimes|nullable|string|max:120',
             'class_profile' => 'sometimes|nullable|string|max:120',
             'teaching_shift' => 'sometimes|nullable|string|max:50',
+            'tag_ids' => 'sometimes|nullable|array',
+            'tag_ids.*' => 'exists:grade_tags,id',
         ]);
 
         if ($validator->fails()) {
@@ -591,14 +609,21 @@ class GradeCRUDController extends Controller
 
         try {
             $updateData = $request->only([
-                'room_id', 'homeroom_teacher_id', 
-                'specialty', 'student_count', 'is_active', 'metadata',
+                'room_id', 'homeroom_teacher_id',
+                'specialty', 'student_count', 'male_student_count', 'female_student_count',
+                'education_program', 'is_active', 'metadata',
                 'class_type', 'class_profile', 'teaching_shift'
             ]);
             $updateData['name'] = $className;
             $updateData['class_level'] = $classLevel;
 
             $grade->update($updateData);
+
+            // Sync tags if provided
+            if ($request->has('tag_ids')) {
+                $tagIds = $request->tag_ids ?? [];
+                $grade->tags()->sync($tagIds);
+            }
 
             return response()->json([
                 'success' => true,
