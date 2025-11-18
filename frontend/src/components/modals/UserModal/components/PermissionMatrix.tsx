@@ -15,6 +15,13 @@ import React, { useMemo } from 'react';
 import { Switch } from '../../../ui/switch';
 import { Button } from '../../../ui/button';
 import { Alert, AlertDescription } from '../../../ui/alert';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../../ui/tooltip';
+import { useToast } from '../../../ui/use-toast';
 import { Info, RotateCcw } from 'lucide-react';
 import { CRUD_PERMISSIONS, PERMISSION_TEMPLATES_CRUD } from '../utils/constants';
 
@@ -24,6 +31,8 @@ interface PermissionMatrixProps {
 }
 
 export function PermissionMatrix({ formData, setFormData }: PermissionMatrixProps) {
+  const { toast } = useToast();
+
   // Calculate total enabled permissions
   const enabledCount = useMemo(() => {
     return Object.values(CRUD_PERMISSIONS).reduce((total, module) => {
@@ -37,6 +46,16 @@ export function PermissionMatrix({ formData, setFormData }: PermissionMatrixProp
     setFormData({
       ...formData,
       ...template.permissions,
+    });
+
+    // Calculate how many permissions were enabled
+    const enabledPermissions = Object.values(template.permissions).filter(v => v === true).length;
+
+    // Show toast notification
+    toast({
+      title: '✓ Şablon tətbiq edildi',
+      description: `${template.label} şablonu tətbiq edildi (${enabledPermissions} səlahiyyət aktiv)`,
+      duration: 3000,
     });
   };
 
@@ -89,11 +108,19 @@ export function PermissionMatrix({ formData, setFormData }: PermissionMatrixProp
       ...formData,
       ...updates,
     });
+
+    // Show toast notification
+    toast({
+      title: 'Səlahiyyətlər təmizləndi',
+      description: 'Bütün səlahiyyətlər ləğv edildi',
+      duration: 2000,
+    });
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header with stats */}
+    <TooltipProvider delayDuration={300}>
+      <div className="space-y-6">
+        {/* Header with stats */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">Səlahiyyət İdarəetməsi</h3>
@@ -115,23 +142,62 @@ export function PermissionMatrix({ formData, setFormData }: PermissionMatrixProp
 
       {/* Quick Templates */}
       <div>
-        <label className="text-sm font-medium mb-2 block">Sürətli Seçim:</label>
-        <div className="grid grid-cols-4 gap-2">
-          {Object.entries(PERMISSION_TEMPLATES_CRUD).map(([key, template]) => (
-            <Button
-              key={key}
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => applyTemplate(key as keyof typeof PERMISSION_TEMPLATES_CRUD)}
-              className="flex flex-col items-center justify-center h-auto py-3 px-2 hover:bg-accent"
-            >
-              <span className="text-base mb-1">{template.label.split(' ')[0]}</span>
-              <span className="text-xs text-muted-foreground text-center">
-                {template.description}
-              </span>
-            </Button>
-          ))}
+        <label className="text-sm font-medium mb-3 block">Sürətli Seçim:</label>
+
+        {/* General Templates */}
+        <div className="mb-4">
+          <div className="text-xs font-medium text-muted-foreground mb-2">Ümumi Şablonlar</div>
+          <div className="grid grid-cols-4 gap-2">
+            {Object.entries(PERMISSION_TEMPLATES_CRUD)
+              .filter(([key]) => ['viewer', 'editor', 'manager', 'full'].includes(key))
+              .map(([key, template]) => (
+                <Button
+                  key={key}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => applyTemplate(key as keyof typeof PERMISSION_TEMPLATES_CRUD)}
+                  className="flex flex-col items-center justify-center h-auto py-3 px-2 hover:bg-accent hover:border-primary transition-all"
+                  title={template.description}
+                >
+                  <span className="text-lg mb-1">{template.label.split(' ')[0]}</span>
+                  <span className="text-xs font-medium text-center line-clamp-1">
+                    {template.label.split(' ').slice(1).join(' ')}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground text-center mt-1 line-clamp-2">
+                    {template.description}
+                  </span>
+                </Button>
+              ))}
+          </div>
+        </div>
+
+        {/* Role-Specific Templates */}
+        <div>
+          <div className="text-xs font-medium text-muted-foreground mb-2">Rol-Əsaslı Şablonlar</div>
+          <div className="grid grid-cols-4 gap-2">
+            {Object.entries(PERMISSION_TEMPLATES_CRUD)
+              .filter(([key]) => ['survey_manager', 'task_coordinator', 'document_admin', 'content_curator'].includes(key))
+              .map(([key, template]) => (
+                <Button
+                  key={key}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => applyTemplate(key as keyof typeof PERMISSION_TEMPLATES_CRUD)}
+                  className="flex flex-col items-center justify-center h-auto py-3 px-2 hover:bg-accent hover:border-primary transition-all"
+                  title={template.description}
+                >
+                  <span className="text-lg mb-1">{template.label.split(' ')[0]}</span>
+                  <span className="text-xs font-medium text-center line-clamp-1">
+                    {template.label.split(' ').slice(1).join(' ')}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground text-center mt-1 line-clamp-2">
+                    {template.description}
+                  </span>
+                </Button>
+              ))}
+          </div>
         </div>
       </div>
 
@@ -217,15 +283,31 @@ export function PermissionMatrix({ formData, setFormData }: PermissionMatrixProp
                     {/* Action Switches */}
                     {module.actions.map((action) => (
                       <td key={action.key} className="py-4 px-3 text-center">
-                        <div className="flex flex-col items-center gap-1">
-                          <Switch
-                            checked={formData[action.key] === true}
-                            onCheckedChange={(checked) => toggleAction(action.key, checked)}
-                          />
-                          <span className="text-xs text-muted-foreground">
-                            {action.label}
-                          </span>
-                        </div>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex flex-col items-center gap-1 cursor-pointer">
+                              <Switch
+                                checked={formData[action.key] === true}
+                                onCheckedChange={(checked) => toggleAction(action.key, checked)}
+                              />
+                              <span className="text-xs text-muted-foreground">
+                                {action.label}
+                              </span>
+                            </div>
+                          </TooltipTrigger>
+                          {(action as any).detailedHelp && (
+                            <TooltipContent side="top" className="max-w-xs">
+                              <div className="space-y-1">
+                                <div className="font-semibold text-sm">
+                                  {action.icon} {action.label}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {(action as any).detailedHelp}
+                                </div>
+                              </div>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
                       </td>
                     ))}
 
@@ -298,6 +380,7 @@ export function PermissionMatrix({ formData, setFormData }: PermissionMatrixProp
           {enabledCount} / 25
         </span>
       </div>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
