@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\RegionOperatorPermission;
 use App\Models\User;
 use App\Services\RegionOperatorPermissionService;
+use App\Services\RegionOperatorPermissionMappingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -169,6 +170,9 @@ class RegionOperatorPermissionController extends Controller
         $permission->fill($validator->validated());
         $permission->save();
 
+        // NEW: Sync to Spatie permissions as well
+        $this->syncToSpatiePermissions($user, $validator->validated());
+
         // Get new permissions
         $newPermissions = $permission->only(self::CRUD_PERMISSION_FIELDS);
 
@@ -198,6 +202,30 @@ class RegionOperatorPermissionController extends Controller
             'message' => 'Səlahiyyətlər yeniləndi',
             'permissions' => $newPermissions,
             'changes_count' => count($changes),
+        ]);
+    }
+
+    /**
+     * Sync RegionOperator permissions to Spatie permissions
+     *
+     * This allows route middleware to properly check RegionOperator permissions
+     *
+     * @param User $user
+     * @param array $roPermissions
+     * @return void
+     */
+    private function syncToSpatiePermissions(User $user, array $roPermissions): void
+    {
+        $mappingService = new RegionOperatorPermissionMappingService();
+        $spatiePermissions = $mappingService->toSpatiePermissions($roPermissions);
+
+        // Sync permissions (replaces existing permissions)
+        $user->syncPermissions($spatiePermissions);
+
+        Log::info('RegionOperator Spatie permissions synced', [
+            'user_id' => $user->id,
+            'username' => $user->username,
+            'spatie_permissions' => $spatiePermissions,
         ]);
     }
 

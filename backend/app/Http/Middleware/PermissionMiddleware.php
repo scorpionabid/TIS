@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Support\Facades\Auth;
 use Spatie\Permission\Models\Role;
+use App\Services\RegionOperatorPermissionMappingService;
 
 class PermissionMiddleware
 {
@@ -65,6 +66,17 @@ class PermissionMiddleware
                 return $next($request);
             }
 
+            // NEW: RegionOperator fallback - check custom permissions table
+            if ($user->hasRole('regionoperator')) {
+                if ($this->checkRegionOperatorPermission($user, $permission)) {
+                    \Log::info('Permission granted via RegionOperator custom permissions', [
+                        'user_id' => $user->id,
+                        'permission' => $permission,
+                    ]);
+                    return $next($request);
+                }
+            }
+
             // Fallback: allow roles that inherently possess the permission
             $rolesWithPermission = cache()->remember("permission_roles_{$permission}", 300, function () use ($permission, $guard) {
                 return \Spatie\Permission\Models\Role::query()
@@ -87,5 +99,41 @@ class PermissionMiddleware
         return response()->json([
             'message' => 'Forbidden. Required permissions: ' . implode(', ', $permissions)
         ], 403);
+    }
+
+    /**
+     * Check RegionOperator custom permissions table
+     *
+     * Provides fallback when Spatie permission is not granted but
+     * RegionOperatorPermission table has the equivalent permission
+     *
+     * @param \App\Models\User $user
+     * @param string $spatiePermission
+     * @return bool
+     */
+    protected function checkRegionOperatorPermission($user, string $spatiePermission): bool
+    {
+        // Load region operator permissions if not already loaded
+        if (!$user->relationLoaded('regionOperatorPermissions')) {
+            $user->load('regionOperatorPermissions');
+        }
+
+        $roPermissions = $user->regionOperatorPermissions;
+        if (!$roPermissions) {
+            return false;
+        }
+
+        // Map Spatie permission to RegionOperator permission field(s)
+        $mappingService = new RegionOperatorPermissionMappingService();
+        $roFields = $mappingService->toRegionOperatorPermissions($spatiePermission);
+
+        // Check if any of the mapped fields are enabled
+        foreach ($roFields as $field) {
+            if (isset($roPermissions->$field) && $roPermissions->$field === true) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

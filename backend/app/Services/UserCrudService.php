@@ -8,6 +8,7 @@ use App\Models\ActivityLog;
 use App\Models\SecurityEvent;
 use App\Models\Role;
 use App\Services\RegionOperatorPermissionService;
+use App\Services\RegionOperatorPermissionMappingService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -134,6 +135,11 @@ class UserCrudService
             if ($role) {
                 $user->assignRole($role->name);
                 Log::info("Assigned role {$role->name} to user {$user->id}");
+
+                // Handle RegionOperator permissions
+                if ($role->name === 'regionoperator' && !empty($data['region_operator_permissions'])) {
+                    $this->syncRegionOperatorPermissions($user, $data['region_operator_permissions']);
+                }
             }
 
             // Create profile if data provided
@@ -192,10 +198,15 @@ class UserCrudService
 
             $user->update($updateData);
 
+            // Handle RegionOperator permissions on update
+            if ($user->hasRole('regionoperator') && isset($data['region_operator_permissions'])) {
+                $this->syncRegionOperatorPermissions($user, $data['region_operator_permissions']);
+            }
+
             // Update or create profile
             $profileFields = ['first_name', 'last_name', 'patronymic', 'birth_date', 'gender', 'national_id', 'contact_phone', 'emergency_contact', 'address'];
             $profileData = array_filter(array_intersect_key($data, array_flip($profileFields)), fn($value) => $value !== null);
-            
+
             if (!empty($profileData)) {
                 if ($user->profile) {
                     $user->profile->update($profileData);
@@ -600,6 +611,37 @@ class UserCrudService
     }
     
     /**
+     * Sync RegionOperator permissions to both custom table and Spatie permissions
+     *
+     * This ensures RegionOperator granular permissions work with route middleware
+     *
+     * @param User $user
+     * @param array $roPermissions
+     * @return void
+     */
+    protected function syncRegionOperatorPermissions(User $user, array $roPermissions): void
+    {
+        // 1. Sync to region_operator_permissions table (existing functionality)
+        app(RegionOperatorPermissionService::class)->syncPermissions($user, $roPermissions);
+
+        // 2. Map to Spatie permissions and sync (NEW functionality)
+        $mappingService = new RegionOperatorPermissionMappingService();
+        $spatiePermissions = $mappingService->toSpatiePermissions($roPermissions);
+
+        // Grant only the permissions selected by RegionAdmin
+        // This overrides the default read-only permissions from PermissionSeeder
+        $user->syncPermissions($spatiePermissions);
+
+        Log::info('RegionOperator permissions synced to both systems', [
+            'user_id' => $user->id,
+            'username' => $user->username,
+            'ro_permissions_count' => count(array_filter($roPermissions)),
+            'spatie_permissions_count' => count($spatiePermissions),
+            'spatie_permissions' => $spatiePermissions,
+        ]);
+    }
+
+    /**
      * Log activity
      */
     protected function logActivity(string $activityType, string $description, array $additionalData = []): void
@@ -610,7 +652,7 @@ class UserCrudService
             'description' => $description,
             'institution_id' => Auth::user()?->institution_id
         ], $additionalData);
-        
+
         ActivityLog::logActivity($data);
     }
 

@@ -91,6 +91,7 @@ class PermissionSeeder extends Seeder
             'tasks.delete',
             'tasks.bulk',
             'tasks.analytics',
+            'tasks.assign', // NEW: for RegionOperator mapping
 
             // Reports Management
             'reports.read',
