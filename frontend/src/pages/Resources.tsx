@@ -975,6 +975,7 @@ export default function Resources() {
           // Refresh resources list
           queryClient.invalidateQueries({ queryKey: ['resources'] });
           queryClient.invalidateQueries({ queryKey: ['resource-stats'] });
+          queryClient.invalidateQueries({ queryKey: ['links-selection'] });
           break;
       }
     } catch (error: any) {
@@ -982,6 +983,53 @@ export default function Resources() {
       toast({
         title: 'Xəta baş verdi',
         description: error.message || 'Əməliyyat yerinə yetirməyi bacarmadık',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Bulk delete handler for grouped links
+  const handleBulkDelete = async (links: Resource[]) => {
+    if (!links.length) return;
+
+    try {
+      // Delete all links in the group
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const link of links) {
+        try {
+          await resourceService.delete(link.id, 'link');
+          successCount++;
+        } catch {
+          errorCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        toast({
+          title: 'Uğurla silindi',
+          description: `${successCount} link silindi${errorCount > 0 ? `, ${errorCount} xəta baş verdi` : ''}`,
+        });
+
+        // Refresh resources list
+        queryClient.invalidateQueries({ queryKey: ['resources'] });
+        queryClient.invalidateQueries({ queryKey: ['resource-stats'] });
+        queryClient.invalidateQueries({ queryKey: ['links-selection'] });
+      }
+
+      if (errorCount > 0 && successCount === 0) {
+        toast({
+          title: 'Xəta baş verdi',
+          description: `${errorCount} linki silmək mümkün olmadı`,
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
+      console.error('Bulk delete error:', error);
+      toast({
+        title: 'Xəta baş verdi',
+        description: error.message || 'Toplu silmə əməliyyatı uğursuz oldu',
         variant: 'destructive',
       });
     }
@@ -1192,6 +1240,7 @@ export default function Resources() {
               links={linkSelectionData}
               isLoading={linksLoading}
               onResourceAction={handleResourceAction}
+              onBulkDelete={handleBulkDelete}
             />
             <LinkSelectionCard
               links={linkSelectionData}

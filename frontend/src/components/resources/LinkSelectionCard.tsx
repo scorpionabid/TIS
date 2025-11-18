@@ -2,14 +2,26 @@ import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Link as LinkIcon } from 'lucide-react';
+import { Loader2, Link as LinkIcon, Search, FileText } from 'lucide-react';
 import type { Resource } from '@/types/resources';
+import {
+  groupLinksByTitle,
+  filterGroupedLinks,
+  formatLinkDate,
+  getLinkTypeBadgeClass,
+  getShareScopeBadgeClass,
+  type GroupedLink,
+  type LinkGroupFilters
+} from '@/utils/linkGrouping';
 
 interface LinkSelectionCardProps {
   links: Resource[];
   selectedLink: Resource | null;
   onSelect: (link: Resource) => void;
   isLoading: boolean;
+  // New props for grouped selection
+  selectedGroup?: GroupedLink | null;
+  onSelectGroup?: (group: GroupedLink) => void;
 }
 
 const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
@@ -17,90 +29,153 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
   selectedLink,
   onSelect,
   isLoading,
+  selectedGroup,
+  onSelectGroup,
 }) => {
-  const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState<LinkGroupFilters>({});
 
-  const filteredLinks = useMemo(() => {
-    if (!search.trim()) {
-      return links;
+  // Group links by title
+  const groupedLinks = useMemo(() => {
+    return groupLinksByTitle(links);
+  }, [links]);
+
+  // Apply filters
+  const filteredGroups = useMemo(() => {
+    return filterGroupedLinks(groupedLinks, filters);
+  }, [groupedLinks, filters]);
+
+  // Determine if a group is selected (either by selectedGroup prop or by selectedLink being in the group)
+  const isGroupSelected = (group: GroupedLink): boolean => {
+    if (selectedGroup) {
+      return selectedGroup.title.toLowerCase() === group.title.toLowerCase();
     }
-    const query = search.toLowerCase();
-    return links.filter((link) =>
-      (link.title || '').toLowerCase().includes(query)
-    );
-  }, [links, search]);
+    if (selectedLink) {
+      return group.links.some(link => link.id === selectedLink.id);
+    }
+    return false;
+  };
+
+  const handleGroupClick = (group: GroupedLink) => {
+    if (onSelectGroup) {
+      onSelectGroup(group);
+    } else {
+      // Fallback: select the first link in the group
+      if (group.links.length > 0) {
+        onSelect(group.links[0]);
+      }
+    }
+  };
 
   return (
     <Card>
-      <CardHeader className="space-y-2">
+      <CardHeader className="space-y-2 pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">Link seçimi</CardTitle>
-          <Badge variant="secondary">{links.length}</Badge>
+          <Badge variant="secondary">{groupedLinks.length}</Badge>
         </div>
         <p className="text-sm text-muted-foreground">
-          Linki seçin və paylaşdığı müəssisələrin siyahısına baxın.
+          Qrup seçin və paylaşdığı müəssisələrin siyahısına baxın.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Link başlığı üzrə axtar..."
-          className="h-9"
-        />
+        {/* Filters */}
+        <div className="space-y-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={filters.title_search || ''}
+              onChange={(e) => setFilters(prev => ({ ...prev, title_search: e.target.value }))}
+              placeholder="Başlıq axtar..."
+              className="pl-9 h-9"
+            />
+          </div>
+          <div className="relative">
+            <FileText className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={filters.description_search || ''}
+              onChange={(e) => setFilters(prev => ({ ...prev, description_search: e.target.value }))}
+              placeholder="İzah axtar..."
+              className="pl-9 h-9"
+            />
+          </div>
+        </div>
 
         {isLoading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin mr-2" />
             Linklər yüklənir...
           </div>
-        ) : filteredLinks.length === 0 ? (
+        ) : filteredGroups.length === 0 ? (
           <div className="py-6 text-center text-sm text-muted-foreground">
-            Heç bir link tapılmadı.
+            {filters.title_search || filters.description_search
+              ? 'Filterə uyğun link tapılmadı.'
+              : 'Heç bir link tapılmadı.'}
           </div>
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {filteredLinks.map((link) => {
-              const isActive = selectedLink?.id === link.id;
+            {filteredGroups.map((group) => {
+              const isActive = isGroupSelected(group);
               return (
                 <button
-                  key={link.id}
+                  key={group.title}
                   type="button"
-                  onClick={() => onSelect(link)}
+                  onClick={() => handleGroupClick(group)}
                   className={`w-full rounded-lg border p-3 text-left transition ${
                     isActive
                       ? 'border-primary bg-primary/5 shadow-sm'
                       : 'border-border hover:border-primary/50'
                   }`}
                 >
+                  {/* Header */}
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <LinkIcon className="h-4 w-4 text-primary" />
-                      <p className="font-medium text-sm">{link.title}</p>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <LinkIcon className="h-4 w-4 text-primary flex-shrink-0" />
+                      <p className="font-medium text-sm truncate">{group.title}</p>
                     </div>
-                    {isActive && (
-                      <Badge variant="secondary" className="bg-primary/10 text-primary">
-                        Aktiv
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Badge variant="secondary" className="text-xs">
+                        {group.total_count} link
                       </Badge>
-                    )}
+                      {isActive && (
+                        <Badge variant="secondary" className="bg-primary/10 text-primary text-xs">
+                          Aktiv
+                        </Badge>
+                      )}
+                    </div>
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                    {link.link_type && (
-                      <span className="uppercase tracking-wide text-[11px]">
-                        {link.link_type}
-                      </span>
-                    )}
-                    {link.share_scope && (
-                      <span className="rounded-full bg-muted px-2 py-0.5">
-                        {link.share_scope}
-                      </span>
-                    )}
-                    {link.created_at && (
-                      <span>
-                        {new Date(link.created_at).toLocaleDateString('az-AZ')}
-                      </span>
-                    )}
+
+                  {/* Meta info */}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] px-1.5 py-0 ${getLinkTypeBadgeClass(group.link_type)}`}
+                    >
+                      {group.link_type.toUpperCase()}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] px-1.5 py-0 ${getShareScopeBadgeClass(group.share_scope)}`}
+                    >
+                      {group.share_scope}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {formatLinkDate(group.latest_created_at)}
+                    </span>
                   </div>
+
+                  {/* Description */}
+                  {group.description && (
+                    <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
+                      İzah: {group.description}
+                    </p>
+                  )}
+
+                  {/* Unique URLs indicator */}
+                  {group.unique_urls > 1 && (
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      {group.unique_urls} fərqli URL
+                    </p>
+                  )}
                 </button>
               );
             })}
