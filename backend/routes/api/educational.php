@@ -259,8 +259,8 @@ Route::prefix('grades')->group(function () {
     Route::get('/', [GradeUnifiedController::class, 'index'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
     Route::post('/', [GradeUnifiedController::class, 'store'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
     Route::get('/{grade}', [GradeUnifiedController::class, 'show'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
-    Route::put('/{grade}', [GradeUnifiedController::class, 'update'])->middleware('permission:grades.edit');
-    Route::delete('/{grade}', [GradeUnifiedController::class, 'destroy'])->middleware('permission:grades.delete');
+    Route::put('/{grade}', [GradeUnifiedController::class, 'update'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::delete('/{grade}', [GradeUnifiedController::class, 'destroy'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
     
     // Student management within grades
     Route::get('/{grade}/students', [GradeUnifiedController::class, 'students'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
