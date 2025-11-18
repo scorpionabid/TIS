@@ -1,7 +1,7 @@
 /**
  * RegionOperatorTab Component
  * Dedicated tab for creating/editing RegionOperator users with permissions
- * UPDATED: Now uses granular CRUD-based Permission Matrix (25 permissions)
+ * UPDATED: Now uses minimalist CRUD-based Permission Matrix (25 permissions)
  */
 
 import React, { useState, useEffect } from 'react';
@@ -16,7 +16,7 @@ import {
   CRUD_PERMISSIONS,
   PERMISSION_TEMPLATES_CRUD,
 } from '../utils/constants';
-import { PermissionMatrix } from './PermissionMatrix';
+import { PermissionMatrixMinimalist } from './PermissionMatrixMinimalist';
 
 interface RegionOperatorTabProps {
   formKey: number;
@@ -197,15 +197,9 @@ export function RegionOperatorTab({
         />
       </div>
 
-      {/* NEW: Granular CRUD Permission Matrix */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-900">Detallı Səlahiyyətlər</h3>
-          <span className="text-xs text-muted-foreground">
-            25 granular CRUD səlahiyyəti
-          </span>
-        </div>
-        <PermissionMatrix
+      {/* NEW: Minimalist CRUD Permission Matrix */}
+      <div className="bg-muted/30 rounded-lg p-4">
+        <PermissionMatrixMinimalist
           formData={formData}
           setFormData={setFormData}
         />
