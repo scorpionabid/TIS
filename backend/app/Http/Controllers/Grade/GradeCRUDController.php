@@ -171,7 +171,13 @@ class GradeCRUDController extends Controller
                 'room_id' => $grade->room_id,
                 'homeroom_teacher_id' => $grade->homeroom_teacher_id,
                 'student_count' => $grade->student_count,
+                'male_student_count' => $grade->male_student_count ?? 0,
+                'female_student_count' => $grade->female_student_count ?? 0,
                 'specialty' => $grade->specialty,
+                'teaching_shift' => $grade->teaching_shift,
+                'class_type' => $grade->class_type,
+                'class_profile' => $grade->class_profile,
+                'education_program' => $grade->education_program,
                 'is_active' => $grade->is_active,
                 'capacity_status' => $this->calculateCapacityStatus($grade),
                 'utilization_rate' => $this->calculateUtilizationRate($grade),
@@ -505,21 +511,11 @@ class GradeCRUDController extends Controller
      */
     public function update(Request $request, Grade $grade): JsonResponse
     {
-        \Log::info('🔄 Grade Update Request', [
-            'grade_id' => $grade->id,
-            'user_id' => $request->user()->id,
-            'request_data' => $request->all(),
-        ]);
-
         // Check regional access
         $user = $request->user();
         if (!$user->hasRole('superadmin')) {
             $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
             if (!in_array($grade->institution_id, $accessibleInstitutions)) {
-                \Log::warning('⛔ Grade Update: Access denied', [
-                    'grade_id' => $grade->id,
-                    'user_id' => $user->id,
-                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu sinif üçün icazəniz yoxdur',
@@ -547,10 +543,6 @@ class GradeCRUDController extends Controller
         ]);
 
         if ($validator->fails()) {
-            \Log::error('❌ Grade Update: Validation failed', [
-                'grade_id' => $grade->id,
-                'errors' => $validator->errors()->toArray(),
-            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -632,19 +624,12 @@ class GradeCRUDController extends Controller
             $updateData['class_level'] = $classLevel;
 
             $grade->update($updateData);
-            \Log::info('✅ Grade data updated', ['grade_id' => $grade->id]);
 
             // Sync tags if provided
             if ($request->has('tag_ids')) {
                 $tagIds = $request->tag_ids ?? [];
                 $grade->tags()->sync($tagIds);
-                \Log::info('🏷️ Tags synced', ['grade_id' => $grade->id, 'tag_ids' => $tagIds]);
             }
-
-            \Log::info('✅ Grade Update: Success', [
-                'grade_id' => $grade->id,
-                'updated_data' => $updateData,
-            ]);
 
             return response()->json([
                 'success' => true,
@@ -660,11 +645,6 @@ class GradeCRUDController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('❌ Grade Update: Exception', [
-                'grade_id' => $grade->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Sinif yenilənərkən xəta baş verdi',

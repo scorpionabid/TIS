@@ -188,11 +188,9 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
 
   const updateMutation = useMutation({
     mutationFn: (data: { id: number; updates: GradeUpdateData }) => {
-      console.log('🔄 UPDATE MUTATION CALLED:', { id: data.id, updates: data.updates });
       return gradeService.updateGrade(data.id, data.updates);
     },
     onSuccess: (response) => {
-      console.log('✅ UPDATE SUCCESS:', response);
       logger.info('Grade updated successfully');
       toast({
         title: 'Müvəffəqiyyət',
@@ -203,8 +201,6 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
       onClose();
     },
     onError: (error: any) => {
-      console.error('❌ UPDATE ERROR:', error);
-      console.error('Error response:', error.response?.data);
       logger.error('Failed to update grade', error);
       toast({
         title: 'Xəta',
@@ -217,7 +213,6 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
   // Handle form submission
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('📝 FORM SUBMIT:', { editingGrade: !!editingGrade, formData });
 
     // Basic validation
     const errors: Record<string, string> = {};
@@ -238,7 +233,6 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
     }
 
     if (Object.keys(errors).length > 0) {
-      console.log('❌ VALIDATION ERRORS:', errors);
       setValidationErrors(errors);
       return;
     }
@@ -259,10 +253,8 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
         teaching_shift: formData.teaching_shift,
         tag_ids: formData.tag_ids,
       };
-      console.log('🔄 CALLING UPDATE MUTATION:', { gradeId: editingGrade.id, updateData });
       updateMutation.mutate({ id: editingGrade.id, updates: updateData });
     } else {
-      console.log('➕ CALLING CREATE MUTATION:', formData);
       createMutation.mutate({
         ...formData,
         name: classIndex,

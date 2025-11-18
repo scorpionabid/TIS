@@ -113,40 +113,48 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     {
       key: 'student_count',
       label: 'Tələbələr',
-      width: 100,
+      width: 120,
       sortable: true,
       render: (grade: Grade) => {
-        const utilizationRate = grade.utilization_rate || 0;
-        const statusColor = utilizationRate > 100 ? 'text-red-600' : utilizationRate > 85 ? 'text-yellow-600' : 'text-green-600';
+        const maleCount = (grade as any).male_student_count || 0;
+        const femaleCount = (grade as any).female_student_count || 0;
+        const totalCount = grade.student_count || 0;
+        const hasGenderData = maleCount > 0 || femaleCount > 0;
 
         return (
           <div className="flex flex-col gap-0.5">
             <div className="flex items-center gap-1.5">
               <Users className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className={`font-semibold ${statusColor}`}>{grade.student_count}</span>
-              {grade.room?.capacity && (
-                <span className="text-xs text-muted-foreground">/ {grade.room.capacity}</span>
-              )}
+              <span className="font-semibold">{totalCount}</span>
             </div>
-            {utilizationRate > 0 && (
-              <span className="text-xs text-muted-foreground">{utilizationRate.toFixed(0)}% doluluk</span>
+            {hasGenderData && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="flex items-center gap-0.5">
+                  <span className="text-blue-600 font-medium">{maleCount}</span> oğlan
+                </span>
+                <span className="flex items-center gap-0.5">
+                  <span className="text-pink-600 font-medium">{femaleCount}</span> qız
+                </span>
+              </div>
             )}
           </div>
         );
       }
     },
     {
-      key: 'room',
-      label: 'Otaq',
+      key: 'teaching_shift',
+      label: 'Növbə',
       width: 90,
-      render: (grade: Grade) => grade.room ? (
-        <div className="flex items-center gap-1 text-sm">
-          <MapPin className="h-3 w-3 text-muted-foreground" />
-          <span className="font-medium">{grade.room.name}</span>
-        </div>
-      ) : (
-        <span className="text-muted-foreground text-xs italic">-</span>
-      )
+      render: (grade: Grade) => {
+        const teachingShift = (grade as any).teaching_shift;
+        return teachingShift ? (
+          <Badge variant="outline" className="text-xs py-0.5">
+            {teachingShift}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground text-xs italic">-</span>
+        );
+      }
     },
     {
       key: 'homeroom_teacher',
@@ -164,13 +172,31 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     {
       key: 'academic_year',
       label: 'Təhsil İli',
-      width: 100,
-      render: (grade: Grade) => grade.academic_year ? (
-        <div className="flex items-center gap-1 text-sm">
-          <Calendar className="h-3 w-3 text-muted-foreground" />
-          <span className="font-medium">{grade.academic_year.name}</span>
-        </div>
-      ) : <span className="text-muted-foreground text-xs italic">-</span>
+      width: 110,
+      render: (grade: Grade) => {
+        if (!grade.academic_year) {
+          return <span className="text-muted-foreground text-xs italic">-</span>;
+        }
+
+        const isActive = grade.is_active;
+        const isCurrentYear = grade.academic_year?.is_active;
+
+        let variant: 'default' | 'secondary' | 'destructive';
+
+        if (!isActive) {
+          variant = 'destructive'; // Red - inactive grade
+        } else if (isCurrentYear) {
+          variant = 'default'; // Green - active + current year
+        } else {
+          variant = 'secondary'; // Gray - active + past year
+        }
+
+        return (
+          <Badge variant={variant} className="text-xs py-0.5">
+            {grade.academic_year.name}
+          </Badge>
+        );
+      }
     },
     {
       key: 'institution',
@@ -186,16 +212,6 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
           <span className="truncate">{grade.institution.name}</span>
         </div>
       ) : null
-    },
-    {
-      key: 'is_active',
-      label: 'Status',
-      width: 70,
-      render: (grade: Grade) => (
-        <Badge variant={grade.is_active ? 'default' : 'secondary'} className="text-xs py-0.5">
-          {grade.is_active ? 'Aktiv' : 'Deaktiv'}
-        </Badge>
-      )
     }
   ],
 

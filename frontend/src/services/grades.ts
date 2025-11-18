@@ -15,8 +15,11 @@ export interface Grade {
   room_id?: number;
   homeroom_teacher_id?: number;
   student_count: number;
+  male_student_count?: number;
+  female_student_count?: number;
   specialty?: string;
   description?: string;
+  education_program?: string;
   is_active: boolean;
   teacher_assigned_at?: string;
   teacher_removed_at?: string;
