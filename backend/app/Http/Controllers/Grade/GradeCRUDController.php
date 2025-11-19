@@ -8,15 +8,12 @@ use App\Http\Requests\Grade\FilterGradesRequest;
 use App\Http\Requests\Grade\StoreGradeRequest;
 use App\Http\Requests\Grade\UpdateGradeRequest;
 use App\Http\Resources\Grade\GradeResource;
+use App\Models\AcademicYear;
 use App\Models\Grade;
 use App\Models\User;
-use App\Models\Institution;
-use App\Models\Room;
-use App\Models\AcademicYear;
-use Illuminate\Http\Request;
+use App\Services\InstitutionAccessService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Validator;
 
 class GradeCRUDController extends Controller
 {
@@ -343,7 +340,7 @@ class GradeCRUDController extends Controller
         // Apply regional access control
         $user = $request->user();
         if (!$user->hasRole('superadmin')) {
-            $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
+            $accessibleInstitutions = InstitutionAccessService::getAccessibleInstitutions($user);
             $query->whereIn('institution_id', $accessibleInstitutions);
         }
 
@@ -438,54 +435,6 @@ class GradeCRUDController extends Controller
         }
 
         return $with;
-    }
-
-    private function getUserAccessibleInstitutions($user): array
-    {
-        if ($user->hasRole('superadmin')) {
-            return Institution::pluck('id')->toArray();
-        }
-
-        $institutions = [];
-
-        if ($user->hasRole('regionadmin')) {
-            $institutions = Institution::where('parent_id', $user->institution_id)->pluck('id')->toArray();
-            $institutions[] = $user->institution_id;
-        } elseif ($user->hasRole('sektoradmin')) {
-            $institutions = Institution::where('parent_id', $user->institution_id)->pluck('id')->toArray();
-            $institutions[] = $user->institution_id;
-        } else {
-            $institutions = [$user->institution_id];
-        }
-
-        return $institutions;
-    }
-
-    private function calculateCapacityStatus($grade): string
-    {
-        if (!$grade->room) {
-            return 'no_room';
-        }
-
-        $capacity = $grade->room->capacity;
-        $studentCount = $grade->student_count;
-
-        if ($studentCount > $capacity) {
-            return 'over_capacity';
-        } elseif ($studentCount === $capacity) {
-            return 'full';
-        } else {
-            return 'available';
-        }
-    }
-
-    private function calculateUtilizationRate($grade): float
-    {
-        if (!$grade->room || $grade->room->capacity === 0) {
-            return 0;
-        }
-
-        return round(($grade->student_count / $grade->room->capacity) * 100, 2);
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\Grade;
 use App\Models\User;
+use App\Services\InstitutionAccessService;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
 class GradePolicy
@@ -30,7 +31,7 @@ class GradePolicy
         }
 
         // Check if user has access to the grade's institution
-        $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
+        $accessibleInstitutions = InstitutionAccessService::getAccessibleInstitutions($user);
 
         return in_array($grade->institution_id, $accessibleInstitutions);
     }
@@ -64,7 +65,7 @@ class GradePolicy
         }
 
         // Check if user has access to the grade's institution
-        $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
+        $accessibleInstitutions = InstitutionAccessService::getAccessibleInstitutions($user);
 
         return in_array($grade->institution_id, $accessibleInstitutions);
     }
@@ -85,7 +86,7 @@ class GradePolicy
         }
 
         // Check if user has access to the grade's institution
-        $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
+        $accessibleInstitutions = InstitutionAccessService::getAccessibleInstitutions($user);
 
         return in_array($grade->institution_id, $accessibleInstitutions);
     }
@@ -117,47 +118,4 @@ class GradePolicy
         return $this->update($user, $grade);
     }
 
-    /**
-     * Get institutions accessible by the user based on their role.
-     */
-    private function getUserAccessibleInstitutions(User $user): array
-    {
-        $userInstitutionId = $user->institution_id;
-
-        switch ($user->role) {
-            case 'superadmin':
-                // Superadmin can access all institutions
-                return \App\Models\Institution::pluck('id')->toArray();
-
-            case 'regionadmin':
-                // RegionAdmin can access their region and all schools/sektors under it
-                $userInstitution = $user->institution;
-                if (!$userInstitution) {
-                    return [];
-                }
-
-                // Get all institutions in the same region (level 3 and 4)
-                return \App\Models\Institution::where(function ($query) use ($userInstitutionId, $userInstitution) {
-                    $query->where('id', $userInstitutionId)
-                          ->orWhere('parent_id', $userInstitutionId)
-                          ->orWhere('region_id', $userInstitution->id);
-                })->pluck('id')->toArray();
-
-            case 'sektoradmin':
-                // SektorAdmin can access their sektor and all schools under it
-                return \App\Models\Institution::where(function ($query) use ($userInstitutionId) {
-                    $query->where('id', $userInstitutionId)
-                          ->orWhere('parent_id', $userInstitutionId);
-                })->pluck('id')->toArray();
-
-            case 'schooladmin':
-            case 'müavin':
-            case 'müəllim':
-                // School-level users can only access their own institution
-                return [$userInstitutionId];
-
-            default:
-                return [];
-        }
-    }
 }
