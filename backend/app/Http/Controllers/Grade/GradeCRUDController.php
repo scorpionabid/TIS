@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Grade;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Grade\DuplicateGradeRequest;
 use App\Http\Requests\Grade\FilterGradesRequest;
 use App\Http\Requests\Grade\StoreGradeRequest;
 use App\Http\Requests\Grade\UpdateGradeRequest;
@@ -22,231 +23,28 @@ class GradeCRUDController extends Controller
     /**
      * Display a listing of grades with filtering and pagination.
      */
-    public function index(Request $request): JsonResponse
+    public function index(FilterGradesRequest $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'institution_id' => 'sometimes|exists:institutions,id',
-            'class_level' => 'sometimes|integer|min:1|max:12',
-            'academic_year_id' => 'sometimes|exists:academic_years,id',
-            'room_id' => 'sometimes|exists:rooms,id',
-            'homeroom_teacher_id' => 'sometimes|exists:users,id',
-            'specialty' => 'sometimes|string|max:100',
-            'is_active' => 'sometimes|boolean',
-            'has_room' => 'sometimes|boolean',
-            'has_teacher' => 'sometimes|boolean',
-            'capacity_status' => 'sometimes|in:full,available,over_capacity',
-            'search' => 'sometimes|string|max:255',
-            'page' => 'sometimes|integer|min:1',
-            'per_page' => 'sometimes|integer|min:1|max:100',
-            'include' => 'sometimes|string',
-        ]);
+        // Authorization handled by Policy (viewAny)
+        Gate::authorize('viewAny', Grade::class);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
+        // Build query with filters
+        $query = $this->applyFilters($request);
 
-        $query = Grade::query();
+        // Apply eager loading based on includes
+        $query->with($this->getIncludes($request));
 
-        // Apply regional access control
-        $user = $request->user();
-        if (!$user->hasRole('superadmin')) {
-            $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
-            $query->whereIn('institution_id', $accessibleInstitutions);
-        }
-
-        // Apply filters
-        if ($request->has('institution_id')) {
-            $query->where('institution_id', $request->institution_id);
-        }
-
-        if ($request->has('class_level')) {
-            $query->where('class_level', $request->class_level);
-        }
-
-        if ($request->has('academic_year_id')) {
-            $query->where('academic_year_id', $request->academic_year_id);
-        } else {
-            // Default to active academic year
-            $activeYear = AcademicYear::where('is_active', true)->first();
-            if ($activeYear) {
-                $query->where('academic_year_id', $activeYear->id);
-            }
-        }
-
-        if ($request->has('room_id')) {
-            $query->where('room_id', $request->room_id);
-        }
-
-        if ($request->has('homeroom_teacher_id')) {
-            $query->where('homeroom_teacher_id', $request->homeroom_teacher_id);
-        }
-
-        if ($request->has('specialty')) {
-            $query->where('specialty', $request->specialty);
-        }
-
-        if ($request->has('is_active')) {
-            $query->where('is_active', $request->boolean('is_active'));
-        }
-
-        if ($request->has('has_room')) {
-            $query->when($request->boolean('has_room'), function ($q) {
-                return $q->whereNotNull('room_id');
-            }, function ($q) {
-                return $q->whereNull('room_id');
-            });
-        }
-
-        if ($request->has('has_teacher')) {
-            $query->when($request->boolean('has_teacher'), function ($q) {
-                return $q->whereNotNull('homeroom_teacher_id');
-            }, function ($q) {
-                return $q->whereNull('homeroom_teacher_id');
-            });
-        }
-
-        if ($request->has('capacity_status')) {
-            $query->with('room')->whereHas('room', function ($q) use ($request) {
-                switch ($request->capacity_status) {
-                    case 'full':
-                        $q->whereRaw('grades.student_count >= rooms.capacity');
-                        break;
-                    case 'available':
-                        $q->whereRaw('grades.student_count < rooms.capacity');
-                        break;
-                    case 'over_capacity':
-                        $q->whereRaw('grades.student_count > rooms.capacity');
-                        break;
-                }
-            });
-        }
-
-        if ($request->has('search')) {
-            $query->where(function ($q) use ($request) {
-                $q->where('name', 'ILIKE', "%{$request->search}%")
-                  ->orWhere('specialty', 'ILIKE', "%{$request->search}%");
-            });
-        }
-
-        // Handle includes
-        $includes = $request->get('include', '');
-        $with = ['institution', 'academicYear'];
-        
-        if (str_contains($includes, 'room')) {
-            $with[] = 'room';
-        }
-        if (str_contains($includes, 'teacher')) {
-            $with[] = 'homeroomTeacher.profile';
-        }
-        if (str_contains($includes, 'students')) {
-            $with[] = 'students';
-        }
-        if (str_contains($includes, 'subjects')) {
-            $with[] = 'subjects';
-        }
-
-        $query->with($with);
-
+        // Paginate results
         $perPage = $request->get('per_page', 20);
         $grades = $query->orderBy('class_level')
                        ->orderBy('name')
                        ->paginate($perPage);
 
-        // Transform the data
-        $transformedGrades = $grades->through(function ($grade) {
-            $data = [
-                'id' => $grade->id,
-                'name' => $grade->name,
-                'full_name' => $grade->full_name,
-                'class_level' => $grade->class_level,
-                'academic_year' => [
-                    'id' => $grade->academicYear->id,
-                    'name' => $grade->academicYear->name,
-                    'is_active' => $grade->academicYear->is_active,
-                ],
-                'institution' => [
-                    'id' => $grade->institution->id,
-                    'name' => $grade->institution->name,
-                    'type' => $grade->institution->type,
-                ],
-                'room_id' => $grade->room_id,
-                'homeroom_teacher_id' => $grade->homeroom_teacher_id,
-                'student_count' => $grade->student_count,
-                'male_student_count' => $grade->male_student_count ?? 0,
-                'female_student_count' => $grade->female_student_count ?? 0,
-                'specialty' => $grade->specialty,
-                'teaching_shift' => $grade->teaching_shift,
-                'class_type' => $grade->class_type,
-                'class_profile' => $grade->class_profile,
-                'education_program' => $grade->education_program,
-                'is_active' => $grade->is_active,
-                'capacity_status' => $this->calculateCapacityStatus($grade),
-                'utilization_rate' => $this->calculateUtilizationRate($grade),
-                'created_at' => $grade->created_at,
-                'updated_at' => $grade->updated_at,
-            ];
-
-            // Add room if included
-            if ($grade->relationLoaded('room') && $grade->room) {
-                $data['room'] = [
-                    'id' => $grade->room->id,
-                    'name' => $grade->room->name,
-                    'full_identifier' => $grade->room->full_identifier,
-                    'capacity' => $grade->room->capacity,
-                    'room_type' => $grade->room->room_type,
-                ];
-            }
-
-            // Add teacher if included
-            if ($grade->relationLoaded('homeroomTeacher') && $grade->homeroomTeacher) {
-                $data['homeroom_teacher'] = [
-                    'id' => $grade->homeroomTeacher->id,
-                    'full_name' => $grade->homeroomTeacher->profile 
-                        ? "{$grade->homeroomTeacher->profile->first_name} {$grade->homeroomTeacher->profile->last_name}"
-                        : $grade->homeroomTeacher->username,
-                    'email' => $grade->homeroomTeacher->email,
-                ];
-            }
-
-            // Add students if included
-            if ($grade->relationLoaded('students')) {
-                $data['students'] = $grade->students->map(function ($student) {
-                    return [
-                        'id' => $student->id,
-                        'full_name' => $student->profile 
-                            ? "{$student->profile->first_name} {$student->profile->last_name}"
-                            : $student->username,
-                        'email' => $student->email,
-                        'enrollment_date' => $student->pivot->enrollment_date ?? null,
-                    ];
-                });
-            }
-
-            // Add subjects if included
-            if ($grade->relationLoaded('subjects')) {
-                $data['subjects'] = $grade->subjects->map(function ($subject) {
-                    return [
-                        'id' => $subject->id,
-                        'name' => $subject->name,
-                        'code' => $subject->code,
-                        'category' => $subject->category,
-                        'teacher_id' => $subject->pivot->teacher_id ?? null,
-                        'weekly_hours' => $subject->pivot->weekly_hours ?? null,
-                    ];
-                });
-            }
-
-            return $data;
-        });
-
+        // Transform using GradeResource
         return response()->json([
             'success' => true,
             'data' => [
-                'grades' => $transformedGrades->items(),
+                'grades' => GradeResource::collection($grades->items()),
                 'pagination' => [
                     'current_page' => $grades->currentPage(),
                     'per_page' => $grades->perPage(),
@@ -534,6 +332,114 @@ class GradeCRUDController extends Controller
     /**
      * Helper methods
      */
+
+    /**
+     * Apply filters to the grade query.
+     */
+    private function applyFilters($request)
+    {
+        $query = Grade::query();
+
+        // Apply regional access control
+        $user = $request->user();
+        if (!$user->hasRole('superadmin')) {
+            $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
+            $query->whereIn('institution_id', $accessibleInstitutions);
+        }
+
+        // Apply filters
+        if ($request->has('institution_id')) {
+            $query->where('institution_id', $request->institution_id);
+        }
+
+        if ($request->has('class_level')) {
+            $query->where('class_level', $request->class_level);
+        }
+
+        if ($request->has('academic_year_id')) {
+            $query->where('academic_year_id', $request->academic_year_id);
+        } else {
+            // Default to active academic year
+            $activeYear = AcademicYear::where('is_active', true)->first();
+            if ($activeYear) {
+                $query->where('academic_year_id', $activeYear->id);
+            }
+        }
+
+        if ($request->has('room_id')) {
+            $query->where('room_id', $request->room_id);
+        }
+
+        if ($request->has('homeroom_teacher_id')) {
+            $query->where('homeroom_teacher_id', $request->homeroom_teacher_id);
+        }
+
+        if ($request->has('specialty')) {
+            $query->where('specialty', $request->specialty);
+        }
+
+        if ($request->has('is_active')) {
+            $query->where('is_active', $request->boolean('is_active'));
+        }
+
+        if ($request->has('has_room')) {
+            $query->when($request->boolean('has_room'), function ($q) {
+                return $q->whereNotNull('room_id');
+            }, function ($q) {
+                return $q->whereNull('room_id');
+            });
+        }
+
+        if ($request->has('has_teacher')) {
+            $query->when($request->boolean('has_teacher'), function ($q) {
+                return $q->whereNotNull('homeroom_teacher_id');
+            }, function ($q) {
+                return $q->whereNull('homeroom_teacher_id');
+            });
+        }
+
+        if ($request->has('search')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('name', 'ILIKE', "%{$request->search}%")
+                  ->orWhere('specialty', 'ILIKE', "%{$request->search}%");
+            });
+        }
+
+        if ($request->has('class_type')) {
+            $query->where('class_type', $request->class_type);
+        }
+
+        if ($request->has('teaching_shift')) {
+            $query->where('teaching_shift', $request->teaching_shift);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Get relationships to eager load based on includes.
+     */
+    private function getIncludes($request): array
+    {
+        $includes = $request->get('include', '');
+        $with = ['institution', 'academicYear', 'tags'];
+
+        if (str_contains($includes, 'room')) {
+            $with[] = 'room';
+        }
+        if (str_contains($includes, 'teacher')) {
+            $with[] = 'homeroomTeacher.profile';
+        }
+        if (str_contains($includes, 'students')) {
+            $with[] = 'students.profile';
+        }
+        if (str_contains($includes, 'subjects')) {
+            $with[] = 'subjects.activeTeacherAssignments.teacher.profile';
+        }
+
+        return $with;
+    }
+
     private function getUserAccessibleInstitutions($user): array
     {
         if ($user->hasRole('superadmin')) {
@@ -541,7 +447,7 @@ class GradeCRUDController extends Controller
         }
 
         $institutions = [];
-        
+
         if ($user->hasRole('regionadmin')) {
             $institutions = Institution::where('parent_id', $user->institution_id)->pluck('id')->toArray();
             $institutions[] = $user->institution_id;
@@ -584,83 +490,50 @@ class GradeCRUDController extends Controller
 
     /**
      * Duplicate an existing grade with optional modifications.
-     * Created for Sprint 6 Phase 4 delegation from GradeUnifiedController.
      */
-    public function duplicate(Request $request, Grade $grade): JsonResponse
+    public function duplicate(DuplicateGradeRequest $request, Grade $grade): JsonResponse
     {
+        // Check authorization using Policy
+        Gate::authorize('duplicate', $grade);
+
+        $validated = $request->validated();
+
+        // Determine target parameters
+        $targetClassLevel = $validated['class_level'] ?? $grade->class_level;
+        $targetAcademicYearId = $validated['academic_year_id'] ?? $grade->academic_year_id;
+
+        // Check for duplicate grade
+        $existingGrade = Grade::where('name', $validated['name'])
+            ->where('class_level', $targetClassLevel)
+            ->where('academic_year_id', $targetAcademicYearId)
+            ->where('institution_id', $grade->institution_id)
+            ->first();
+
+        if ($existingGrade) {
+            return response()->json([
+                'success' => false,
+                'message' => "{$targetClassLevel}-{$validated['name']} sinfi artıq mövcuddur",
+                'errors' => ['name' => ["Bu sinif adı artıq istifadə olunur"]]
+            ], 422);
+        }
+
         try {
-            $user = $request->user();
-
-            // Authorization check
-            if (!$user->hasPermissionTo('grades.create')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Bu əməliyyat üçün icazəniz yoxdur'
-                ], 403);
-            }
-
-            // Validate input
-            $validator = Validator::make($request->all(), [
-                'name' => 'required|string|max:10',
-                'class_level' => 'sometimes|integer|min:0|max:12',
-                'copy_subjects' => 'sometimes|boolean',
-                'academic_year_id' => 'sometimes|exists:academic_years,id',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validasiya xətası',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
-
-            // Determine the target class level and academic year
-            $targetClassLevel = $request->has('class_level') ? $request->class_level : $grade->class_level;
-            $targetAcademicYearId = $request->has('academic_year_id') ? $request->academic_year_id : $grade->academic_year_id;
-
-            // Check for duplicate grade
-            $existingGrade = Grade::where('name', $request->name)
-                ->where('class_level', $targetClassLevel)
-                ->where('academic_year_id', $targetAcademicYearId)
-                ->where('institution_id', $grade->institution_id)
-                ->first();
-
-            if ($existingGrade) {
-                return response()->json([
-                    'success' => false,
-                    'message' => "{$targetClassLevel}-{$request->name} sinfi artıq mövcuddur",
-                    'errors' => [
-                        'name' => ["Bu sinif adı artıq istifadə olunur"]
-                    ]
-                ], 422);
-            }
-
             // Create new grade with copied data
             $newGradeData = $grade->toArray();
-            unset($newGradeData['id']);
-            unset($newGradeData['created_at']);
-            unset($newGradeData['updated_at']);
-            unset($newGradeData['student_count']);
-            unset($newGradeData['capacity_status']);
-            unset($newGradeData['utilization_rate']);
+
+            // Remove non-copiable fields
+            unset($newGradeData['id'], $newGradeData['created_at'], $newGradeData['updated_at']);
 
             // Apply modifications
-            $newGradeData['name'] = $request->name;
-
-            if ($request->has('class_level')) {
-                $newGradeData['class_level'] = $request->class_level;
-            }
-
-            if ($request->has('academic_year_id')) {
-                $newGradeData['academic_year_id'] = $request->academic_year_id;
-            }
-
-            // Reset teacher and room assignments
+            $newGradeData['name'] = $validated['name'];
+            $newGradeData['class_level'] = $targetClassLevel;
+            $newGradeData['academic_year_id'] = $targetAcademicYearId;
             $newGradeData['homeroom_teacher_id'] = null;
             $newGradeData['room_id'] = null;
+            $newGradeData['student_count'] = 0;
+            $newGradeData['male_student_count'] = 0;
+            $newGradeData['female_student_count'] = 0;
 
-            // Create the new grade
             $newGrade = Grade::create($newGradeData);
 
             // Copy subjects if requested (default: true)
@@ -674,12 +547,12 @@ class GradeCRUDController extends Controller
                         'grade_id' => $newGrade->id,
                         'subject_id' => $gradeSubject->subject_id,
                         'weekly_hours' => $gradeSubject->weekly_hours,
-                        'is_teaching_activity' => $gradeSubject->is_teaching_activity,
-                        'is_extracurricular' => $gradeSubject->is_extracurricular,
-                        'is_club' => $gradeSubject->is_club,
-                        'is_split_groups' => $gradeSubject->is_split_groups,
+                        'is_teaching_activity' => $gradeSubject->is_teaching_activity ?? false,
+                        'is_extracurricular' => $gradeSubject->is_extracurricular ?? false,
+                        'is_club' => $gradeSubject->is_club ?? false,
+                        'is_split_groups' => $gradeSubject->is_split_groups ?? false,
                         'group_count' => $gradeSubject->group_count,
-                        'teacher_id' => null, // Reset teacher assignment
+                        'teacher_id' => null,
                         'notes' => $gradeSubject->notes,
                         'created_at' => now(),
                         'updated_at' => now(),
@@ -687,39 +560,16 @@ class GradeCRUDController extends Controller
                 }
             }
 
-            // Load relationships
-            $newGrade->load([
-                'institution',
-                'academicYear',
-                'homeroomTeacher',
-                'room',
-            ]);
-
-            // Refresh to get computed attributes
-            $newGrade->refresh();
-
-            Log::info('Grade duplicated successfully', [
-                'original_grade_id' => $grade->id,
-                'original_class_level' => $grade->class_level,
-                'new_grade_id' => $newGrade->id,
-                'new_class_level' => $newGrade->class_level,
-                'user_id' => $user->id,
-                'copied_subjects' => $request->get('copy_subjects', true),
-                'class_level_changed' => $request->has('class_level') && $request->class_level !== $grade->class_level,
-            ]);
+            // Load relationships for response
+            $newGrade->load(['institution', 'academicYear', 'tags']);
 
             return response()->json([
                 'success' => true,
-                'data' => $newGrade,
+                'data' => new GradeResource($newGrade),
                 'message' => 'Sinif uğurla kopyalandı'
             ], 201);
 
         } catch (\Exception $e) {
-            Log::error('Grade duplicate error: ' . $e->getMessage(), [
-                'grade_id' => $grade->id,
-                'trace' => $e->getTraceAsString()
-            ]);
-
             return response()->json([
                 'success' => false,
                 'message' => 'Sinif kopyalanarkən xəta baş verdi',
