@@ -16,12 +16,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { resourceService } from '@/services/resources';
 import { Badge } from '@/components/ui/badge';
+import { TablePagination } from '@/components/common/TablePagination';
+import { usePagination } from '@/hooks/usePagination';
 
 interface ResourceGridProps {
   resources: Resource[];
   onResourceAction: (resource: Resource, action: 'edit' | 'delete') => Promise<void> | void;
   institutionDirectory?: Record<number, string>;
   userDirectory?: Record<number, string>;
+  enablePagination?: boolean;
+  initialItemsPerPage?: number;
 }
 
 const shareScopeLabels: Record<string, string> = {
@@ -53,6 +57,8 @@ export function ResourceGrid({
   onResourceAction,
   institutionDirectory = {},
   userDirectory = {},
+  enablePagination = false,
+  initialItemsPerPage = 20,
 }: ResourceGridProps) {
   const { currentUser, hasPermission } = useAuth();
   const { toast } = useToast();
@@ -297,6 +303,13 @@ export function ResourceGrid({
     );
   };
 
+  const pagination = usePagination(resources, {
+    initialItemsPerPage,
+  });
+
+  const displayedResources = enablePagination ? pagination.paginatedItems : resources;
+  const shouldShowPagination = enablePagination && pagination.totalItems > pagination.itemsPerPage;
+
   const emptyState = useMemo(() => (
     <div className="text-center py-12">
       <Archive className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -329,7 +342,7 @@ export function ResourceGrid({
               </tr>
             </thead>
             <tbody>
-              {resources.map((resource) => {
+              {displayedResources.map((resource) => {
                 const canEdit = canEditResource(resource);
                 const canDelete = canDeleteResource(resource);
 
@@ -462,6 +475,22 @@ export function ResourceGrid({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {shouldShowPagination && (
+        <TablePagination
+          currentPage={pagination.currentPage}
+          totalPages={Math.max(1, pagination.totalPages || 1)}
+          totalItems={pagination.totalItems}
+          itemsPerPage={pagination.itemsPerPage}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          onPageChange={pagination.goToPage}
+          onPrevious={pagination.goToPreviousPage}
+          onNext={pagination.goToNextPage}
+          canGoPrevious={pagination.canGoPrevious}
+          canGoNext={pagination.canGoNext}
+          onItemsPerPageChange={pagination.setItemsPerPage}
+        />
+      )}
     </>
   );
 }

@@ -4,6 +4,8 @@ import { Resource } from '@/types/resources';
 import { ResourceGrid } from './ResourceGrid';
 import { Badge } from '@/components/ui/badge';
 import { GroupedResources } from '@/hooks/useResourceGrouping';
+import { usePagination } from '@/hooks/usePagination';
+import { TablePagination } from '@/components/common/TablePagination';
 
 interface GroupedResourceDisplayProps {
   groups: GroupedResources[];
@@ -11,6 +13,8 @@ interface GroupedResourceDisplayProps {
   institutionDirectory?: Record<number, string>;
   userDirectory?: Record<number, string>;
   defaultExpanded?: boolean;
+  enablePagination?: boolean;
+  groupsPerPage?: number;
 }
 
 export function GroupedResourceDisplay({
@@ -19,6 +23,8 @@ export function GroupedResourceDisplay({
   institutionDirectory = {},
   userDirectory = {},
   defaultExpanded = true,
+  enablePagination = true,
+  groupsPerPage = 6,
 }: GroupedResourceDisplayProps) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
     if (defaultExpanded) {
@@ -26,6 +32,13 @@ export function GroupedResourceDisplay({
     }
     return new Set();
   });
+
+  const pagination = usePagination(groups, {
+    initialItemsPerPage: groupsPerPage,
+  });
+
+  const paginatedGroups = enablePagination ? pagination.paginatedItems : groups;
+  const shouldShowPagination = enablePagination && pagination.totalItems > pagination.itemsPerPage;
 
   const toggleGroup = (groupKey: string) => {
     setExpandedGroups(prev => {
@@ -71,7 +84,12 @@ export function GroupedResourceDisplay({
   return (
     <div className="space-y-4">
       {/* Expand/Collapse All Controls */}
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        {enablePagination && (
+          <p className="text-sm text-muted-foreground">
+            {pagination.totalItems} qrup tapıldı
+          </p>
+        )}
         <button
           onClick={expandAll}
           className="text-sm text-primary hover:underline"
@@ -88,7 +106,7 @@ export function GroupedResourceDisplay({
       </div>
 
       {/* Groups */}
-      {groups.map((group) => {
+      {paginatedGroups.map((group) => {
         const isExpanded = expandedGroups.has(group.groupKey);
 
         return (
@@ -136,6 +154,23 @@ export function GroupedResourceDisplay({
           </div>
         );
       })}
+
+      {shouldShowPagination && (
+        <TablePagination
+          currentPage={pagination.currentPage}
+          totalPages={Math.max(1, pagination.totalPages || 1)}
+          totalItems={pagination.totalItems}
+          itemsPerPage={pagination.itemsPerPage}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          onPageChange={pagination.goToPage}
+          onPrevious={pagination.goToPreviousPage}
+          onNext={pagination.goToNextPage}
+          canGoPrevious={pagination.canGoPrevious}
+          canGoNext={pagination.canGoNext}
+          onItemsPerPageChange={pagination.setItemsPerPage}
+        />
+      )}
     </div>
   );
 }

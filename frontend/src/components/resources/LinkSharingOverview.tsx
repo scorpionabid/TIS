@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,8 @@ import {
 import type { Resource } from '@/types/resources';
 import type { LinkSharingOverview } from '@/services/resources';
 import { useAuth } from '@/contexts/AuthContext';
+import { institutionService } from '@/services/institutions';
+import type { Institution } from '@/services/institutions';
 
 interface SchoolWithAccess {
   id: number;
@@ -54,21 +56,83 @@ interface LinkSharingOverviewWithAccess extends Omit<LinkSharingOverview, 'secto
   access_rate?: number;
 }
 
+interface ProvidedInstitutionMeta {
+  id: number;
+  name: string;
+  utis_code?: string | null;
+  level?: number | null;
+  parent_id?: number | null;
+}
+
 interface LinkSharingOverviewProps {
   selectedLink: Resource | null;
   overview: LinkSharingOverviewWithAccess | null | undefined;
   isLoading: boolean;
   onRetry?: () => void;
+  institutionMetadata?: Record<number, ProvidedInstitutionMeta>;
 }
+
+type InstitutionMeta = {
+  id: number;
+  name: string;
+  utis_code?: string | null;
+  parent_id?: number | null;
+  level?: number | null;
+};
+
+const normalizeInstitution = (input: Institution | { data?: Institution } | null | undefined): Institution | null => {
+  if (!input) return null;
+  if (typeof input === 'object' && 'data' in input) {
+    return input.data ? (input.data as Institution) : null;
+  }
+  return input as Institution;
+};
 
 const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
   selectedLink,
   overview,
   isLoading,
   onRetry,
+  institutionMetadata: providedInstitutionMetadata = {},
 }) => {
   const { currentUser } = useAuth();
   const [expandedSectors, setExpandedSectors] = useState<Set<number | 'ungrouped'>>(new Set());
+  const [institutionMeta, setInstitutionMeta] = useState<Record<number, InstitutionMeta>>({});
+  const institutionMetaRef = useRef<Record<number, InstitutionMeta>>({});
+
+  useEffect(() => {
+    institutionMetaRef.current = institutionMeta;
+  }, [institutionMeta]);
+
+  useEffect(() => {
+    if (!providedInstitutionMetadata) return;
+    setInstitutionMeta((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      Object.values(providedInstitutionMetadata).forEach((meta) => {
+        if (!meta?.id) return;
+        const normalized: InstitutionMeta = {
+          id: meta.id,
+          name: meta.name,
+          utis_code: meta.utis_code,
+          level: meta.level ?? null,
+          parent_id: meta.parent_id ?? null,
+        };
+        const existing = next[meta.id];
+        if (
+          !existing ||
+          existing.name !== normalized.name ||
+          existing.level !== normalized.level ||
+          existing.parent_id !== normalized.parent_id ||
+          existing.utis_code !== normalized.utis_code
+        ) {
+          next[meta.id] = normalized;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [providedInstitutionMetadata]);
 
   useEffect(() => {
     setExpandedSectors(new Set());
@@ -86,9 +150,233 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
     });
   };
 
+  useEffect(() => {
+    if (!overview?.sectors || overview.sectors.length === 0) {
+      return;
+    }
+
+    const ids = new Set<number>();
+    overview.sectors.forEach((sector) => {
+      if (typeof sector.id === 'number') {
+        ids.add(sector.id);
+      }
+      sector.schools.forEach((school) => {
+        if (typeof school.id === 'number') {
+          ids.add(school.id);
+        }
+      });
+    });
+
+    if (ids.size === 0) {
+      return;
+    }
+
+    const baseMeta: Record<number, InstitutionMeta> = { ...institutionMetaRef.current };
+    Object.values(providedInstitutionMetadata || {}).forEach((meta) => {
+      if (!meta?.id) return;
+      baseMeta[meta.id] = baseMeta[meta.id] || {
+        id: meta.id,
+        name: meta.name,
+        utis_code: meta.utis_code,
+        level: meta.level ?? null,
+        parent_id: meta.parent_id ?? null,
+      };
+    });
+
+    const missingIds = Array.from(ids).filter((id) => !baseMeta[id]);
+    if (missingIds.length === 0) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const fetchDetail = async (institutionId: number): Promise<InstitutionMeta | null> => {
+      try {
+        const detail = await institutionService.getById(institutionId);
+        const normalized = normalizeInstitution(detail);
+        if (!normalized) return null;
+        return {
+          id: institutionId,
+          name: normalized.name || normalized.short_name || `Müəssisə #${institutionId}`,
+          utis_code: normalized.utis_code,
+          level: normalized.level ?? null,
+          parent_id: normalized.parent_id ?? normalized.parent?.id ?? null,
+        };
+      } catch (error) {
+        console.warn('Failed to fetch institution detail for LinkSharingOverview', { institutionId, error });
+        return {
+          id: institutionId,
+          name: `Müəssisə #${institutionId}`,
+          level: null,
+          parent_id: null,
+        };
+      }
+    };
+
+    (async () => {
+      let summariesFailed = false;
+      const entries: Record<number, InstitutionMeta> = {};
+
+      try {
+        const summaries = await institutionService.getSummaries(missingIds);
+        Object.entries(summaries || {}).forEach(([key, summary]) => {
+          const numericId = Number(key);
+          if (Number.isNaN(numericId)) return;
+          entries[numericId] = {
+            id: numericId,
+            name: summary?.name || summary?.short_name || `Müəssisə #${numericId}`,
+            utis_code: summary?.utis_code,
+            level: summary?.level ?? null,
+            parent_id: summary?.parent_id ?? summary?.parentId ?? null,
+          };
+        });
+
+        const detailFetchIds = Object.values(entries)
+          .filter((entry) => entry.level === null || entry.parent_id === undefined)
+          .map((entry) => entry.id);
+
+        if (detailFetchIds.length > 0) {
+          const detailedEntries = await Promise.all(detailFetchIds.map(fetchDetail));
+          detailedEntries.forEach((detail) => {
+            if (!detail) return;
+            entries[detail.id] = { ...entries[detail.id], ...detail };
+          });
+        }
+
+        const pendingParents = new Set<number>();
+        Object.values(entries).forEach((entry) => {
+          if (entry.parent_id && !entries[entry.parent_id]) {
+            pendingParents.add(entry.parent_id);
+          }
+        });
+
+        if (pendingParents.size > 0) {
+          const parentDetails = await Promise.all(Array.from(pendingParents).map(fetchDetail));
+          parentDetails.forEach((detail) => {
+            if (!detail) return;
+            entries[detail.id] = detail;
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load institution metadata for link sharing overview', error);
+        summariesFailed = true;
+      }
+
+      if (summariesFailed) {
+        const detailedEntries = await Promise.all(missingIds.map(fetchDetail));
+        detailedEntries.forEach((entry) => {
+          if (!entry) return;
+          entries[entry.id] = entry;
+        });
+      }
+
+      if (!isCancelled) {
+        setInstitutionMeta((prev) => {
+          const next = { ...prev };
+          let changed = false;
+          Object.values(entries).forEach((entry) => {
+            if (!entry) return;
+            const existing = next[entry.id];
+            if (
+              !existing ||
+              existing.name !== entry.name ||
+              existing.level !== entry.level ||
+              existing.parent_id !== entry.parent_id ||
+              existing.utis_code !== entry.utis_code
+            ) {
+              next[entry.id] = entry;
+              changed = true;
+            }
+          });
+          return changed ? next : prev;
+        });
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [overview?.link_id, overview?.sectors]);
+
+  const {
+    sectorsToRender,
+    derivedTotals,
+  } = useMemo(() => {
+    if (!overview?.sectors) {
+      return {
+        sectorsToRender: [],
+        derivedTotals: {
+          totalSectors: 0,
+          totalSchools: 0,
+          accessedCount: 0,
+          notAccessedCount: 0,
+          accessRate: 0,
+        },
+      };
+    }
+
+    type NormalizedSector = SectorWithAccess;
+    const sectorMap = new Map<number | 'ungrouped', NormalizedSector>();
+
+    overview.sectors.forEach((sector) => {
+      const fallbackSectorId = sector.id ?? null;
+      sector.schools.forEach((school) => {
+        const schoolMeta = school.id ? institutionMeta[school.id] : undefined;
+        const actualSectorId = schoolMeta?.parent_id ?? fallbackSectorId;
+        const key = actualSectorId ?? 'ungrouped';
+
+        let targetSector = sectorMap.get(key);
+        if (!targetSector) {
+          const sectorMeta = typeof actualSectorId === 'number' ? institutionMeta[actualSectorId] : undefined;
+          const regionMeta = sectorMeta?.parent_id ? institutionMeta[sectorMeta.parent_id] : undefined;
+          targetSector = {
+            id: typeof actualSectorId === 'number' ? actualSectorId : null,
+            name: sectorMeta?.name || (typeof actualSectorId === 'number' ? sector.name : 'Sektor müəyyən edilməyib'),
+            region_id: regionMeta?.id ?? sector.region_id ?? null,
+            region_name: regionMeta?.name || sector.region_name || null,
+            is_full_coverage: sector.is_full_coverage,
+            school_count: 0,
+            schools: [],
+          };
+          sectorMap.set(key, targetSector);
+        }
+
+        targetSector.schools.push(school);
+        targetSector.school_count = targetSector.schools.length;
+      });
+    });
+
+    const normalized = Array.from(sectorMap.values()).sort((a, b) => {
+      const regionComparison = (a.region_name || '').localeCompare(b.region_name || '', 'az');
+      if (regionComparison !== 0) {
+        return regionComparison;
+      }
+      return (a.name || '').localeCompare(b.name || '', 'az');
+    });
+
+    const totalSchools = normalized.reduce((sum, sector) => sum + sector.school_count, 0);
+    const accessedCount = normalized.reduce(
+      (sum, sector) => sum + sector.schools.filter((school) => school.has_accessed).length,
+      0
+    );
+    const notAccessedCount = totalSchools - accessedCount;
+    const accessRate = totalSchools > 0 ? Number(((accessedCount / totalSchools) * 100).toFixed(1)) : 0;
+
+    return {
+      sectorsToRender: normalized,
+      derivedTotals: {
+        totalSectors: normalized.length,
+        totalSchools,
+        accessedCount,
+        notAccessedCount,
+        accessRate,
+      },
+    };
+  }, [overview?.sectors, institutionMeta]);
+
   // Get not accessed institutions filtered by user role
   const notAccessedInstitutions = useMemo(() => {
-    if (!overview?.sectors) return [];
+    const sourceSectors = sectorsToRender.length > 0 ? sectorsToRender : overview?.sectors || [];
 
     const allNotAccessed: Array<{
       id: number;
@@ -97,7 +385,7 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
       sector_name: string;
     }> = [];
 
-    overview.sectors.forEach(sector => {
+    sourceSectors.forEach(sector => {
       sector.schools.forEach(school => {
         if (!school.has_accessed) {
           allNotAccessed.push({
@@ -110,9 +398,6 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
       });
     });
 
-    // Role-based filtering
-    // SektorAdmin only sees their sector's schools
-    // RegionAdmin sees all
     const userRole = currentUser?.roles?.[0]?.name?.toLowerCase();
     const userInstitutionId = currentUser?.institution_id;
 
@@ -121,7 +406,7 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
     }
 
     return allNotAccessed;
-  }, [overview, currentUser]);
+  }, [sectorsToRender, overview?.sectors, currentUser]);
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '—';
@@ -191,6 +476,11 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
 
   const hasUserTargets = (overview.target_users?.length ?? 0) > 0;
   const hasSectors = (overview.sectors?.length ?? 0) > 0;
+  const totalSectors = derivedTotals.totalSectors || overview.total_sectors || 0;
+  const totalSchools = derivedTotals.totalSchools || overview.total_schools || 0;
+  const accessedCount = derivedTotals.accessedCount ?? overview.accessed_count;
+  const notAccessedCount = derivedTotals.notAccessedCount ?? overview.not_accessed_count;
+  const accessRate = derivedTotals.accessRate || overview.access_rate || 0;
 
   if (!hasSectors && !hasUserTargets) {
     return (
@@ -233,39 +523,39 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
             {/* Statistics Badges */}
             <div className="flex flex-wrap gap-2">
               <Badge variant="secondary" className="bg-blue-50 text-blue-700">
-                {overview.total_sectors} sektor
+                {totalSectors} sektor
               </Badge>
               <Badge variant="secondary" className="bg-green-50 text-green-700">
-                {overview.total_schools} məktəb
+                {totalSchools} məktəb
               </Badge>
-              {overview.accessed_count !== undefined && (
+              {accessedCount !== undefined && (
                 <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
                   <CheckCircle2 className="h-3 w-3 mr-1" />
-                  {overview.accessed_count} açılıb
+                  {accessedCount} açılıb
                 </Badge>
               )}
-              {overview.not_accessed_count !== undefined && overview.not_accessed_count > 0 && (
+              {notAccessedCount !== undefined && notAccessedCount > 0 && (
                 <Badge variant="secondary" className="bg-red-50 text-red-700">
                   <XCircle className="h-3 w-3 mr-1" />
-                  {overview.not_accessed_count} açılmayıb
+                  {notAccessedCount} açılmayıb
                 </Badge>
               )}
             </div>
 
             {/* Access Progress Bar */}
-            {overview.access_rate !== undefined && overview.total_schools > 0 && (
+            {accessRate !== undefined && totalSchools > 0 && (
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Açılma faizi</span>
-                  <span className="font-medium">{overview.access_rate}%</span>
+                  <span className="font-medium">{accessRate}%</span>
                 </div>
-                <Progress value={overview.access_rate} className="h-2" />
+                <Progress value={accessRate} className="h-2" />
               </div>
             )}
           </CardHeader>
 
           <CardContent className="space-y-4">
-            {overview.sectors.map((sector) => {
+            {(sectorsToRender.length > 0 ? sectorsToRender : overview.sectors).map((sector) => {
               const sectorKey = sector.id ?? 'ungrouped';
               const isExpanded = expandedSectors.has(sectorKey);
 

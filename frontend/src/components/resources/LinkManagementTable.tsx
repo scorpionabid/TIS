@@ -47,6 +47,8 @@ import {
   type GroupedLink,
   type LinkGroupFilters
 } from '@/utils/linkGrouping';
+import { TablePagination } from '@/components/common/TablePagination';
+import { usePagination } from '@/hooks/usePagination';
 
 interface LinkManagementTableProps {
   links: Resource[];
@@ -78,6 +80,12 @@ const LinkManagementTable: React.FC<LinkManagementTableProps> = ({
   const filteredGroups = useMemo(() => {
     return filterGroupedLinks(groupedLinks, filters);
   }, [groupedLinks, filters]);
+
+  const groupsPagination = usePagination(filteredGroups, {
+    initialItemsPerPage: 5,
+  });
+  const paginatedGroups = groupsPagination.paginatedItems;
+  const shouldShowPagination = groupsPagination.totalItems > groupsPagination.itemsPerPage;
 
   const confirmDelete = async () => {
     if (!pendingDelete) return;
@@ -132,7 +140,7 @@ const LinkManagementTable: React.FC<LinkManagementTableProps> = ({
             <div>
               <CardTitle className="text-lg">Mövcud Linklər</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Cəmi {links.length} link, {groupedLinks.length} unikal başlıq
+                Cəmi {links.length} link, {groupedLinks.length} başlıq · Filterdən sonra {filteredGroups.length}
               </p>
             </div>
           </div>
@@ -225,8 +233,8 @@ const LinkManagementTable: React.FC<LinkManagementTableProps> = ({
               </p>
             </div>
           ) : (
-            <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
-              {filteredGroups.map((group) => {
+            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+              {paginatedGroups.map((group) => {
                 const isExpanded = expandedGroups.has(group.title);
 
                 return (
@@ -397,6 +405,24 @@ const LinkManagementTable: React.FC<LinkManagementTableProps> = ({
           )}
         </CardContent>
       </Card>
+      {shouldShowPagination && (
+        <div className="pt-2">
+          <TablePagination
+            currentPage={groupsPagination.currentPage}
+            totalPages={Math.max(1, groupsPagination.totalPages)}
+            totalItems={groupsPagination.totalItems}
+            itemsPerPage={groupsPagination.itemsPerPage}
+            startIndex={groupsPagination.startIndex}
+            endIndex={groupsPagination.endIndex}
+            onPageChange={groupsPagination.goToPage}
+            onPrevious={groupsPagination.goToPreviousPage}
+            onNext={groupsPagination.goToNextPage}
+            canGoPrevious={groupsPagination.canGoPrevious}
+            canGoNext={groupsPagination.canGoNext}
+            onItemsPerPageChange={groupsPagination.setItemsPerPage}
+          />
+        </div>
+      )}
 
       {/* Single Delete Dialog */}
       <AlertDialog

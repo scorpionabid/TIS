@@ -64,6 +64,34 @@ class LinkSharingService extends BaseService
     }
 
     /**
+     * Get single link share with permission checks
+     */
+    public function getLinkShare(int $id, Request $request, $user)
+    {
+        $linkShare = LinkShare::with(['sharedBy', 'institution'])->findOrFail($id);
+
+        // Allow owners, superadmins or anyone with access permission to view
+        $canView = $this->permissionService->canAccessLink($user, $linkShare)
+            || $this->permissionService->canModifyLink($user, $linkShare);
+
+        if (!$canView) {
+            throw new \Exception('Bu linkə baxmaq icazəniz yoxdur', 403);
+        }
+
+        if ($request->boolean('include_accesses')) {
+            $limit = (int) $request->input('access_limit', 20);
+            $limit = max(1, min($limit, 100));
+            $accessLogs = LinkAccessLog::where('link_share_id', $linkShare->id)
+                ->latest()
+                ->limit($limit)
+                ->get();
+            $linkShare->setRelation('access_logs', $accessLogs);
+        }
+
+        return $linkShare;
+    }
+
+    /**
      * Update link share
      */
     public function updateLinkShare($linkShare, array $data, $user)

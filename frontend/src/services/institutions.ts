@@ -159,23 +159,46 @@ class InstitutionService extends BaseService<Institution> {
       return {};
     }
 
-    const response = await apiClient.get<Record<string, any>>(`${this.baseEndpoint}/summary`, {
-      ids: ids.join(','),
-    });
-
-    const payload = response.data as unknown as {
-      success?: boolean;
-      data?: Record<number | string, any>;
+    const fetchIndividual = async () => {
+      const fallbackEntries: Record<number, any> = {};
+      await Promise.all(ids.map(async (id) => {
+        try {
+          const detail = await this.getById(id);
+          fallbackEntries[id] = detail;
+        } catch (detailError) {
+          console.warn('Failed to fetch institution detail during summaries fallback', { id, detailError });
+        }
+      }));
+      return fallbackEntries;
     };
 
-    const summaries = payload?.data || {};
-    return Object.keys(summaries).reduce<Record<number, any>>((acc, key) => {
-      const numericKey = Number(key);
-      if (!Number.isNaN(numericKey)) {
-        acc[numericKey] = summaries[key];
+    try {
+      const response = await apiClient.get<Record<string, any>>(`${this.baseEndpoint}/summary`, {
+        ids: ids.join(','),
+      });
+
+      const payload = response.data as unknown as {
+        success?: boolean;
+        data?: Record<number | string, any>;
+      };
+
+      const summaries = payload?.data || {};
+      return Object.keys(summaries).reduce<Record<number, any>>((acc, key) => {
+        const numericKey = Number(key);
+        if (!Number.isNaN(numericKey)) {
+          acc[numericKey] = summaries[key];
+        }
+        return acc;
+      }, {});
+    } catch (error: any) {
+      const status = error?.response?.status;
+      if (status === 404) {
+        console.warn('InstitutionService.getSummaries: summaries endpoint unavailable, falling back to per-id fetch');
+        return fetchIndividual();
       }
-      return acc;
-    }, {});
+      console.error('❌ InstitutionService.getSummaries failed:', error);
+      return fetchIndividual();
+    }
   }
 
   async getRegions() {

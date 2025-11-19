@@ -13,6 +13,8 @@ import {
   type GroupedLink,
   type LinkGroupFilters
 } from '@/utils/linkGrouping';
+import { usePagination } from '@/hooks/usePagination';
+import { TablePagination } from '@/components/common/TablePagination';
 
 interface LinkSelectionCardProps {
   links: Resource[];
@@ -44,6 +46,13 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
     return filterGroupedLinks(groupedLinks, filters);
   }, [groupedLinks, filters]);
 
+  const pagination = usePagination(filteredGroups, {
+    initialItemsPerPage: 5,
+  });
+
+  const paginatedGroups = pagination.paginatedItems;
+  const shouldShowPagination = pagination.totalItems > pagination.itemsPerPage;
+
   // Determine if a group is selected (either by selectedGroup prop or by selectedLink being in the group)
   const isGroupSelected = (group: GroupedLink): boolean => {
     if (selectedGroup) {
@@ -71,7 +80,7 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
       <CardHeader className="space-y-2 pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">Link seçimi</CardTitle>
-          <Badge variant="secondary">{groupedLinks.length}</Badge>
+          <Badge variant="secondary">{filteredGroups.length}</Badge>
         </div>
         <p className="text-sm text-muted-foreground">
           Qrup seçin və paylaşdığı müəssisələrin siyahısına baxın.
@@ -112,8 +121,8 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
               : 'Heç bir link tapılmadı.'}
           </div>
         ) : (
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {filteredGroups.map((group) => {
+        <div className="space-y-2">
+            {paginatedGroups.map((group) => {
               const isActive = isGroupSelected(group);
               return (
                 <button
@@ -186,6 +195,23 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
           <div className="text-center text-sm text-muted-foreground">
             Hələlik heç bir link yaradılmayıb.
           </div>
+        )}
+
+        {!isLoading && shouldShowPagination && (
+          <TablePagination
+            currentPage={pagination.currentPage}
+            totalPages={Math.max(1, pagination.totalPages || 1)}
+            totalItems={pagination.totalItems}
+            itemsPerPage={pagination.itemsPerPage}
+            startIndex={pagination.startIndex}
+            endIndex={pagination.endIndex}
+            onPageChange={pagination.goToPage}
+            onPrevious={pagination.goToPreviousPage}
+            onNext={pagination.goToNextPage}
+            canGoPrevious={pagination.canGoPrevious}
+            canGoNext={pagination.canGoNext}
+            onItemsPerPageChange={pagination.setItemsPerPage}
+          />
         )}
       </CardContent>
     </Card>
