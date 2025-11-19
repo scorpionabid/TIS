@@ -8,6 +8,7 @@ import { Building2, Layers, Target } from 'lucide-react';
 interface LinkFilterResultsSummaryProps {
   resources: Resource[];
   title?: string;
+  totalCount?: number;
 }
 
 const statusLabels: Record<string, string> = {
@@ -33,8 +34,9 @@ const linkTypeLabels: Record<string, string> = {
   document: 'Sənəd',
 };
 
-export function LinkFilterResultsSummary({ resources, title = 'Filtr nəticələri' }: LinkFilterResultsSummaryProps) {
-  const total = resources.length;
+export function LinkFilterResultsSummary({ resources, title = 'Filtr nəticələri', totalCount }: LinkFilterResultsSummaryProps) {
+  const visibleCount = resources.length;
+  const total = totalCount ?? visibleCount;
 
   const { statusCounts, shareScopeCounts, typeCounts, uniqueTargetCount } = useMemo(() => {
     const statusMap = new Map<string, number>();
@@ -76,7 +78,7 @@ export function LinkFilterResultsSummary({ resources, title = 'Filtr nəticələ
     };
   }, [resources]);
 
-  if (!total) {
+  if (!visibleCount && !total) {
     return (
       <Card>
         <CardHeader>
@@ -97,7 +99,8 @@ export function LinkFilterResultsSummary({ resources, title = 'Filtr nəticələ
     return (
       <div className="space-y-2">
         {items.slice(0, 4).map(([key, value]) => {
-          const percentage = Math.round((value / total) * 100);
+          const base = visibleCount || 1;
+          const percentage = Math.round((value / base) * 100);
           return (
             <div key={key} className="space-y-1">
               <div className="flex items-center justify-between text-sm">
@@ -122,7 +125,9 @@ export function LinkFilterResultsSummary({ resources, title = 'Filtr nəticələ
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="text-3xl font-bold">{total}</div>
-          <p className="text-sm text-muted-foreground">Ümumi linklər</p>
+          <p className="text-sm text-muted-foreground">
+            Ümumi linklər {totalCount ? `(göstərilir ${visibleCount})` : ''}
+          </p>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Building2 className="h-4 w-4" />
             {uniqueTargetCount} hədəf müəssisə

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -52,14 +52,18 @@ import { usePagination } from '@/hooks/usePagination';
 
 interface LinkManagementTableProps {
   links: Resource[];
+  totalCount?: number;
   isLoading: boolean;
+  isRefreshing?: boolean;
   onResourceAction: (resource: Resource, action: 'edit' | 'delete') => Promise<void> | void;
   onBulkDelete?: (links: Resource[]) => Promise<void> | void;
 }
 
 const LinkManagementTable: React.FC<LinkManagementTableProps> = ({
   links,
+  totalCount,
   isLoading,
+  isRefreshing = false,
   onResourceAction,
   onBulkDelete,
 }) => {
@@ -67,6 +71,7 @@ const LinkManagementTable: React.FC<LinkManagementTableProps> = ({
   const [pendingBulkDelete, setPendingBulkDelete] = useState<GroupedLink | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [showGroupFilters, setShowGroupFilters] = useState(false);
 
   // Filter states
   const [filters, setFilters] = useState<LinkGroupFilters>({});
@@ -132,91 +137,126 @@ const LinkManagementTable: React.FC<LinkManagementTableProps> = ({
     (filters.share_scope && filters.share_scope !== 'all')
   );
 
+  useEffect(() => {
+    if (hasActiveFilters) {
+      setShowGroupFilters(true);
+    }
+  }, [hasActiveFilters]);
+
   return (
     <>
       <Card className="h-full">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <CardTitle className="text-lg">Mövcud Linklər</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-lg">Mövcud Linklər</CardTitle>
+                {isRefreshing && (
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Yenilənir
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground mt-1">
-                Cəmi {links.length} link, {groupedLinks.length} başlıq · Filterdən sonra {filteredGroups.length}
+                Cəmi {totalCount ?? links.length} link · Bu səhifədə {links.length}, {filteredGroups.length} başlıq
               </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs">
+                {filteredGroups.length} qrup
+              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => setShowGroupFilters((prev) => !prev)}
+              >
+                <Search className="h-3.5 w-3.5 mr-1" />
+                {showGroupFilters ? 'Filtrləri gizlət' : 'Qrup filtrləri'}
+                {hasActiveFilters && (
+                  <span className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+                    {Math.max(1, Object.values(filters).filter(Boolean).length)}
+                  </span>
+                )}
+              </Button>
             </div>
           </div>
         </CardHeader>
 
         <CardContent className="space-y-4">
           {/* Filter Panel */}
-          <div className="space-y-3 pb-3 border-b">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={filters.title_search || ''}
-                  onChange={(e) => setFilters(prev => ({ ...prev, title_search: e.target.value }))}
-                  placeholder="Başlıq axtar..."
-                  className="pl-9 h-9"
-                />
+          {showGroupFilters && (
+            <div className="space-y-3 pb-3 border-b bg-muted/20 rounded-md p-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={filters.title_search || ''}
+                    onChange={(e) => setFilters(prev => ({ ...prev, title_search: e.target.value }))}
+                    placeholder="Başlıq axtar..."
+                    className="pl-9 h-9"
+                  />
+                </div>
+                <div className="relative">
+                  <FileText className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={filters.description_search || ''}
+                    onChange={(e) => setFilters(prev => ({ ...prev, description_search: e.target.value }))}
+                    placeholder="İzah axtar..."
+                    className="pl-9 h-9"
+                  />
+                </div>
               </div>
-              <div className="relative">
-                <FileText className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={filters.description_search || ''}
-                  onChange={(e) => setFilters(prev => ({ ...prev, description_search: e.target.value }))}
-                  placeholder="İzah axtar..."
-                  className="pl-9 h-9"
-                />
-              </div>
-            </div>
 
-            <div className="flex flex-wrap gap-2">
-              <Select
-                value={filters.link_type || 'all'}
-                onValueChange={(value) => setFilters(prev => ({ ...prev, link_type: value }))}
-              >
-                <SelectTrigger className="w-[130px] h-8">
-                  <SelectValue placeholder="Növ" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Bütün növlər</SelectItem>
-                  <SelectItem value="external">Xarici link</SelectItem>
-                  <SelectItem value="video">Video</SelectItem>
-                  <SelectItem value="form">Forma</SelectItem>
-                  <SelectItem value="document">Sənəd</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={filters.share_scope || 'all'}
-                onValueChange={(value) => setFilters(prev => ({ ...prev, share_scope: value }))}
-              >
-                <SelectTrigger className="w-[140px] h-8">
-                  <SelectValue placeholder="Paylaşım" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Bütün sahələr</SelectItem>
-                  <SelectItem value="public">Açıq</SelectItem>
-                  <SelectItem value="regional">Regional</SelectItem>
-                  <SelectItem value="sectoral">Sektoral</SelectItem>
-                  <SelectItem value="institutional">İnstitusional</SelectItem>
-                  <SelectItem value="specific_users">Xüsusi</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {hasActiveFilters && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearFilters}
-                  className="h-8 px-2 text-muted-foreground"
+              <div className="flex flex-wrap gap-2">
+                <Select
+                  value={filters.link_type || 'all'}
+                  onValueChange={(value) => setFilters(prev => ({ ...prev, link_type: value }))}
                 >
-                  <X className="h-3.5 w-3.5 mr-1" />
-                  Təmizlə
-                </Button>
-              )}
+                  <SelectTrigger className="w-[140px] h-8">
+                    <SelectValue placeholder="Növ" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Bütün növlər</SelectItem>
+                    <SelectItem value="external">Xarici link</SelectItem>
+                    <SelectItem value="video">Video</SelectItem>
+                    <SelectItem value="form">Forma</SelectItem>
+                    <SelectItem value="document">Sənəd</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={filters.share_scope || 'all'}
+                  onValueChange={(value) => setFilters(prev => ({ ...prev, share_scope: value }))}
+                >
+                  <SelectTrigger className="w-[150px] h-8">
+                    <SelectValue placeholder="Paylaşım" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Bütün sahələr</SelectItem>
+                    <SelectItem value="public">Açıq</SelectItem>
+                    <SelectItem value="regional">Regional</SelectItem>
+                    <SelectItem value="sectoral">Sektoral</SelectItem>
+                    <SelectItem value="institutional">İnstitusional</SelectItem>
+                    <SelectItem value="specific_users">Xüsusi</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {hasActiveFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearFilters}
+                    className="h-8 px-2 text-muted-foreground"
+                  >
+                    <X className="h-3.5 w-3.5 mr-1" />
+                    Təmizlə
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Grouped Links */}
           {isLoading ? (

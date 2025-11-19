@@ -21,6 +21,7 @@ interface LinkSelectionCardProps {
   selectedLink: Resource | null;
   onSelect: (link: Resource) => void;
   isLoading: boolean;
+  isRefreshing?: boolean;
   // New props for grouped selection
   selectedGroup?: GroupedLink | null;
   onSelectGroup?: (group: GroupedLink) => void;
@@ -31,6 +32,7 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
   selectedLink,
   onSelect,
   isLoading,
+  isRefreshing = false,
   selectedGroup,
   onSelectGroup,
 }) => {
@@ -76,17 +78,25 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
   };
 
   return (
-    <Card>
+    <Card className="bg-background shadow-sm">
       <CardHeader className="space-y-2 pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Link seçimi</CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-lg">Link seçimi</CardTitle>
+            {isRefreshing && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Yenilənir
+              </span>
+            )}
+          </div>
           <Badge variant="secondary">{filteredGroups.length}</Badge>
         </div>
         <p className="text-sm text-muted-foreground">
           Qrup seçin və paylaşdığı müəssisələrin siyahısına baxın.
         </p>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
         {/* Filters */}
         <div className="space-y-2">
           <div className="relative">
@@ -121,75 +131,75 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
               : 'Heç bir link tapılmadı.'}
           </div>
         ) : (
-        <div className="space-y-2">
-            {paginatedGroups.map((group) => {
-              const isActive = isGroupSelected(group);
-              return (
-                <button
-                  key={group.title}
-                  type="button"
-                  onClick={() => handleGroupClick(group)}
-                  className={`w-full rounded-lg border p-3 text-left transition ${
-                    isActive
-                      ? 'border-primary bg-primary/5 shadow-sm'
-                      : 'border-border hover:border-primary/50'
-                  }`}
-                >
-                  {/* Header */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <LinkIcon className="h-4 w-4 text-primary flex-shrink-0" />
-                      <p className="font-medium text-sm truncate">{group.title}</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Badge variant="secondary" className="text-xs">
-                        {group.total_count} link
-                      </Badge>
-                      {isActive && (
-                        <Badge variant="secondary" className="bg-primary/10 text-primary text-xs">
-                          Aktiv
+          <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+              {paginatedGroups.map((group) => {
+                const isActive = isGroupSelected(group);
+                return (
+                  <button
+                    key={group.title}
+                    type="button"
+                    onClick={() => handleGroupClick(group)}
+                    className={`w-full rounded-lg border p-2.5 sm:p-3 text-left transition ${
+                      isActive
+                        ? 'border-primary bg-primary/5 shadow-sm'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <LinkIcon className="h-4 w-4 text-primary flex-shrink-0" />
+                        <p className="font-medium text-sm truncate">{group.title}</p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Badge variant="secondary" className="text-xs">
+                          {group.total_count} link
                         </Badge>
-                      )}
+                        {isActive && (
+                          <Badge variant="secondary" className="bg-primary/10 text-primary text-xs">
+                            Aktiv
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Meta info */}
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <Badge
-                      variant="outline"
-                      className={`text-[10px] px-1.5 py-0 ${getLinkTypeBadgeClass(group.link_type)}`}
-                    >
-                      {group.link_type.toUpperCase()}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className={`text-[10px] px-1.5 py-0 ${getShareScopeBadgeClass(group.share_scope)}`}
-                    >
-                      {group.share_scope}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {formatLinkDate(group.latest_created_at)}
-                    </span>
-                  </div>
+                    {/* Meta info */}
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] px-1.5 py-0 ${getLinkTypeBadgeClass(group.link_type)}`}
+                      >
+                        {group.link_type.toUpperCase()}
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] px-1.5 py-0 ${getShareScopeBadgeClass(group.share_scope)}`}
+                      >
+                        {group.share_scope}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {formatLinkDate(group.latest_created_at)}
+                      </span>
+                    </div>
 
-                  {/* Description */}
-                  {group.description && (
-                    <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
-                      İzah: {group.description}
-                    </p>
-                  )}
+                    {/* Description */}
+                    {group.description && (
+                      <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
+                        İzah: {group.description}
+                      </p>
+                    )}
 
-                  {/* Unique URLs indicator */}
-                  {group.unique_urls > 1 && (
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      {group.unique_urls} fərqli URL
-                    </p>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
+                    {/* Unique URLs indicator */}
+                    {group.unique_urls > 1 && (
+                      <p className="mt-1 text-[10px] text-muted-foreground">
+                        {group.unique_urls} fərqli URL
+                      </p>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
         {!isLoading && links.length === 0 && (
           <div className="text-center text-sm text-muted-foreground">

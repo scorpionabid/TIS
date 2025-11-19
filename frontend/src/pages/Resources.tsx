@@ -32,7 +32,6 @@ import RegionalFolderManager from "@/components/documents/RegionalFolderManager"
 import { hasAnyRole } from "@/utils/permissions";
 import { useResourceFilters } from "@/hooks/useResourceFilters";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
-import { useLinkSelection } from "@/hooks/resources/useLinkSelection";
 import { useLinkSharingOverview } from "@/hooks/resources/useLinkSharingOverview";
 import { LinkFilterPanelMinimalist } from "@/components/resources/LinkFilterPanelMinimalist";
 import { GroupedResourceDisplay } from "@/components/resources/GroupedResourceDisplay";
@@ -40,6 +39,7 @@ import { ResourceGroupingToolbar } from "@/components/resources/ResourceGrouping
 import LinkManagementTable from "@/components/resources/LinkManagementTable";
 import { LinkFilterResultsSummary } from "@/components/resources/LinkFilterResultsSummary";
 import { useResourceGrouping, GroupingMode } from "@/hooks/useResourceGrouping";
+import { TablePagination } from "@/components/common/TablePagination";
 import {
   Select,
   SelectTrigger,
@@ -47,6 +47,7 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type InstitutionOption = {
   id: number;
@@ -85,6 +86,34 @@ const filtersToValue = (value?: string | null) => {
     return undefined;
   }
   return value;
+};
+
+const LINK_SELECTION_STORAGE_KEY = 'resources_selected_link_id';
+
+const readStoredLinkId = (): number | null => {
+  try {
+    const raw = window?.localStorage?.getItem(LINK_SELECTION_STORAGE_KEY);
+    if (raw === undefined || raw === null) {
+      return null;
+    }
+    const numeric = Number(raw);
+    return Number.isNaN(numeric) ? null : numeric;
+  } catch (error) {
+    console.warn('Failed to read stored link selection:', error);
+    return null;
+  }
+};
+
+const persistLinkId = (linkId: number | null) => {
+  try {
+    if (linkId) {
+      window?.localStorage?.setItem(LINK_SELECTION_STORAGE_KEY, String(linkId));
+    } else {
+      window?.localStorage?.removeItem(LINK_SELECTION_STORAGE_KEY);
+    }
+  } catch (error) {
+    console.warn('Failed to persist link selection:', error);
+  }
 };
 
 export default function Resources() {
@@ -220,115 +249,101 @@ export default function Resources() {
     getFiltersForTab,
   } = useResourceFilters();
 
-  const {
-    selectedLink,
-    links: linkSelectionData,
-    totalLinks: linkSelectionTotal,
-    isLoading: linksLoading,
-    selectLink,
-  } = useLinkSelection(isAuthenticated && canViewLinks);
+  const [selectedLink, setSelectedLink] = useState<Resource | null>(null);
+  const [linkPage, setLinkPage] = useState(1);
+  const [linkPerPage, setLinkPerPage] = useState(100);
 
   const [institutionDirectory, setInstitutionDirectory] = useState<Record<number, string>>({});
   const [institutionMetadata, setInstitutionMetadata] = useState<Record<number, InstitutionOption>>({});
   const [userDirectory, setUserDirectory] = useState<Record<number, string>>({});
 
-  const filteredLinkSelectionData = useMemo(() => {
-    const typeFilter = filtersToValue(linkFilters.link_type);
-    const statusFilter = filtersToValue(linkFilters.status)?.toLowerCase();
-    const institutionIds = linkFilters.institution_ids || [];
-    const selectedInstitutionSet = new Set(institutionIds);
+  const normalizedLinkFilters = useMemo(() => ({
+    link_type: filtersToValue(linkFilters.link_type),
+    status: filtersToValue(linkFilters.status)?.toLowerCase(),
+    institution_ids: linkFilters.institution_ids,
+  }), [linkFilters.link_type, linkFilters.status, linkFilters.institution_ids]);
 
-    const matchesSelectedInstitutions = (institutionId?: number | null) => {
-      if (!institutionId || selectedInstitutionSet.size === 0) {
-        return false;
-      }
+  const linkFilterSignature = useMemo(
+    () => JSON.stringify(normalizedLinkFilters),
+    [normalizedLinkFilters]
+  );
 
-      let currentId: number | null | undefined = institutionId;
-      const visited = new Set<number>();
+  const linkQueryParams = useMemo(() => ({
+    link_type: normalizedLinkFilters.link_type,
+    status: normalizedLinkFilters.status,
+    institution_ids: normalizedLinkFilters.institution_ids,
+    sort_by: linkSortBy,
+    sort_direction: linkSortDirection,
+    page: linkPage,
+    per_page: linkPerPage,
+  }), [normalizedLinkFilters, linkSortBy, linkSortDirection, linkPage, linkPerPage]);
 
-      while (currentId && !visited.has(currentId)) {
-        if (selectedInstitutionSet.has(currentId)) {
-          return true;
-        }
-        visited.add(currentId);
-        const meta = institutionMetadata[currentId];
-        currentId = meta?.parent_id ?? null;
-      }
+  const {
+    data: linkResponse,
+    isLoading: linkLoading,
+    isFetching: linkFetching,
+    error: linkError,
+  } = useQuery({
+    queryKey: ['link-resources', linkQueryParams],
+    queryFn: () => resourceService.getLinksPaginated(linkQueryParams),
+    enabled: isAuthenticated && canViewLinks && activeTab === 'links',
+    keepPreviousData: true,
+    staleTime: 60 * 1000,
+  });
 
-      return false;
-    };
-
-    if (!linkSelectionData?.length) {
-      return [];
-    }
-
-    return linkSelectionData.filter((resource) => {
-      if (typeFilter && resource.link_type !== typeFilter) {
-        return false;
-      }
-
-      if (statusFilter) {
-        const resourceStatus = (resource.status || '').toLowerCase();
-        if (resourceStatus !== statusFilter) {
-          return false;
-        }
-      }
-
-      if (selectedInstitutionSet.size > 0) {
-        const resourceInstitutionId = resource.institution?.id ?? (resource as { institution_id?: number }).institution_id;
-        const resourceMatches = resourceInstitutionId
-          ? selectedInstitutionSet.has(resourceInstitutionId) || matchesSelectedInstitutions(resourceInstitutionId)
-          : false;
-
-        const targetsMatch = (resource.target_institutions || []).some((targetId) => {
-          const numericId = typeof targetId === 'string' ? Number(targetId) : targetId;
-          if (!numericId || Number.isNaN(numericId)) {
-            return false;
-          }
-          return selectedInstitutionSet.has(numericId) || matchesSelectedInstitutions(numericId);
-        });
-
-        if (!resourceMatches && !targetsMatch) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }, [linkSelectionData, linkFilters, institutionMetadata]);
-
-  const sortedLinkSelectionData = useMemo(() => {
-    const cloned = [...filteredLinkSelectionData];
-    cloned.sort((a, b) => {
-      if (linkSortBy === 'title') {
-        const titleA = (a.title || '').toLocaleLowerCase('az');
-        const titleB = (b.title || '').toLocaleLowerCase('az');
-        return linkSortDirection === 'asc'
-          ? titleA.localeCompare(titleB, 'az')
-          : titleB.localeCompare(titleA, 'az');
-      }
-
-      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
-      return linkSortDirection === 'asc' ? dateA - dateB : dateB - dateA;
-    });
-    return cloned;
-  }, [filteredLinkSelectionData, linkSortBy, linkSortDirection]);
+  const linkData = useMemo(() => linkResponse?.data || [], [linkResponse?.data]);
+  const linkTotal = linkResponse?.meta?.total ?? 0;
+  const isLinkLoading = linkLoading && !linkResponse;
+  const isLinkFetching = linkFetching;
+  const isLinkRefreshing = isLinkFetching && !isLinkLoading;
 
   useEffect(() => {
-    if (!sortedLinkSelectionData.length) {
-      if (selectedLink) {
-        selectLink(null);
+    if (activeTab !== 'links') {
+      return;
+    }
+    setLinkPage(1);
+  }, [linkFilterSignature, linkSortBy, linkSortDirection, activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== 'links') {
+      return;
+    }
+
+    if (!linkData.length) {
+      setSelectedLink(null);
+      return;
+    }
+
+    setSelectedLink((prev) => {
+      if (prev) {
+        const existing = linkData.find((link) => link.id === prev.id);
+        if (existing) {
+          return existing;
+        }
       }
+
+      const storedId = readStoredLinkId();
+      if (storedId) {
+        const stored = linkData.find((link) => link.id === storedId);
+        if (stored) {
+          return stored;
+        }
+      }
+
+      return linkData[0];
+    });
+  }, [linkData, activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== 'links') {
       return;
     }
+    persistLinkId(selectedLink ? selectedLink.id : null);
+  }, [selectedLink, activeTab]);
 
-    if (selectedLink && sortedLinkSelectionData.some((link) => link.id === selectedLink.id)) {
-      return;
-    }
-
-    selectLink(sortedLinkSelectionData[0]);
-  }, [sortedLinkSelectionData, selectedLink, selectLink]);
+  const handleSelectLink = useCallback((link: Resource | null) => {
+    setSelectedLink(link);
+  }, []);
 
   const {
     data: linkSharingOverview,
@@ -340,13 +355,6 @@ export default function Resources() {
     links: 0,
     documents: 0,
   });
-
-  useEffect(() => {
-    setTabTotals((prev) => ({
-      ...prev,
-      links: linkSelectionTotal || prev.links,
-    }));
-  }, [linkSelectionTotal]);
 
   const canLoadCreators = hasPermission?.('users.read') ?? false;
   const shouldLoadFilterSources = isAuthenticated && canViewResources && hasAdminResourceAccess;
@@ -517,6 +525,18 @@ export default function Resources() {
     }
   }, [resourceResponse?.meta?.total, resourcesData.length, activeTab]);
 
+  useEffect(() => {
+    if (linkResponse?.meta?.total === undefined || linkResponse?.meta?.total === null) {
+      return;
+    }
+    if (activeTab === 'links') {
+      setTabTotals((prev) => ({
+        ...prev,
+        links: linkResponse.meta?.total ?? linkData.length,
+      }));
+    }
+  }, [linkResponse?.meta?.total, linkData.length, activeTab]);
+
   const fallbackInstitutionOptions = useMemo(() => {
     const unique = new Map<number, InstitutionOption>();
     resourcesData.forEach((resource) => {
@@ -528,7 +548,7 @@ export default function Resources() {
         });
       }
     });
-    sortedLinkSelectionData.forEach((resource) => {
+    linkData.forEach((resource) => {
       if (resource.institution?.id) {
         unique.set(resource.institution.id, {
           id: resource.institution.id,
@@ -549,7 +569,7 @@ export default function Resources() {
       });
     });
     return Array.from(unique.values());
-  }, [resourcesData, sortedLinkSelectionData, institutionMetadata]);
+  }, [resourcesData, linkData, institutionMetadata]);
 
   const fallbackCreatorOptions = useMemo(() => {
     const unique = new Map<number, { id: number; first_name: string; last_name: string }>();
@@ -600,21 +620,35 @@ export default function Resources() {
     return map;
   }, [availableInstitutions]);
 
-  const {
-    groupedResources: groupedLinkResources,
-    totalResources: filteredLinkCount,
-  } = useResourceGrouping(
-    sortedLinkSelectionData,
+  const { groupedResources: groupedLinkResources } = useResourceGrouping(
+    linkData,
     availableInstitutions,
     linkGroupingMode
   );
+  const filteredLinkCount = linkResponse?.meta?.total ?? linkData.length;
+  const linkPaginationMeta = linkResponse?.meta;
+  const linkPaginationCurrent = linkPaginationMeta?.current_page ?? linkPage;
+  const linkPaginationPerPage = linkPaginationMeta?.per_page ?? linkPerPage;
+  const linkPaginationTotalItems = linkPaginationMeta?.total ?? linkData.length;
+  const linkPaginationTotalPages = Math.max(1, Math.ceil(linkPaginationTotalItems / linkPaginationPerPage));
+  const linkPaginationStartIndex = (linkPaginationCurrent - 1) * linkPaginationPerPage;
+  const linkPaginationEndIndex = Math.min(linkPaginationStartIndex + linkPaginationPerPage, linkPaginationTotalItems);
+  useEffect(() => {
+    if (activeTab !== 'links') {
+      return;
+    }
+
+    if (linkPaginationTotalPages > 0 && linkPage > linkPaginationTotalPages) {
+      setLinkPage(linkPaginationTotalPages);
+    }
+  }, [linkPaginationTotalPages, linkPage, activeTab]);
 
   const availableCreators = remoteCreatorOptions && remoteCreatorOptions.length > 0
     ? remoteCreatorOptions
     : fallbackCreatorOptions;
 
   useEffect(() => {
-    if (!availableInstitutions?.length && !resourcesData.length && !sortedLinkSelectionData.length) {
+    if (!availableInstitutions?.length && !resourcesData.length && !linkData.length) {
       return;
     }
     setInstitutionDirectory((prev) => {
@@ -632,7 +666,7 @@ export default function Resources() {
           changed = true;
         }
       });
-      sortedLinkSelectionData.forEach((resource) => {
+      linkData.forEach((resource) => {
         if (resource.institution?.id && resource.institution?.name && !next[resource.institution.id]) {
           next[resource.institution.id] = resource.institution.name;
           changed = true;
@@ -640,10 +674,10 @@ export default function Resources() {
       });
       return changed ? next : prev;
     });
-  }, [availableInstitutions, resourcesData, sortedLinkSelectionData]);
+  }, [availableInstitutions, resourcesData, linkData]);
 
   useEffect(() => {
-    if (!resourcesData.length && !sortedLinkSelectionData.length) {
+    if (!resourcesData.length && !linkData.length) {
       return;
     }
     setInstitutionMetadata((prev) => {
@@ -671,10 +705,10 @@ export default function Resources() {
         }
       };
       resourcesData.forEach(hydrateFromResource);
-      sortedLinkSelectionData.forEach(hydrateFromResource);
+      linkData.forEach(hydrateFromResource);
       return changed ? next : prev;
     });
-  }, [resourcesData, sortedLinkSelectionData]);
+  }, [resourcesData, linkData]);
 
   useEffect(() => {
     if (!remoteInstitutionOptions?.length) {
@@ -735,7 +769,7 @@ export default function Resources() {
 
   const linkTargetUserIds = useMemo(() => {
     const ids = new Set<number>();
-    const sources = [...resourcesData, ...sortedLinkSelectionData];
+    const sources = [...resourcesData, ...linkData];
     sources.forEach((resource) => {
       if (resource.type !== 'link' || !Array.isArray(resource.target_users)) {
         return;
@@ -748,11 +782,11 @@ export default function Resources() {
       });
     });
     return Array.from(ids);
-  }, [resourcesData, sortedLinkSelectionData]);
+  }, [resourcesData, linkData]);
 
   const resourceCreatorIds = useMemo(() => {
     const ids = new Set<number>();
-    const sources = [...resourcesData, ...sortedLinkSelectionData];
+    const sources = [...resourcesData, ...linkData];
     sources.forEach((resource) => {
       const creatorId = typeof resource.created_by === 'string'
         ? Number(resource.created_by)
@@ -765,11 +799,11 @@ export default function Resources() {
       ids.add(creatorId);
     });
     return Array.from(ids);
-  }, [resourcesData, sortedLinkSelectionData]);
+  }, [resourcesData, linkData]);
 
   const resourceInstitutionIds = useMemo(() => {
     const ids = new Set<number>();
-    const sources = [...resourcesData, ...sortedLinkSelectionData];
+    const sources = [...resourcesData, ...linkData];
     sources.forEach((resource) => {
       const resourceInstitutionId = resource.institution?.id ?? (resource as { institution_id?: number }).institution_id;
       if (resourceInstitutionId) {
@@ -785,7 +819,7 @@ export default function Resources() {
       });
     });
     return Array.from(ids);
-  }, [resourcesData, sortedLinkSelectionData]);
+  }, [resourcesData, linkData]);
 
   useEffect(() => {
     const missing = linkTargetUserIds.filter((id) => !userDirectory[id]);
@@ -1131,8 +1165,8 @@ export default function Resources() {
   const statsToRender = shouldUseGlobalStats ? stats! : filteredStats;
 
   const linkTabCount = activeTab === 'links'
-    ? linkSelectionTotal || tabTotals.links
-    : (tabTotals.links || linkSelectionTotal || statsToRender.total_links || 0);
+    ? linkResponse?.meta?.total ?? tabTotals.links
+    : (tabTotals.links || statsToRender.total_links || 0);
 
   const documentTabCount = activeTab === 'documents'
     ? resourceResponse?.meta?.total ?? resourcesData.length ?? tabTotals.documents
@@ -1217,7 +1251,7 @@ export default function Resources() {
     // Cancel any pending queries first to avoid race conditions
     queryClient.cancelQueries({ queryKey: ['resources'] });
     queryClient.cancelQueries({ queryKey: ['resource-stats'] });
-    queryClient.cancelQueries({ queryKey: ['links-selection'] });
+    queryClient.cancelQueries({ queryKey: ['link-resources'] });
 
     // Then invalidate (will trigger controlled refetch)
     queryClient.invalidateQueries({
@@ -1229,7 +1263,7 @@ export default function Resources() {
       refetchType: 'active'
     });
     queryClient.invalidateQueries({
-      queryKey: ['links-selection'],
+      queryKey: ['link-resources'],
       refetchType: 'active'
     });
     if (resource.type === 'link') {
@@ -1251,7 +1285,7 @@ export default function Resources() {
     const isEditing = !!linkBeingEdited;
     handleAfterResourceSaved(resource, isEditing);
     if (resource.type === 'link') {
-      selectLink(resource);
+      handleSelectLink(resource);
     }
     setLinkBeingEdited(null);
     setIsLinkModalOpen(false);
@@ -1267,7 +1301,7 @@ export default function Resources() {
   const handleBulkUploadSuccess = (result: LinkBulkUploadResult) => {
     queryClient.invalidateQueries({ queryKey: ['resources'] });
     queryClient.invalidateQueries({ queryKey: ['resource-stats'] });
-    queryClient.invalidateQueries({ queryKey: ['links-selection'] });
+    queryClient.invalidateQueries({ queryKey: ['link-resources'] });
     if (selectedLink) {
       queryClient.invalidateQueries({ queryKey: ['link-sharing-overview', selectedLink.id] });
     }
@@ -1407,6 +1441,32 @@ export default function Resources() {
         </TabsList>
 
         <TabsContent value="links" className="mt-6 space-y-6">
+          {linkError && (
+            <Alert variant="destructive">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Linklər yüklənə bilmədi</AlertTitle>
+                </div>
+                <AlertDescription>
+                  {linkError instanceof Error
+                    ? linkError.message
+                    : 'Link məlumatlarını yükləyərkən gözlənilməz xəta baş verdi.'}
+                </AlertDescription>
+                <div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => queryClient.invalidateQueries({ queryKey: ['link-resources'] })}
+                  >
+                    <Loader2 className="mr-2 h-4 w-4" />
+                    Yenidən cəhd et
+                  </Button>
+                </div>
+              </div>
+            </Alert>
+          )}
+
           <ResourceGroupingToolbar
             groupingMode={linkGroupingMode}
             onGroupingModeChange={setLinkGroupingMode}
@@ -1418,8 +1478,14 @@ export default function Resources() {
             }}
           />
 
-          <p className="text-sm text-muted-foreground">
-            {filteredLinkCount} link göstərilir
+          <p className="text-sm text-muted-foreground flex items-center gap-2">
+            {linkData.length} link göstərilir (ümumi {filteredLinkCount})
+            {isLinkRefreshing && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Yenilənir...
+              </span>
+            )}
           </p>
 
           <LinkFilterPanelMinimalist
@@ -1430,13 +1496,35 @@ export default function Resources() {
             onToggle={toggleFilterPanel}
           />
 
-          <LinkFilterResultsSummary resources={sortedLinkSelectionData} />
+          <LinkFilterResultsSummary resources={linkData} totalCount={filteredLinkCount} />
+
+          {activeTab === 'links' && (
+            <TablePagination
+              currentPage={linkPaginationCurrent}
+              totalPages={linkPaginationTotalPages}
+              totalItems={linkPaginationTotalItems}
+              itemsPerPage={linkPaginationPerPage}
+              startIndex={linkPaginationStartIndex}
+              endIndex={linkPaginationEndIndex}
+              onPageChange={(page) => setLinkPage(page)}
+              onPrevious={() => setLinkPage((prev) => Math.max(1, prev - 1))}
+              onNext={() => setLinkPage((prev) => Math.min(linkPaginationTotalPages, prev + 1))}
+              canGoPrevious={linkPaginationCurrent > 1}
+              canGoNext={linkPaginationCurrent < linkPaginationTotalPages}
+              onItemsPerPageChange={(value) => {
+                setLinkPerPage(value);
+                setLinkPage(1);
+              }}
+            />
+          )}
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             <div className="space-y-4">
               <LinkManagementTable
-                links={sortedLinkSelectionData}
-                isLoading={linksLoading}
+                links={linkData}
+                totalCount={linkTotal}
+                isLoading={isLinkLoading}
+                isRefreshing={isLinkRefreshing}
                 onResourceAction={handleResourceAction}
               />
               <GroupedResourceDisplay
@@ -1452,10 +1540,11 @@ export default function Resources() {
 
             <div className="space-y-4">
               <LinkSelectionCard
-                links={sortedLinkSelectionData}
+                links={linkData}
                 selectedLink={selectedLink}
-                onSelect={selectLink}
-                isLoading={linksLoading}
+                onSelect={(link) => handleSelectLink(link)}
+                isLoading={isLinkLoading}
+                isRefreshing={isLinkRefreshing}
               />
               <LinkSharingOverview
                 selectedLink={selectedLink}
