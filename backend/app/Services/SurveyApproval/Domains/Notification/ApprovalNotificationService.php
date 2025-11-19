@@ -130,26 +130,11 @@ class ApprovalNotificationService
         SurveyResponse $response,
         User $approver
     ): void {
-        $submitter = $approvalRequest->submitter;
-
-        if (!$submitter) {
-            return;
-        }
-
-        \App\Models\Notification::create([
-            'user_id' => $submitter->id,
-            'type' => 'approval_completed',
-            'title' => 'Cavab Təsdiqləndi',
-            'message' => "{$approver->name} tərəfindən survey cavabınız təsdiqləndi",
-            'data' => [
-                'approval_request_id' => $approvalRequest->id,
-                'survey_response_id' => $response->id,
-                'approver' => $approver->name,
-                'approved_at' => now()->toISOString(),
-                'action_url' => "/surveys/{$response->survey_id}/responses",
-            ],
-            'is_read' => false,
-        ]);
+        $this->notificationService->notifySubmitterAboutApproval(
+            $approvalRequest,
+            $response,
+            $approver
+        );
     }
 
     /**
@@ -167,26 +152,12 @@ class ApprovalNotificationService
         User $approver,
         ?string $comments
     ): void {
-        $submitter = $approvalRequest->submitter;
-
-        if (!$submitter) {
-            return;
-        }
-
-        \App\Models\Notification::create([
-            'user_id' => $submitter->id,
-            'type' => 'revision_required',
-            'title' => 'Düzəliş Tələb Olunur',
-            'message' => "{$approver->name} cavabınızı yenidən nəzərdən keçirilməsi üçün göndərdi",
-            'data' => [
-                'approval_request_id' => $approvalRequest->id,
-                'survey_response_id' => $response->id,
-                'approver' => $approver->name,
-                'comments' => $comments,
-                'action_url' => "/surveys/{$response->survey_id}/respond",
-            ],
-            'is_read' => false,
-        ]);
+        $this->notificationService->notifySubmitterAboutRevision(
+            $approvalRequest,
+            $response,
+            $approver,
+            $comments
+        );
     }
 
     /**

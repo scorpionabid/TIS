@@ -2,20 +2,17 @@
 
 namespace App\Services;
 
+use App\Models\ActivityLog;
 use App\Models\Survey;
 use App\Models\SurveyAuditLog;
-use App\Models\ActivityLog;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Exception;
 
 class SurveyStatusService
 {
-    protected NotificationService $notificationService;
-
-    public function __construct(NotificationService $notificationService)
+    public function __construct(protected SurveyNotificationService $surveyNotificationService)
     {
-        $this->notificationService = $notificationService;
     }
     /**
      * Publish survey
@@ -63,7 +60,7 @@ class SurveyStatusService
                     'target_institutions' => $survey->target_institutions
                 ]);
                 try {
-                    $this->sendPublishNotification($survey);
+                    $this->surveyNotificationService->notifySurveyPublished($survey);
                     \Log::info('Survey publish notification sent successfully from SurveyStatusService', [
                         'survey_id' => $survey->id
                     ]);
@@ -558,44 +555,4 @@ class SurveyStatusService
         ActivityLog::logActivity($data);
     }
 
-    /**
-     * Send notification when survey is published
-     */
-    protected function sendPublishNotification(Survey $survey): void
-    {
-        $templateKey = 'survey_published';
-
-        // Load creator relationship if not already loaded
-        if (!$survey->relationLoaded('creator')) {
-            $survey->load('creator');
-        }
-
-        // Prepare notification variables
-        $variables = [
-            'survey_title' => $survey->title,
-            'survey_description' => $survey->description ?? '',
-            'creator_name' => $survey->creator->name ?? 'Sistem',
-            'deadline' => $survey->end_date ? $survey->end_date->format('d.m.Y H:i') : '',
-        ];
-
-        // Prepare recipients with institution-based targeting
-        $recipients = [
-            'institutions' => $survey->target_institutions,
-            'target_roles' => config('notification_roles.survey_notification_roles', [
-                'schooladmin', 'məktəbadmin', 'müəllim', 'teacher', 'təhsilçi'
-            ])
-        ];
-
-        $options = [
-            'related' => $survey,
-            'priority' => 'normal',
-            'channels' => ['in_app'], // Only in-app notifications to avoid duplicates
-            'action_data' => [
-                'action_url' => "/survey-response/{$survey->id}",
-                'survey_id' => $survey->id,
-            ],
-        ];
-
-        $this->notificationService->sendFromTemplate($templateKey, $recipients, $variables, $options);
-    }
 }

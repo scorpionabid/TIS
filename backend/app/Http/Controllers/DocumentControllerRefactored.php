@@ -118,6 +118,7 @@ class DocumentControllerRefactored extends Controller
 
             // Log document upload
             $this->activityService->logActivity($document, $user, 'upload', $request);
+            $this->sendDocumentLifecycleNotification($document, 'uploaded');
 
             return response()->json([
                 'success' => true,
@@ -194,6 +195,7 @@ class DocumentControllerRefactored extends Controller
 
             // Log update activity
             $this->activityService->logActivity($document, $user, 'update', $request);
+            $this->sendDocumentLifecycleNotification($updatedDocument, 'updated');
 
             return response()->json([
                 'success' => true,
@@ -661,6 +663,77 @@ class DocumentControllerRefactored extends Controller
     }
 
     /**
+     * Send document lifecycle notification (upload/update)
+     */
+    private function sendDocumentLifecycleNotification(Document $document, string $action): void
+    {
+        try {
+            $targetUserIds = $this->resolveDocumentNotificationUsers($document);
+
+            if (empty($targetUserIds)) {
+                return;
+            }
+
+            $this->notificationService->sendDocumentNotification(
+                $document,
+                $action,
+                $targetUserIds,
+                [
+                    'creator_name' => $document->uploader->name ?? 'Sistem',
+                    'creator_institution' => $document->institution?->name ?? 'N/A',
+                    'document_title' => $document->title,
+                    'document_type' => $document->file_type ?? 'document',
+                    'description' => $document->description ?? '',
+                    'expires_at' => $document->expires_at?->format('d.m.Y H:i'),
+                    'action_url' => "/documents/{$document->id}"
+                ]
+            );
+        } catch (\Throwable $e) {
+            \Log::warning('Document lifecycle notification failed', [
+                'document_id' => $document->id ?? null,
+                'action' => $action,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Resolve document notification user IDs from institution/role targeting
+     */
+    private function resolveDocumentNotificationUsers(Document $document): array
+    {
+        $institutionTargets = $document->accessible_institutions;
+
+        if (empty($institutionTargets) && !empty($document->allowed_institutions)) {
+            $institutionTargets = $document->allowed_institutions;
+        }
+
+        if ((empty($institutionTargets) || !is_array($institutionTargets)) && $document->institution_id) {
+            $institutionTargets = [$document->institution_id];
+        }
+
+        $institutionTargets = array_values(array_unique(array_filter((array) $institutionTargets)));
+        $userIds = [];
+
+        if (!empty($institutionTargets)) {
+            $targetRoles = config('notification_roles.resource_notification_roles', [
+                'sektoradmin', 'schooladmin', 'məktəbadmin', 'müəllim', 'teacher'
+            ]);
+
+            $userIds = \App\Services\InstitutionNotificationHelper::expandInstitutionsToUsers(
+                $institutionTargets,
+                $targetRoles
+            );
+        }
+
+        if (!empty($document->allowed_users)) {
+            $userIds = array_merge($userIds, $document->allowed_users);
+        }
+
+        return array_values(array_unique(array_filter($userIds)));
+    }
+
+    /**
      * Send document share notification to target users
      */
     private function sendDocumentShareNotification($document, $share, $user): void
@@ -673,8 +746,8 @@ class DocumentControllerRefactored extends Controller
                 $targetUserIds = $share['user_ids'];
             } elseif (isset($share['institution_ids']) && is_array($share['institution_ids'])) {
                 // Use InstitutionNotificationHelper to expand institution IDs to user IDs
-                $targetRoles = config('notification_roles.document_notification_roles', [
-                    'sektoradmin', 'schooladmin', 'müəllim'
+                $targetRoles = config('notification_roles.resource_notification_roles', [
+                    'sektoradmin', 'schooladmin', 'məktəbadmin', 'müəllim', 'teacher'
                 ]);
                 $targetUserIds = \App\Services\InstitutionNotificationHelper::expandInstitutionsToUsers(
                     $share['institution_ids'],

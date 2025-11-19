@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\DataApprovalRequest;
 use App\Models\Survey;
+use App\Models\SurveyResponse;
 use App\Models\User;
 use Carbon\Carbon;
 
@@ -15,10 +17,14 @@ use Carbon\Carbon;
 class SurveyNotificationService
 {
     protected NotificationService $notificationService;
+    protected InstitutionNotificationHelper $institutionNotificationHelper;
 
-    public function __construct(NotificationService $notificationService)
-    {
+    public function __construct(
+        NotificationService $notificationService,
+        InstitutionNotificationHelper $institutionNotificationHelper
+    ) {
         $this->notificationService = $notificationService;
+        $this->institutionNotificationHelper = $institutionNotificationHelper;
     }
     /**
      * İstifadəçinin survey assignment notification-larını əldə et
@@ -192,6 +198,33 @@ class SurveyNotificationService
     }
 
     /**
+     * Send notification when survey is published to institution targets
+     */
+    public function notifySurveyPublished(Survey $survey): void
+    {
+        $targetUserIds = $this->expandSurveyTargetUsers($survey);
+        if (empty($targetUserIds)) {
+            return;
+        }
+
+        $actionData = [
+            'action_url' => "/survey-response/{$survey->id}",
+            'survey_id' => $survey->id,
+        ];
+
+        $this->notificationService->sendSurveyNotification(
+            $survey,
+            'published',
+            $targetUserIds,
+            $actionData,
+            [
+                'action_data' => $actionData,
+                'channels' => ['in_app'],
+            ]
+        );
+    }
+
+    /**
      * Send notification when survey is approved
      */
     public function notifySurveyApproved(Survey $survey, array $targetUserIds, array $extraData = []): array
@@ -223,8 +256,8 @@ class SurveyNotificationService
      * Delegated from SurveyApprovalService (Sprint 7 Phase 2)
      */
     public function notifySubmitterAboutRejection(
-        \App\Models\DataApprovalRequest $approvalRequest,
-        \App\Models\SurveyResponse $response,
+        DataApprovalRequest $approvalRequest,
+        SurveyResponse $response,
         User $approver,
         ?string $reason
     ): void {
@@ -308,5 +341,106 @@ class SurveyNotificationService
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * Notify submitter about approval success
+     */
+    public function notifySubmitterAboutApproval(
+        DataApprovalRequest $approvalRequest,
+        SurveyResponse $response,
+        User $approver
+    ): void {
+        $submitter = $approvalRequest->submitter;
+
+        if (!$submitter instanceof User) {
+            return;
+        }
+
+        $survey = $response->survey ?? $approvalRequest->survey ?? null;
+
+        $message = sprintf(
+            '%s tərəfindən "%s" sorğusuna verdiyiniz cavab təsdiqləndi.',
+            $approver->name ?? 'Sistem',
+            $survey?->title ?? 'Survey'
+        );
+
+        $this->notificationService->send([
+            'user_id' => $submitter->id,
+            'title' => 'Survey cavabınız təsdiqləndi',
+            'message' => $message,
+            'type' => 'approval_completed',
+            'channel' => 'in_app',
+            'priority' => 'normal',
+            'related_type' => Survey::class,
+            'related_id' => $response->survey_id,
+            'metadata' => [
+                'survey_id' => $response->survey_id,
+                'response_id' => $response->id,
+                'approver_id' => $approver->id,
+                'approver_name' => $approver->name ?? $approver->username ?? null,
+            ],
+        ]);
+    }
+
+    /**
+     * Notify submitter about revision requirement
+     */
+    public function notifySubmitterAboutRevision(
+        DataApprovalRequest $approvalRequest,
+        SurveyResponse $response,
+        User $approver,
+        ?string $comments
+    ): void {
+        $submitter = $approvalRequest->submitter;
+
+        if (!$submitter instanceof User) {
+            return;
+        }
+
+        $survey = $response->survey ?? $approvalRequest->survey ?? null;
+
+        $message = sprintf(
+            '%s cavabınızı yenidən baxılması üçün geri göndərdi.',
+            $approver->name ?? 'Sistem'
+        );
+
+        $this->notificationService->send([
+            'user_id' => $submitter->id,
+            'title' => 'Survey cavabında düzəliş tələb olunur',
+            'message' => $message,
+            'type' => 'revision_required',
+            'channel' => 'in_app',
+            'priority' => 'normal',
+            'related_type' => Survey::class,
+            'related_id' => $response->survey_id,
+            'metadata' => [
+                'survey_id' => $response->survey_id,
+                'response_id' => $response->id,
+                'approver_id' => $approver->id,
+                'approver_name' => $approver->name ?? $approver->username ?? null,
+                'comments' => $comments,
+            ],
+        ]);
+    }
+
+    /**
+     * Expand survey target institutions to user IDs
+     */
+    private function expandSurveyTargetUsers(Survey $survey): array
+    {
+        $institutionIds = $survey->target_institutions ?? [];
+        if (empty($institutionIds)) {
+            return [];
+        }
+
+        $targetRoles = config('notification_roles.survey_notification_roles', [
+            'schooladmin', 'məktəbadmin', 'müəllim', 'teacher'
+        ]);
+
+        return $this->institutionNotificationHelper->doExpandInstitutionsToUsers(
+            $institutionIds,
+            $targetRoles
+        );
     }
 }

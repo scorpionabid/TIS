@@ -4,7 +4,6 @@ namespace App\Services\LinkSharing\Domains\Crud;
 
 use App\Models\LinkShare;
 use App\Services\LinkSharing\Domains\Permission\LinkPermissionService;
-use App\Services\LinkSharing\Domains\Notification\LinkNotificationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -20,8 +19,7 @@ use Exception;
 class LinkCrudManager
 {
     public function __construct(
-        protected LinkPermissionService $permissionService,
-        protected LinkNotificationService $notificationService
+        protected LinkPermissionService $permissionService
     ) {}
 
     /**
@@ -69,19 +67,6 @@ class LinkCrudManager
             Log::info('Creating LinkShare with data:', $linkData);
 
             $linkShare = LinkShare::create($linkData);
-
-            // Send notifications to target institutions if specified
-            if (!empty($data['target_institutions'])) {
-                try {
-                    $this->notificationService->sendLinkNotification($linkShare, 'link_shared', $data['target_institutions'], $user);
-                } catch (\Exception $e) {
-                    Log::error('Failed to send link sharing notification', [
-                        'link_id' => $linkShare->id,
-                        'target_institutions' => $data['target_institutions'],
-                        'error' => $e->getMessage()
-                    ]);
-                }
-            }
 
             return $linkShare->load(['sharedBy', 'institution']);
         });

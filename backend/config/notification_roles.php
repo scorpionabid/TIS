@@ -77,6 +77,17 @@ return [
     ],
 
     /**
+     * Resource (document/link) notification roles
+     */
+    'resource_notification_roles' => [
+        'sektoradmin',
+        'schooladmin',
+        'məktəbadmin',
+        'müəllim',
+        'teacher'
+    ],
+
+    /**
      * Task assignment notification roles (comprehensive list)
      */
     'task_assignment_notification_roles' => [

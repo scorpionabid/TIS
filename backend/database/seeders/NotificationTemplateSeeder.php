@@ -287,6 +287,26 @@ ATIS System'
                 ]
             ],
             [
+                'key' => 'link_updated',
+                'name' => 'Link Updated',
+                'type' => 'link_updated',
+                'subject_template' => 'Link yeniləndi: {link_title}',
+                'title_template' => 'Link yeniləndi',
+                'message_template' => '{creator_name} "{link_title}" linkini yenilədi.',
+                'channels' => ['in_app'],
+                'priority' => 'normal',
+                'available_variables' => [
+                    'link_title', 'creator_name', 'link_url', 'share_scope'
+                ],
+                'translations' => [
+                    'en' => [
+                        'subject_template' => 'Link updated: {link_title}',
+                        'title_template' => 'Link updated',
+                        'message_template' => '{creator_name} updated the link "{link_title}".',
+                    ]
+                ]
+            ],
+            [
                 'key' => 'document_shared',
                 'name' => 'Document Shared',
                 'type' => 'document_shared',
@@ -327,6 +347,46 @@ Please log into the system to view the document.
 
 Best regards,
 ATIS System'
+                    ]
+                ]
+            ],
+            [
+                'key' => 'document_uploaded',
+                'name' => 'Document Uploaded',
+                'type' => 'document_uploaded',
+                'subject_template' => 'Yeni sənəd əlavə olundu: {document_title}',
+                'title_template' => 'Yeni sənəd',
+                'message_template' => '{creator_name} tərəfindən "{document_title}" sənədi sistemə əlavə edildi.',
+                'channels' => ['in_app'],
+                'priority' => 'normal',
+                'available_variables' => [
+                    'document_title', 'creator_name', 'creator_institution', 'action_url'
+                ],
+                'translations' => [
+                    'en' => [
+                        'subject_template' => 'New document uploaded: {document_title}',
+                        'title_template' => 'New document',
+                        'message_template' => '{creator_name} uploaded "{document_title}" to the system.',
+                    ]
+                ]
+            ],
+            [
+                'key' => 'document_updated',
+                'name' => 'Document Updated',
+                'type' => 'document_updated',
+                'subject_template' => 'Sənəd yeniləndi: {document_title}',
+                'title_template' => 'Sənəd yeniləndi',
+                'message_template' => '{creator_name} "{document_title}" sənədini yenilədi.',
+                'channels' => ['in_app'],
+                'priority' => 'normal',
+                'available_variables' => [
+                    'document_title', 'creator_name', 'creator_institution', 'action_url'
+                ],
+                'translations' => [
+                    'en' => [
+                        'subject_template' => 'Document updated: {document_title}',
+                        'title_template' => 'Document updated',
+                        'message_template' => '{creator_name} updated the document "{document_title}".',
                     ]
                 ]
             ],

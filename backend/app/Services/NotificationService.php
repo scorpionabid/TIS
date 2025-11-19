@@ -528,7 +528,13 @@ class NotificationService
     /**
      * Send survey notification with action
      */
-    public function sendSurveyNotification(Survey $survey, string $action, array $users, array $extraData = []): array
+    public function sendSurveyNotification(
+        Survey $survey,
+        string $action,
+        array $users,
+        array $extraData = [],
+        array $extraOptions = []
+    ): array
     {
         $templateKey = "survey_{$action}"; // survey_assigned, survey_published, survey_approved, etc.
 
@@ -541,10 +547,10 @@ class NotificationService
         ], $extraData);
 
         $recipients = ['users' => $users];
-        $options = [
+        $options = array_merge([
             'related' => $survey,
             'priority' => $this->mapSurveyPriorityToNotificationPriority($survey->priority ?? 'normal'),
-        ];
+        ], $extraOptions);
 
         return $this->sendFromTemplate($templateKey, $recipients, $variables, $options);
     }
@@ -636,7 +642,13 @@ class NotificationService
     /**
      * Send task notification
      */
-    public function sendTaskNotification($task, string $action, array $users, array $extraData = []): array
+    public function sendTaskNotification(
+        $task,
+        string $action,
+        array $users,
+        array $extraData = [],
+        array $extraOptions = []
+    ): array
     {
         $templateKey = "task_{$action}"; // task_assigned, task_completed, task_deadline, etc.
 
@@ -656,10 +668,10 @@ class NotificationService
         ], $extraData);
 
         $recipients = ['users' => $users];
-        $options = [
+        $options = array_merge([
             'related' => $task,
             'priority' => $this->mapTaskPriorityToNotificationPriority($task->priority ?? 'normal'),
-        ];
+        ], $extraOptions);
 
         return $this->sendFromTemplate($templateKey, $recipients, $variables, $options);
     }

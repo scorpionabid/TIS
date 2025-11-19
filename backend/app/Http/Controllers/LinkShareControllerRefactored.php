@@ -158,6 +158,7 @@ class LinkShareControllerRefactored extends BaseController
 
             $user = Auth::user();
             $linkShare = $this->linkSharingService->updateLinkShare($id, $validated, $user);
+            $this->sendLinkShareNotification($linkShare, $validated, $user, 'updated');
             
             return $this->successResponse($linkShare, 'Bağlantı yeniləndi');
         }, 'linkshare.update');
@@ -518,22 +519,36 @@ class LinkShareControllerRefactored extends BaseController
     /**
      * Send link share notification to target users
      */
-    private function sendLinkShareNotification($linkShare, array $shareData, $user): void
+    private function sendLinkShareNotification($linkShare, array $shareData, $user, string $action = 'shared'): void
     {
         try {
             $targetUserIds = [];
 
-            // Get target user IDs based on institutions and roles
-            if (isset($shareData['target_institutions']) && !empty($shareData['target_institutions'])) {
-                $targetRoles = config('notification_roles.document_notification_roles', [
-                    'sektoradmin', 'schooladmin', 'müəllim'
-                ]);
+            $targetInstitutions = $shareData['target_institutions'] ?? $linkShare['target_institutions'] ?? [];
+            if (is_string($targetInstitutions)) {
+                $decoded = json_decode($targetInstitutions, true);
+                $targetInstitutions = is_array($decoded) ? $decoded : [];
+            }
+
+            if (!empty($targetInstitutions)) {
+                $targetRoles = $shareData['target_roles']
+                    ?? $linkShare['target_roles']
+                    ?? config('notification_roles.resource_notification_roles', [
+                        'sektoradmin', 'schooladmin', 'məktəbadmin', 'müəllim', 'teacher'
+                    ]);
 
                 $targetUserIds = \App\Services\InstitutionNotificationHelper::expandInstitutionsToUsers(
-                    $shareData['target_institutions'],
+                    $targetInstitutions,
                     $targetRoles
                 );
             }
+
+            $directUsers = $shareData['target_users'] ?? $linkShare['target_users'] ?? [];
+            if (!empty($directUsers)) {
+                $targetUserIds = array_merge($targetUserIds, $directUsers);
+            }
+
+            $targetUserIds = array_values(array_unique(array_filter($targetUserIds)));
 
             if (!empty($targetUserIds)) {
                 // Prepare notification data
@@ -542,16 +557,16 @@ class LinkShareControllerRefactored extends BaseController
                     'creator_institution' => $user->institution?->name ?? 'N/A',
                     'link_title' => $linkShare['title'] ?? 'Yeni Bağlantı',
                     'link_url' => $linkShare['url'] ?? '',
-                    'link_type' => $shareData['link_type'] ?? 'external',
-                    'description' => $shareData['description'] ?? '',
-                    'share_scope' => $shareData['share_scope'] ?? 'institutional',
-                    'expires_at' => isset($shareData['expires_at']) ? date('d.m.Y H:i', strtotime($shareData['expires_at'])) : null,
+                    'link_type' => $shareData['link_type'] ?? $linkShare['link_type'] ?? 'external',
+                    'description' => $shareData['description'] ?? $linkShare['description'] ?? '',
+                    'share_scope' => $shareData['share_scope'] ?? $linkShare['share_scope'] ?? 'institutional',
+                    'expires_at' => optional($linkShare->expires_at)->format('d.m.Y H:i'),
                     'action_url' => "/links/{$linkShare['id']}"
                 ];
 
                 $this->notificationService->sendLinkNotification(
                     $linkShare,
-                    'shared',
+                    $action,
                     $targetUserIds,
                     $notificationData
                 );

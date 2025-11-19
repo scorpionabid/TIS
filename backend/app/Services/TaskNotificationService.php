@@ -23,13 +23,25 @@ class TaskNotificationService
     public function notifyTaskCreated(Task $task): void
     {
         try {
+            $task->loadMissing(['creator', 'assignedInstitution']);
             $targetUserIds = $this->getUsersInInstitutions($task->target_institutions ?? []);
 
             if (!empty($targetUserIds)) {
-                $this->notificationService->sendTaskNotification($task, 'assigned', [
-                    'creator_name' => $task->creator->name ?? 'Sistem',
-                    'recipients' => ['users' => $targetUserIds],
-                ]);
+                $this->notificationService->sendTaskNotification(
+                    $task,
+                    'assigned',
+                    $targetUserIds,
+                    [
+                        'creator_name' => $task->creator->name ?? 'Sistem',
+                        'creator_institution' => $task->creator?->institution?->name
+                            ?? $task->assignedInstitution?->name
+                            ?? 'N/A',
+                        'description' => $task->description ?? '',
+                        'due_date' => $task->deadline?->format('d.m.Y H:i'),
+                        'target_institution' => $task->assignedInstitution?->name ?? '',
+                        'action_url' => "/tasks/{$task->id}",
+                    ]
+                );
             }
 
             Log::info('Task creation notification sent', [
@@ -55,13 +67,18 @@ class TaskNotificationService
         try {
             // Notify task creator about status updates
             if ($task->created_by !== $updatedBy->id) {
-                $this->notificationService->sendTaskNotification($task, 'status_update', [
-                    'old_status' => $oldStatus,
-                    'new_status' => $task->status,
-                    'updated_by' => $updatedBy->name,
-                    'institution' => $updatedBy->institution->name ?? 'Unknown',
-                    'recipients' => ['users' => [$task->created_by]],
-                ]);
+                $this->notificationService->sendTaskNotification(
+                    $task,
+                    'status_update',
+                    [$task->created_by],
+                    [
+                        'old_status' => $oldStatus,
+                        'new_status' => $task->status,
+                        'updated_by' => $updatedBy->name,
+                        'institution' => $updatedBy->institution->name ?? 'Unknown',
+                        'action_url' => "/tasks/{$task->id}",
+                    ]
+                );
             }
 
             // If task is submitted for review, notify SektorAdmin
@@ -100,15 +117,20 @@ class TaskNotificationService
             }
 
             if (!empty($targetUserIds)) {
-                $this->notificationService->sendTaskNotification($task, $action, [
-                    'decision' => $decision,
-                    'approver' => $approver->name,
-                    'reason' => $reason,
-                    'recipients' => ['users' => $targetUserIds],
-                    'options' => [
-                        'priority' => $isApproved ? 'low' : 'medium',
+                $this->notificationService->sendTaskNotification(
+                    $task,
+                    $action,
+                    $targetUserIds,
+                    [
+                        'decision' => $decision,
+                        'approver' => $approver->name,
+                        'reason' => $reason,
+                        'action_url' => "/tasks/{$task->id}",
                     ],
-                ]);
+                    [
+                        'priority' => $isApproved ? 'low' : 'medium',
+                    ]
+                );
             }
 
             Log::info('Task approval decision notification sent', [
@@ -136,13 +158,18 @@ class TaskNotificationService
             $targetUserIds = $this->getUsersInInstitutions($task->target_institutions ?? []);
 
             if (!empty($targetUserIds)) {
-                $this->notificationService->sendTaskNotification($task, 'deadline_approaching', [
-                    'days_left' => $daysLeft,
-                    'recipients' => ['users' => $targetUserIds],
-                    'options' => [
-                        'priority' => $urgencyLevel,
+                $this->notificationService->sendTaskNotification(
+                    $task,
+                    'deadline_approaching',
+                    $targetUserIds,
+                    [
+                        'days_left' => $daysLeft,
+                        'action_url' => "/tasks/{$task->id}",
                     ],
-                ]);
+                    [
+                        'priority' => $urgencyLevel,
+                    ]
+                );
             }
 
             Log::info('Task deadline approaching notification sent', [
@@ -172,13 +199,18 @@ class TaskNotificationService
             }
 
             if (!empty($targetUserIds)) {
-                $this->notificationService->sendTaskNotification($task, 'overdue', [
-                    'overdue_days' => now()->diffInDays($task->deadline),
-                    'recipients' => ['users' => $targetUserIds],
-                    'options' => [
-                        'priority' => 'high',
+                $this->notificationService->sendTaskNotification(
+                    $task,
+                    'overdue',
+                    $targetUserIds,
+                    [
+                        'overdue_days' => now()->diffInDays($task->deadline),
+                        'action_url' => "/tasks/{$task->id}",
                     ],
-                ]);
+                    [
+                        'priority' => 'high',
+                    ]
+                );
             }
 
             Log::info('Task overdue notification sent', [
@@ -215,14 +247,19 @@ class TaskNotificationService
             ->toArray();
 
         if (!empty($sektorAdminIds)) {
-            $this->notificationService->sendTaskNotification($task, 'approval_required', [
-                'submitted_by' => $submittedBy->name,
-                'institution' => $submittedBy->institution->name ?? 'Unknown',
-                'recipients' => ['users' => $sektorAdminIds],
-                'options' => [
-                    'priority' => 'medium',
+            $this->notificationService->sendTaskNotification(
+                $task,
+                'approval_required',
+                $sektorAdminIds,
+                [
+                    'submitted_by' => $submittedBy->name,
+                    'institution' => $submittedBy->institution->name ?? 'Unknown',
+                    'action_url' => "/tasks/{$task->id}",
                 ],
-            ]);
+                [
+                    'priority' => 'medium',
+                ]
+            );
         }
     }
 
