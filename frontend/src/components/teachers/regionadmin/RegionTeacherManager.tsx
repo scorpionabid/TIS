@@ -37,7 +37,6 @@ import {
   Upload,
   Plus,
   MoreVertical,
-  Eye,
   Edit,
 } from 'lucide-react';
 import {
@@ -48,6 +47,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { RegionTeacherImportModal } from './RegionTeacherImportModal';
 import type { EnhancedTeacherProfile } from '@/types/teacher';
+import { RegionTeacherFormModal } from './RegionTeacherFormModal';
+import type { RegionTeacherCreateInput } from '@/services/regionAdminTeachers';
 
 // Position type labels
 const POSITION_TYPE_LABELS: Record<string, string> = {
@@ -73,7 +74,6 @@ export const RegionTeacherManager: React.FC = () => {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<EnhancedTeacherProfile | null>(null);
-  const [viewingTeacher, setViewingTeacher] = useState<EnhancedTeacherProfile | null>(null);
 
   const {
     currentUser,
@@ -96,6 +96,9 @@ export const RegionTeacherManager: React.FC = () => {
     isUpdatingStatus,
     isDeleting,
     isExporting,
+    createTeacher,
+    updateTeacher,
+    isSavingTeacher,
   } = useRegionTeacherManager();
 
   // Debug log
@@ -136,6 +139,24 @@ export const RegionTeacherManager: React.FC = () => {
   const isAllSelected = teachers.length > 0 && selectedTeachers.length === teachers.length;
   const isSomeSelected = selectedTeachers.length > 0 && selectedTeachers.length < teachers.length;
 
+  const closeTeacherForm = () => {
+    setCreateModalOpen(false);
+    setEditingTeacher(null);
+  };
+
+  const handleTeacherSave = async (values: RegionTeacherCreateInput) => {
+    try {
+      if (editingTeacher) {
+        await updateTeacher(editingTeacher.id, values);
+      } else {
+        await createTeacher(values);
+      }
+      closeTeacherForm();
+    } catch (error) {
+      console.error('RegionTeacherManager - Teacher save error', error);
+    }
+  };
+
   return (
     <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
       {/* Header */}
@@ -171,7 +192,10 @@ export const RegionTeacherManager: React.FC = () => {
             Export
           </Button>
           <Button
-            onClick={() => setCreateModalOpen(true)}
+            onClick={() => {
+              setEditingTeacher(null);
+              setCreateModalOpen(true);
+            }}
           >
             <Plus className="h-4 w-4 mr-2" />
             Yeni Müəllim
@@ -451,10 +475,6 @@ export const RegionTeacherManager: React.FC = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setViewingTeacher(teacher)}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              Bax
-                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => {
                               setEditingTeacher(teacher);
                               setCreateModalOpen(true);
@@ -502,6 +522,14 @@ export const RegionTeacherManager: React.FC = () => {
       <RegionTeacherImportModal
         isOpen={importModalOpen}
         onClose={() => setImportModalOpen(false)}
+      />
+      <RegionTeacherFormModal
+        isOpen={createModalOpen}
+        onClose={closeTeacherForm}
+        onSubmit={handleTeacherSave}
+        schools={schools}
+        teacher={editingTeacher}
+        isSubmitting={isSavingTeacher}
       />
     </div>
   );

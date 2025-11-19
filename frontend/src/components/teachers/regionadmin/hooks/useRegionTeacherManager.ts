@@ -12,6 +12,8 @@ import {
   type RegionTeacherFilters,
   type RegionTeacherStatistics,
   type Institution,
+  type RegionTeacherCreateInput,
+  type RegionTeacherUpdateInput,
 } from '@/services/regionAdminTeachers';
 import type { EnhancedTeacherProfile } from '@/types/teacher';
 import type { PaginationMeta } from '@/types/api';
@@ -164,6 +166,48 @@ export const useRegionTeacherManager = () => {
     },
   });
 
+  // Create teacher mutation
+  const createTeacherMutation = useMutation({
+    mutationFn: (payload: RegionTeacherCreateInput) =>
+      regionAdminTeacherService.createTeacher(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['regionadmin-teachers'] });
+      toast({
+        title: 'Uğurlu',
+        description: 'Müəllim yaradıldı',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Xəta',
+        description: error.message || 'Müəllim yaradılarkən xəta baş verdi',
+        variant: 'destructive',
+      });
+      throw error;
+    },
+  });
+
+  // Update teacher mutation
+  const updateTeacherMutation = useMutation({
+    mutationFn: ({ teacherId, data }: { teacherId: number; data: RegionTeacherUpdateInput }) =>
+      regionAdminTeacherService.updateTeacher(teacherId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['regionadmin-teachers'] });
+      toast({
+        title: 'Uğurlu',
+        description: 'Müəllim yeniləndi',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Xəta',
+        description: error.message || 'Müəllim yenilənərkən xəta baş verdi',
+        variant: 'destructive',
+      });
+      throw error;
+    },
+  });
+
   // Helper: Update filters
   const updateFilters = useCallback((newFilters: Partial<RegionTeacherFilters>) => {
     setFilters(prev => ({ ...prev, ...newFilters, page: 1 })); // Reset to page 1 on filter change
@@ -256,10 +300,14 @@ export const useRegionTeacherManager = () => {
     bulkUpdateStatus: bulkUpdateStatusMutation.mutate,
     bulkDelete: bulkDeleteMutation.mutate,
     exportTeachers: exportMutation.mutate,
+    createTeacher: createTeacherMutation.mutateAsync,
+    updateTeacher: (teacherId: number, data: RegionTeacherUpdateInput) =>
+      updateTeacherMutation.mutateAsync({ teacherId, data }),
 
     // Action loading states
     isUpdatingStatus: bulkUpdateStatusMutation.isPending,
     isDeleting: bulkDeleteMutation.isPending,
     isExporting: exportMutation.isPending,
+    isSavingTeacher: createTeacherMutation.isPending || updateTeacherMutation.isPending,
   };
 };

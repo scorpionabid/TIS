@@ -54,6 +54,21 @@ export interface BulkOperationResponse {
   deleted_count?: number;
 }
 
+export interface RegionTeacherCreateInput {
+  email: string;
+  first_name: string;
+  last_name: string;
+  institution_id: number;
+  phone?: string;
+  position_type?: string;
+  employment_status?: string;
+  password?: string;
+}
+
+export interface RegionTeacherUpdateInput extends Partial<RegionTeacherCreateInput> {
+  is_active?: boolean;
+}
+
 class RegionAdminTeacherService extends BaseService {
   constructor() {
     super('/regionadmin/teachers');
@@ -293,7 +308,7 @@ class RegionAdminTeacherService extends BaseService {
   /**
    * Create new teacher
    */
-  async createTeacher(data: Partial<EnhancedTeacherProfile>): Promise<EnhancedTeacherProfile> {
+  async createTeacher(data: RegionTeacherCreateInput): Promise<EnhancedTeacherProfile> {
     try {
       const response = await apiClient.post(this.baseUrl, data);
 
@@ -311,7 +326,7 @@ class RegionAdminTeacherService extends BaseService {
   /**
    * Update teacher
    */
-  async updateTeacher(id: number, data: Partial<EnhancedTeacherProfile>): Promise<EnhancedTeacherProfile> {
+  async updateTeacher(id: number, data: RegionTeacherUpdateInput): Promise<EnhancedTeacherProfile> {
     try {
       const response = await apiClient.put(`${this.baseUrl}/${id}`, data);
 

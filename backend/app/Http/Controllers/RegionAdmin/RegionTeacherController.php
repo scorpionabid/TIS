@@ -31,22 +31,7 @@ class RegionTeacherController extends Controller
         try {
             $user = Auth::user();
 
-            // Authorization check - DB-based (supports both web and sanctum guards)
-            $allRoles = \DB::table('model_has_roles')
-                ->where('model_type', 'App\\Models\\User')
-                ->where('model_id', $user->id)
-                ->pluck('role_id');
-
-            $hasPermission = \DB::table('role_has_permissions')
-                ->whereIn('role_id', $allRoles)
-                ->whereIn('permission_id', function($query) {
-                    $query->select('id')
-                        ->from('permissions')
-                        ->where('name', 'teachers.read');
-                })
-                ->exists();
-
-            if (!$hasPermission) {
+            if (!$this->userHasTeacherReadAccess($user)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Müəllim məlumatlarını oxumaq səlahiyyətiniz yoxdur'
@@ -245,7 +230,7 @@ class RegionTeacherController extends Controller
             $user = Auth::user();
 
             // Authorization check
-            if (!$user->can('teachers.read')) {
+            if (!$this->userHasTeacherReadAccess($user)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized'
@@ -424,7 +409,7 @@ class RegionTeacherController extends Controller
             $user = Auth::user();
 
             // Authorization check
-            if (!$user->can('teachers.read')) {
+            if (!$this->userHasTeacherReadAccess($user)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized - Missing teachers.read permission'
@@ -917,22 +902,7 @@ class RegionTeacherController extends Controller
         try {
             $user = Auth::user();
 
-            // Authorization check - same as import
-            $allRoles = \DB::table('model_has_roles')
-                ->where('model_type', 'App\\Models\\User')
-                ->where('model_id', $user->id)
-                ->pluck('role_id');
-
-            $hasPermission = \DB::table('role_has_permissions')
-                ->whereIn('role_id', $allRoles)
-                ->whereIn('permission_id', function($query) {
-                    $query->select('id')
-                        ->from('permissions')
-                        ->where('name', 'teachers.read'); // Template download requires read permission
-                })
-                ->exists();
-
-            if (!$hasPermission) {
+            if (!$this->userHasTeacherReadAccess($user)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Müəllim məlumatlarını oxumaq səlahiyyətiniz yoxdur'
@@ -988,5 +958,39 @@ class RegionTeacherController extends Controller
                 'message' => 'Şablon yüklənərkən xəta baş verdi: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Determine if the authenticated user can read teacher data.
+     */
+    private function userHasTeacherReadAccess(?User $user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        // RegionAdmins and SuperAdmins always have visibility into their region data
+        if ($user->hasAnyRole(['superadmin', 'regionadmin'])) {
+            return true;
+        }
+
+        // Fallback to DB-level permission check to support both web and sanctum guards
+        $roleIds = \DB::table('model_has_roles')
+            ->where('model_type', User::class)
+            ->where('model_id', $user->id)
+            ->pluck('role_id');
+
+        if ($roleIds->isEmpty()) {
+            return false;
+        }
+
+        return \DB::table('role_has_permissions')
+            ->whereIn('role_id', $roleIds)
+            ->whereIn('permission_id', function ($query) {
+                $query->select('id')
+                    ->from('permissions')
+                    ->where('name', 'teachers.read');
+            })
+            ->exists();
     }
 }
