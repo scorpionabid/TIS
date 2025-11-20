@@ -16,6 +16,7 @@ import { LinkFilterPanel, LinkFilters } from "@/components/resources/LinkFilterP
 import { ResourceHeader } from "@/components/resources/ResourceHeader";
 import { ResourceToolbar } from "@/components/resources/ResourceToolbar";
 import { ResourceGrid } from "@/components/resources/ResourceGrid";
+import DocumentTable from "@/components/resources/DocumentTable";
 import { LinkBulkUploadModal } from "@/components/resources/LinkBulkUploadModal";
 import LinkSelectionCard from "@/components/resources/LinkSelectionCard";
 import LinkSharingOverview from "@/components/resources/LinkSharingOverview";
@@ -34,10 +35,12 @@ import { useResourceFilters } from "@/hooks/useResourceFilters";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useLinkSharingOverview } from "@/hooks/resources/useLinkSharingOverview";
 import { LinkFilterPanelMinimalist } from "@/components/resources/LinkFilterPanelMinimalist";
+import DocumentFilterPanel from "@/components/resources/DocumentFilterPanel";
 import { GroupedResourceDisplay } from "@/components/resources/GroupedResourceDisplay";
 import { ResourceGroupingToolbar } from "@/components/resources/ResourceGroupingToolbar";
 import LinkManagementTable from "@/components/resources/LinkManagementTable";
 import { LinkFilterResultsSummary } from "@/components/resources/LinkFilterResultsSummary";
+import { DocumentFilterResultsSummary } from "@/components/resources/DocumentFilterResultsSummary";
 import { useResourceGrouping, GroupingMode } from "@/hooks/useResourceGrouping";
 import { TablePagination } from "@/components/common/TablePagination";
 import {
@@ -89,6 +92,7 @@ const filtersToValue = (value?: string | null) => {
 };
 
 const LINK_SELECTION_STORAGE_KEY = 'resources_selected_link_id';
+const DOCUMENT_FILTER_PANEL_STORAGE_KEY = 'resources_document_filter_panel_open';
 
 const readStoredLinkId = (): number | null => {
   try {
@@ -256,6 +260,24 @@ export default function Resources() {
   const [institutionDirectory, setInstitutionDirectory] = useState<Record<number, string>>({});
   const [institutionMetadata, setInstitutionMetadata] = useState<Record<number, InstitutionOption>>({});
   const [userDirectory, setUserDirectory] = useState<Record<number, string>>({});
+
+  const [documentFilterPanelOpen, setDocumentFilterPanelOpen] = useState<boolean>(() => {
+    if (typeof window === 'undefined') {
+      return true;
+    }
+    const stored = window.localStorage.getItem(DOCUMENT_FILTER_PANEL_STORAGE_KEY);
+    return stored === null ? true : stored === 'true';
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    window.localStorage.setItem(
+      DOCUMENT_FILTER_PANEL_STORAGE_KEY,
+      documentFilterPanelOpen ? 'true' : 'false'
+    );
+  }, [documentFilterPanelOpen]);
 
   const normalizedLinkFilters = useMemo(() => ({
     link_type: filtersToValue(linkFilters.link_type),
@@ -464,6 +486,8 @@ export default function Resources() {
     },
     enabled: isAuthenticated && canViewResources && activeTab === 'documents',
     staleTime: 2 * 60 * 1000, // 2 minutes
+    keepPreviousData: true,
+    placeholderData: (previousData) => previousData,
     meta: {
       debug: {
         role: currentUser?.role,
@@ -508,11 +532,19 @@ export default function Resources() {
   // MOVED HOOKS BEFORE EARLY RETURNS - React Rules of Hooks compliance
   // Memoize resourcesData to prevent exhaustive-deps warnings
   const resourcesData = useMemo(() => resourceResponse?.data || [], [resourceResponse?.data]);
+  const documentResources = useMemo(
+    () => resourcesData.filter((resource) => resource.type === 'document'),
+    [resourcesData]
+  );
   const isUpdatingResults = isFetching && !isLoading;
 
   const paginationMeta = resourceResponse?.meta;
   const currentPage = paginationMeta?.current_page ?? page;
   const effectivePerPage = paginationMeta?.per_page ?? perPage;
+  const documentPaginationTotalItems = paginationMeta?.total ?? resourcesData.length;
+  const documentPaginationTotalPages = Math.max(1, Math.ceil(documentPaginationTotalItems / effectivePerPage));
+  const documentPaginationStartIndex = (currentPage - 1) * effectivePerPage;
+  const documentPaginationEndIndex = Math.min(documentPaginationStartIndex + effectivePerPage, documentPaginationTotalItems);
   useEffect(() => {
     if (resourceResponse?.meta?.total === undefined || resourceResponse?.meta?.total === null) {
       return;
@@ -766,6 +798,47 @@ export default function Resources() {
     });
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   }, [availableInstitutions]);
+
+  const documentInstitutionOptions = useMemo(() => {
+    const map = new Map<number, string>();
+    const registerInstitution = (id?: number | null) => {
+      if (!id) return;
+      if (map.has(id)) return;
+      const meta = institutionMetadata[id];
+      const fallbackName = institutionDirectory[id] || `Müəssisə #${id}`;
+      map.set(id, meta?.name || fallbackName);
+    };
+
+    documentResources.forEach((resource) => {
+      registerInstitution(resource.institution?.id ?? (resource as { institution_id?: number }).institution_id);
+      (resource.target_institutions || []).forEach((target) => {
+        const numericId = typeof target === 'string' ? Number(target) : target;
+        if (!Number.isNaN(numericId)) {
+          registerInstitution(numericId);
+        }
+      });
+    });
+
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [documentResources, institutionDirectory, institutionMetadata]);
+
+  const documentCreatorOptions = useMemo(() => {
+    const map = new Map<number, string>();
+    documentResources.forEach((resource) => {
+      const creatorId = typeof resource.created_by === 'string'
+        ? Number(resource.created_by)
+        : resource.created_by;
+      if (!creatorId || Number.isNaN(creatorId) || map.has(creatorId)) {
+        return;
+      }
+      const label =
+        resource.creator?.first_name || resource.creator?.last_name
+          ? `${resource.creator?.first_name || ''} ${resource.creator?.last_name || ''}`.trim()
+          : userDirectory[creatorId] || resource.creator?.username || `İstifadəçi #${creatorId}`;
+      map.set(creatorId, label);
+    });
+    return Array.from(map.entries()).map(([id, label]) => ({ id, label }));
+  }, [documentResources, userDirectory]);
 
   const linkTargetUserIds = useMemo(() => {
     const ids = new Set<number>();
@@ -1558,23 +1631,42 @@ export default function Resources() {
         </TabsContent>
 
         <TabsContent value="documents" className="mt-6 space-y-4">
-          <LinkFilterPanel
+          <DocumentFilterPanel
             filters={documentFilters}
             onFiltersChange={setDocumentFilters}
-            availableInstitutions={institutionFilterOptions}
-            availableCreators={availableCreators}
-            isOpen={filterPanelOpen}
-            onToggle={toggleFilterPanel}
-            mode="documents"
+            availableInstitutions={documentInstitutionOptions}
+            availableCreators={documentCreatorOptions}
+            isOpen={documentFilterPanelOpen}
+            onToggle={() => setDocumentFilterPanelOpen(prev => !prev)}
           />
-          <ResourceGrid
-            resources={resourcesData.filter(r => r.type === 'document')}
+          <DocumentFilterResultsSummary
+            resources={documentResources}
+            totalCount={resourceResponse?.meta?.total}
+          />
+          <DocumentTable
+            documents={documentResources}
             onResourceAction={handleResourceAction}
-            institutionDirectory={institutionDirectory}
             userDirectory={userDirectory}
-            enablePagination
-            initialItemsPerPage={20}
           />
+          {documentPaginationTotalItems > 0 && (
+            <TablePagination
+              currentPage={currentPage}
+              totalPages={documentPaginationTotalPages}
+              totalItems={documentPaginationTotalItems}
+              itemsPerPage={effectivePerPage}
+              startIndex={documentPaginationStartIndex}
+              endIndex={documentPaginationEndIndex}
+              onPageChange={(value) => setPage(value)}
+              onPrevious={() => setPage((prev) => Math.max(1, prev - 1))}
+              onNext={() => setPage((prev) => Math.min(documentPaginationTotalPages, prev + 1))}
+              canGoPrevious={currentPage > 1}
+              canGoNext={currentPage < documentPaginationTotalPages}
+              onItemsPerPageChange={(value) => {
+                setPerPage(value);
+                setPage(1);
+              }}
+            />
+          )}
         </TabsContent>
 
         {canManageFolders && (

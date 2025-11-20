@@ -78,7 +78,7 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
   };
 
   return (
-    <Card className="bg-background shadow-sm">
+    <Card className="border border-border/60 bg-white shadow-sm">
       <CardHeader className="space-y-2 pb-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">

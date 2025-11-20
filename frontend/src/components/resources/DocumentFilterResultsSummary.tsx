@@ -2,10 +2,10 @@ import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Resource } from '@/types/resources';
-import { Building2, Layers, Target } from 'lucide-react';
+import type { Resource } from '@/types/resources';
+import { FileText, Layers } from 'lucide-react';
 
-interface LinkFilterResultsSummaryProps {
+interface DocumentFilterResultsSummaryProps {
   resources: Resource[];
   title?: string;
   totalCount?: number;
@@ -15,34 +15,35 @@ const statusLabels: Record<string, string> = {
   active: 'Aktiv',
   expired: 'Müddəti bitmiş',
   disabled: 'Deaktiv',
-  draft: 'Draft',
   archived: 'Arxiv',
+  draft: 'Draft',
 };
 
-const shareScopeLabels: Record<string, string> = {
-  public: 'Açıq',
+const accessLevelLabels: Record<string, string> = {
+  public: 'Hamıya açıq',
   regional: 'Regional',
   sectoral: 'Sektor daxili',
-  institutional: 'Müəssisə',
-  specific_users: 'Xüsusi istifadəçi',
+  institution: 'Müəssisə daxili',
 };
 
-const linkTypeLabels: Record<string, string> = {
-  external: 'Xarici',
-  video: 'Video',
-  form: 'Form',
-  document: 'Sənəd',
-};
-
-export function LinkFilterResultsSummary({ resources, title = 'Filtr nəticələri', totalCount }: LinkFilterResultsSummaryProps) {
+export function DocumentFilterResultsSummary({
+  resources,
+  title = 'Filtr nəticələri',
+  totalCount,
+}: DocumentFilterResultsSummaryProps) {
   const visibleCount = resources.length;
   const total = totalCount ?? visibleCount;
 
-  const { statusCounts, shareScopeCounts, typeCounts, uniqueTargetCount } = useMemo(() => {
+  const {
+    statusCounts,
+    accessCounts,
+    formatCounts,
+    totalDownloads,
+  } = useMemo(() => {
     const statusMap = new Map<string, number>();
-    const scopeMap = new Map<string, number>();
-    const typeMap = new Map<string, number>();
-    const institutionSet = new Set<number>();
+    const accessMap = new Map<string, number>();
+    const formatMap = new Map<string, number>();
+    let downloads = 0;
 
     resources.forEach((resource) => {
       const status = resource.status?.toLowerCase();
@@ -50,50 +51,29 @@ export function LinkFilterResultsSummary({ resources, title = 'Filtr nəticələ
         statusMap.set(status, (statusMap.get(status) || 0) + 1);
       }
 
-      const linkType = resource.link_type;
-      if (linkType) {
-        typeMap.set(linkType, (typeMap.get(linkType) || 0) + 1);
+      const accessLevel = resource.access_level?.toLowerCase();
+      if (accessLevel) {
+        accessMap.set(accessLevel, (accessMap.get(accessLevel) || 0) + 1);
       }
 
-      if (resource.share_scope) {
-        scopeMap.set(resource.share_scope, (scopeMap.get(resource.share_scope) || 0) + 1);
+      const format = resource.file_extension?.toUpperCase()
+        || resource.mime_type?.split('/').pop()?.toUpperCase();
+      if (format) {
+        formatMap.set(format, (formatMap.get(format) || 0) + 1);
       }
 
-      if (resource.institution?.id) {
-        institutionSet.add(resource.institution.id);
-      }
-
-      (resource.target_institutions || []).forEach((id) => {
-        if (typeof id === 'number') {
-          institutionSet.add(id);
-        }
-      });
+      downloads += resource.download_count || 0;
     });
 
     return {
       statusCounts: Array.from(statusMap.entries()),
-      shareScopeCounts: Array.from(scopeMap.entries()),
-      typeCounts: Array.from(typeMap.entries()),
-      uniqueTargetCount: institutionSet.size,
+      accessCounts: Array.from(accessMap.entries()),
+      formatCounts: Array.from(formatMap.entries()),
+      totalDownloads: downloads,
     };
   }, [resources]);
 
-  const cardBaseClasses = "border border-border/60 bg-white/90 shadow-sm";
-
-  if (!visibleCount && !total) {
-    return (
-      <Card className={cardBaseClasses}>
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">Filtrə uyğun link yoxdur.</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const renderList = (items: Array<[string, number]>, labels: Record<string, string>) => {
+  const renderList = (items: Array<[string, number]>, labels?: Record<string, string>) => {
     if (!items.length) {
       return <p className="text-sm text-muted-foreground">Məlumat yoxdur</p>;
     }
@@ -106,7 +86,7 @@ export function LinkFilterResultsSummary({ resources, title = 'Filtr nəticələ
           return (
             <div key={key} className="space-y-1">
               <div className="flex items-center justify-between text-sm">
-                <span>{labels[key] || key}</span>
+                <span>{labels?.[key] || key}</span>
                 <Badge variant="outline" className="text-xs">
                   {value}
                 </Badge>
@@ -119,6 +99,8 @@ export function LinkFilterResultsSummary({ resources, title = 'Filtr nəticələ
     );
   };
 
+  const cardBaseClasses = "border border-border/60 bg-white/90 shadow-sm";
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       <Card className={cardBaseClasses}>
@@ -128,11 +110,11 @@ export function LinkFilterResultsSummary({ resources, title = 'Filtr nəticələ
         <CardContent className="space-y-2">
           <div className="text-3xl font-bold">{total}</div>
           <p className="text-sm text-muted-foreground">
-            Ümumi linklər {totalCount ? `(göstərilir ${visibleCount})` : ''}
+            Ümumi sənədlər {totalCount ? `(göstərilir ${visibleCount})` : ''}
           </p>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Building2 className="h-4 w-4" />
-            {uniqueTargetCount} hədəf müəssisə
+            <FileText className="h-4 w-4" />
+            {totalDownloads} yükləmə
           </div>
         </CardContent>
       </Card>
@@ -149,21 +131,21 @@ export function LinkFilterResultsSummary({ resources, title = 'Filtr nəticələ
 
       <Card className={cardBaseClasses}>
         <CardHeader className="flex items-center gap-2 pb-3">
-          <Target className="h-4 w-4 text-primary" />
-          <CardTitle className="text-base">Paylaşma səviyyəsi</CardTitle>
+          <Layers className="h-4 w-4 text-primary" />
+          <CardTitle className="text-base">Giriş səviyyələri</CardTitle>
         </CardHeader>
         <CardContent>
-          {renderList(shareScopeCounts, shareScopeLabels)}
+          {renderList(accessCounts, accessLevelLabels)}
         </CardContent>
       </Card>
 
       <Card className={cardBaseClasses}>
         <CardHeader className="flex items-center gap-2 pb-3">
-          <Layers className="h-4 w-4 text-primary" />
-          <CardTitle className="text-base">Link növləri</CardTitle>
+          <FileText className="h-4 w-4 text-primary" />
+          <CardTitle className="text-base">Fayl formatları</CardTitle>
         </CardHeader>
         <CardContent>
-          {renderList(typeCounts, linkTypeLabels)}
+          {renderList(formatCounts)}
         </CardContent>
       </Card>
     </div>

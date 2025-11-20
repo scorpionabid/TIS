@@ -154,14 +154,17 @@ class InstitutionService extends BaseService<Institution> {
     return [];
   }
 
+  private summariesEndpointAvailable = true;
+  private static readonly SUMMARY_CHUNK_SIZE = 50;
+
   async getSummaries(ids: number[]) {
     if (!ids || ids.length === 0) {
       return {};
     }
 
-    const fetchIndividual = async () => {
+    const fetchIndividual = async (targetIds: number[]) => {
       const fallbackEntries: Record<number, any> = {};
-      await Promise.all(ids.map(async (id) => {
+      await Promise.all(targetIds.map(async (id) => {
         try {
           const detail = await this.getById(id);
           fallbackEntries[id] = detail;
@@ -172,33 +175,51 @@ class InstitutionService extends BaseService<Institution> {
       return fallbackEntries;
     };
 
-    try {
-      const response = await apiClient.get<Record<string, any>>(`${this.baseEndpoint}/summary`, {
-        ids: ids.join(','),
-      });
-
-      const payload = response.data as unknown as {
-        success?: boolean;
-        data?: Record<number | string, any>;
-      };
-
-      const summaries = payload?.data || {};
-      return Object.keys(summaries).reduce<Record<number, any>>((acc, key) => {
-        const numericKey = Number(key);
-        if (!Number.isNaN(numericKey)) {
-          acc[numericKey] = summaries[key];
-        }
-        return acc;
-      }, {});
-    } catch (error: any) {
-      const status = error?.response?.status;
-      if (status === 404) {
-        console.warn('InstitutionService.getSummaries: summaries endpoint unavailable, falling back to per-id fetch');
-        return fetchIndividual();
-      }
-      console.error('❌ InstitutionService.getSummaries failed:', error);
-      return fetchIndividual();
+    if (!this.summariesEndpointAvailable) {
+      return fetchIndividual(ids);
     }
+
+    const chunkedResponses: Record<number, any> = {};
+    const chunks: number[][] = [];
+
+    for (let i = 0; i < ids.length; i += InstitutionService.SUMMARY_CHUNK_SIZE) {
+      chunks.push(ids.slice(i, i + InstitutionService.SUMMARY_CHUNK_SIZE));
+    }
+
+    for (const chunk of chunks) {
+      try {
+        const response = await apiClient.get<Record<string, any>>(`${this.baseEndpoint}/summary`, {
+          ids: chunk.join(','),
+        });
+
+        const payload = response.data as unknown as {
+          success?: boolean;
+          data?: Record<number | string, any>;
+        };
+
+        const summaries = payload?.data || {};
+        Object.keys(summaries).forEach((key) => {
+          const numericKey = Number(key);
+          if (!Number.isNaN(numericKey)) {
+            chunkedResponses[numericKey] = summaries[key];
+          }
+        });
+      } catch (error: any) {
+        const status = error?.response?.status;
+        if (status === 404) {
+          this.summariesEndpointAvailable = false;
+          console.warn('InstitutionService.getSummaries: summaries endpoint unavailable, falling back to per-id fetch');
+          const fallback = await fetchIndividual(chunk);
+          Object.assign(chunkedResponses, fallback);
+          continue;
+        }
+        console.error('❌ InstitutionService.getSummaries failed for chunk:', { chunk, error });
+        const fallback = await fetchIndividual(chunk);
+        Object.assign(chunkedResponses, fallback);
+      }
+    }
+
+    return chunkedResponses;
   }
 
   async getRegions() {

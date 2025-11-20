@@ -145,7 +145,7 @@ const LinkManagementTable: React.FC<LinkManagementTableProps> = ({
 
   return (
     <>
-      <Card className="h-full">
+      <Card className="h-full border border-border/60 bg-white shadow-sm">
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
