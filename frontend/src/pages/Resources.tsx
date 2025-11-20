@@ -255,7 +255,7 @@ export default function Resources() {
 
   const [selectedLink, setSelectedLink] = useState<Resource | null>(null);
   const [linkPage, setLinkPage] = useState(1);
-  const [linkPerPage, setLinkPerPage] = useState(100);
+  const [linkPerPage, setLinkPerPage] = useState(500);
 
   const [institutionDirectory, setInstitutionDirectory] = useState<Record<number, string>>({});
   const [institutionMetadata, setInstitutionMetadata] = useState<Record<number, InstitutionOption>>({});
