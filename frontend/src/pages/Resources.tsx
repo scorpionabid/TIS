@@ -368,11 +368,18 @@ export default function Resources() {
     handleSelectLink(link);
   }, [handleSelectLink]);
 
+  // Check if selected link title has multiple links (grouped)
+  const isGroupedLink = useMemo(() => {
+    if (!selectedLink || !linkData) return false;
+    const sameTitleLinks = linkData.filter(l => l.title === selectedLink.title);
+    return sameTitleLinks.length > 1;
+  }, [selectedLink, linkData]);
+
   const {
     data: linkSharingOverview,
     isLoading: sharingOverviewLoading,
     refetch: refetchLinkSharingOverview,
-  } = useLinkSharingOverview(selectedLink, isAuthenticated && canViewLinks);
+  } = useLinkSharingOverview(selectedLink, isAuthenticated && canViewLinks, isGroupedLink);
 
   const [tabTotals, setTabTotals] = useState<{ links: number; documents: number }>({
     links: 0,

@@ -332,6 +332,23 @@ class ResourceService {
   }
 
   /**
+   * Get merged sharing overview for all links with the same title (grouped links)
+   * Used when displaying institutions for link groups (e.g., "Məktəb pasportu" with 354 links)
+   */
+  async getGroupedLinkSharingOverview(linkTitle: string): Promise<LinkSharingOverviewResponse | null> {
+    try {
+      const response = await apiClient.get<LinkSharingOverviewResponse>(
+        '/links/grouped-sharing-overview',
+        { title: linkTitle }
+      );
+      return response.data ?? null;
+    } catch (error) {
+      console.error('❌ ResourceService.getGroupedLinkSharingOverview failed:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Create a new resource (link or document)
    */
   async create(data: CreateResourceData): Promise<Resource> {

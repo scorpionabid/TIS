@@ -448,6 +448,314 @@ class LinkSharingService extends BaseService
     }
 
     /**
+     * Get merged sharing overview for all links with the same title (grouped links)
+     * This method aggregates all institutions from multiple links sharing the same title
+     *
+     * @param string $linkTitle The title of the link group
+     * @return array Merged overview with all institutions from all links in the group
+     */
+    public function getMergedSharingOverviewByTitle(string $linkTitle): array
+    {
+        // Get all links with this title
+        $links = LinkShare::where('title', $linkTitle)->get();
+
+        if ($links->isEmpty()) {
+            return [
+                'link_id' => null,
+                'link_title' => $linkTitle,
+                'share_scope' => null,
+                'target_counts' => [
+                    'regions' => 0,
+                    'sectors' => 0,
+                    'schools' => 0,
+                    'users' => 0,
+                ],
+                'total_sectors' => 0,
+                'total_schools' => 0,
+                'target_users' => [],
+                'sectors' => [],
+            ];
+        }
+
+        // Collect all target institution IDs from all links
+        $allTargetIds = [];
+        $linkIds = [];
+        $shareScope = null;
+
+        foreach ($links as $link) {
+            $linkIds[] = $link->id;
+            if ($shareScope === null) {
+                $shareScope = $link->share_scope;
+            }
+
+            $targets = $link->target_institutions;
+
+            if (is_string($targets)) {
+                $decoded = json_decode($targets, true);
+                $targets = is_array($decoded) ? $decoded : [];
+            }
+
+            if (!is_array($targets)) {
+                $targets = [];
+            }
+
+            $targetIds = array_values(array_unique(array_filter(array_map('intval', $targets))));
+            $allTargetIds = array_merge($allTargetIds, $targetIds);
+        }
+
+        // Remove duplicates
+        $allTargetIds = array_values(array_unique($allTargetIds));
+
+        $overview = [
+            'link_id' => $links->first()->id, // Use first link's ID as reference
+            'link_title' => $linkTitle,
+            'share_scope' => $shareScope,
+            'target_counts' => [
+                'regions' => 0,
+                'sectors' => 0,
+                'schools' => 0,
+                'users' => 0,
+            ],
+            'total_sectors' => 0,
+            'total_schools' => 0,
+            'target_users' => [],
+            'sectors' => [],
+        ];
+
+        if (empty($allTargetIds)) {
+            return $overview;
+        }
+
+        // Get all target institutions
+        $targetInstitutions = Institution::whereIn('id', $allTargetIds)
+            ->with(['parent:id,name,level,parent_id'])
+            ->get(['id', 'name', 'level', 'parent_id', 'utis_code', 'institution_code']);
+
+        $targetsByLevel = $targetInstitutions->groupBy('level');
+        $regionTargets = $targetsByLevel->get(2, collect());
+        $sectorTargets = $targetsByLevel->get(3, collect());
+        $schoolTargets = $targetsByLevel->get(4, collect());
+
+        $overview['target_counts'] = [
+            'regions' => $regionTargets->count(),
+            'sectors' => $sectorTargets->count(),
+            'schools' => $schoolTargets->count(),
+            'users' => 0,
+        ];
+
+        // Get merged access statistics for all links in the group
+        $accessStats = $this->getMergedInstitutionAccessStats($linkIds);
+
+        // Build sector configurations
+        $sectorConfigs = [];
+
+        if ($regionTargets->isNotEmpty()) {
+            $regionSectorIds = Institution::whereIn('parent_id', $regionTargets->pluck('id')->all())
+                ->where('level', 3)
+                ->pluck('id')
+                ->all();
+
+            foreach ($regionSectorIds as $sectorId) {
+                $sectorConfigs[$sectorId] = [
+                    'coverage' => 'full',
+                ];
+            }
+        }
+
+        foreach ($sectorTargets as $sector) {
+            $sectorConfigs[$sector->id] = [
+                'coverage' => 'full',
+            ];
+        }
+
+        $schoolsGrouped = $schoolTargets->groupBy(fn ($school) => $school->parent_id ?: 0);
+        foreach ($schoolsGrouped as $sectorId => $schools) {
+            $sectorId = (int) $sectorId;
+            if (!isset($sectorConfigs[$sectorId])) {
+                $sectorConfigs[$sectorId] = [
+                    'coverage' => 'partial',
+                ];
+            }
+
+            if (($sectorConfigs[$sectorId]['coverage'] ?? 'partial') !== 'full') {
+                $sectorConfigs[$sectorId]['school_ids'] = array_values(array_unique(array_merge(
+                    $sectorConfigs[$sectorId]['school_ids'] ?? [],
+                    $schools->pluck('id')->map(fn ($id) => (int) $id)->all()
+                )));
+            }
+        }
+
+        $sectorIds = array_values(array_filter(array_keys($sectorConfigs), fn ($id) => $id > 0));
+
+        $sectorRecords = empty($sectorIds)
+            ? collect()
+            : Institution::whereIn('id', $sectorIds)
+                ->with(['parent:id,name,level,parent_id'])
+                ->get(['id', 'name', 'level', 'parent_id', 'utis_code', 'institution_code'])
+                ->keyBy('id');
+
+        $fullSectorIds = array_values(array_filter($sectorIds, function ($sectorId) use ($sectorConfigs) {
+            return ($sectorConfigs[$sectorId]['coverage'] ?? 'partial') === 'full';
+        }));
+
+        $fullSectorSchools = empty($fullSectorIds)
+            ? collect()
+            : Institution::whereIn('parent_id', $fullSectorIds)
+                ->where('level', 4)
+                ->get(['id', 'name', 'parent_id', 'utis_code', 'institution_code'])
+                ->groupBy('parent_id');
+
+        $sectors = [];
+        $totalSchools = 0;
+        $accessedCount = 0;
+        $notAccessedCount = 0;
+
+        foreach ($sectorConfigs as $sectorId => $config) {
+            $coverage = $config['coverage'] ?? 'partial';
+
+            if ($sectorId === 0) {
+                $ungroupedSchools = $schoolsGrouped->get(0, collect());
+                if ($ungroupedSchools->isEmpty()) {
+                    continue;
+                }
+
+                $schoolsData = $ungroupedSchools->map(function ($school) use ($accessStats, &$accessedCount, &$notAccessedCount) {
+                    $stats = $accessStats[$school->id] ?? null;
+                    $hasAccessed = $stats !== null && $stats['access_count'] > 0;
+
+                    if ($hasAccessed) {
+                        $accessedCount++;
+                    } else {
+                        $notAccessedCount++;
+                    }
+
+                    return [
+                        'id' => $school->id,
+                        'name' => $school->name,
+                        'utis_code' => $school->utis_code,
+                        'institution_code' => $school->institution_code,
+                        'has_accessed' => $hasAccessed,
+                        'access_count' => $stats['access_count'] ?? 0,
+                        'last_accessed_at' => $stats['last_accessed_at'] ?? null,
+                        'first_accessed_at' => $stats['first_accessed_at'] ?? null,
+                    ];
+                })->values()->toArray();
+
+                $totalSchools += count($schoolsData);
+                $sectors[] = [
+                    'id' => null,
+                    'name' => 'Sektor təyin edilməyib',
+                    'region_name' => null,
+                    'is_full_coverage' => false,
+                    'school_count' => count($schoolsData),
+                    'schools' => $schoolsData,
+                ];
+                continue;
+            }
+
+            $sector = $sectorRecords->get($sectorId);
+            if (!$sector) {
+                continue;
+            }
+
+            $schoolsCollection = $coverage === 'full'
+                ? ($fullSectorSchools->get($sectorId) ?? collect())
+                : ($schoolsGrouped->get($sectorId) ?? collect());
+
+            $schoolsData = $schoolsCollection->map(function ($school) use ($accessStats, &$accessedCount, &$notAccessedCount) {
+                $stats = $accessStats[$school->id] ?? null;
+                $hasAccessed = $stats !== null && $stats['access_count'] > 0;
+
+                if ($hasAccessed) {
+                    $accessedCount++;
+                } else {
+                    $notAccessedCount++;
+                }
+
+                return [
+                    'id' => $school->id,
+                    'name' => $school->name,
+                    'utis_code' => $school->utis_code,
+                    'institution_code' => $school->institution_code,
+                    'has_accessed' => $hasAccessed,
+                    'access_count' => $stats['access_count'] ?? 0,
+                    'last_accessed_at' => $stats['last_accessed_at'] ?? null,
+                    'first_accessed_at' => $stats['first_accessed_at'] ?? null,
+                ];
+            })->values()->toArray();
+
+            $totalSchools += count($schoolsData);
+
+            $sectors[] = [
+                'id' => $sector->id,
+                'name' => $sector->name,
+                'region_id' => $sector->parent_id,
+                'region_name' => $sector->parent->name ?? null,
+                'is_full_coverage' => $coverage === 'full',
+                'school_count' => count($schoolsData),
+                'schools' => $schoolsData,
+            ];
+        }
+
+        usort($sectors, function ($a, $b) {
+            $regionComparison = strcmp($a['region_name'] ?? '', $b['region_name'] ?? '');
+            if ($regionComparison !== 0) {
+                return $regionComparison;
+            }
+            return strcmp($a['name'] ?? '', $b['name'] ?? '');
+        });
+
+        $overview['total_sectors'] = count($sectors);
+        $overview['total_schools'] = $totalSchools;
+        $overview['accessed_count'] = $accessedCount;
+        $overview['not_accessed_count'] = $notAccessedCount;
+        $overview['access_rate'] = $totalSchools > 0
+            ? round(($accessedCount / $totalSchools) * 100, 1)
+            : 0;
+        $overview['sectors'] = $sectors;
+
+        return $overview;
+    }
+
+    /**
+     * Get merged access statistics for multiple links
+     * Aggregates access stats from all links in a group by institution
+     *
+     * @param array $linkShareIds Array of link IDs
+     * @return array Merged access statistics by institution
+     */
+    private function getMergedInstitutionAccessStats(array $linkShareIds): array
+    {
+        if (empty($linkShareIds)) {
+            return [];
+        }
+
+        $stats = DB::table('link_access_logs as lal')
+            ->join('users as u', 'lal.user_id', '=', 'u.id')
+            ->whereIn('lal.link_share_id', $linkShareIds)
+            ->whereNotNull('u.institution_id')
+            ->select(
+                'u.institution_id',
+                DB::raw('COUNT(lal.id) as access_count'),
+                DB::raw('MIN(lal.created_at) as first_accessed_at'),
+                DB::raw('MAX(lal.created_at) as last_accessed_at')
+            )
+            ->groupBy('u.institution_id')
+            ->get();
+
+        $result = [];
+        foreach ($stats as $stat) {
+            $result[$stat->institution_id] = [
+                'access_count' => (int) $stat->access_count,
+                'first_accessed_at' => $stat->first_accessed_at,
+                'last_accessed_at' => $stat->last_accessed_at,
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
      * Get access statistics for institutions from link_access_logs
      * Groups by institution_id through user's institution
      */

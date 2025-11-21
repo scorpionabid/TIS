@@ -93,6 +93,24 @@ class LinkShareControllerRefactored extends BaseController
     }
 
     /**
+     * Get merged sharing overview for all links with the same title (grouped links)
+     * Used when displaying institutions for link groups (e.g., "Məktəb pasportu" with 354 links)
+     */
+    public function groupedSharingOverview(Request $request): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $request->validate([
+                'title' => 'required|string|max:255',
+            ]);
+
+            $title = $request->get('title');
+            $overview = $this->linkSharingService->getMergedSharingOverviewByTitle($title);
+
+            return $this->successResponse($overview, 'Qrup link paylaşım xülasəsi uğurla alındı');
+        }, 'linkshare.grouped_sharing_overview');
+    }
+
+    /**
      * Create new link share
      */
     public function store(Request $request): JsonResponse
