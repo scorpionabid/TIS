@@ -75,12 +75,20 @@ const normalizeInstitution = (input: Institution | { data?: Institution } | null
   return input as Institution;
 };
 
-const extractHierarchyList = (payload: Institution[] | { data?: Institution[] } | null | undefined): Institution[] => {
+const extractHierarchyList = (payload: Institution[] | { data?: Institution | Institution[] } | null | undefined): Institution[] => {
   if (!payload) return [];
   if (Array.isArray(payload)) return payload;
-  if (Array.isArray((payload as { data?: Institution[] })?.data)) {
-    return ((payload as { data?: Institution[] }).data) as Institution[];
+
+  const data = (payload as { data?: Institution | Institution[] })?.data;
+  if (Array.isArray(data)) {
+    return data as Institution[];
   }
+
+  // If data is a single institution object, wrap it in an array
+  if (data && typeof data === 'object' && 'id' in data) {
+    return [data as Institution];
+  }
+
   return [];
 };
 
@@ -229,9 +237,11 @@ export default function Resources() {
       try {
         const hierarchyResponse = await institutionService.getHierarchy(userInstitutionId);
         const hierarchyList = extractHierarchyList(hierarchyResponse);
+
         const ids = new Set<number>();
         ids.add(userInstitutionId);
         collectInstitutionIdsFromTree(hierarchyList, ids);
+
         return Array.from(ids);
       } catch (error) {
         console.error('Failed to load accessible institutions for resources scope', error);

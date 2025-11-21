@@ -143,10 +143,12 @@ class InstitutionService extends BaseService<Institution> {
     const response = await apiClient.get<any>(endpoint);
     const payload = response.data;
 
+    // If payload is already an array, return it
     if (Array.isArray(payload)) {
       return payload;
     }
 
+    // If payload has a nested data property
     if (payload?.data) {
       if (Array.isArray(payload.data)) {
         return payload.data;
@@ -157,6 +159,11 @@ class InstitutionService extends BaseService<Institution> {
       if (Array.isArray(payload.data?.data)) {
         return payload.data.data;
       }
+    }
+
+    // If payload itself is a single institution object (direct from API after transformation)
+    if (payload && typeof payload === 'object' && 'id' in payload && 'name' in payload) {
+      return [payload];
     }
 
     return [];
