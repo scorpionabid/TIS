@@ -33,6 +33,7 @@ import { hasAnyRole } from "@/utils/permissions";
 import { useResourceFilters } from "@/hooks/useResourceFilters";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useLinkSharingOverview } from "@/hooks/resources/useLinkSharingOverview";
+import { useResourceScope, resourceMatchesScope } from "@/hooks/resources/useResourceScope";
 import DocumentTabContent from "@/components/resources/DocumentTabContent";
 import {
   Select,
@@ -75,39 +76,6 @@ const normalizeInstitution = (input: Institution | { data?: Institution } | null
   return input as Institution;
 };
 
-const extractHierarchyList = (payload: Institution[] | { data?: Institution | Institution[] } | null | undefined): Institution[] => {
-  if (!payload) return [];
-  if (Array.isArray(payload)) return payload;
-
-  const data = (payload as { data?: Institution | Institution[] })?.data;
-  if (Array.isArray(data)) {
-    return data as Institution[];
-  }
-
-  // If data is a single institution object, wrap it in an array
-  if (data && typeof data === 'object' && 'id' in data) {
-    return [data as Institution];
-  }
-
-  return [];
-};
-
-const collectInstitutionIdsFromTree = (nodes: Institution[] | undefined | null, accumulator: Set<number>) => {
-  if (!nodes || nodes.length === 0) {
-    return;
-  }
-  nodes.forEach((node) => {
-    if (!node) {
-      return;
-    }
-    if (typeof node.id === 'number' && !Number.isNaN(node.id)) {
-      accumulator.add(node.id);
-    }
-    if (Array.isArray(node.children) && node.children.length > 0) {
-      collectInstitutionIdsFromTree(node.children as Institution[], accumulator);
-    }
-  });
-};
 
 const filtersToValue = (value?: string | null) => {
   if (!value || value === 'all') {
@@ -145,45 +113,6 @@ const persistLinkId = (linkId: number | null) => {
   }
 };
 
-const toNumericId = (value: number | string | null | undefined): number | null => {
-  if (typeof value === 'number' && !Number.isNaN(value)) {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const parsed = Number(value);
-    return Number.isNaN(parsed) ? null : parsed;
-  }
-  return null;
-};
-
-const resourceMatchesScope = (resource: Resource, scope: Set<number> | null): boolean => {
-  if (!scope || scope.size === 0) {
-    return true;
-  }
-
-  const institutionId = toNumericId(resource.institution?.id ?? (resource as { institution_id?: number | string }).institution_id);
-  if (institutionId && scope.has(institutionId)) {
-    return true;
-  }
-
-  const targets = (resource.target_institutions || [])
-    .map((target) => toNumericId(target))
-    .filter((id): id is number => Boolean(id));
-
-  if (targets.some((id) => scope.has(id))) {
-    return true;
-  }
-
-  const accessibleInstitutions = (resource as { accessible_institutions?: Array<number | string> }).accessible_institutions;
-  if (Array.isArray(accessibleInstitutions)) {
-    return accessibleInstitutions.some((id) => {
-      const numericId = toNumericId(id);
-      return numericId ? scope.has(numericId) : false;
-    });
-  }
-
-  return false;
-};
 
 export default function Resources() {
   const { currentUser, hasPermission } = useAuth();
