@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -68,6 +69,23 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
 
   const paginatedGroups = pagination.paginatedItems;
   const shouldShowPagination = pagination.totalItems > pagination.itemsPerPage;
+
+  const shareScopeOptions = [
+    { value: 'all', label: 'Paylaşma səviyyəsi' },
+    { value: 'public', label: 'Açıq' },
+    { value: 'regional', label: 'Regional' },
+    { value: 'sectoral', label: 'Sektor daxili' },
+    { value: 'institutional', label: 'Müəssisə' },
+    { value: 'specific_users', label: 'Xüsusi istifadəçi' },
+  ];
+
+  const statusOptions = [
+    { value: 'all', label: 'Status' },
+    { value: 'active', label: 'Aktiv' },
+    { value: 'draft', label: 'Draft' },
+    { value: 'archived', label: 'Arxiv' },
+    { value: 'inactive', label: 'Passiv' },
+  ];
 
   // Determine if a group is selected (either by selectedGroup prop or by selectedLink being in the group)
   const isGroupSelected = (group: GroupedLink): boolean => {
@@ -159,6 +177,44 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
               placeholder="İzah axtar..."
               className="pl-9 h-9"
             />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Select
+              value={filters.share_scope || 'all'}
+              onValueChange={(value) => setFilters(prev => ({
+                ...prev,
+                share_scope: value === 'all' ? undefined : value,
+              }))}
+            >
+              <SelectTrigger className="h-9 text-left">
+                <SelectValue placeholder="Paylaşma səviyyəsi" />
+              </SelectTrigger>
+              <SelectContent>
+                {shareScopeOptions.map(option => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={filters.status || 'all'}
+              onValueChange={(value) => setFilters(prev => ({
+                ...prev,
+                status: value === 'all' ? undefined : value,
+              }))}
+            >
+              <SelectTrigger className="h-9 text-left">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {statusOptions.map(option => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

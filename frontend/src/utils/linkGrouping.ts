@@ -40,6 +40,7 @@ export interface LinkGroupFilters {
   description_search?: string;
   link_type?: string;
   share_scope?: string;
+  status?: string;
   has_description?: boolean;
   date_from?: string;
   date_to?: string;
@@ -169,6 +170,13 @@ export function filterGroupedLinks(
     // Share scope filter
     if (filters.share_scope && filters.share_scope !== 'all') {
       if (group.share_scope !== filters.share_scope) {
+        return false;
+      }
+    }
+
+    if (filters.status && filters.status !== 'all') {
+      const hasStatus = group.links.some((link) => (link.status || 'active') === filters.status);
+      if (!hasStatus) {
         return false;
       }
     }

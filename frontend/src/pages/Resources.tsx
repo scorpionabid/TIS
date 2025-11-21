@@ -217,46 +217,15 @@ export default function Resources() {
   const canFetchDocumentList = hasPermission ? hasPermission('documents.read') : false;
   const canBulkUploadLinks = hasPermission ? hasPermission('links.bulk') : false;
 
-  const userInstitutionId = currentUser?.institution?.id ?? currentUser?.institution_id ?? null;
-  const isRegionAdmin = hasAnyRole(currentUser, ['regionadmin']);
-  const isSectorAdmin = hasAnyRole(currentUser, ['sektoradmin']);
-  const shouldRestrictByInstitution = Boolean(userInstitutionId && (isRegionAdmin || isSectorAdmin));
-  const institutionScopeKey = shouldRestrictByInstitution ? `${userInstitutionId}-${isRegionAdmin ? 'region' : 'sector'}` : 'open';
-
   const {
-    data: accessibleInstitutionIds,
-    isLoading: accessibleInstitutionLoading,
-  } = useQuery({
-    queryKey: ['resource-accessible-institutions', institutionScopeKey],
-    enabled: shouldRestrictByInstitution && Boolean(userInstitutionId),
-    staleTime: 10 * 60 * 1000,
-    queryFn: async () => {
-      if (!userInstitutionId) {
-        return [];
-      }
-      try {
-        const hierarchyResponse = await institutionService.getHierarchy(userInstitutionId);
-        const hierarchyList = extractHierarchyList(hierarchyResponse);
-
-        const ids = new Set<number>();
-        ids.add(userInstitutionId);
-        collectInstitutionIdsFromTree(hierarchyList, ids);
-
-        return Array.from(ids);
-      } catch (error) {
-        console.error('Failed to load accessible institutions for resources scope', error);
-        return [];
-      }
-    },
-  });
-
-  const institutionScopeReady = !shouldRestrictByInstitution || accessibleInstitutionIds !== undefined;
-  const accessibleInstitutionSet = useMemo(() => {
-    if (!accessibleInstitutionIds || accessibleInstitutionIds.length === 0) {
-      return null;
-    }
-    return new Set(accessibleInstitutionIds);
-  }, [accessibleInstitutionIds]);
+    userInstitutionId,
+    isRegionAdmin,
+    isSectorAdmin,
+    shouldRestrictByInstitution,
+    accessibleInstitutionIds,
+    accessibleInstitutionSet,
+    institutionScopeReady,
+  } = useResourceScope();
 
   if (!canViewResources) {
     return <ResourceAccessRestricted />;
