@@ -157,7 +157,8 @@ class LinkShareControllerRefactored extends BaseController
             ]);
 
             $user = Auth::user();
-            $linkShare = $this->linkSharingService->updateLinkShare($id, $validated, $user);
+            $linkShareModel = LinkShare::with(['sharedBy', 'institution'])->findOrFail($id);
+            $linkShare = $this->linkSharingService->updateLinkShare($linkShareModel, $validated, $user);
             $this->sendLinkShareNotification($linkShare, $validated, $user, 'updated');
             
             return $this->successResponse($linkShare, 'Bağlantı yeniləndi');

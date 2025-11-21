@@ -18,8 +18,8 @@ import { ResourceToolbar } from "@/components/resources/ResourceToolbar";
 import { ResourceGrid } from "@/components/resources/ResourceGrid";
 import DocumentTable from "@/components/resources/DocumentTable";
 import { LinkBulkUploadModal } from "@/components/resources/LinkBulkUploadModal";
-import LinkSelectionCard from "@/components/resources/LinkSelectionCard";
-import LinkSharingOverview from "@/components/resources/LinkSharingOverview";
+import LinkTabContent from "@/components/resources/LinkTabContent";
+import StatsCard from "@/components/resources/StatsCard";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,13 +34,8 @@ import { hasAnyRole } from "@/utils/permissions";
 import { useResourceFilters } from "@/hooks/useResourceFilters";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useLinkSharingOverview } from "@/hooks/resources/useLinkSharingOverview";
-import { LinkFilterPanelMinimalist } from "@/components/resources/LinkFilterPanelMinimalist";
 import DocumentFilterPanel from "@/components/resources/DocumentFilterPanel";
-import { GroupedResourceDisplay } from "@/components/resources/GroupedResourceDisplay";
-import { ResourceGroupingToolbar } from "@/components/resources/ResourceGroupingToolbar";
-import LinkManagementTable from "@/components/resources/LinkManagementTable";
-import { LinkFilterResultsSummary } from "@/components/resources/LinkFilterResultsSummary";
-import { DocumentFilterResultsSummary } from "@/components/resources/DocumentFilterResultsSummary";
+import DocumentTabContent from "@/components/resources/DocumentTabContent";
 import { useResourceGrouping, GroupingMode } from "@/hooks/useResourceGrouping";
 import { TablePagination } from "@/components/common/TablePagination";
 import {
@@ -260,6 +255,8 @@ export default function Resources() {
   const [institutionDirectory, setInstitutionDirectory] = useState<Record<number, string>>({});
   const [institutionMetadata, setInstitutionMetadata] = useState<Record<number, InstitutionOption>>({});
   const [userDirectory, setUserDirectory] = useState<Record<number, string>>({});
+  // TEMP: Link tabını sadələşdirmək üçün digər komponentləri gizlədirik
+  const showLinkDetails = false;
 
   const [documentFilterPanelOpen, setDocumentFilterPanelOpen] = useState<boolean>(() => {
     if (typeof window === 'undefined') {
@@ -366,6 +363,10 @@ export default function Resources() {
   const handleSelectLink = useCallback((link: Resource | null) => {
     setSelectedLink(link);
   }, []);
+
+  const handleLinkSelection = useCallback((link: Resource) => {
+    handleSelectLink(link);
+  }, [handleSelectLink]);
 
   const {
     data: linkSharingOverview,
@@ -665,6 +666,28 @@ export default function Resources() {
   const linkPaginationTotalPages = Math.max(1, Math.ceil(linkPaginationTotalItems / linkPaginationPerPage));
   const linkPaginationStartIndex = (linkPaginationCurrent - 1) * linkPaginationPerPage;
   const linkPaginationEndIndex = Math.min(linkPaginationStartIndex + linkPaginationPerPage, linkPaginationTotalItems);
+  const linkPaginationConfig = useMemo(() => ({
+    current: linkPaginationCurrent,
+    totalPages: linkPaginationTotalPages,
+    totalItems: linkPaginationTotalItems,
+    perPage: linkPaginationPerPage,
+    startIndex: linkPaginationStartIndex,
+    endIndex: linkPaginationEndIndex,
+    onPageChange: (page: number) => setLinkPage(page),
+    onPerPageChange: (value: number) => {
+      setLinkPerPage(value);
+      setLinkPage(1);
+    },
+  }), [
+    linkPaginationCurrent,
+    linkPaginationTotalPages,
+    linkPaginationTotalItems,
+    linkPaginationPerPage,
+    linkPaginationStartIndex,
+    linkPaginationEndIndex,
+    setLinkPage,
+    setLinkPerPage,
+  ]);
   useEffect(() => {
     if (activeTab !== 'links') {
       return;
@@ -1447,53 +1470,44 @@ export default function Resources() {
       {/* Statistics Cards */}
       {statsToRender && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-2xl font-bold text-primary">{statsToRender.total_resources}</div>
-                  <div className="text-sm text-muted-foreground">Ümumi Resurslər</div>
-                </div>
-                <Archive className="h-8 w-8 text-primary opacity-50" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-2xl font-bold text-blue-600">{statsToRender.total_links}</div>
-                  <div className="text-sm text-muted-foreground">Linklər</div>
-                </div>
-                <Link className="h-8 w-8 text-blue-600 opacity-50" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-2xl font-bold text-green-600">{statsToRender.total_documents}</div>
-                  <div className="text-sm text-muted-foreground">Sənədlər</div>
-                </div>
-                <FileText className="h-8 w-8 text-green-600 opacity-50" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-2xl font-bold text-orange-600">{statsToRender.recent_uploads}</div>
-                  <div className="text-sm text-muted-foreground">Son Yüklənən</div>
-                </div>
-                <TrendingUp className="h-8 w-8 text-orange-600 opacity-50" />
-              </div>
-            </CardContent>
-          </Card>
+          {[
+            {
+              key: 'total-resources',
+              value: statsToRender.total_resources,
+              label: 'Ümumi Resurslər',
+              icon: <Archive className="h-5 w-5" />,
+              accent: 'text-primary bg-primary/10',
+            },
+            {
+              key: 'total-links',
+              value: statsToRender.total_links,
+              label: 'Linklər',
+              icon: <Link className="h-5 w-5" />,
+              accent: 'text-blue-600 bg-blue-50',
+            },
+            {
+              key: 'total-documents',
+              value: statsToRender.total_documents,
+              label: 'Sənədlər',
+              icon: <FileText className="h-5 w-5" />,
+              accent: 'text-green-600 bg-green-50',
+            },
+            {
+              key: 'recent-uploads',
+              value: statsToRender.recent_uploads,
+              label: 'Son Yüklənən',
+              icon: <TrendingUp className="h-5 w-5" />,
+              accent: 'text-orange-600 bg-orange-50',
+            },
+          ].map((card) => (
+            <StatsCard
+              key={card.key}
+              value={card.value}
+              label={card.label}
+              icon={card.icon}
+              accentClass={card.accent}
+            />
+          ))}
         </div>
       )}
 
@@ -1514,159 +1528,68 @@ export default function Resources() {
         </TabsList>
 
         <TabsContent value="links" className="mt-6 space-y-6">
-          {linkError && (
-            <Alert variant="destructive">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Linklər yüklənə bilmədi</AlertTitle>
-                </div>
-                <AlertDescription>
-                  {linkError instanceof Error
-                    ? linkError.message
-                    : 'Link məlumatlarını yükləyərkən gözlənilməz xəta baş verdi.'}
-                </AlertDescription>
-                <div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => queryClient.invalidateQueries({ queryKey: ['link-resources'] })}
-                  >
-                    <Loader2 className="mr-2 h-4 w-4" />
-                    Yenidən cəhd et
-                  </Button>
-                </div>
-              </div>
-            </Alert>
-          )}
-
-          <ResourceGroupingToolbar
+          <LinkTabContent
+            error={linkError}
+            linkData={linkData}
+            filteredLinkCount={filteredLinkCount}
+            isRefreshing={isLinkRefreshing}
+            filters={linkFilters}
+            onFiltersChange={(next) => setLinkFilters(next)}
+            institutionOptions={institutionFilterOptions}
+            filterPanelOpen={filterPanelOpen}
+            onToggleFilters={toggleFilterPanel}
+            pagination={linkPaginationConfig}
             groupingMode={linkGroupingMode}
-            onGroupingModeChange={setLinkGroupingMode}
+            onChangeGroupingMode={setLinkGroupingMode}
             sortBy={linkSortBy}
             sortDirection={linkSortDirection}
             onSortChange={(by, dir) => {
               setLinkSortBy(by);
               setLinkSortDirection(dir);
             }}
+            linkTotal={linkTotal}
+            isLinkLoading={isLinkLoading}
+            onResourceAction={handleResourceAction}
+            groupedLinkResources={groupedLinkResources}
+            institutionDirectory={institutionDirectory}
+            userDirectory={userDirectory}
+            selectedLink={selectedLink}
+            onSelectLink={handleLinkSelection}
+            linkSharingOverview={linkSharingOverview}
+            sharingOverviewLoading={sharingOverviewLoading}
+            onRetrySharingOverview={() => refetchLinkSharingOverview()}
+            institutionMetadata={institutionMetadata}
+            showLinkDetails={showLinkDetails}
+            onRetryLinks={() => queryClient.invalidateQueries({ queryKey: ['link-resources'] })}
           />
-
-          <p className="text-sm text-muted-foreground flex items-center gap-2">
-            {linkData.length} link göstərilir (ümumi {filteredLinkCount})
-            {isLinkRefreshing && (
-              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Yenilənir...
-              </span>
-            )}
-          </p>
-
-          <LinkFilterPanelMinimalist
-            filters={linkFilters}
-            onFiltersChange={setLinkFilters}
-            availableInstitutions={institutionFilterOptions}
-            isOpen={filterPanelOpen}
-            onToggle={toggleFilterPanel}
-          />
-
-          <LinkFilterResultsSummary resources={linkData} totalCount={filteredLinkCount} />
-
-          {activeTab === 'links' && (
-            <TablePagination
-              currentPage={linkPaginationCurrent}
-              totalPages={linkPaginationTotalPages}
-              totalItems={linkPaginationTotalItems}
-              itemsPerPage={linkPaginationPerPage}
-              startIndex={linkPaginationStartIndex}
-              endIndex={linkPaginationEndIndex}
-              onPageChange={(page) => setLinkPage(page)}
-              onPrevious={() => setLinkPage((prev) => Math.max(1, prev - 1))}
-              onNext={() => setLinkPage((prev) => Math.min(linkPaginationTotalPages, prev + 1))}
-              canGoPrevious={linkPaginationCurrent > 1}
-              canGoNext={linkPaginationCurrent < linkPaginationTotalPages}
-              onItemsPerPageChange={(value) => {
-                setLinkPerPage(value);
-                setLinkPage(1);
-              }}
-            />
-          )}
-
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            <div className="space-y-4">
-              <LinkManagementTable
-                links={linkData}
-                totalCount={linkTotal}
-                isLoading={isLinkLoading}
-                isRefreshing={isLinkRefreshing}
-                onResourceAction={handleResourceAction}
-              />
-              <GroupedResourceDisplay
-                groups={groupedLinkResources}
-                onResourceAction={handleResourceAction}
-                institutionDirectory={institutionDirectory}
-                userDirectory={userDirectory}
-                defaultExpanded={linkGroupingMode !== 'none'}
-                enablePagination
-                groupsPerPage={6}
-              />
-            </div>
-
-            <div className="space-y-4">
-              <LinkSelectionCard
-                links={linkData}
-                selectedLink={selectedLink}
-                onSelect={(link) => handleSelectLink(link)}
-                isLoading={isLinkLoading}
-                isRefreshing={isLinkRefreshing}
-              />
-              <LinkSharingOverview
-                selectedLink={selectedLink}
-                overview={linkSharingOverview}
-                isLoading={sharingOverviewLoading}
-                onRetry={() => refetchLinkSharingOverview()}
-                institutionMetadata={institutionMetadata}
-              />
-            </div>
-          </div>
         </TabsContent>
 
         <TabsContent value="documents" className="mt-6 space-y-4">
-          <DocumentFilterPanel
+          <DocumentTabContent
             filters={documentFilters}
             onFiltersChange={setDocumentFilters}
-            availableInstitutions={documentInstitutionOptions}
-            availableCreators={documentCreatorOptions}
-            isOpen={documentFilterPanelOpen}
-            onToggle={() => setDocumentFilterPanelOpen(prev => !prev)}
-          />
-          <DocumentFilterResultsSummary
-            resources={documentResources}
+            documentFilterPanelOpen={documentFilterPanelOpen}
+            onToggleFilterPanel={() => setDocumentFilterPanelOpen(prev => !prev)}
+            institutionOptions={documentInstitutionOptions}
+            creatorOptions={documentCreatorOptions}
+            documentResources={documentResources}
             totalCount={resourceResponse?.meta?.total}
-          />
-          <DocumentTable
-            documents={documentResources}
+            pagination={{
+              current: currentPage,
+              totalPages: documentPaginationTotalPages,
+              totalItems: documentPaginationTotalItems,
+              perPage: effectivePerPage,
+              startIndex: documentPaginationStartIndex,
+              endIndex: documentPaginationEndIndex,
+              onPageChange: (value) => setPage(value),
+              onPerPageChange: (value) => {
+                setPerPage(value);
+                setPage(1);
+              },
+            }}
             onResourceAction={handleResourceAction}
             userDirectory={userDirectory}
           />
-          {documentPaginationTotalItems > 0 && (
-            <TablePagination
-              currentPage={currentPage}
-              totalPages={documentPaginationTotalPages}
-              totalItems={documentPaginationTotalItems}
-              itemsPerPage={effectivePerPage}
-              startIndex={documentPaginationStartIndex}
-              endIndex={documentPaginationEndIndex}
-              onPageChange={(value) => setPage(value)}
-              onPrevious={() => setPage((prev) => Math.max(1, prev - 1))}
-              onNext={() => setPage((prev) => Math.min(documentPaginationTotalPages, prev + 1))}
-              canGoPrevious={currentPage > 1}
-              canGoNext={currentPage < documentPaginationTotalPages}
-              onItemsPerPageChange={(value) => {
-                setPerPage(value);
-                setPage(1);
-              }}
-            />
-          )}
         </TabsContent>
 
         {canManageFolders && (

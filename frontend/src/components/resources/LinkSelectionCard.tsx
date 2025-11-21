@@ -2,7 +2,18 @@ import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Link as LinkIcon, Search, FileText } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Loader2, Link as LinkIcon, Search, FileText, Edit, Trash2 } from 'lucide-react';
 import type { Resource } from '@/types/resources';
 import {
   groupLinksByTitle,
@@ -25,6 +36,7 @@ interface LinkSelectionCardProps {
   // New props for grouped selection
   selectedGroup?: GroupedLink | null;
   onSelectGroup?: (group: GroupedLink) => void;
+  onResourceAction?: (resource: Resource, action: 'edit' | 'delete') => void;
 }
 
 const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
@@ -35,8 +47,10 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
   isRefreshing = false,
   selectedGroup,
   onSelectGroup,
+  onResourceAction,
 }) => {
   const [filters, setFilters] = useState<LinkGroupFilters>({});
+  const [pendingDelete, setPendingDelete] = useState<Resource | null>(null);
 
   // Group links by title
   const groupedLinks = useMemo(() => {
@@ -75,6 +89,35 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
         onSelect(group.links[0]);
       }
     }
+  };
+
+  const shareScopeLabels: Record<string, string> = {
+    public: 'Açıq səviyyə',
+    regional: 'Regional səviyyə',
+    sectoral: 'Sektor səviyyəsi',
+    institutional: 'Müəssisə səviyyəsi',
+    specific_users: 'Xüsusi istifadəçilər',
+  };
+
+  const handleEditClick = (event: React.MouseEvent<HTMLButtonElement>, link: Resource) => {
+    event.stopPropagation();
+    if (onSelect) {
+      onSelect(link);
+    }
+    onResourceAction?.({
+      ...link,
+      type: (link.type || 'link') as Resource['type'],
+    }, 'edit');
+  };
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    onSelect?.(pendingDelete);
+    onResourceAction?.({
+      ...pendingDelete,
+      type: (pendingDelete.type || 'link') as Resource['type'],
+    }, 'delete');
+    setPendingDelete(null);
   };
 
   return (
@@ -132,19 +175,26 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
           </div>
         ) : (
           <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
-              {paginatedGroups.map((group) => {
-                const isActive = isGroupSelected(group);
-                return (
-                  <button
-                    key={group.title}
-                    type="button"
-                    onClick={() => handleGroupClick(group)}
-                    className={`w-full rounded-lg border p-2.5 sm:p-3 text-left transition ${
+            {paginatedGroups.map((group) => {
+              const isActive = isGroupSelected(group);
+              return (
+                <div
+                  key={group.title}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleGroupClick(group)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleGroupClick(group);
+                    }
+                  }}
+                  className={`w-full rounded-lg border p-2.5 sm:p-3 text-left transition ${
                       isActive
                         ? 'border-primary bg-primary/5 shadow-sm'
                         : 'border-border hover:border-primary/50'
                     }`}
-                  >
+                >
                     {/* Header */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
@@ -195,10 +245,51 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
                         {group.unique_urls} fərqli URL
                       </p>
                     )}
-                  </button>
+                    {onResourceAction && (
+                    <div className="mt-2 space-y-1">
+                      {group.links.slice(0, 3).map((link) => (
+                        <div
+                          key={link.id}
+                          className="flex items-center justify-between rounded-md border bg-muted/40 px-2 py-1 text-xs"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                    <div className="truncate">
+                      {shareScopeLabels[link.share_scope || ''] || 'Səviyyə göstərilmir'}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={(event) => handleEditClick(event, link)}
+                      >
+                        <Edit className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-red-600 hover:bg-red-50"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setPendingDelete(link);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                      ))}
+                      {group.links.length > 3 && (
+                        <p className="text-[11px] text-muted-foreground">
+                          ... və {group.links.length - 3} digər link
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  </div>
                 );
               })}
-            </div>
+          </div>
           )}
 
         {!isLoading && links.length === 0 && (
@@ -223,6 +314,35 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
             onItemsPerPageChange={pagination.setItemsPerPage}
           />
         )}
+
+        <AlertDialog
+          open={Boolean(pendingDelete)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setPendingDelete(null);
+            }
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Linki silmək istəyirsiniz?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {pendingDelete?.title
+                  ? `"${pendingDelete.title}" linki silinəcək. Bu əməliyyat geri qaytarıla bilməz.`
+                  : 'Seçilmiş link silinəcək.'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Bağla</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-red-600 hover:bg-red-700"
+                onClick={confirmDelete}
+              >
+                Sil
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardContent>
     </Card>
   );
