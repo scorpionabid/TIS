@@ -70,6 +70,7 @@ interface LinkSharingOverviewProps {
   isLoading: boolean;
   onRetry?: () => void;
   institutionMetadata?: Record<number, ProvidedInstitutionMeta>;
+  restrictedInstitutionIds?: number[] | null;
 }
 
 type InstitutionMeta = {
@@ -94,11 +95,18 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
   isLoading,
   onRetry,
   institutionMetadata: providedInstitutionMetadata = {},
+  restrictedInstitutionIds,
 }) => {
   const { currentUser } = useAuth();
   const [expandedSectors, setExpandedSectors] = useState<Set<number | 'ungrouped'>>(new Set());
   const [institutionMeta, setInstitutionMeta] = useState<Record<number, InstitutionMeta>>({});
   const institutionMetaRef = useRef<Record<number, InstitutionMeta>>({});
+  const restrictedInstitutionSet = useMemo(() => {
+    if (!restrictedInstitutionIds || restrictedInstitutionIds.length === 0) {
+      return null;
+    }
+    return new Set(restrictedInstitutionIds);
+  }, [restrictedInstitutionIds]);
 
   useEffect(() => {
     institutionMetaRef.current = institutionMeta;
@@ -324,6 +332,17 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
         const schoolMeta = school.id ? institutionMeta[school.id] : undefined;
         const actualSectorId = schoolMeta?.parent_id ?? fallbackSectorId;
         const key = actualSectorId ?? 'ungrouped';
+        const numericSchoolId = typeof school.id === 'number' ? school.id : Number(school.id);
+        const sectorAllowed = !restrictedInstitutionSet || (
+          typeof actualSectorId === 'number' && restrictedInstitutionSet.has(actualSectorId)
+        );
+        const schoolAllowed = !restrictedInstitutionSet || (
+          typeof numericSchoolId === 'number' && !Number.isNaN(numericSchoolId) && restrictedInstitutionSet.has(numericSchoolId)
+        );
+
+        if (restrictedInstitutionSet && !sectorAllowed && !schoolAllowed) {
+          return;
+        }
 
         let targetSector = sectorMap.get(key);
         if (!targetSector) {
@@ -346,7 +365,9 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
       });
     });
 
-    const normalized = Array.from(sectorMap.values()).sort((a, b) => {
+    const normalized = Array.from(sectorMap.values())
+      .filter((sector) => sector.school_count > 0)
+      .sort((a, b) => {
       const regionComparison = (a.region_name || '').localeCompare(b.region_name || '', 'az');
       if (regionComparison !== 0) {
         return regionComparison;
@@ -372,11 +393,15 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
         accessRate,
       },
     };
-  }, [overview?.sectors, institutionMeta]);
+  }, [overview?.sectors, institutionMeta, restrictedInstitutionSet]);
 
   // Get not accessed institutions filtered by user role
   const notAccessedInstitutions = useMemo(() => {
-    const sourceSectors = sectorsToRender.length > 0 ? sectorsToRender : overview?.sectors || [];
+    const sourceSectors = restrictedInstitutionSet
+      ? sectorsToRender
+      : sectorsToRender.length > 0
+        ? sectorsToRender
+        : overview?.sectors || [];
 
     const allNotAccessed: Array<{
       id: number;
@@ -398,6 +423,18 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
       });
     });
 
+    if (restrictedInstitutionSet) {
+      return allNotAccessed.filter((inst) => {
+        if (restrictedInstitutionSet.has(inst.id)) {
+          return true;
+        }
+        if (inst.sector_id && restrictedInstitutionSet.has(inst.sector_id)) {
+          return true;
+        }
+        return false;
+      });
+    }
+
     const userRole = currentUser?.roles?.[0]?.name?.toLowerCase();
     const userInstitutionId = currentUser?.institution_id;
 
@@ -406,7 +443,7 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
     }
 
     return allNotAccessed;
-  }, [sectorsToRender, overview?.sectors, currentUser]);
+  }, [sectorsToRender, overview?.sectors, currentUser, restrictedInstitutionSet]);
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '—';
@@ -476,11 +513,17 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
 
   const hasUserTargets = (overview.target_users?.length ?? 0) > 0;
   const hasSectors = (overview.sectors?.length ?? 0) > 0;
-  const totalSectors = derivedTotals.totalSectors || overview.total_sectors || 0;
-  const totalSchools = derivedTotals.totalSchools || overview.total_schools || 0;
-  const accessedCount = derivedTotals.accessedCount ?? overview.accessed_count;
-  const notAccessedCount = derivedTotals.notAccessedCount ?? overview.not_accessed_count;
-  const accessRate = derivedTotals.accessRate || overview.access_rate || 0;
+  const preferDerived = Boolean(restrictedInstitutionSet || sectorsToRender.length > 0);
+  const totalSectors = preferDerived ? derivedTotals.totalSectors : derivedTotals.totalSectors || overview.total_sectors || 0;
+  const totalSchools = preferDerived ? derivedTotals.totalSchools : derivedTotals.totalSchools || overview.total_schools || 0;
+  const accessedCount = preferDerived ? derivedTotals.accessedCount : derivedTotals.accessedCount ?? overview.accessed_count;
+  const notAccessedCount = preferDerived ? derivedTotals.notAccessedCount : derivedTotals.notAccessedCount ?? overview.not_accessed_count;
+  const accessRate = preferDerived ? derivedTotals.accessRate : derivedTotals.accessRate || overview.access_rate || 0;
+  const sectorsForDisplay = restrictedInstitutionSet
+    ? sectorsToRender
+    : sectorsToRender.length > 0
+      ? sectorsToRender
+      : overview.sectors || [];
 
   if (!hasSectors && !hasUserTargets) {
     return (
@@ -555,7 +598,7 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
           </CardHeader>
 
           <CardContent className="space-y-4">
-            {(sectorsToRender.length > 0 ? sectorsToRender : overview.sectors).map((sector) => {
+            {sectorsForDisplay.map((sector) => {
               const sectorKey = sector.id ?? 'ungrouped';
               const isExpanded = expandedSectors.has(sectorKey);
 

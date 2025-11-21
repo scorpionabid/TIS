@@ -140,15 +140,23 @@ class InstitutionService extends BaseService<Institution> {
       ? `${this.baseEndpoint}/${institutionId}/hierarchy`
       : '/hierarchy';
 
-    const response = await apiClient.get<Institution[] | { data?: Institution[] }>(endpoint);
+    const response = await apiClient.get<any>(endpoint);
     const payload = response.data;
 
     if (Array.isArray(payload)) {
       return payload;
     }
 
-    if (payload && Array.isArray((payload as { data?: Institution[] }).data)) {
-      return ((payload as { data?: Institution[] }).data) as Institution[];
+    if (payload?.data) {
+      if (Array.isArray(payload.data)) {
+        return payload.data;
+      }
+      if (payload.data && typeof payload.data === 'object') {
+        return [payload.data];
+      }
+      if (Array.isArray(payload.data?.data)) {
+        return payload.data.data;
+      }
     }
 
     return [];

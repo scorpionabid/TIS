@@ -181,8 +181,12 @@ class InstitutionController extends Controller
     /**
      * Proxy to InstitutionHierarchyController@getHierarchy (alias)
      */
-    public function getHierarchy(Request $request): JsonResponse
+    public function getHierarchy(Request $request, ?Institution $institution = null): JsonResponse
     {
+        if ($institution) {
+            return $this->hierarchyController->getSubTree($institution, $request);
+        }
+
         return $this->hierarchyController->getHierarchy($request);
     }
 

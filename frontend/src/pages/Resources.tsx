@@ -12,11 +12,10 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { ResourceModal } from "@/components/modals/ResourceModal";
-import { LinkFilterPanel, LinkFilters } from "@/components/resources/LinkFilterPanel";
+import type { LinkFilters } from "@/components/resources/LinkFilterPanel";
 import { ResourceHeader } from "@/components/resources/ResourceHeader";
 import { ResourceToolbar } from "@/components/resources/ResourceToolbar";
 import { ResourceGrid } from "@/components/resources/ResourceGrid";
-import DocumentTable from "@/components/resources/DocumentTable";
 import { LinkBulkUploadModal } from "@/components/resources/LinkBulkUploadModal";
 import LinkTabContent from "@/components/resources/LinkTabContent";
 import StatsCard from "@/components/resources/StatsCard";
@@ -34,10 +33,7 @@ import { hasAnyRole } from "@/utils/permissions";
 import { useResourceFilters } from "@/hooks/useResourceFilters";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useLinkSharingOverview } from "@/hooks/resources/useLinkSharingOverview";
-import DocumentFilterPanel from "@/components/resources/DocumentFilterPanel";
 import DocumentTabContent from "@/components/resources/DocumentTabContent";
-import { useResourceGrouping, GroupingMode } from "@/hooks/useResourceGrouping";
-import { TablePagination } from "@/components/common/TablePagination";
 import {
   Select,
   SelectTrigger,
@@ -79,6 +75,32 @@ const normalizeInstitution = (input: Institution | { data?: Institution } | null
   return input as Institution;
 };
 
+const extractHierarchyList = (payload: Institution[] | { data?: Institution[] } | null | undefined): Institution[] => {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray((payload as { data?: Institution[] })?.data)) {
+    return ((payload as { data?: Institution[] }).data) as Institution[];
+  }
+  return [];
+};
+
+const collectInstitutionIdsFromTree = (nodes: Institution[] | undefined | null, accumulator: Set<number>) => {
+  if (!nodes || nodes.length === 0) {
+    return;
+  }
+  nodes.forEach((node) => {
+    if (!node) {
+      return;
+    }
+    if (typeof node.id === 'number' && !Number.isNaN(node.id)) {
+      accumulator.add(node.id);
+    }
+    if (Array.isArray(node.children) && node.children.length > 0) {
+      collectInstitutionIdsFromTree(node.children as Institution[], accumulator);
+    }
+  });
+};
+
 const filtersToValue = (value?: string | null) => {
   if (!value || value === 'all') {
     return undefined;
@@ -115,6 +137,46 @@ const persistLinkId = (linkId: number | null) => {
   }
 };
 
+const toNumericId = (value: number | string | null | undefined): number | null => {
+  if (typeof value === 'number' && !Number.isNaN(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+  return null;
+};
+
+const resourceMatchesScope = (resource: Resource, scope: Set<number> | null): boolean => {
+  if (!scope || scope.size === 0) {
+    return true;
+  }
+
+  const institutionId = toNumericId(resource.institution?.id ?? (resource as { institution_id?: number | string }).institution_id);
+  if (institutionId && scope.has(institutionId)) {
+    return true;
+  }
+
+  const targets = (resource.target_institutions || [])
+    .map((target) => toNumericId(target))
+    .filter((id): id is number => Boolean(id));
+
+  if (targets.some((id) => scope.has(id))) {
+    return true;
+  }
+
+  const accessibleInstitutions = (resource as { accessible_institutions?: Array<number | string> }).accessible_institutions;
+  if (Array.isArray(accessibleInstitutions)) {
+    return accessibleInstitutions.some((id) => {
+      const numericId = toNumericId(id);
+      return numericId ? scope.has(numericId) : false;
+    });
+  }
+
+  return false;
+};
+
 export default function Resources() {
   const { currentUser, hasPermission } = useAuth();
   const { toast } = useToast();
@@ -147,6 +209,45 @@ export default function Resources() {
   const canFetchDocumentList = hasPermission ? hasPermission('documents.read') : false;
   const canBulkUploadLinks = hasPermission ? hasPermission('links.bulk') : false;
 
+  const userInstitutionId = currentUser?.institution?.id ?? currentUser?.institution_id ?? null;
+  const isRegionAdmin = hasAnyRole(currentUser, ['regionadmin']);
+  const isSectorAdmin = hasAnyRole(currentUser, ['sektoradmin']);
+  const shouldRestrictByInstitution = Boolean(userInstitutionId && (isRegionAdmin || isSectorAdmin));
+  const institutionScopeKey = shouldRestrictByInstitution ? `${userInstitutionId}-${isRegionAdmin ? 'region' : 'sector'}` : 'open';
+
+  const {
+    data: accessibleInstitutionIds,
+    isLoading: accessibleInstitutionLoading,
+  } = useQuery({
+    queryKey: ['resource-accessible-institutions', institutionScopeKey],
+    enabled: shouldRestrictByInstitution && Boolean(userInstitutionId),
+    staleTime: 10 * 60 * 1000,
+    queryFn: async () => {
+      if (!userInstitutionId) {
+        return [];
+      }
+      try {
+        const hierarchyResponse = await institutionService.getHierarchy(userInstitutionId);
+        const hierarchyList = extractHierarchyList(hierarchyResponse);
+        const ids = new Set<number>();
+        ids.add(userInstitutionId);
+        collectInstitutionIdsFromTree(hierarchyList, ids);
+        return Array.from(ids);
+      } catch (error) {
+        console.error('Failed to load accessible institutions for resources scope', error);
+        return [];
+      }
+    },
+  });
+
+  const institutionScopeReady = !shouldRestrictByInstitution || accessibleInstitutionIds !== undefined;
+  const accessibleInstitutionSet = useMemo(() => {
+    if (!accessibleInstitutionIds || accessibleInstitutionIds.length === 0) {
+      return null;
+    }
+    return new Set(accessibleInstitutionIds);
+  }, [accessibleInstitutionIds]);
+
   if (!canViewResources) {
     return <ResourceAccessRestricted />;
   }
@@ -170,9 +271,8 @@ export default function Resources() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'created_at' | 'title'>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [linkGroupingMode, setLinkGroupingMode] = useState<GroupingMode>('sector');
-  const [linkSortBy, setLinkSortBy] = useState<'created_at' | 'title'>('created_at');
-  const [linkSortDirection, setLinkSortDirection] = useState<'asc' | 'desc'>('desc');
+  const LINK_SORT_BY: 'created_at' | 'title' = 'created_at';
+  const LINK_SORT_DIRECTION: 'asc' | 'desc' = 'desc';
 
   const DEFAULT_PAGE = 1;
   const DEFAULT_PER_PAGE = 50;
@@ -240,11 +340,8 @@ export default function Resources() {
 
   const {
     linkFilters,
-    setLinkFilters,
     documentFilters,
     setDocumentFilters,
-    filterPanelOpen,
-    toggleFilterPanel,
     getFiltersForTab,
   } = useResourceFilters();
 
@@ -255,9 +352,6 @@ export default function Resources() {
   const [institutionDirectory, setInstitutionDirectory] = useState<Record<number, string>>({});
   const [institutionMetadata, setInstitutionMetadata] = useState<Record<number, InstitutionOption>>({});
   const [userDirectory, setUserDirectory] = useState<Record<number, string>>({});
-  // TEMP: Link tabını sadələşdirmək üçün digər komponentləri gizlədirik
-  const showLinkDetails = false;
-
   const [documentFilterPanelOpen, setDocumentFilterPanelOpen] = useState<boolean>(() => {
     if (typeof window === 'undefined') {
       return true;
@@ -282,6 +376,21 @@ export default function Resources() {
     institution_ids: linkFilters.institution_ids,
   }), [linkFilters.link_type, linkFilters.status, linkFilters.institution_ids]);
 
+  const scopedLinkInstitutionIds = useMemo(() => {
+    if (!shouldRestrictByInstitution) {
+      return normalizedLinkFilters.institution_ids;
+    }
+    if (!accessibleInstitutionIds) {
+      return undefined;
+    }
+    if (!normalizedLinkFilters.institution_ids || normalizedLinkFilters.institution_ids.length === 0) {
+      return accessibleInstitutionIds;
+    }
+    const allowed = accessibleInstitutionSet ?? new Set<number>();
+    const filtered = normalizedLinkFilters.institution_ids.filter((id) => allowed.has(id));
+    return filtered.length > 0 ? filtered : [];
+  }, [shouldRestrictByInstitution, normalizedLinkFilters.institution_ids, accessibleInstitutionIds, accessibleInstitutionSet]);
+
   const linkFilterSignature = useMemo(
     () => JSON.stringify(normalizedLinkFilters),
     [normalizedLinkFilters]
@@ -290,12 +399,12 @@ export default function Resources() {
   const linkQueryParams = useMemo(() => ({
     link_type: normalizedLinkFilters.link_type,
     status: normalizedLinkFilters.status,
-    institution_ids: normalizedLinkFilters.institution_ids,
-    sort_by: linkSortBy,
-    sort_direction: linkSortDirection,
+    institution_ids: shouldRestrictByInstitution ? scopedLinkInstitutionIds : normalizedLinkFilters.institution_ids,
+    sort_by: LINK_SORT_BY,
+    sort_direction: LINK_SORT_DIRECTION,
     page: linkPage,
     per_page: linkPerPage,
-  }), [normalizedLinkFilters, linkSortBy, linkSortDirection, linkPage, linkPerPage]);
+  }), [normalizedLinkFilters, scopedLinkInstitutionIds, shouldRestrictByInstitution, linkPage, linkPerPage]);
 
   const {
     data: linkResponse,
@@ -305,13 +414,18 @@ export default function Resources() {
   } = useQuery({
     queryKey: ['link-resources', linkQueryParams],
     queryFn: () => resourceService.getLinksPaginated(linkQueryParams),
-    enabled: isAuthenticated && canViewLinks && activeTab === 'links',
+    enabled: isAuthenticated && canViewLinks && activeTab === 'links' && institutionScopeReady,
     keepPreviousData: true,
     staleTime: 60 * 1000,
   });
 
-  const linkData = useMemo(() => linkResponse?.data || [], [linkResponse?.data]);
-  const linkTotal = linkResponse?.meta?.total ?? 0;
+  const linkData = useMemo(() => {
+    const raw = linkResponse?.data || [];
+    if (!shouldRestrictByInstitution || !accessibleInstitutionSet) {
+      return raw;
+    }
+    return raw.filter((link) => resourceMatchesScope(link, accessibleInstitutionSet));
+  }, [linkResponse?.data, shouldRestrictByInstitution, accessibleInstitutionSet]);
   const isLinkLoading = linkLoading && !linkResponse;
   const isLinkFetching = linkFetching;
   const isLinkRefreshing = isLinkFetching && !isLinkLoading;
@@ -321,7 +435,7 @@ export default function Resources() {
       return;
     }
     setLinkPage(1);
-  }, [linkFilterSignature, linkSortBy, linkSortDirection, activeTab]);
+  }, [linkFilterSignature, activeTab]);
 
   useEffect(() => {
     if (activeTab !== 'links') {
@@ -364,14 +478,11 @@ export default function Resources() {
     setSelectedLink(link);
   }, []);
 
-  const handleLinkSelection = useCallback((link: Resource) => {
-    handleSelectLink(link);
-  }, [handleSelectLink]);
-
-  // Check if selected link title has multiple links (grouped)
   const isGroupedLink = useMemo(() => {
-    if (!selectedLink || !linkData) return false;
-    const sameTitleLinks = linkData.filter(l => l.title === selectedLink.title);
+    if (!selectedLink || !linkData?.length) {
+      return false;
+    }
+    const sameTitleLinks = linkData.filter((link) => link.title === selectedLink.title);
     return sameTitleLinks.length > 1;
   }, [selectedLink, linkData]);
 
@@ -408,6 +519,25 @@ export default function Resources() {
     enabled: shouldLoadFilterSources,
     staleTime: 10 * 60 * 1000,
   });
+
+  const scopedRemoteInstitutionOptions = useMemo(() => {
+    if (!remoteInstitutionOptions) {
+      return remoteInstitutionOptions;
+    }
+    if (!shouldRestrictByInstitution) {
+      return remoteInstitutionOptions;
+    }
+    if (!accessibleInstitutionIds) {
+      return undefined;
+    }
+    const allowed = accessibleInstitutionSet ?? new Set<number>();
+    return remoteInstitutionOptions.filter((institution) => {
+      if (!institution?.id) {
+        return false;
+      }
+      return allowed.has(institution.id);
+    });
+  }, [remoteInstitutionOptions, shouldRestrictByInstitution, accessibleInstitutionIds, accessibleInstitutionSet]);
 
   const { data: remoteCreatorOptions } = useQuery({
     queryKey: ['resource-filter-creators'],
@@ -505,14 +635,6 @@ export default function Resources() {
     }
   });
 
-  useEffect(() => {
-    console.log('📋 Resources query state', {
-      role: currentUser?.role,
-      shouldUseAssignedResources,
-      params: resourceQueryParams,
-    });
-  }, [currentUser?.role, shouldUseAssignedResources, JSON.stringify(resourceQueryParams)]);
-
   // Fetch resource statistics
   const statsPermissionSatisfied =
     activeTab === 'links'
@@ -539,7 +661,13 @@ export default function Resources() {
 
   // MOVED HOOKS BEFORE EARLY RETURNS - React Rules of Hooks compliance
   // Memoize resourcesData to prevent exhaustive-deps warnings
-  const resourcesData = useMemo(() => resourceResponse?.data || [], [resourceResponse?.data]);
+  const resourcesData = useMemo(() => {
+    const raw = resourceResponse?.data || [];
+    if (!shouldRestrictByInstitution || !accessibleInstitutionSet) {
+      return raw;
+    }
+    return raw.filter((resource) => resourceMatchesScope(resource, accessibleInstitutionSet));
+  }, [resourceResponse?.data, shouldRestrictByInstitution, accessibleInstitutionSet]);
   const documentResources = useMemo(
     () => resourcesData.filter((resource) => resource.type === 'document'),
     [resourcesData]
@@ -628,7 +756,7 @@ export default function Resources() {
 
   const availableInstitutions = useMemo<InstitutionOption[]>(() => {
     const map = new Map<number, InstitutionOption>();
-    (remoteInstitutionOptions ?? []).forEach((institution) => {
+    (scopedRemoteInstitutionOptions ?? []).forEach((institution) => {
       if (!institution?.id) return;
       map.set(institution.id, institution);
     });
@@ -648,7 +776,7 @@ export default function Resources() {
       map.set(institution.id, institution);
     });
     return Array.from(map.values());
-  }, [remoteInstitutionOptions, institutionMetadata, fallbackInstitutionOptions]);
+  }, [scopedRemoteInstitutionOptions, institutionMetadata, fallbackInstitutionOptions]);
 
   const availableInstitutionMap = useMemo(() => {
     const map = new Map<number, InstitutionOption>();
@@ -660,41 +788,10 @@ export default function Resources() {
     return map;
   }, [availableInstitutions]);
 
-  const { groupedResources: groupedLinkResources } = useResourceGrouping(
-    linkData,
-    availableInstitutions,
-    linkGroupingMode
-  );
   const filteredLinkCount = linkResponse?.meta?.total ?? linkData.length;
-  const linkPaginationMeta = linkResponse?.meta;
-  const linkPaginationCurrent = linkPaginationMeta?.current_page ?? linkPage;
-  const linkPaginationPerPage = linkPaginationMeta?.per_page ?? linkPerPage;
-  const linkPaginationTotalItems = linkPaginationMeta?.total ?? linkData.length;
+  const linkPaginationPerPage = linkResponse?.meta?.per_page ?? linkPerPage;
+  const linkPaginationTotalItems = linkResponse?.meta?.total ?? linkData.length;
   const linkPaginationTotalPages = Math.max(1, Math.ceil(linkPaginationTotalItems / linkPaginationPerPage));
-  const linkPaginationStartIndex = (linkPaginationCurrent - 1) * linkPaginationPerPage;
-  const linkPaginationEndIndex = Math.min(linkPaginationStartIndex + linkPaginationPerPage, linkPaginationTotalItems);
-  const linkPaginationConfig = useMemo(() => ({
-    current: linkPaginationCurrent,
-    totalPages: linkPaginationTotalPages,
-    totalItems: linkPaginationTotalItems,
-    perPage: linkPaginationPerPage,
-    startIndex: linkPaginationStartIndex,
-    endIndex: linkPaginationEndIndex,
-    onPageChange: (page: number) => setLinkPage(page),
-    onPerPageChange: (value: number) => {
-      setLinkPerPage(value);
-      setLinkPage(1);
-    },
-  }), [
-    linkPaginationCurrent,
-    linkPaginationTotalPages,
-    linkPaginationTotalItems,
-    linkPaginationPerPage,
-    linkPaginationStartIndex,
-    linkPaginationEndIndex,
-    setLinkPage,
-    setLinkPerPage,
-  ]);
   useEffect(() => {
     if (activeTab !== 'links') {
       return;
@@ -773,13 +870,13 @@ export default function Resources() {
   }, [resourcesData, linkData]);
 
   useEffect(() => {
-    if (!remoteInstitutionOptions?.length) {
+    if (!scopedRemoteInstitutionOptions?.length) {
       return;
     }
     setInstitutionMetadata((prev) => {
       const next = { ...prev };
       let changed = false;
-      remoteInstitutionOptions.forEach((institution) => {
+      scopedRemoteInstitutionOptions.forEach((institution) => {
         if (!institution?.id) return;
         const existing = next[institution.id];
         if (
@@ -801,7 +898,7 @@ export default function Resources() {
       });
       return changed ? next : prev;
     });
-  }, [remoteInstitutionOptions]);
+  }, [scopedRemoteInstitutionOptions]);
 
   useEffect(() => {
     setUserDirectory((prev) => {
@@ -1540,34 +1637,20 @@ export default function Resources() {
             linkData={linkData}
             filteredLinkCount={filteredLinkCount}
             isRefreshing={isLinkRefreshing}
-            filters={linkFilters}
-            onFiltersChange={(next) => setLinkFilters(next)}
-            institutionOptions={institutionFilterOptions}
-            filterPanelOpen={filterPanelOpen}
-            onToggleFilters={toggleFilterPanel}
-            pagination={linkPaginationConfig}
-            groupingMode={linkGroupingMode}
-            onChangeGroupingMode={setLinkGroupingMode}
-            sortBy={linkSortBy}
-            sortDirection={linkSortDirection}
-            onSortChange={(by, dir) => {
-              setLinkSortBy(by);
-              setLinkSortDirection(dir);
-            }}
-            linkTotal={linkTotal}
             isLinkLoading={isLinkLoading}
             onResourceAction={handleResourceAction}
-            groupedLinkResources={groupedLinkResources}
-            institutionDirectory={institutionDirectory}
-            userDirectory={userDirectory}
             selectedLink={selectedLink}
-            onSelectLink={handleLinkSelection}
+            onSelectLink={handleSelectLink}
             linkSharingOverview={linkSharingOverview}
             sharingOverviewLoading={sharingOverviewLoading}
             onRetrySharingOverview={() => refetchLinkSharingOverview()}
             institutionMetadata={institutionMetadata}
-            showLinkDetails={showLinkDetails}
             onRetryLinks={() => queryClient.invalidateQueries({ queryKey: ['link-resources'] })}
+            restrictedInstitutionIds={
+              isSectorAdmin && accessibleInstitutionIds
+                ? accessibleInstitutionIds
+                : undefined
+            }
           />
         </TabsContent>
 

@@ -123,12 +123,13 @@ Route::middleware('permission:institutions.write')->group(function () {
 Route::middleware('permission:institutions.read')->group(function () {
     Route::get('institutions', [InstitutionController::class, 'index']);
     Route::get('institutions/statistics', [InstitutionController::class, 'getStatistics']);
+    Route::get('institutions/summary', [InstitutionController::class, 'getSummaries']);
     Route::get('institutions/{institution}', [InstitutionController::class, 'show']);
     Route::get('institutions/{institution}/users', [InstitutionController::class, 'getUsers']);
     Route::get('institutions/{institution}/children', [InstitutionController::class, 'getChildren']);
     Route::get('institutions/{institution}/hierarchy', [InstitutionController::class, 'getHierarchy']);
-    Route::get('institutions/{institution}/summary', [InstitutionController::class, 'getSummary']);
-    Route::get('institutions/summary', [InstitutionController::class, 'getSummaries']);
+    Route::get('institutions/{institution}/summary', [InstitutionController::class, 'getSummary'])
+        ->whereNumber('institution');
     Route::get('institutions/search/{query}', [InstitutionController::class, 'search']);
     Route::get('institutions/find-similar', [InstitutionController::class, 'findSimilar']);
     Route::get('institutions/check-code-exists', [InstitutionController::class, 'checkCodeExists']);

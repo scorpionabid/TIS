@@ -300,17 +300,20 @@ class LinkQueryBuilder
                   ->orWhere('share_scope', 'regional')
                   ->orWhere('share_scope', 'national');
         } elseif ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
-            // Sector admin can see links from their sector
-            $childIds = $userInstitution->getAllChildrenIds();
-            $query->where(function ($q) use ($childIds) {
-                $q->whereIn('institution_id', $childIds)
+            // Sector admin can see links originating from or targeted to their sector
+            $childIds = $userInstitution->getAllChildrenIds() ?? [];
+            $scopeIds = array_values(array_unique(array_merge([$userInstitution->id], $childIds)));
+
+            $query->where(function ($q) use ($scopeIds) {
+                $q->whereIn('institution_id', $scopeIds)
                   ->orWhere('share_scope', 'sectoral')
                   ->orWhere('share_scope', 'regional')
                   ->orWhere('share_scope', 'national')
-                  ->orWhere(function($subQ) use ($childIds) {
-                      // Check if any of the sector's institutions are in target_institutions JSON
-                      foreach ($childIds as $instId) {
-                          $subQ->orWhereJsonContains('target_institutions', (string)$instId);
+                  ->orWhere(function($subQ) use ($scopeIds) {
+                      // Check if any of the sector hierarchy institutions are in target_institutions JSON
+                      foreach ($scopeIds as $instId) {
+                          $subQ->orWhereJsonContains('target_institutions', (int)$instId)
+                               ->orWhereJsonContains('target_institutions', (string)$instId);
                       }
                   });
             });
