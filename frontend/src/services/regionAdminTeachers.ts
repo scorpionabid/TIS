@@ -616,6 +616,290 @@ class RegionAdminTeacherService extends BaseService {
       throw new Error(`Template download failed: ${error.message}`);
     }
   }
+
+  /**
+   * Phase 1: Pre-validate import file WITHOUT importing
+   * Analyzes Excel and returns detailed validation results
+   */
+  async validateImportFile(file: File): Promise<ValidationResult> {
+    console.log('🔍 Starting pre-validation', {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type
+    });
+
+    try {
+      // Validate file
+      if (!file) {
+        throw new Error('Fayl seçilməyib');
+      }
+
+      // Check file type
+      const allowedTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.ms-excel', // .xls
+      ];
+
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error('Yalnız Excel faylları (.xlsx, .xls) yüklənə bilər');
+      }
+
+      // Check file size (10MB limit)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        throw new Error('Fayl ölçüsü 10MB-dan çox ola bilməz');
+      }
+
+      // Prepare FormData
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const baseURL = (apiClient as any).baseURL || 'http://localhost:8000/api';
+      const fullURL = `${baseURL}/regionadmin/teachers/import/validate`;
+
+      const response = await fetch(fullURL, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          ...apiClient.getAuthHeaders(),
+        },
+        credentials: 'include',
+        body: formData,
+      });
+
+      console.log('📥 Validation response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('❌ Validation failed:', result);
+        throw new Error(result.message || 'Doğrulama xətası');
+      }
+
+      console.log('✅ Validation complete:', {
+        totalRows: result.summary?.total_rows,
+        validRows: result.summary?.valid_rows,
+        invalidRows: result.summary?.invalid_rows
+      });
+
+      return result;
+    } catch (error: any) {
+      console.error('💥 Validation error:', error);
+      throw new Error(`Doğrulama xətası: ${error.message}`);
+    }
+  }
+
+  /**
+   * Phase 3: Export validation errors to Excel
+   * Creates 3-sheet Excel with error details
+   */
+  async exportValidationErrors(validationResult: ValidationResult): Promise<Blob> {
+    console.log('📤 Exporting validation errors');
+
+    try {
+      const baseURL = (apiClient as any).baseURL || 'http://localhost:8000/api';
+      const fullURL = `${baseURL}/regionadmin/teachers/import/export-errors`;
+
+      const response = await fetch(fullURL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'X-Requested-With': 'XMLHttpRequest',
+          ...apiClient.getAuthHeaders(),
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          invalid_rows: validationResult.invalid_rows,
+          errors: validationResult.errors,
+          summary: validationResult.summary,
+        }),
+      });
+
+      console.log('📥 Error export response:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type'),
+        ok: response.ok
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Error export failed:', errorText);
+        throw new Error('Xəta faylı yaradıla bilmədi');
+      }
+
+      const blob = await response.blob();
+      console.log('📦 Error Excel created:', {
+        size: blob.size,
+        type: blob.type
+      });
+
+      return blob;
+    } catch (error: any) {
+      console.error('💥 Error export failed:', error);
+      throw new Error(`Xəta faylı yaradıla bilmədi: ${error.message}`);
+    }
+  }
+
+  /**
+   * Phase 4: Enhanced import with strategy support
+   * Supports 'strict' (default) or 'skip_errors' strategies
+   */
+  async importTeachersWithStrategy(
+    file: File,
+    options?: EnhancedImportOptions
+  ): Promise<ImportResult> {
+    console.log('🎯 Starting teacher import with strategy', {
+      fileName: file.name,
+      fileSize: file.size,
+      strategy: options?.strategy || 'strict',
+      options
+    });
+
+    try {
+      // Validate file
+      if (!file) {
+        throw new Error('Fayl seçilməyib');
+      }
+
+      // Check file type
+      const allowedTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.ms-excel', // .xls
+      ];
+
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error('Yalnız Excel faylları (.xlsx, .xls) yüklənə bilər');
+      }
+
+      // Check file size (10MB limit)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        throw new Error('Fayl ölçüsü 10MB-dan çox ola bilməz');
+      }
+
+      // Prepare FormData
+      const formData = new FormData();
+      formData.append('file', file);
+
+      if (options?.skip_duplicates) {
+        formData.append('skip_duplicates', '1');
+      }
+      if (options?.update_existing) {
+        formData.append('update_existing', '1');
+      }
+      if (options?.strategy) {
+        formData.append('strategy', options.strategy);
+      }
+
+      console.log('📤 FormData prepared with strategy:', {
+        fileName: file.name,
+        skipDuplicates: options?.skip_duplicates,
+        updateExisting: options?.update_existing,
+        strategy: options?.strategy || 'strict'
+      });
+
+      const baseURL = (apiClient as any).baseURL || 'http://localhost:8000/api';
+      const fullURL = `${baseURL}/regionadmin/teachers/import`;
+
+      // Use XMLHttpRequest for progress tracking
+      const response = await new Promise<Response>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        // Upload progress tracking
+        if (options?.onUploadProgress) {
+          xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+              options.onUploadProgress?.({
+                loaded: e.loaded,
+                total: e.total,
+              });
+            }
+          });
+        }
+
+        // Load complete
+        xhr.addEventListener('load', () => {
+          resolve(new Response(xhr.response, {
+            status: xhr.status,
+            statusText: xhr.statusText,
+            headers: new Headers(xhr.getAllResponseHeaders().split('\r\n').reduce((acc, line) => {
+              const [key, value] = line.split(': ');
+              if (key && value) acc[key] = value;
+              return acc;
+            }, {} as Record<string, string>)),
+          }));
+        });
+
+        // Error handling
+        xhr.addEventListener('error', () => reject(new Error('Network error')));
+        xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
+
+        // Open and send
+        xhr.open('POST', fullURL);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+        // Set auth headers
+        const authHeaders = apiClient.getAuthHeaders();
+        Object.entries(authHeaders).forEach(([key, value]) => {
+          xhr.setRequestHeader(key, value);
+        });
+
+        xhr.send(formData);
+      });
+
+      console.log('📥 Import response:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type'),
+        ok: response.ok
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('❌ Import failed:', {
+          status: response.status,
+          result
+        });
+
+        // Handle different error types
+        if (response.status === 422) {
+          const errorMessage = result.errors ? result.errors.join(', ') : result.message;
+          throw new Error(errorMessage || 'Doğrulama xətası');
+        } else if (response.status === 404) {
+          throw new Error(result.message || 'API endpoint tapılmadı');
+        } else if (response.status === 400) {
+          throw new Error(result.message || 'Fayl məlumatları düzgün deyil');
+        } else if (response.status === 401 || response.status === 403) {
+          throw new Error('İcazə yoxdur. Zəhmət olmasa yenidən daxil olun.');
+        } else {
+          throw new Error(result.message || 'İdxal xətası baş verdi');
+        }
+      }
+
+      console.log('✅ Import successful with strategy:', result);
+
+      return {
+        success: result.success || true,
+        imported: result.imported || result.success_count || 0,
+        errors: result.skipped || result.error_count || 0,
+        details: result.details || { success: [], errors: [] },
+      };
+    } catch (error: any) {
+      console.error('💥 Import error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+      throw new Error(`İdxal xətası: ${error.message}`);
+    }
+  }
 }
 
 // Import result interface
@@ -627,6 +911,54 @@ export interface ImportResult {
     success: string[];
     errors: string[];
   };
+}
+
+// Validation result interfaces (Phase 1-4 support)
+export interface ValidationSummary {
+  total_rows: number;
+  valid_rows: number;
+  invalid_rows: number;
+  warnings: number;
+  critical_errors: number;
+  valid_percentage: number;
+  can_proceed_with_skip: boolean;
+}
+
+export interface ValidationError {
+  row_number: number;
+  field: string;
+  message: string;
+  value?: string;
+  severity: 'critical' | 'warning';
+  suggestion?: string;
+}
+
+export interface InvalidRow {
+  row_number: number;
+  data: Record<string, any>;
+  errors: ValidationError[];
+}
+
+export interface ValidationResult {
+  success: boolean;
+  summary: ValidationSummary;
+  valid_rows: Array<{ row_number: number; data: Record<string, any> }>;
+  invalid_rows: InvalidRow[];
+  errors: ValidationError[];
+  warnings: ValidationError[];
+  error_groups: Record<string, number>;
+  suggestions: string[];
+}
+
+// Import strategy type
+export type ImportStrategy = 'strict' | 'skip_errors';
+
+// Enhanced import options
+export interface EnhancedImportOptions {
+  skip_duplicates?: boolean;
+  update_existing?: boolean;
+  strategy?: ImportStrategy;
+  onUploadProgress?: (progress: { loaded: number; total: number }) => void;
 }
 
 // Export singleton instance

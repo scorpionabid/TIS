@@ -207,9 +207,10 @@ class RegionTeachersImport implements
             'patronymic' => trim($row['patronymic'] ?? ''),
             'position_type' => trim($row['position_type'] ?? ''),
             'workplace_type' => trim($row['workplace_type'] ?? ''),
-            'specialty' => trim($row['specialty'] ?? ''),
-            'assessment_type' => trim($row['assessment_type'] ?? ''),
-            'assessment_score' => trim($row['assessment_score'] ?? ''),
+            'specialty' => $this->normalizeOptionalField($row['specialty'] ?? null),
+            'main_subject' => $this->normalizeOptionalField($row['main_subject'] ?? null),
+            'assessment_type' => $this->normalizeOptionalField($row['assessment_type'] ?? null),
+            'assessment_score' => $this->normalizeOptionalField($row['assessment_score'] ?? null),
             'password' => trim($row['password'] ?? ''),
 
             // Optional fields
@@ -221,6 +222,19 @@ class RegionTeachersImport implements
             'graduation_year' => trim($row['graduation_year'] ?? ''),
             'notes' => trim($row['notes'] ?? ''),
         ];
+    }
+
+    /**
+     * Normalize optional string fields so empty strings are treated as null
+     */
+    private function normalizeOptionalField($value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+        return $trimmed === '' ? null : $trimmed;
     }
 
     /**
@@ -242,21 +256,25 @@ class RegionTeachersImport implements
                 'required',
                 'string',
                 Rule::in([
-                    'müəllim',
                     'direktor',
                     'direktor_muavini_tedris',
                     'direktor_muavini_inzibati',
-                    'direktor_muavini_maliyye',
+                    'terbiye_isi_uzre_direktor_muavini',
+                    'metodik_birlesme_rəhbəri',
+                    'muəllim_sinif_rəhbəri',
+                    'muəllim',
                     'psixoloq',
-                    'metodist',
                     'kitabxanaçı',
-                    'texniki_işçi',
+                    'laborant',
+                    'tibb_işçisi',
+                    'təsərrüfat_işçisi',
                 ]),
             ],
             'workplace_type' => 'required|string|in:primary,secondary',
-            'specialty' => 'required|string|max:255',
-            'assessment_type' => 'required|string|in:sertifikasiya,miq_100,miq_60,diaqnostik',
-            'assessment_score' => 'required|numeric|min:0|max:100',
+            'specialty' => 'nullable|string|max:255',
+            'main_subject' => 'nullable|string|max:255',
+            'assessment_type' => 'nullable|string|in:sertifikasiya,miq_100,miq_60,diaqnostik',
+            'assessment_score' => 'nullable|numeric|min:0|max:100',
             'password' => 'required|string|min:8',
 
             // Optional fields
@@ -382,9 +400,10 @@ class RegionTeachersImport implements
             'patronymic' => $data['patronymic'],
             'position_type' => $data['position_type'],
             'workplace_type' => $data['workplace_type'],
-            'specialty' => $data['specialty'],
-            'assessment_type' => $data['assessment_type'],
-            'assessment_score' => $data['assessment_score'],
+            'specialty' => $data['specialty'] ?? null,
+            'subjects' => $data['main_subject'] ? [$data['main_subject']] : null,
+            'assessment_type' => $data['assessment_type'] ?? null,
+            'assessment_score' => $data['assessment_score'] ?? null,
 
             // Optional fields
             'contact_phone' => $data['contact_phone'] ?: null,
@@ -428,9 +447,10 @@ class RegionTeachersImport implements
             'patronymic' => $data['patronymic'],
             'position_type' => $data['position_type'],
             'workplace_type' => $data['workplace_type'],
-            'specialty' => $data['specialty'],
-            'assessment_type' => $data['assessment_type'],
-            'assessment_score' => $data['assessment_score'],
+            'specialty' => $data['specialty'] ?? null,
+            'subjects' => $data['main_subject'] ? [$data['main_subject']] : null,
+            'assessment_type' => $data['assessment_type'] ?? null,
+            'assessment_score' => $data['assessment_score'] ?? null,
 
             // Optional fields
             'contact_phone' => $data['contact_phone'] ?: null,

@@ -533,6 +533,101 @@ class RegionTeacherService
     }
 
     /**
+     * Import only valid rows (skip errors strategy) - NEW
+     *
+     * @param array $validRows Pre-validated rows from pre-validation service
+     * @param Institution $region
+     * @return array Import results
+     */
+    public function importValidRows(array $validRows, Institution $region): array
+    {
+        $successCount = 0;
+        $errorCount = 0;
+        $details = [
+            'success' => [],
+            'errors' => [],
+        ];
+
+        try {
+            Log::info('RegionTeacherService - Importing valid rows only', [
+                'valid_rows_count' => count($validRows),
+                'region_id' => $region->id,
+            ]);
+
+            foreach ($validRows as $item) {
+                $rowData = $item['data'];
+                $rowNumber = $item['row_number'];
+
+                try {
+                    // Create teacher using validated data
+                    $user = User::create([
+                        'username' => $rowData['username'],
+                        'email' => $rowData['email'],
+                        'password' => \Hash::make($rowData['password']),
+                        'institution_id' => $rowData['institution_id'],
+                        'is_active' => true,
+                        'email_verified_at' => now(),
+                    ]);
+
+                    // Assign teacher role
+                    $user->assignRole('müəllim');
+
+                    // Create user profile
+                    $user->profile()->create([
+                        'first_name' => $rowData['first_name'],
+                        'last_name' => $rowData['last_name'],
+                        'patronymic' => $rowData['patronymic'],
+                        'position_type' => $rowData['position_type'],
+                        'workplace_type' => $rowData['workplace_type'],
+                        'specialty' => $rowData['specialty'] ?: null,
+                        'subjects' => !empty($rowData['main_subject']) ? [$rowData['main_subject']] : null,
+                        'assessment_type' => $rowData['assessment_type'] ?: null,
+                        'assessment_score' => $rowData['assessment_score'] ?: null,
+                        'contact_phone' => $rowData['contact_phone'] ?: null,
+                        'contract_start_date' => $rowData['contract_start_date'] ?: null,
+                        'contract_end_date' => $rowData['contract_end_date'] ?: null,
+                        'education_level' => $rowData['education_level'] ?: null,
+                        'graduation_university' => $rowData['graduation_university'] ?: null,
+                        'graduation_year' => $rowData['graduation_year'] ?: null,
+                        'notes' => $rowData['notes'] ?: null,
+                    ]);
+
+                    $successCount++;
+                    $details['success'][] = "Sətir {$rowNumber}: {$rowData['first_name']} {$rowData['last_name']} ({$rowData['email']})";
+
+                } catch (\Exception $e) {
+                    $errorCount++;
+                    $details['errors'][] = "Sətir {$rowNumber}: {$e->getMessage()}";
+
+                    Log::error('RegionTeacherService - Error importing valid row', [
+                        'row_number' => $rowNumber,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            Log::info('RegionTeacherService - Valid rows import completed', [
+                'success_count' => $successCount,
+                'error_count' => $errorCount,
+            ]);
+
+            return [
+                'success_count' => $successCount,
+                'error_count' => $errorCount,
+                'details' => $details,
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('RegionTeacherService - Error importing valid rows', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            throw new \Exception('Valid rows import zamanı xəta: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Generate Excel import template
      *
      * @param Institution $region

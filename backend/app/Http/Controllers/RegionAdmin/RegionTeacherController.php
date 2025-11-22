@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Institution;
 use App\Services\RegionAdmin\RegionTeacherService;
+use App\Exports\TeacherImportErrorsExport;
+use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -791,6 +793,98 @@ class RegionTeacherController extends Controller
     }
 
     /**
+     * PRE-VALIDATE Excel file before import (NEW)
+     * Returns detailed validation report without importing
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function validateImport(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+
+            // Authorization check
+            $allRoles = \DB::table('model_has_roles')
+                ->where('model_type', 'App\\Models\\User')
+                ->where('model_id', $user->id)
+                ->pluck('role_id');
+
+            $hasPermission = \DB::table('role_has_permissions')
+                ->whereIn('role_id', $allRoles)
+                ->whereIn('permission_id', function($query) {
+                    $query->select('id')
+                        ->from('permissions')
+                        ->where('name', 'teachers.create');
+                })
+                ->exists();
+
+            if (!$hasPermission) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Müəllim yaratmaq səlahiyyətiniz yoxdur'
+                ], 403);
+            }
+
+            $region = $user->institution;
+
+            // SuperAdmin can validate for any region
+            if ($user->hasRole('superadmin')) {
+                if (!$region) {
+                    $region = Institution::where('level', 2)->first();
+                }
+
+                if (!$region) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Sistemdə heç bir region tapılmadı'
+                    ], 404);
+                }
+            } else {
+                // Regular RegionAdmin - must have level 2 institution
+                if (!$region || $region->level !== 2) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                    ], 400);
+                }
+            }
+
+            // Validation
+            $validated = $request->validate([
+                'file' => 'required|file|mimes:csv,txt,xlsx,xls|max:10240', // 10MB max
+            ]);
+
+            Log::info('🔍 RegionTeacherController - Validating import file', [
+                'user_role' => $user->hasRole('superadmin') ? 'superadmin' : 'regionadmin',
+                'region_id' => $region->id,
+                'file_name' => $request->file('file')->getClientOriginalName(),
+                'file_size' => $request->file('file')->getSize(),
+            ]);
+
+            // Use pre-validation service
+            $preValidationService = app(\App\Services\RegionAdmin\RegionTeacherPreValidationService::class);
+            $validationResult = $preValidationService->validateFile(
+                $request->file('file'),
+                $region
+            );
+
+            return response()->json($validationResult);
+
+        } catch (\Exception $e) {
+            Log::error('RegionTeacherController - Error validating import file', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasiya zamanı xəta baş verdi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Import teachers from CSV/Excel
      *
      * @param Request $request
@@ -853,7 +947,11 @@ class RegionTeacherController extends Controller
                 'file' => 'required|file|mimes:csv,txt,xlsx,xls|max:10240', // 10MB max
                 'skip_duplicates' => 'nullable|boolean',
                 'update_existing' => 'nullable|boolean',
+                'strategy' => 'nullable|string|in:strict,skip_errors', // NEW
+                'valid_rows_only' => 'nullable|boolean', // NEW: Import only pre-validated rows
             ]);
+
+            $strategy = $request->input('strategy', 'strict');
 
             Log::info('RegionTeacherController - Importing teachers', [
                 'user_role' => $user->hasRole('superadmin') ? 'superadmin' : 'regionadmin',
@@ -862,8 +960,55 @@ class RegionTeacherController extends Controller
                 'file_size' => $request->file('file')->getSize(),
                 'skip_duplicates' => $request->boolean('skip_duplicates'),
                 'update_existing' => $request->boolean('update_existing'),
+                'strategy' => $strategy,
             ]);
 
+            // STRATEGY: SKIP_ERRORS (NEW)
+            // Only import valid rows, skip invalid ones
+            if ($strategy === 'skip_errors' || $request->boolean('valid_rows_only')) {
+                // Pre-validate first
+                $preValidationService = app(\App\Services\RegionAdmin\RegionTeacherPreValidationService::class);
+                $validationResult = $preValidationService->validateFile(
+                    $request->file('file'),
+                    $region
+                );
+
+                if (!$validationResult['success']) {
+                    return response()->json($validationResult, 400);
+                }
+
+                // Import only valid rows
+                if (empty($validationResult['valid_rows'])) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Heç bir düzgün sətir tapılmadı',
+                        'summary' => $validationResult['summary'],
+                        'errors' => $validationResult['errors'],
+                    ], 400);
+                }
+
+                // Use import service with valid rows only
+                $result = $this->teacherService->importValidRows(
+                    $validationResult['valid_rows'],
+                    $region
+                );
+
+                return response()->json([
+                    'success' => true,
+                    'imported' => $result['success_count'],
+                    'skipped' => count($validationResult['invalid_rows']),
+                    'total_rows' => $validationResult['summary']['total_rows'],
+                    'errors' => $validationResult['errors'],
+                    'warnings' => $validationResult['warnings'],
+                    'details' => $result['details'],
+                    'error_groups' => $validationResult['error_groups'],
+                    'suggestions' => $validationResult['suggestions'],
+                    'message' => "{$result['success_count']} muellim ugurla import edildi, " . count($validationResult['invalid_rows']) . " xetali setir oturuldu",
+                ]);
+            }
+
+            // STRATEGY: STRICT (DEFAULT)
+            // Stop on first error
             $result = $this->teacherService->importTeachers(
                 $request->file('file'),
                 $region,
@@ -876,7 +1021,7 @@ class RegionTeacherController extends Controller
                 'imported' => $result['success_count'],
                 'errors' => $result['error_count'],
                 'details' => $result['details'],
-                'message' => "{$result['success_count']} müəllim import edildi, {$result['error_count']} xəta",
+                'message' => $result['success_count'] . " muellim import edildi, " . $result['error_count'] . " xeta",
             ]);
 
         } catch (\Exception $e) {
@@ -888,6 +1033,62 @@ class RegionTeacherController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'İmport zamanı xəta baş verdi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Export validation errors to Excel (NEW)
+     * Takes validation result from session and exports to Excel
+     *
+     * @param Request $request
+     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
+     */
+    public function exportValidationErrors(Request $request)
+    {
+        try {
+            $user = Auth::user();
+
+            if (!$this->userHasTeacherReadAccess($user)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Müəllim məlumatlarını oxumaq səlahiyyətiniz yoxdur'
+                ], 403);
+            }
+
+            // Get validation data from request
+            $invalidRows = $request->input('invalid_rows', []);
+            $errors = $request->input('errors', []);
+            $summary = $request->input('summary', []);
+
+            if (empty($invalidRows) && empty($errors)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Heç bir xəta tapılmadı'
+                ], 400);
+            }
+
+            Log::info('RegionTeacherController - Exporting validation errors', [
+                'invalid_rows_count' => count($invalidRows),
+                'errors_count' => count($errors),
+            ]);
+
+            $filename = 'teacher_import_errors_' . date('Y-m-d_His') . '.xlsx';
+
+            return Excel::download(
+                new TeacherImportErrorsExport($invalidRows, $errors, $summary),
+                $filename
+            );
+
+        } catch (\Exception $e) {
+            Log::error('RegionTeacherController - Error exporting validation errors', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error export zamanı xəta baş verdi: ' . $e->getMessage()
             ], 500);
         }
     }

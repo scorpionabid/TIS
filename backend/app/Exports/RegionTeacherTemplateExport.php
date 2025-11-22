@@ -75,8 +75,9 @@ class RegionTeacherTemplateSheet implements FromArray, WithHeadings, WithStyles,
                 'Əli',
                 'Məmmədov',
                 'Rəşid',
-                'müəllim',
+                'muəllim',
                 'secondary',
+                'Riyaziyyat',
                 'Riyaziyyat',
                 'miq_100',
                 '85.50',
@@ -103,6 +104,7 @@ class RegionTeacherTemplateSheet implements FromArray, WithHeadings, WithStyles,
                 'direktor_muavini_tedris',
                 'primary',
                 'Pedaqogika',
+                'Azərbaycan dili',
                 'sertifikasiya',
                 '92.00',
                 'teacher456',
@@ -128,6 +130,7 @@ class RegionTeacherTemplateSheet implements FromArray, WithHeadings, WithStyles,
                 'psixoloq',
                 'secondary',
                 'Psixologiya',
+                'Psixoloji xidmət',
                 'miq_60',
                 '78.30',
                 'psych789',
@@ -153,6 +156,7 @@ class RegionTeacherTemplateSheet implements FromArray, WithHeadings, WithStyles,
                 'direktor',
                 'secondary',
                 'İdarəetmə',
+                '',
                 'sertifikasiya',
                 '95.00',
                 'director2024',
@@ -178,6 +182,7 @@ class RegionTeacherTemplateSheet implements FromArray, WithHeadings, WithStyles,
                 'kitabxanaçı',
                 'primary',
                 'Kitabxanaçılıq',
+                'Ədəbiyyat klubu',
                 'diaqnostik',
                 '65.00',
                 'library123',
@@ -200,8 +205,9 @@ class RegionTeacherTemplateSheet implements FromArray, WithHeadings, WithStyles,
                 'Elvin',
                 'Hüseynov',
                 'Məhəmməd',
-                'müəllim',
+                'muəllim',
                 'secondary',
+                'Fizika',
                 'Fizika',
                 'miq_100',
                 '88.75',
@@ -225,9 +231,10 @@ class RegionTeacherTemplateSheet implements FromArray, WithHeadings, WithStyles,
                 'Gülnarə',
                 'Əhmədova',
                 'Rauf',
-                'metodist',
+                'metodik_birlesme_rəhbəri',
                 'primary',
                 'İbtidai sinif pedaqogikası',
+                'İbtidai siniflər',
                 'sertifikasiya',
                 '90.50',
                 'metodist2024',
@@ -250,9 +257,10 @@ class RegionTeacherTemplateSheet implements FromArray, WithHeadings, WithStyles,
                 'Tural',
                 'Məhərrəmov',
                 'Şəhriyar',
-                'texniki_işçi',
+                'təsərrüfat_işçisi',
                 'secondary',
                 'Texniki xidmət',
+                '',
                 'diaqnostik',
                 '60.00',
                 'tech2024',
@@ -283,9 +291,10 @@ class RegionTeacherTemplateSheet implements FromArray, WithHeadings, WithStyles,
             'patronymic *',
             'position_type *',
             'workplace_type *',
-            'specialty *',
-            'assessment_type *',
-            'assessment_score *',
+            'specialty',
+            'main_subject',
+            'assessment_type',
+            'assessment_score',
             'password *',
 
             // KÖNÜLLÜ SAHƏLƏR
@@ -308,16 +317,20 @@ class RegionTeacherTemplateSheet implements FromArray, WithHeadings, WithStyles,
         ]);
 
         // Required fields (green background)
-        $sheet->getStyle('D1:N1')->applyFromArray([
+        $requiredStyle = [
             'font' => ['bold' => true, 'size' => 11, 'color' => ['argb' => 'FFFFFFFF']],
-            'fill' => ['fillType' => 'solid', 'startColor' => ['argb' => 'FF4CAF50']], // Green background for required
-        ]);
+            'fill' => ['fillType' => 'solid', 'startColor' => ['argb' => 'FF4CAF50']],
+        ];
+        $sheet->getStyle('D1:J1')->applyFromArray($requiredStyle);
+        $sheet->getStyle('O1:O1')->applyFromArray($requiredStyle);
 
         // Optional fields (gray background)
-        $sheet->getStyle('O1:U1')->applyFromArray([
+        $optionalStyle = [
             'font' => ['bold' => true, 'size' => 11, 'color' => ['argb' => 'FF000000']],
-            'fill' => ['fillType' => 'solid', 'startColor' => ['argb' => 'FFE0E0E0']], // Gray background for optional
-        ]);
+            'fill' => ['fillType' => 'solid', 'startColor' => ['argb' => 'FFE0E0E0']],
+        ];
+        $sheet->getStyle('K1:N1')->applyFromArray($optionalStyle);
+        $sheet->getStyle('P1:V1')->applyFromArray($optionalStyle);
 
         return [
             1 => ['font' => ['bold' => true]],
@@ -338,16 +351,17 @@ class RegionTeacherTemplateSheet implements FromArray, WithHeadings, WithStyles,
             'I' => 25, // position_type
             'J' => 20, // workplace_type
             'K' => 25, // specialty
-            'L' => 20, // assessment_type
-            'M' => 20, // assessment_score
-            'N' => 15, // password
-            'O' => 18, // contact_phone
-            'P' => 20, // contract_start_date
-            'Q' => 20, // contract_end_date
-            'R' => 20, // education_level
-            'S' => 30, // graduation_university
-            'T' => 18, // graduation_year
-            'U' => 40, // notes
+            'L' => 25, // main_subject
+            'M' => 20, // assessment_type
+            'N' => 20, // assessment_score
+            'O' => 15, // password
+            'P' => 18, // contact_phone
+            'Q' => 20, // contract_start_date
+            'R' => 20, // contract_end_date
+            'S' => 20, // education_level
+            'T' => 30, // graduation_university
+            'U' => 18, // graduation_year
+            'V' => 40, // notes
         ];
     }
 }
@@ -436,16 +450,17 @@ class FieldReferenceSheet implements FromArray, WithHeadings, WithStyles, WithCo
             ['first_name', 'MƏCBURI', 'Ad', 'Əli'],
             ['last_name', 'MƏCBURI', 'Soyad', 'Məmmədov'],
             ['patronymic', 'MƏCBURI', 'Ata adı', 'Rəşid'],
-            ['position_type', 'MƏCBURI', 'Vəzifə növü (aşağıdakı siyahıdan)', 'müəllim'],
+            ['position_type', 'MƏCBURI', 'Vəzifə növü (aşağıdakı siyahıdan)', 'muəllim'],
             ['workplace_type', 'MƏCBURI', 'İş yeri növü (primary və ya secondary)', 'secondary'],
-            ['specialty', 'MƏCBURI', 'İxtisas', 'Riyaziyyat'],
-            ['assessment_type', 'MƏCBURI', 'Qiymətləndirmə növü (aşağıdakı siyahıdan)', 'miq_100'],
-            ['assessment_score', 'MƏCBURI', 'Qiymətləndirmə balı (0-100)', '85.50'],
             ['password', 'MƏCBURI', 'Şifrə (minimum 8 simvol)', 'teacher123'],
             [],
 
             // Optional fields
             ['== KÖNÜLLÜ SAHƏLƏR =='],
+            ['specialty', 'KÖNÜLLÜ', 'İxtisas (əgər məlumdursa)', 'Riyaziyyat'],
+            ['main_subject', 'KÖNÜLLÜ', 'Əsas fənn (dərs dediyi fənn)', 'Riyaziyyat'],
+            ['assessment_type', 'KÖNÜLLÜ', 'Qiymətləndirmə növü (əgər məlumdursa)', 'miq_100'],
+            ['assessment_score', 'KÖNÜLLÜ', 'Qiymətləndirmə balı (0-100, əgər məlumdursa)', '85.50'],
             ['contact_phone', 'KÖNÜLLÜ', 'Əlaqə telefonu', '+994501234567'],
             ['contract_start_date', 'KÖNÜLLÜ', 'Müqavilə başlanğıc tarixi (YYYY-MM-DD)', '2024-09-01'],
             ['contract_end_date', 'KÖNÜLLÜ', 'Müqavilə bitmə tarixi (YYYY-MM-DD)', '2025-06-30'],
@@ -456,14 +471,18 @@ class FieldReferenceSheet implements FromArray, WithHeadings, WithStyles, WithCo
 
             [], // Empty row
             ['VƏZİFƏ NÖVLƏRİ (position_type):'],
-            ['müəllim', '', 'Müəllim'],
             ['direktor', '', 'Direktor'],
             ['direktor_muavini_tedris', '', 'Direktor müavini (tədris)'],
             ['direktor_muavini_inzibati', '', 'Direktor müavini (inzibati)'],
-            ['metodist', '', 'Metodist'],
+            ['terbiye_isi_uzre_direktor_muavini', '', 'Tərbiyə işi üzrə direktor müavini'],
+            ['metodik_birlesme_rəhbəri', '', 'Metodik birləşmə rəhbəri'],
+            ['muəllim_sinif_rəhbəri', '', 'Müəllim (sinif rəhbəri)'],
+            ['muəllim', '', 'Müəllim'],
             ['psixoloq', '', 'Psixoloq'],
             ['kitabxanaçı', '', 'Kitabxanaçı'],
-            ['texniki_işçi', '', 'Texniki işçi'],
+            ['laborant', '', 'Laborant'],
+            ['tibb_işçisi', '', 'Tibb işçisi'],
+            ['təsərrüfat_işçisi', '', 'Təsərrüfat işçisi'],
 
             [], // Empty row
             ['İŞ YERİ NÖVÜ (workplace_type):'],
@@ -568,8 +587,9 @@ class QuickStartGuideSheet implements FromArray, WithHeadings, WithStyles, WithC
             ['  ✓ first_name, last_name, patronymic'],
             ['  ✓ position_type (vəzifə)'],
             ['  ✓ workplace_type (primary və ya secondary)'],
-            ['  ✓ specialty (ixtisas)'],
-            ['  ✓ assessment_type və assessment_score'],
+            ['  ◇ specialty (ixtisas) - könüllü (məlumat varsa daxil edin)'],
+            ['  ◇ main_subject (əsas fənn) - könüllü (dərs dediyi fənn)'],
+            ['  ◇ assessment_type və assessment_score - könüllü məlumat'],
             ['  ✓ password (minimum 8 simvol)'],
             [''],
 
