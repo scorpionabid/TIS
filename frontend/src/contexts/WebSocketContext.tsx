@@ -81,6 +81,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   const [echo, setEcho] = useState<Echo | null>(null);
   const [isEchoConnected, setIsEchoConnected] = useState(false);
   const [config, setConfig] = useState<WebSocketConfig | null>(null);
+  const [websocketUnavailable, setWebsocketUnavailable] = useState(false);
 
   // Legacy WebSocket state (for backward compatibility)
   const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -99,14 +100,13 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   const reconnectTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Get WebSocket configuration from backend
-  const getWebSocketConfig = useCallback(async (): Promise<WebSocketConfig> => {
+  const getWebSocketConfig = useCallback(async (): Promise<WebSocketConfig | null> => {
     try {
       const response = await fetch('/api/test/websocket/info');
 
       if (!response.ok) {
-        const message = `WebSocket config request failed (${response.status})`;
-        logger.warn(message);
-        throw new Error(message);
+        logger.info(`WebSocket config request failed (${response.status}). Falling back to polling.`);
+        return null;
       }
 
       const rawText = await response.text();
@@ -139,16 +139,10 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       // WebSocket is disabled on the backend
       const message = data.message || 'WebSocket/Broadcasting is disabled';
       logger.info(message + ' - Real-time updates will use polling instead.');
-      throw new Error(message);
+      return null;
     } catch (error) {
-      if (error instanceof Error && error.message.includes('disabled')) {
-        // WebSocket explicitly disabled - this is expected, not an error
-        throw error;
-      }
-
-      // Network or other error
       logger.warn('Could not fetch WebSocket configuration - using polling for updates');
-      throw error;
+      return null;
     }
   }, []);
 
@@ -206,6 +200,14 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
 
       // Get configuration from backend
       const wsConfig = await getWebSocketConfig();
+      if (!wsConfig) {
+        setConfig(null);
+        setWebsocketUnavailable(true);
+        logger.info('WebSocket configuration unavailable. Skipping Echo initialization.');
+        setIsConnecting(false);
+        return;
+      }
+      setWebsocketUnavailable(false);
       setConfig(wsConfig);
 
       // Create Echo instance
@@ -246,16 +248,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
         scheme: wsConfig.scheme,
       });
     } catch (error) {
-      if (error instanceof Error && error.message.includes('disabled')) {
-        // WebSocket is explicitly disabled - this is expected behavior, not an error
-        logger.info('WebSocket disabled - application will use polling for real-time updates');
-        setIsConnecting(false);
-        // Don't set error state or schedule reconnect for disabled WebSocket
-        return;
-      }
-
-      // Actual error occurred
-      logger.error('Failed to initialize Laravel Echo connection', error);
+      logger.warn('Failed to initialize Laravel Echo connection - using polling instead', error);
       setConnectionError('Failed to initialize Echo connection');
       scheduleReconnect();
     }
@@ -296,6 +289,10 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
 
   // Connect to WebSocket (unified method for both Echo and legacy)
   const connect = useCallback(async () => {
+    if (websocketUnavailable) {
+      return;
+    }
+
     if (echo?.connector?.pusher?.connection?.state === 'connected' || isConnecting) {
       return;
     }
@@ -310,10 +307,14 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
 
     const authToken = getAuthToken ? getAuthToken() : null;
     await initializeEcho(authToken);
-  }, [currentUser, echo, isConnecting, getAuthToken, initializeEcho]);
+  }, [currentUser, echo, isConnecting, getAuthToken, initializeEcho, websocketUnavailable]);
 
   // Schedule reconnection
   const scheduleReconnect = useCallback(() => {
+    if (websocketUnavailable) {
+      return;
+    }
+
     if (reconnectTimer.current) {
       clearTimeout(reconnectTimer.current);
     }
@@ -329,7 +330,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
 
     // Exponential backoff with jitter
     reconnectDelay.current = Math.min(reconnectDelay.current * 2 + Math.random() * 1000, maxReconnectDelay);
-  }, [connect]);
+  }, [connect, websocketUnavailable]);
 
   // Disconnect WebSocket
   const disconnect = useCallback(() => {

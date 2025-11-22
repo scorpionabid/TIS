@@ -421,6 +421,7 @@ export const RegionTeacherManager: React.FC = () => {
                   <TableHead>Ad Soyad</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Müəssisə</TableHead>
+                  <TableHead>Əsas fənn</TableHead>
                   <TableHead>Vəzifə</TableHead>
                   <TableHead>İş Statusu</TableHead>
                   <TableHead>Status</TableHead>
@@ -451,6 +452,9 @@ export const RegionTeacherManager: React.FC = () => {
                             {teacher.institution?.name || 'N/A'}
                           </span>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {teacher.profile?.subjects?.[0] || teacher.profile?.specialty || '—'}
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">

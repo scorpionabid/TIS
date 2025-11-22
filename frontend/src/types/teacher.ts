@@ -173,6 +173,17 @@ export interface EnhancedTeacherProfile {
   name: string;
   email: string;
   phone?: string;
+  profile?: {
+    first_name?: string;
+    last_name?: string;
+    patronymic?: string;
+    position_type?: PositionType | string;
+    employment_status?: EmploymentStatus | string;
+    specialty?: string;
+    subjects?: string[];
+    assessment_type?: string;
+    assessment_score?: number | string;
+  };
 
   // Position and employment
   position_type?: PositionType;
@@ -186,6 +197,15 @@ export interface EnhancedTeacherProfile {
     id: number;
     name: string;
     level?: number;
+  };
+  institution?: {
+    id: number;
+    name: string;
+    level?: number;
+    parent?: {
+      id: number;
+      name: string;
+    };
   };
 
   // Additional workplaces
