@@ -307,12 +307,15 @@ export default function Resources() {
   const linkQueryParams = useMemo(() => ({
     link_type: normalizedLinkFilters.link_type,
     status: normalizedLinkFilters.status,
-    institution_ids: shouldRestrictByInstitution ? scopedLinkInstitutionIds : normalizedLinkFilters.institution_ids,
+    // Don't send institution_ids for role-based users (regionadmin/sektoradmin)
+    // Backend will automatically filter based on user's role and institution
+    // Only send institution_ids if user manually selected institutions in the filter
+    institution_ids: shouldRestrictByInstitution ? undefined : normalizedLinkFilters.institution_ids,
     sort_by: LINK_SORT_BY,
     sort_direction: LINK_SORT_DIRECTION,
     page: linkPage,
     per_page: linkPerPage,
-  }), [normalizedLinkFilters, scopedLinkInstitutionIds, shouldRestrictByInstitution, linkPage, linkPerPage]);
+  }), [normalizedLinkFilters, shouldRestrictByInstitution, linkPage, linkPerPage]);
 
   const {
     data: linkResponse,
