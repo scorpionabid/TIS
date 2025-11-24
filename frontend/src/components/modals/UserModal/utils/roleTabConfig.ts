@@ -29,6 +29,14 @@ export const ROLE_TAB_CONFIG: Record<string, RoleTabConfig> = {
     allowedForRoles: ['superadmin', 'regionadmin'],
     targetRoleName: 'regionoperator',
   },
+  teacher: {
+    id: 'teacher',
+    label: 'Müəllim',
+    icon: 'GraduationCap',
+    description: 'Müəllim profili yaradın',
+    allowedForRoles: ['superadmin', 'regionadmin', 'schooladmin'],
+    targetRoleName: 'müəllim',
+  },
   sektoradmin: {
     id: 'sektoradmin',
     label: 'SektorAdmin',

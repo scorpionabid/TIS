@@ -50,13 +50,21 @@ export function transformFormDataToBackend(
 
   // Add teacher-specific fields if in teacher mode
   if (mode === 'teacher' || (data.role_id && isTeacherRole(data.role_id))) {
+    const normalizedSubjects = Array.isArray(data.subjects)
+      ? data.subjects
+      : typeof data.subjects === 'string'
+        ? data.subjects.split(',').map((subject: string) => subject.trim()).filter(Boolean)
+        : [];
+
     Object.assign(profile, {
       position_type: data.position_type || null,
       employment_status: data.employment_status || null,
       workplace_type: data.workplace_type || 'primary',
       contract_start_date: data.contract_start_date || null,
       contract_end_date: data.contract_end_date || null,
-      subjects: data.subjects || [],
+      subjects: normalizedSubjects,
+      grade_level: data.grade_level || null,
+      class_id: data.class_id || null,
       specialty: data.specialty || '',
       specialty_score: data.specialty_score ? parseFloat(data.specialty_score) : null,
       specialty_level: data.specialty_level || null,
@@ -116,6 +124,14 @@ export function transformFormDataToBackend(
     userData.region_operator_permissions = permissionPayload;
   }
 
+  if (
+    Array.isArray(data.assignable_permissions) &&
+    data.assignable_permissions.length > 0 &&
+    data.role_name !== 'regionoperator'
+  ) {
+    userData.assignable_permissions = data.assignable_permissions;
+  }
+
   return userData;
 }
 
@@ -167,6 +183,20 @@ export function transformBackendDataToForm(user: any | null): Record<string, any
     if (user.profile.notes) formValues.notes = user.profile.notes;
   }
 
+  if (Array.isArray(user.profile?.subjects)) {
+    formValues.subjects = user.profile.subjects.join(', ');
+  } else if (typeof user.profile?.subjects === 'string') {
+    formValues.subjects = user.profile.subjects;
+  }
+
+  if (user.profile?.grade_level) {
+    formValues.grade_level = user.profile.grade_level;
+  }
+
+  if (user.profile?.class_id) {
+    formValues.class_id = user.profile.class_id;
+  }
+
   if (user.region_operator_permissions) {
     REGION_OPERATOR_PERMISSION_KEYS.forEach((key) => {
       if (key in user.region_operator_permissions) {
@@ -174,6 +204,10 @@ export function transformBackendDataToForm(user: any | null): Record<string, any
       }
     });
   }
+
+  formValues.assignable_permissions = Array.isArray(user.assignable_permissions)
+    ? user.assignable_permissions
+    : [];
 
   return formValues;
 }

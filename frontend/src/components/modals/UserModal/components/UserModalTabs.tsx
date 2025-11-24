@@ -4,18 +4,23 @@
  * Each role gets its dedicated tab with pre-configured fields
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Shield, UserCog, Building, School } from 'lucide-react';
+import { Shield, UserCog, Building, School, GraduationCap } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 import { RegionOperatorTab } from './RegionOperatorTab';
 import { RegionAdminTab } from './RegionAdminTab';
 import { SektorAdminTab } from './SektorAdminTab';
 import { SchoolAdminTab } from './SchoolAdminTab';
+import { TeacherTab } from './TeacherTab';
 import { ROLE_TAB_CONFIG, getVisibleRoleTabs } from '../utils/roleTabConfig';
-import { DEFAULT_FORM_VALUES, SUCCESS_MESSAGES, ERROR_MESSAGES } from '../utils/constants';
+import { DEFAULT_FORM_VALUES, SUCCESS_MESSAGES, ERROR_MESSAGES, CRUD_PERMISSIONS } from '../utils/constants';
 import { transformFormDataToBackend, transformBackendDataToForm } from '../utils/fieldTransformers';
+import { PermissionAssignmentPanel } from './PermissionAssignmentPanel';
+import { regionAdminService, PermissionMetadata } from '@/services/regionAdmin';
 
 interface UserModalTabsProps {
   open: boolean;
@@ -27,6 +32,9 @@ interface UserModalTabsProps {
   availableDepartments: any[];
   availableRoles: any[];
   loadingOptions: boolean;
+  permissionMetadata?: PermissionMetadata | null;
+  permissionMetadataLoading?: boolean;
+  currentUserPermissions: string[];
 }
 
 export function UserModalTabs({
@@ -39,6 +47,9 @@ export function UserModalTabs({
   availableDepartments,
   availableRoles,
   loadingOptions,
+  permissionMetadata,
+  permissionMetadataLoading = false,
+  currentUserPermissions,
 }: UserModalTabsProps) {
   console.log('🎯 UserModalTabs RENDERED!', {
     open,
@@ -54,6 +65,9 @@ export function UserModalTabs({
   const [formData, setFormData] = useState<any>(DEFAULT_FORM_VALUES);
   const [formKey, setFormKey] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [permissionSelection, setPermissionSelection] = useState<string[]>([]);
+  const [localPermissionMetadata, setLocalPermissionMetadata] = useState<PermissionMetadata | null>(null);
+  const [localPermissionLoading, setLocalPermissionLoading] = useState(false);
 
   // Get visible tabs for current user
   const visibleTabs = getVisibleRoleTabs(currentUserRole);
@@ -74,12 +88,19 @@ export function UserModalTabs({
       });
       const transformed = transformBackendDataToForm(user);
       console.log('[UserModalTabs] Transformed values:', transformed);
-      setFormData({
+      const hydratedForm = {
         ...DEFAULT_FORM_VALUES,
         ...transformed,
-      });
+      };
+      setFormData(hydratedForm);
+      setPermissionSelection(
+        Array.isArray(hydratedForm.assignable_permissions)
+          ? hydratedForm.assignable_permissions
+          : []
+      );
     } else {
       setFormData(DEFAULT_FORM_VALUES);
+      setPermissionSelection([]);
     }
 
     setFormKey((prev) => prev + 1);
@@ -93,6 +114,103 @@ export function UserModalTabs({
       setSelectedTab(visibleTabs[0]);
     }
   }, [visibleTabs, selectedTab]);
+
+  useEffect(() => {
+    if (!user) return;
+    const userRoleName =
+      user.role_name ||
+      user.role ||
+      user.roles?.[0]?.name ||
+      user.roles?.[0]?.display_name;
+    if (!userRoleName) return;
+
+    const normalized = userRoleName.toString().toLowerCase();
+    const matchingTabEntry = Object.entries(ROLE_TAB_CONFIG).find(
+      ([key, config]) =>
+        key.toLowerCase() === normalized ||
+        config.targetRoleName.toLowerCase() === normalized
+    );
+
+    if (matchingTabEntry && visibleTabs.includes(matchingTabEntry[0])) {
+      setSelectedTab(matchingTabEntry[0]);
+    }
+  }, [user, visibleTabs]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    if (permissionMetadata || localPermissionMetadata || localPermissionLoading) {
+      return;
+    }
+
+    setLocalPermissionLoading(true);
+    regionAdminService
+      .getPermissionMetadata()
+      .then((metadata) => {
+        console.log('[PermissionMeta][Modal] Loaded via fallback', {
+          modules: metadata?.modules?.length,
+          templates: metadata?.templates?.length,
+        });
+        setLocalPermissionMetadata(metadata);
+      })
+      .catch((error) => {
+        console.error('[PermissionMeta][Modal] Failed to load', error);
+      })
+      .finally(() => {
+        setLocalPermissionLoading(false);
+      });
+  }, [open, permissionMetadata, localPermissionMetadata, localPermissionLoading]);
+
+  useEffect(() => {
+    if (!user && selectedTab !== 'regionoperator') {
+      setPermissionSelection([]);
+    }
+  }, [selectedTab, user]);
+
+  const roleConfig = ROLE_TAB_CONFIG[selectedTab];
+  const targetRoleName = roleConfig?.targetRoleName ?? '';
+  const allowAssignablePermissions = Boolean(targetRoleName && targetRoleName !== 'regionoperator');
+
+  const effectivePermissionMetadata = permissionMetadata ?? localPermissionMetadata ?? null;
+  const effectivePermissionLoading = Boolean(permissionMetadataLoading || localPermissionLoading);
+
+  const regionOperatorPermissionsSelected = useMemo(() => {
+    const assignable = Array.isArray(formData.assignable_permissions)
+      ? formData.assignable_permissions
+      : [];
+
+    const legacy = Object.values(CRUD_PERMISSIONS).some((module) =>
+      module.actions.some((action) => formData[action.key] === true)
+    );
+
+    return assignable.length > 0 || legacy;
+  }, [formData]);
+
+  const allowedPermissionKeys = useMemo(() => {
+    if (!permissionMetadata || !allowAssignablePermissions) {
+      return new Set<string>();
+    }
+
+    const modules = permissionMetadata.modules || [];
+    const allowed = modules
+      .filter(
+        (module) =>
+          !module.roles ||
+          module.roles.length === 0 ||
+          module.roles.includes(targetRoleName)
+      )
+      .flatMap((module) => module.permissions.map((permission) => permission.key));
+
+    return new Set<string>(allowed);
+  }, [permissionMetadata, allowAssignablePermissions, targetRoleName]);
+
+  const filteredPermissionSelection = useMemo(() => {
+    if (!allowAssignablePermissions || allowedPermissionKeys.size === 0) {
+      return [];
+    }
+    return permissionSelection.filter((permission) => allowedPermissionKeys.has(permission));
+  }, [permissionSelection, allowAssignablePermissions, allowedPermissionKeys]);
 
   // Handle form submission
   const handleSubmit = async (data: any) => {
@@ -119,15 +237,17 @@ export function UserModalTabs({
         role_id: roleMetadata.id.toString(),
         role_name: roleMetadata.name,
         role_display_name: roleMetadata.display_name || roleMetadata.name,
+        assignable_permissions: allowAssignablePermissions ? filteredPermissionSelection : [],
       };
 
+      const isTeacherTab = roleConfig.targetRoleName.toLowerCase() === 'müəllim';
       // Transform to backend format
       const userData = transformFormDataToBackend(
         finalData,
-        undefined, // mode
+        isTeacherTab ? 'teacher' : undefined,
         finalData.institution_id ? parseInt(finalData.institution_id) : null,
-        () => false, // isTeacherRole
-        () => false  // isStudentRole
+        () => isTeacherTab,
+        () => false  // student roles not yet supported
       );
 
       console.log('📤 UserModalTabs sending data to backend:', {
@@ -164,6 +284,7 @@ export function UserModalTabs({
     UserCog: <UserCog className="h-4 w-4" />,
     Building: <Building className="h-4 w-4" />,
     School: <School className="h-4 w-4" />,
+    GraduationCap: <GraduationCap className="h-4 w-4" />,
   };
 
   if (visibleTabs.length === 0) {
@@ -194,10 +315,22 @@ export function UserModalTabs({
               : 'Rol seçib yeni istifadəçi yaradın. Hər rol öz tab-ında müəyyən form sahələri ilə təmin edilir.'
             }
           </DialogDescription>
+          {currentUserPermissions?.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-3">
+              {currentUserPermissions.slice(0, 6).map((permission) => (
+                <Badge key={permission} variant="secondary">
+                  {permission}
+                </Badge>
+              ))}
+              {currentUserPermissions.length > 6 && (
+                <Badge variant="outline">+{currentUserPermissions.length - 6}</Badge>
+              )}
+            </div>
+          )}
         </DialogHeader>
 
         <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-          <TabsList className="grid w-full grid-cols-4 gap-2">
+          <TabsList className="grid w-full grid-cols-2 gap-2 md:grid-cols-5">
             {visibleTabs.map(tabKey => {
               const config = ROLE_TAB_CONFIG[tabKey];
               return (
@@ -215,16 +348,27 @@ export function UserModalTabs({
 
           {/* RegionAdmin Tab */}
           <TabsContent value="regionadmin">
-          <RegionAdminTab
-            formKey={formKey}
-            formData={formData}
-            setFormData={setFormData}
-              availableInstitutions={availableInstitutions}
-              loadingOptions={loadingOptions}
-              user={user}
-              onSubmit={handleSubmit}
-              loading={loading}
-            />
+            <div className="space-y-6">
+              <RegionAdminTab
+                formKey={formKey}
+                formData={formData}
+                setFormData={setFormData}
+                availableInstitutions={availableInstitutions}
+                loadingOptions={loadingOptions}
+                user={user}
+                onSubmit={handleSubmit}
+                loading={loading}
+              />
+              {selectedTab === 'regionadmin' && (
+                <PermissionAssignmentPanel
+                  metadata={effectivePermissionMetadata}
+                  roleName={ROLE_TAB_CONFIG.regionadmin.targetRoleName}
+                  value={filteredPermissionSelection}
+                  onChange={setPermissionSelection}
+                  loading={effectivePermissionLoading}
+                />
+              )}
+            </div>
           </TabsContent>
 
           {/* RegionOperator Tab */}
@@ -239,37 +383,109 @@ export function UserModalTabs({
               user={user}
               onSubmit={handleSubmit}
               loading={loading}
+              permissionMetadata={effectivePermissionMetadata}
+              permissionMetadataLoading={effectivePermissionLoading}
             />
+          </TabsContent>
+
+          {/* Teacher Tab */}
+          <TabsContent value="teacher">
+            <div className="space-y-6">
+              <TeacherTab
+                formKey={formKey}
+                formData={formData}
+                setFormData={setFormData}
+                availableInstitutions={availableInstitutions}
+                loadingOptions={loadingOptions}
+                user={user}
+                onSubmit={handleSubmit}
+                loading={loading}
+              />
+              {selectedTab === 'teacher' && (
+                <PermissionAssignmentPanel
+                  metadata={effectivePermissionMetadata}
+                  roleName={ROLE_TAB_CONFIG.teacher.targetRoleName}
+                  value={filteredPermissionSelection}
+                  onChange={setPermissionSelection}
+                  loading={effectivePermissionLoading}
+                />
+              )}
+            </div>
           </TabsContent>
 
           {/* SektorAdmin Tab */}
           <TabsContent value="sektoradmin">
-          <SektorAdminTab
-            formKey={formKey}
-            formData={formData}
-            setFormData={setFormData}
-              availableInstitutions={availableInstitutions}
-              loadingOptions={loadingOptions}
-              user={user}
-              onSubmit={handleSubmit}
-              loading={loading}
-            />
+            <div className="space-y-6">
+              <SektorAdminTab
+                formKey={formKey}
+                formData={formData}
+                setFormData={setFormData}
+                availableInstitutions={availableInstitutions}
+                loadingOptions={loadingOptions}
+                user={user}
+                onSubmit={handleSubmit}
+                loading={loading}
+              />
+              {selectedTab === 'sektoradmin' && (
+                <PermissionAssignmentPanel
+                  metadata={effectivePermissionMetadata}
+                  roleName={ROLE_TAB_CONFIG.sektoradmin.targetRoleName}
+                  value={filteredPermissionSelection}
+                  onChange={setPermissionSelection}
+                  loading={effectivePermissionLoading}
+                />
+              )}
+            </div>
           </TabsContent>
 
           {/* SchoolAdmin Tab */}
           <TabsContent value="schooladmin">
-          <SchoolAdminTab
-            formKey={formKey}
-            formData={formData}
-            setFormData={setFormData}
-              availableInstitutions={availableInstitutions}
-              loadingOptions={loadingOptions}
-              user={user}
-              onSubmit={handleSubmit}
-              loading={loading}
-            />
+            <div className="space-y-6">
+              <SchoolAdminTab
+                formKey={formKey}
+                formData={formData}
+                setFormData={setFormData}
+                availableInstitutions={availableInstitutions}
+                loadingOptions={loadingOptions}
+                user={user}
+                onSubmit={handleSubmit}
+                loading={loading}
+              />
+              {selectedTab === 'schooladmin' && (
+                <PermissionAssignmentPanel
+                  metadata={effectivePermissionMetadata}
+                  roleName={ROLE_TAB_CONFIG.schooladmin.targetRoleName}
+                  value={filteredPermissionSelection}
+                  onChange={setPermissionSelection}
+                  loading={effectivePermissionLoading}
+                />
+              )}
+            </div>
           </TabsContent>
         </Tabs>
+
+        <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+          <Button
+            type="button"
+            onClick={() => handleSubmit(formData)}
+            disabled={
+              loading ||
+              loadingOptions ||
+              effectivePermissionLoading ||
+              (selectedTab === 'regionoperator' && !regionOperatorPermissionsSelected)
+            }
+            className="min-w-[200px]"
+          >
+            {loading ? (
+              <>
+                <span className="animate-spin mr-2">⏳</span>
+                {user ? 'Yenilənir...' : 'Yaradılır...'}
+              </>
+            ) : (
+              user ? 'Yenilə' : 'İstifadəçi Yarat'
+            )}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

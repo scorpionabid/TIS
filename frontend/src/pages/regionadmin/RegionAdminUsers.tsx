@@ -79,19 +79,40 @@ export default function RegionAdminUsers() {
     queryKey: ['regionadmin-roles'],
     queryFn: async () => {
       try {
-        // For RegionAdmin, available roles are: RegionAdmin, RegionOperator, SektorAdmin, SchoolAdmin
-        return [
-          { id: 3, name: 'regionadmin', display_name: 'RegionAdmin' },
-          { id: 4, name: 'regionoperator', display_name: 'RegionOperator' },
-          { id: 5, name: 'sektoradmin', display_name: 'SektorAdmin' },
-          { id: 6, name: 'schooladmin', display_name: 'SchoolAdmin' },
-        ];
+        const apiRoles = await regionAdminService.getAvailableRoles();
+        if (Array.isArray(apiRoles) && apiRoles.length > 0) {
+          return apiRoles;
+        }
       } catch (error) {
         console.error('Failed to fetch roles:', error);
-        return [];
       }
+
+      // Fallback static roles if API unavailable
+      return [
+        { id: 3, name: 'regionadmin', display_name: 'RegionAdmin' },
+        { id: 4, name: 'regionoperator', display_name: 'RegionOperator' },
+        { id: 5, name: 'sektoradmin', display_name: 'SektorAdmin' },
+        { id: 6, name: 'schooladmin', display_name: 'SchoolAdmin' },
+        { id: 10, name: 'müəllim', display_name: 'Müəllim' },
+      ];
     },
     staleTime: 1000 * 60 * 30,
+  });
+
+  const permissionMetadataQuery = useQuery({
+    queryKey: ['regionadmin-permission-meta'],
+    queryFn: () => regionAdminService.getPermissionMetadata(),
+    enabled: Boolean(currentUser),
+    staleTime: 1000 * 60 * 30,
+    onSuccess: (data) => {
+      console.log('[PermissionMeta] Loaded', {
+        moduleCount: data?.modules?.length,
+        templateCount: data?.templates?.length,
+      });
+    },
+    onError: (error) => {
+      console.error('[PermissionMeta] Failed to load metadata', error);
+    },
   });
 
   const handleOpenPermissions = (user: RegionalUser) => {
@@ -509,6 +530,9 @@ export default function RegionAdminUsers() {
         availableDepartments={departmentsQuery.data || []}
         availableRoles={rolesQuery.data || []}
         loadingOptions={institutionsQuery.isLoading || departmentsQuery.isLoading || rolesQuery.isLoading}
+        permissionMetadata={permissionMetadataQuery.data || null}
+        permissionMetadataLoading={permissionMetadataQuery.isLoading}
+        currentUserPermissions={currentUser?.permissions || []}
       />
     </div>
   );

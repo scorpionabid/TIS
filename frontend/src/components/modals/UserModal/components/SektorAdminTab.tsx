@@ -140,6 +140,7 @@ export function SektorAdminTab({
         defaultValues={formData}
         columns={2}
         preserveValues={true}
+        hideSubmit={true}
       />
     </div>
   );

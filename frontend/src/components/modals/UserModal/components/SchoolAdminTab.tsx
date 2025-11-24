@@ -135,6 +135,7 @@ export function SchoolAdminTab({
         defaultValues={formData}
         columns={2}
         preserveValues={true}
+        hideSubmit={true}
       />
     </div>
   );

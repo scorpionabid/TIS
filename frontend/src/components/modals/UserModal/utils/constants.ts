@@ -23,7 +23,9 @@ export const DEFAULT_FORM_VALUES = {
   workplace_type: 'primary',
   contract_start_date: '',
   contract_end_date: '',
-  subjects: [],
+  subjects: '',
+  grade_level: '',
+  class_id: '',
   specialty: '',
   specialty_score: '',
   experience_years: '',
@@ -39,6 +41,7 @@ export const DEFAULT_FORM_VALUES = {
   emergency_contact_phone: '',
   emergency_contact_email: '',
   notes: '',
+  assignable_permissions: [],
 };
 
 // Field names mapping for error messages (Azerbaijani)

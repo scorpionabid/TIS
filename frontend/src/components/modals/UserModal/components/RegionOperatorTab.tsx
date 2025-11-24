@@ -4,19 +4,12 @@
  * UPDATED: Now uses minimalist CRUD-based Permission Matrix (25 permissions)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FormBuilder } from '@/components/forms/FormBuilder';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { UserCog, AlertCircle, CheckCircle2 } from 'lucide-react';
-import {
-  DEFAULT_FORM_VALUES,
-  GENDER_OPTIONS,
-  IS_ACTIVE_OPTIONS,
-  CRUD_PERMISSIONS,
-  PERMISSION_TEMPLATES_CRUD,
-} from '../utils/constants';
-import { PermissionMatrixMinimalist } from './PermissionMatrixMinimalist';
+import { UserCog } from 'lucide-react';
+import { IS_ACTIVE_OPTIONS, CRUD_PERMISSIONS, PERMISSION_TEMPLATES_CRUD } from '../utils/constants';
+import { PermissionAssignmentPanel } from './PermissionAssignmentPanel';
+import type { PermissionMetadata } from '@/services/regionAdmin';
 
 interface RegionOperatorTabProps {
   formKey: number;
@@ -28,6 +21,8 @@ interface RegionOperatorTabProps {
   user?: any | null;
   onSubmit: (data: any) => Promise<void>;
   loading: boolean;
+  permissionMetadata?: PermissionMetadata | null;
+  permissionMetadataLoading?: boolean;
 }
 
 export function RegionOperatorTab({
@@ -40,22 +35,27 @@ export function RegionOperatorTab({
   user,
   onSubmit,
   loading,
+  permissionMetadata,
+  permissionMetadataLoading = false,
 }: RegionOperatorTabProps) {
-  const [hasSelectedPermissions, setHasSelectedPermissions] = useState(false);
+  const actionKeys = useMemo(
+    () => Object.values(CRUD_PERMISSIONS).flatMap(module => module.actions.map(action => action.key)),
+    []
+  );
+
+  const selectedPermissionKeys = useMemo(() => {
+    const assignable = Array.isArray(formData.assignable_permissions)
+      ? formData.assignable_permissions
+      : [];
+    const legacySelection = actionKeys.filter((key) => formData[key] === true);
+    return Array.from(new Set([...assignable, ...legacySelection]));
+  }, [actionKeys, formData]);
 
   // Filter departments based on selected institution
   const selectedInstitutionId = formData.institution_id ? parseInt(formData.institution_id) : null;
   const filteredDepartments = selectedInstitutionId
     ? availableDepartments.filter(dept => dept.institution_id === selectedInstitutionId)
     : [];
-
-  // Check if at least one CRUD permission is selected (NEW: 25 permissions)
-  useEffect(() => {
-    const hasAnyCRUD = Object.values(CRUD_PERMISSIONS).some(module =>
-      module.actions.some(action => formData[action.key] === true)
-    );
-    setHasSelectedPermissions(hasAnyCRUD);
-  }, [formData]);
 
   // Clear department selection when institution changes
   useEffect(() => {
@@ -166,6 +166,51 @@ export function RegionOperatorTab({
     },
   ];
 
+  const fallbackMetadata = useMemo<PermissionMetadata>(() => {
+    const modules = Object.entries(CRUD_PERMISSIONS).map(([moduleKey, module]) => ({
+      key: moduleKey,
+      label: module.label,
+      description: module.description,
+      roles: ['regionoperator'],
+      permissions: module.actions.map((action) => ({
+        key: action.key,
+        label: action.label,
+        description: action.description,
+      })),
+    }));
+
+    const templates = Object.entries(PERMISSION_TEMPLATES_CRUD).map(([templateKey, template]) => ({
+      key: templateKey,
+      label: template.label,
+      description: template.description,
+      permissions: Object.entries(template.permissions)
+        .filter(([, allowed]) => allowed === true)
+        .map(([permissionKey]) => permissionKey),
+    }));
+
+    return { modules, templates };
+  }, []);
+
+  const panelMetadata = useMemo<PermissionMetadata>(() => {
+    if (!permissionMetadata) {
+      return fallbackMetadata;
+    }
+    return permissionMetadata;
+  }, [permissionMetadata, fallbackMetadata]);
+
+  const handlePermissionSelectionChange = (next: string[]) => {
+    const permissionUpdates = actionKeys.reduce((acc, key) => {
+      acc[key] = next.includes(key);
+      return acc;
+    }, {} as Record<string, boolean>);
+
+    setFormData({
+      ...formData,
+      ...permissionUpdates,
+      assignable_permissions: next,
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Tab Header */}
@@ -193,36 +238,19 @@ export function RegionOperatorTab({
           defaultValues={formData}
           columns={2}
           preserveValues={true}
-          showSubmitButton={false}
+          hideSubmit={true}
         />
       </div>
 
-      {/* NEW: Minimalist CRUD Permission Matrix */}
-      <div className="bg-muted/30 rounded-lg p-4">
-        <PermissionMatrixMinimalist
-          formData={formData}
-          setFormData={setFormData}
-        />
-      </div>
+      {/* Unified Permission Assignment Panel */}
+      <PermissionAssignmentPanel
+        metadata={panelMetadata}
+        roleName="regionoperator"
+        value={selectedPermissionKeys}
+        onChange={handlePermissionSelectionChange}
+        loading={Boolean(permissionMetadataLoading && !permissionMetadata)}
+      />
 
-      {/* Submit Button */}
-      <div className="flex justify-end gap-3 pt-4 border-t">
-        <Button
-          type="submit"
-          onClick={() => onSubmit(formData)}
-          disabled={loading || loadingOptions || !hasSelectedPermissions}
-          className="min-w-[200px]"
-        >
-          {loading ? (
-            <>
-              <span className="animate-spin mr-2">⏳</span>
-              {user ? 'Yenilənir...' : 'Yaradılır...'}
-            </>
-          ) : (
-            user ? 'Yenilə' : 'RegionOperator Yarat'
-          )}
-        </Button>
-      </div>
     </div>
   );
 }

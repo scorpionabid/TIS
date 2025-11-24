@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Institution;
 use App\Models\Department;
+use App\Services\RegionAdmin\RegionAdminPermissionService;
 use App\Services\RegionAdmin\RegionAdminUserService;
 use App\Services\RegionOperatorPermissionService;
 use Illuminate\Http\Request;
@@ -20,7 +21,8 @@ class RegionAdminUserController extends Controller
 {
     public function __construct(
         private readonly RegionAdminUserService $regionAdminUserService,
-        private readonly RegionOperatorPermissionService $regionOperatorPermissionService
+        private readonly RegionOperatorPermissionService $regionOperatorPermissionService,
+        private readonly RegionAdminPermissionService $regionAdminPermissionService
     ) {
     }
 
@@ -129,6 +131,15 @@ class RegionAdminUserController extends Controller
         }
         
         $users = $query->orderBy('created_at', 'desc')->paginate(15);
+
+        $users->getCollection()->transform(function ($user) {
+            $user->setAttribute(
+                'assignable_permissions',
+                $this->regionAdminPermissionService->getDirectPermissions($user)
+            );
+
+            return $user;
+        });
         
         return response()->json([
             'users' => $users->items(),
@@ -183,6 +194,18 @@ class RegionAdminUserController extends Controller
         }
         
         $data = $validator->validated();
+        $assignablePermissions = [];
+        if ($data['role_name'] !== 'regionoperator') {
+            $requestedPermissions = $this->regionAdminPermissionService->extractRequestedPermissions($request);
+            if (empty($requestedPermissions)) {
+                $requestedPermissions = $this->regionAdminPermissionService->getDefaultPermissionsForRole($data['role_name']);
+            }
+            $assignablePermissions = $this->regionAdminPermissionService->validateForRole(
+                $requestedPermissions,
+                $data['role_name'],
+                $user
+            );
+        }
         
         // Ensure RegionOperator always has department assignment
         if ($data['role_name'] === 'regionoperator' && empty($data['department_id'])) {
@@ -236,10 +259,15 @@ class RegionAdminUserController extends Controller
 
             $this->syncRegionOperatorPermissions($request->all(), $newUser);
 
+            if ($data['role_name'] !== 'regionoperator') {
+                $this->regionAdminPermissionService->syncDirectPermissions($newUser, $assignablePermissions);
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'User created successfully',
                 'data' => $newUser->load(['roles', 'institution', 'department', 'regionOperatorPermissions'])
+                    ->setAttribute('assignable_permissions', $assignablePermissions)
             ], 201);
             
         } catch (\Exception $e) {
@@ -272,6 +300,7 @@ class RegionAdminUserController extends Controller
 
         $userData = $targetUser->toArray();
         $userData['profile'] = $targetUser->profile;
+        $userData['assignable_permissions'] = $this->regionAdminPermissionService->getDirectPermissions($targetUser);
 
         // Ensure primary fields exist at top level for backward compatibility
         if (empty($userData['first_name']) && $targetUser->profile?->first_name) {
@@ -366,9 +395,20 @@ class RegionAdminUserController extends Controller
         }
         
         $data = $validator->validated();
-        
         $targetRoleName = $data['role_name'] ?? $targetUser->roles->first()?->name;
         $departmentId = $data['department_id'] ?? $targetUser->department_id;
+        $assignablePermissions = [];
+        if ($targetRoleName !== 'regionoperator') {
+            $requestedPermissions = $this->regionAdminPermissionService->extractRequestedPermissions($request);
+            if (empty($requestedPermissions)) {
+                $requestedPermissions = $this->regionAdminPermissionService->getDefaultPermissionsForRole($targetRoleName);
+            }
+            $assignablePermissions = $this->regionAdminPermissionService->validateForRole(
+                $requestedPermissions,
+                $targetRoleName,
+                $user
+            );
+        }
 
         if ($targetRoleName === 'regionoperator' && empty($departmentId)) {
             return response()->json([
@@ -417,10 +457,15 @@ class RegionAdminUserController extends Controller
 
             $this->syncRegionOperatorPermissions($request->all(), $targetUser, $oldRoleName, $targetRoleName);
 
+            if ($targetRoleName !== 'regionoperator') {
+                $this->regionAdminPermissionService->syncDirectPermissions($targetUser, $assignablePermissions);
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'User updated successfully',
                 'data' => $targetUser->load(['roles', 'institution', 'department', 'regionOperatorPermissions'])
+                    ->setAttribute('assignable_permissions', $assignablePermissions)
             ]);
             
         } catch (\Exception $e) {
@@ -564,6 +609,23 @@ class RegionAdminUserController extends Controller
             ->get();
             
         return response()->json(['roles' => $allowedRoles]);
+    }
+
+    /**
+     * Permission metadata for RegionAdmin assignment panel
+     */
+    public function getPermissionMetadata(Request $request): JsonResponse
+    {
+        $metadata = $this->regionAdminPermissionService->getMetadataFor($request->user());
+        \Log::info('RegionAdmin permission metadata response', [
+            'admin_id' => $request->user()->id,
+            'modules' => count($metadata['modules'] ?? []),
+            'templates' => count($metadata['templates'] ?? []),
+        ]);
+        return response()->json([
+            'success' => true,
+            'data' => $metadata,
+        ]);
     }
 
     /**

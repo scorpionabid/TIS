@@ -52,6 +52,30 @@ export interface RegionAdminInstitutionsResult<T = any> {
   raw: unknown;
 }
 
+export interface PermissionModuleMeta {
+  key: string;
+  label: string;
+  description?: string;
+  roles?: string[];
+  permissions: Array<{
+    key: string;
+    label: string;
+    description?: string;
+  }>;
+}
+
+export interface PermissionTemplateMeta {
+  key: string;
+  label: string;
+  description?: string;
+  permissions: string[];
+}
+
+export interface PermissionMetadata {
+  modules: PermissionModuleMeta[];
+  templates: PermissionTemplateMeta[];
+}
+
 class RegionAdminService {
   private readonly basePath = '/regionadmin';
 
@@ -114,6 +138,47 @@ class RegionAdminService {
   async getRegionInstitutionHierarchy<T = any>(institutionId: number): Promise<T> {
     const response = await apiClient.get<T>(`${this.basePath}/region-institutions/${institutionId}/hierarchy`);
     return this.unwrap(response);
+  }
+
+  async getPermissionMetadata(): Promise<PermissionMetadata> {
+    const response = await apiClient.get<PermissionMetadata>(`${this.basePath}/users/permissions/meta`);
+    const payload = this.unwrap(response);
+    const metadata = (payload && typeof payload === 'object' && 'data' in payload)
+      ? (payload as any).data
+      : payload;
+    console.log('[PermissionMeta] Raw payload', payload, 'metadata', metadata);
+
+    return {
+      modules: Array.isArray(metadata?.modules) ? metadata.modules : [],
+      templates: Array.isArray(metadata?.templates) ? metadata.templates : [],
+    };
+  }
+
+  async getUser<T = RegionAdminUser>(userId: number): Promise<T> {
+    const response = await apiClient.get<T>(`${this.basePath}/users/${userId}`);
+    const payload = this.unwrap(response);
+    return payload?.data ?? payload;
+  }
+
+  async createUser<T = RegionAdminUser>(data: any): Promise<T> {
+    const response = await apiClient.post<T>(`${this.basePath}/users`, data);
+    const payload = this.unwrap(response);
+    return payload?.data ?? payload;
+  }
+
+  async updateUser<T = RegionAdminUser>(userId: number, data: any): Promise<T> {
+    const response = await apiClient.put<T>(`${this.basePath}/users/${userId}`, data);
+    const payload = this.unwrap(response);
+    return payload?.data ?? payload;
+  }
+
+  async getAvailableRoles(): Promise<Array<{ id: number; name: string; display_name?: string }>> {
+    const response = await apiClient.get<any>(`${this.basePath}/users/roles`);
+    const payload = this.unwrap(response);
+    if (payload && typeof payload === 'object' && 'roles' in payload) {
+      return Array.isArray((payload as any).roles) ? (payload as any).roles : [];
+    }
+    return Array.isArray(payload) ? payload : [];
   }
 
   /**

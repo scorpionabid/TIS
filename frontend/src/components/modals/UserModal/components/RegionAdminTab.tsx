@@ -6,6 +6,7 @@
 import React from 'react';
 import { FormBuilder } from '@/components/forms/FormBuilder';
 import { Shield } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   GENDER_OPTIONS,
   IS_ACTIVE_OPTIONS,
@@ -144,6 +145,7 @@ export function RegionAdminTab({
         defaultValues={formData}
         columns={2}
         preserveValues={true}
+        hideSubmit={true}
       />
     </div>
   );

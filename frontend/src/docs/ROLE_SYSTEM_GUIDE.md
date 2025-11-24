@@ -44,6 +44,12 @@ export const ROLE_HIERARCHY = {
 - **Role and permission-based rendering**
 - **Flexible access control patterns**
 
+#### RegionAdmin assignable permissions
+- **Config source**: `backend/config/assignable_permissions.php` describe modules, actions, and quick templates RegionAdmins may share.
+- **Metadata API**: `GET /regionadmin/users/permissions/meta` returns modules/templates filtered by the caller’s own permissions.
+- **UI integration**: `PermissionAssignmentPanel` inside `UserModalTabs` shows only actions allowed for the selected role (`assignable_permissions` array).
+- **Server enforcement**: `RegionAdminPermissionService` validates requested permissions ⊆ caller privileges before syncing direct Spatie permissions for non-RegionOperator roles.
+
 #### `src/hooks/useNavigationCache.ts`
 - **Navigation performance optimization** with 5-minute cache
 - **Role-based menu generation** with performance monitoring
