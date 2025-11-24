@@ -297,16 +297,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     checkAuth();
 
+    const cleanupAuthTimeoutRef = authCheckTimeoutRef;
+    const cleanupRetryTimeoutRef = retryTimeoutRef;
+    const cleanupDebouncedRef = debouncedAuthCheck;
+
     // Cleanup on unmount
     return () => {
       isMountedRef.current = false;
-      if (authCheckTimeoutRef.current) {
-        clearTimeout(authCheckTimeoutRef.current);
+      const authTimeout = cleanupAuthTimeoutRef.current;
+      if (authTimeout) {
+        clearTimeout(authTimeout);
+        cleanupAuthTimeoutRef.current = undefined;
       }
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
+      const retryTimeout = cleanupRetryTimeoutRef.current;
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
+        cleanupRetryTimeoutRef.current = undefined;
       }
-      debouncedAuthCheck.current?.cancel?.(); // Cancel debounced function
+      cleanupDebouncedRef.current?.cancel?.(); // Cancel debounced function
     };
   }, []); // Remove debouncedAuthCheck from dependencies to prevent loop
 
