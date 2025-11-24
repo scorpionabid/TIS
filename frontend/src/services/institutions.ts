@@ -73,6 +73,9 @@ export interface InstitutionFilters extends PaginationParams {
 }
 
 class InstitutionService extends BaseService<Institution> {
+  // Cache for 404 institution IDs to prevent infinite retry loops
+  private failedInstitutionIds = new Set<number>();
+
   constructor() {
     super('/institutions');
   }
@@ -88,15 +91,44 @@ class InstitutionService extends BaseService<Institution> {
   }
 
   async getById(id: number) {
+    // Check if this institution ID has previously failed with 404
+    if (this.failedInstitutionIds.has(id)) {
+      const cachedError: any = new Error(`Institution ${id} not found (cached 404)`);
+      cachedError.status = 404;
+      cachedError.isCached = true;
+      throw cachedError;
+    }
+
     try {
       const response = await apiClient.get<Institution | { data?: Institution }>(`${this.baseEndpoint}/${id}`);
       if (response && typeof response === 'object' && 'data' in response && response.data) {
         return response.data;
       }
       return response as Institution;
-    } catch (error) {
-      console.error(`❌ InstitutionService.getById failed for id ${id}:`, error);
+    } catch (error: any) {
+      // Cache 404 errors to prevent future retry loops
+      const errorMsg = error?.message?.toLowerCase() || '';
+      const is404 =
+        error?.response?.status === 404 ||
+        error?.status === 404 ||
+        errorMsg.includes('404') ||
+        errorMsg.includes('not found') ||
+        errorMsg.includes('no query results'); // Laravel 404 response
+
+      if (is404) {
+        this.failedInstitutionIds.add(id);
+      }
+
       throw error;
+    }
+  }
+
+  // Method to clear 404 cache if needed (e.g., after institution is created)
+  clearFailedCache(id?: number) {
+    if (id) {
+      this.failedInstitutionIds.delete(id);
+    } else {
+      this.failedInstitutionIds.clear();
     }
   }
 

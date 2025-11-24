@@ -1144,13 +1144,19 @@ export default function Resources() {
                   level: normalizedParent?.level ?? null,
                   parent_id: normalizedParent?.parent_id ?? normalizedParent?.parent?.id ?? null,
                 } as InstitutionOption;
-              } catch (error) {
-                console.warn('Failed to fetch parent institution detail', { parentId, error });
+              } catch (error: any) {
+                // Don't propagate parent_id for 404 errors to prevent infinite loops
+                const is404 = error?.response?.status === 404 || error?.status === 404 || error?.isCached;
+                if (is404) {
+                  console.warn(`⚠️  Parent institution ${parentId} not found (404) - stopping parent chain`);
+                } else {
+                  console.warn('Failed to fetch parent institution detail', { parentId, error });
+                }
                 return {
                   id: parentId,
                   name: `Müəssisə #${parentId}`,
                   level: null,
-                  parent_id: null,
+                  parent_id: null, // Always null on error to stop chain
                 } as InstitutionOption;
               }
             })
@@ -1159,7 +1165,9 @@ export default function Resources() {
           parentDetails.forEach((entry) => {
             if (entry?.id) {
               resolvedEntries[entry.id] = entry;
-              if (entry.parent_id) {
+              // Only add parent_id if the entry actually has valid data (not a 404 fallback)
+              // Fallback entries will have level: null, so we can check for valid data
+              if (entry.parent_id && entry.level !== null) {
                 pendingParentIds.add(entry.parent_id);
               }
             }

@@ -37,6 +37,7 @@ interface SchoolWithAccess {
   access_count: number;
   last_accessed_at: string | null;
   first_accessed_at: string | null;
+  link_url?: string | null; // School-specific link URL
 }
 
 interface SectorWithAccess {
@@ -101,6 +102,7 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
   const [expandedSectors, setExpandedSectors] = useState<Set<number | 'ungrouped'>>(new Set());
   const [institutionMeta, setInstitutionMeta] = useState<Record<number, InstitutionMeta>>({});
   const institutionMetaRef = useRef<Record<number, InstitutionMeta>>({});
+  const failedInstitutionIds = useRef<Set<number>>(new Set()); // Cache for 404 institution IDs to prevent infinite loops
   const restrictedInstitutionSet = useMemo(() => {
     if (!restrictedInstitutionIds || restrictedInstitutionIds.length === 0) {
       return null;
@@ -191,7 +193,9 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
       };
     });
 
-    const missingIds = Array.from(ids).filter((id) => !baseMeta[id]);
+    const missingIds = Array.from(ids).filter((id) =>
+      !baseMeta[id] && !failedInstitutionIds.current.has(id) // Skip already failed IDs
+    );
     if (missingIds.length === 0) {
       return;
     }
@@ -199,6 +203,16 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
     let isCancelled = false;
 
     const fetchDetail = async (institutionId: number): Promise<InstitutionMeta | null> => {
+      // Skip if this institution ID has already failed (404) - prevent infinite retry loops
+      if (failedInstitutionIds.current.has(institutionId)) {
+        return {
+          id: institutionId,
+          name: `Müəssisə #${institutionId}`,
+          level: null,
+          parent_id: null,
+        };
+      }
+
       try {
         const detail = await institutionService.getById(institutionId);
         const normalized = normalizeInstitution(detail);
@@ -210,8 +224,14 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
           level: normalized.level ?? null,
           parent_id: normalized.parent_id ?? normalized.parent?.id ?? null,
         };
-      } catch (error) {
-        console.warn('Failed to fetch institution detail for LinkSharingOverview', { institutionId, error });
+      } catch (error: any) {
+        // Cache 404 errors to prevent retry loops
+        if (error?.response?.status === 404 || error?.status === 404) {
+          failedInstitutionIds.current.add(institutionId);
+          console.warn('Institution not found (404) - caching to prevent retries:', institutionId);
+        } else {
+          console.warn('Failed to fetch institution detail for LinkSharingOverview', { institutionId, error });
+        }
         return {
           id: institutionId,
           name: `Müəssisə #${institutionId}`,
@@ -253,7 +273,7 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
 
         const pendingParents = new Set<number>();
         Object.values(entries).forEach((entry) => {
-          if (entry.parent_id && !entries[entry.parent_id]) {
+          if (entry.parent_id && !entries[entry.parent_id] && !failedInstitutionIds.current.has(entry.parent_id)) {
             pendingParents.add(entry.parent_id);
           }
         });
@@ -670,10 +690,10 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
                                   </td>
                                   <td className="py-2">{overview.link_title}</td>
                                   <td className="py-2">
-                                    {selectedLink?.url ? (
+                                    {(school.link_url || selectedLink?.url) ? (
                                       <div className="flex items-center gap-1">
                                         <a
-                                          href={selectedLink.url}
+                                          href={school.link_url || selectedLink.url}
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           className={`inline-flex items-center gap-1 hover:underline ${
